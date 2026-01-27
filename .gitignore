@@ -1,0 +1,16 @@
+# Node / React
+client/node_modules/
+client/dist/
+client/.env
+
+# Java / Spring Boot
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.idea/
+backend/.vscode/
+
+# OS
+*.DS_Store
+*.log
