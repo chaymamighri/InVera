@@ -1,4 +1,4 @@
-# 🚀 InVera – Intelligent Cloud ERP for SMEs
+# 🚀 InVera – Intelligent Cloud ERP for PME
 
 ## 📌 Description
 **InVera** est un **ERP Cloud Intelligent multi-plateformes** destiné aux **PME**, permettant de centraliser et automatiser la gestion des **ventes, achats, stocks et facturation électronique**.  
