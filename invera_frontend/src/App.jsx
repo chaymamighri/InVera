@@ -5,6 +5,9 @@ import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
 import SalesDashboard from './pages/dashboard/sales/SalesDashboard';
 import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashboard';
 import Header from './components/Header';
+import ProfilePage from './pages/shared/profilePage';
+import SettingsPage from './pages/shared/settingPage';
+import ProductsPage from './pages/dashboard/sales/products/ProductsPage';
 
 
 // Layout pour les pages protégées
@@ -131,6 +134,12 @@ function App() {
             </ProtectedRoute>
           }
         />
+           <Route path="products" element={<ProductsPage />} />
+         {/*  <Route path="orders" element={<OrdersPage />} />
+          <Route path="invoicing" element={<InvoicingPage />} />*/}
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+
 
         {/* Redirection automatique selon rôle */}
         <Route path="/dashboard" element={<DashboardRedirect />} />

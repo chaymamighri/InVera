@@ -13,8 +13,8 @@ const LoginPage = () => {
     // Sauvegarder le rôle dans localStorage pour la démo
     localStorage.setItem('userRole', selectedRole);
     localStorage.setItem('userName', 
-      selectedRole === 'admin' ? 'Alexandre Martin' :
-      selectedRole === 'sales' ? 'Marie Dubois' : 
+      selectedRole === 'admin' ? 'Ahmed mazlout' :
+      selectedRole === 'sales' ? 'Amal ben salah' : 
       selectedRole === 'procurement' ? 'Jean Leroy' : 'Utilisateur'
     );
     
@@ -30,12 +30,11 @@ const LoginPage = () => {
       <div className="md:w-1/2 bg-gradient-to-br from-blue-900 to-blue-800 text-white p-6 md:p-12 flex flex-col">
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
           
-          {/* Logo - Version agrandie avec effet shadow */}
-          {/* Logo - Version agrandie sans shadow */}
+        
 <div className="mb-12">
   <div className="flex justify-center mb-8">
     <div className="w-full max-w-sm flex items-center justify-center">
-      {/* Conteneur simple sans effet shadow */}
+
       <div className="relative p-2 bg-white/5 rounded-2xl">
         <img 
           src={logo} 
@@ -136,8 +135,7 @@ const LoginPage = () => {
             </div>
           </div>
         </div>
-
-        {/* Footer avec copyright et liens - Visible sur desktop, caché sur mobile */}
+ 
         <div className="hidden md:block p-8">
           <div className="max-w-md mx-auto">
             <p className="text-center text-gray-500 text-sm">
