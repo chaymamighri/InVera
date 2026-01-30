@@ -1,11 +1,10 @@
 // src/pages/dashboard/sales/SalesDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import DashboardContent from './statistic/DashboardContent';
-import ProductsPage from './products/ProductsPage';
-//import OrdersPage from './orders/OrderPage';
+import ProductsPage from './products/ProductsConsultationPage';
+import OrdersPage from './orders/OrderPage';
 //import InvoicingPage from './invoicing/InvoicingPage';
 //import ReportsPage from './reports/ReportsPage';
-//import ClientsPage from './clients/ClientsPage';
 //import DiscountsPage from './discounts/DiscountsPage';
 
 const SalesDashboard = () => {
@@ -60,14 +59,14 @@ const SalesDashboard = () => {
 
   const menuItems = [
     { id: 'dashboard', title: 'Tableau de bord', icon: '📊', badge: null },
-    { id: 'products', title: 'Gestion des Produits', icon: '📦' },
-    { id: 'orders', title: 'Gestion des Commandes', icon: '📋', badge: null },
-    { id: 'clients', title: 'Clients', icon: '👥' },
-    { id: 'invoicing', title: 'Facturation', icon: '💰', badge: null },
-    { id: 'discounts', title: 'Promotions', icon: '🎯' },
-    { id: 'reports', title: 'Analytics', icon: '📈' },
+    { id: 'products', title: 'Catalogue produits', icon: '📦' },
+    { id: 'orders', title: 'Commandes clients', icon: '📋', badge: null },
+    { id: 'sales', title: 'Ventes', icon: '🛒' },
+    { id: 'invoicing', title: 'Facturation & paiements', icon: '💰', badge: null },
+  //{ id: 'discounts', title: 'Promotions & remises', icon: '🎯' },
     { id: 'sales-reports', title: 'Rapports Ventes', icon: '📄' },
   ];
+
 
   const renderContent = () => {
     switch (activePage) {
