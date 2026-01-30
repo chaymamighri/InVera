@@ -7,7 +7,9 @@ import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashb
 import Header from './components/Header';
 import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
-import ProductsPage from './pages/dashboard/sales/products/ProductsPage';
+import ProductsPage from './pages/dashboard/sales/products/ProductsConsultationPage';
+import OrdersPage from './pages/dashboard/sales/orders/OrderPage';
+
 
 
 // Layout pour les pages protégées
@@ -134,9 +136,11 @@ function App() {
             </ProtectedRoute>
           }
         />
-           <Route path="products" element={<ProductsPage />} />
-         {/*  <Route path="orders" element={<OrdersPage />} />
-          <Route path="invoicing" element={<InvoicingPage />} />*/}
+           <Route path="/products" element={<ProductsPage />} />
+         <Route path="/orders" element={<OrdersPage />} />
+       
+
+           {/* <Route path="invoicing" element={<InvoicingPage />} />*/}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
 
