@@ -10,7 +10,6 @@ import {
   UserIcon,
   CheckCircleIcon,
   XCircleIcon,
-  InformationCircleIcon,
   TrashIcon,
   PlusIcon,
   MinusIcon,
@@ -20,7 +19,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const ProductsConsultationPage = () => {
-  // Données initiales des produits avec images
+  // Données initiales des produits 
   const [products, setProducts] = useState([
     {
       id: 1,

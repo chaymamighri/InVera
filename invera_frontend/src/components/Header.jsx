@@ -6,7 +6,7 @@ import {
   UserCircleIcon,
   ChevronDownIcon 
 } from '@heroicons/react/24/outline';
-import logo from '../assets/images/logo6.png';
+import logo from '../assets/images/InVera_logo_2.png';
 
 const Header = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -49,9 +49,9 @@ const Header = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center space-x-3">
+            <Link to="/dashboard" className="flex items-center space-x-3 ml-12">
               {logo && <img src={logo} alt="InVera ERP Logo" className="h-20 w-auto" />}
-              <div className="hidden md:block">
+           <div className="hidden md:block">
                 <h1 className="text-lg font-bold text-white">InVera ERP</h1>
                 <p className="text-xs text-blue-200">Système de Gestion Intégré</p>
               </div>
