@@ -1,4 +1,4 @@
 package org.erp.invera.repository;
 
-public interface UserRepository {
+public class UserRepository {
 }
