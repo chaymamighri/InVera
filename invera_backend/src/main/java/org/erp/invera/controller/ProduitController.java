@@ -45,14 +45,5 @@ public class ProduitController {
         return ResponseEntity.noContent().build();
     }
 
-    // Logique métier
-    @PutMapping("/{id}/remise")
-    public Produit appliquerRemise(@PathVariable Integer id, @RequestParam double pourcentage) {
-        return produitService.appliquerRemise(id, pourcentage);
-    }
 
-    @PutMapping("/{id}/prix")
-    public Produit miseAJourPrix(@PathVariable Integer id, @RequestParam double nouveauPrix) {
-        return produitService.miseAJourPrix(id, nouveauPrix);
-    }
 }
