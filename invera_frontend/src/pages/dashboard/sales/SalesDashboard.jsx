@@ -5,7 +5,6 @@ import ProductsPage from './products/ProductsConsultationPage';
 import OrdersPage from './orders/OrderPage';
 //import InvoicingPage from './invoicing/InvoicingPage';
 //import ReportsPage from './reports/ReportsPage';
-//import DiscountsPage from './discounts/DiscountsPage';
 
 const SalesDashboard = () => {
   const [activePage, setActivePage] = useState('dashboard');
@@ -57,13 +56,13 @@ const SalesDashboard = () => {
     return fullName.split(' ')[0];
   };
 
+  // menu bar 
   const menuItems = [
     { id: 'dashboard', title: 'Tableau de bord', icon: '📊', badge: null },
     { id: 'products', title: 'Catalogue produits', icon: '📦' },
     { id: 'orders', title: 'Commandes clients', icon: '📋', badge: null },
     { id: 'sales', title: 'Ventes', icon: '🛒' },
-    { id: 'invoicing', title: 'Facturation & paiements', icon: '💰', badge: null },
-  //{ id: 'discounts', title: 'Promotions & remises', icon: '🎯' },
+    { id: 'invoicing', title: 'Facturation & paiements', icon: '💰', badge: null }, 
     { id: 'sales-reports', title: 'Rapports Ventes', icon: '📄' },
   ];
 
@@ -76,16 +75,13 @@ const SalesDashboard = () => {
         return <ProductsPage />;
       case 'orders':
         return <OrdersPage />;
-      case 'clients':
-        return <ClientsPage />;
+    
       case 'invoicing':
         return <InvoicingPage />;
-      case 'discounts':
-        return <DiscountsPage />;
+    
       case 'reports':
         return <ReportsPage />;
-      case 'sales-reports':
-        return <SalesReportsPage />;
+   
       default:
         return <DefaultPage page={activePage} menuItems={menuItems} />;
     }
@@ -193,7 +189,7 @@ const SalesDashboard = () => {
       <div className={`flex-1 transition-all duration-300 ${
         sidebarCollapsed ? 'ml-20' : 'ml-64'
       }`}>
-        {/* Top Bar */}
+         {/*  Top Bar */}
         <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-sm border-b">
           <div className="px-8 py-4">
             <div className="flex items-center justify-between">
@@ -221,27 +217,6 @@ const SalesDashboard = () => {
   );
 };
 
-// Composant pour les pages par défaut (en développement)
-const DefaultPage = ({ page, menuItems }) => {
-  const currentItem = menuItems.find(item => item.id === page);
-  
-  return (
-    <div className="bg-white rounded-xl p-8 shadow-sm border text-center">
-      <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-6">
-        {currentItem?.icon || '📁'}
-      </div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-3">
-        {currentItem?.title || 'Page'}
-      </h2>
-      <p className="text-gray-600 max-w-md mx-auto mb-8">
-        Cette section est en cours de finalisation. 
-        Les fonctionnalités seront déployées dans les prochaines mises à jour.
-      </p>
-      <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all shadow-sm">
-        Explorer les fonctionnalités
-      </button>
-    </div>
-  );
-};
+
 
 export default SalesDashboard;
