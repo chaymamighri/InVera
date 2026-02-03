@@ -1,3 +1,4 @@
+
 package org.erp.invera.model;
 
 import jakarta.persistence.*;
