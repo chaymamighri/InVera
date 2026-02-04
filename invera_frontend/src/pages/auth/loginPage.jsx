@@ -1,26 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoginForm from '../../components/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/images/InVera_logo_2.png';
 
 const LoginPage = () => {
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated, getSavedEmail } = useAuth();
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState('admin');
+  const [loginError, setLoginError] = useState(null);
+
+  useEffect(() => {
+    // Rediriger si déjà connecté
+    if (isAuthenticated()) {
+      const dashboard = localStorage.getItem('userDashboard') || '/dashboard';
+      navigate(dashboard);
+    }
+  }, [navigate, isAuthenticated]);
 
   const handleSubmit = async (credentials) => {
-    // Sauvegarder le rôle dans localStorage pour la démo
-    localStorage.setItem('userRole', selectedRole);
-    localStorage.setItem('userName', 
-      selectedRole === 'admin' ? 'Ahmed Mazlout' :
-      selectedRole === 'sales' ? 'Amal Ben Salah' : 
-      selectedRole === 'procurement' ? 'Jean Leroy' : 'Utilisateur'
-    );
+    setLoginError(null);
     
-    const result = await login(credentials);
-    if (result && result.success) {
-      navigate('/dashboard');
+    try {
+      const result = await login(credentials);
+      if (result?.success) {
+        navigate(result.dashboard || '/dashboard');
+      }
+    } catch (err) {
+      // L'erreur sera gérée par le LoginForm
+      console.error('Login error:', err);
     }
   };
 
@@ -130,21 +137,12 @@ const LoginPage = () => {
         <div className="flex-1 flex items-center justify-center p-6 md:p-12">
           <div className="w-full max-w-md">
             <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-              {/* Sélecteur de rôle caché */}
-              <div className="hidden">
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
-                >
-                  <option value="admin">Administrateur</option>
-                  <option value="sales">Responsable Ventes</option>
-                  <option value="procurement">Responsable Achats</option>
-                </select>
-              </div>
-
               {/* Formulaire de connexion */}
-              <LoginForm onSubmit={handleSubmit} loading={loading} />
+              <LoginForm 
+                onSubmit={handleSubmit} 
+                loading={loading}
+                savedEmail={getSavedEmail()}
+              />
 
             </div>
           </div>

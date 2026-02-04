@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from './Button';
 
 const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
@@ -10,6 +10,20 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
   const [internalLoading, setInternalLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+
+  // Récupérer l'email sauvegardé au chargement si rememberMe était coché
+  useEffect(() => {
+    const rememberMe = localStorage.getItem('rememberMe');
+    const savedEmail = localStorage.getItem('savedEmail');
+    
+    if (rememberMe === 'true' && savedEmail) {
+      setFormData(prev => ({
+        ...prev,
+        email: savedEmail,
+        rememberMe: true
+      }));
+    }
+  }, []);
 
   // Utilise le loading externe s'il est fourni, sinon le loading interne
   const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
@@ -37,15 +51,15 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
     // 1. Réinitialiser les erreurs
     setErrors({});
     
-    // 2. Validation simple (pas de loading ici)
+    // 2. Validation simple
     const newErrors = {};
-    if (!formData.email) {
+    if (!formData.email.trim()) {
       newErrors.email = 'Email requis';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Format d\'email invalide';
     }
     
-    if (!formData.password) {
+    if (!formData.password.trim()) {
       newErrors.password = 'Mot de passe requis';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Minimum 6 caractères';
@@ -62,8 +76,14 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
     }
     
     try {
-      // 4. Appeler la fonction onSubmit (doit gérer la redirection si succès)
-      await onSubmit(formData);
+      // 4. Appeler la fonction onSubmit avec les données nettoyées
+      const credentials = {
+        email: formData.email.trim(),
+        password: formData.password.trim(),
+        rememberMe: formData.rememberMe
+      };
+      
+      await onSubmit(credentials);
       
       // 5. Si succès: onSubmit doit faire la redirection
       // Le loading s'arrêtera automatiquement avec la navigation
@@ -72,30 +92,45 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
       // 6. Si erreur: arrêter le loading et afficher l'erreur
       const errorMessage = error.message || error.toString();
       
-      // Détection du type d'erreur
+      // Détection du type d'erreur spécifique à l'API backend
       if (
         errorMessage.toLowerCase().includes('mot de passe') ||
         errorMessage.toLowerCase().includes('password') ||
         errorMessage.toLowerCase().includes('incorrect') ||
         errorMessage.toLowerCase().includes('invalid') ||
-        errorMessage.includes('401')
+        errorMessage.includes('401') ||
+        errorMessage.toLowerCase().includes('bad credentials')
       ) {
         setErrors({ 
-          submit: 'Mot de passe incorrect. Veuillez réessayer.',
+          submit: 'Email ou mot de passe incorrect',
           password: 'Mot de passe incorrect'
         });
       } else if (
         errorMessage.toLowerCase().includes('utilisateur') ||
         errorMessage.toLowerCase().includes('user') ||
         errorMessage.toLowerCase().includes('email') ||
-        errorMessage.toLowerCase().includes('compte')
+        errorMessage.toLowerCase().includes('compte') ||
+        errorMessage.toLowerCase().includes('not found') ||
+        errorMessage.includes('404')
       ) {
         setErrors({ 
-          submit: 'Aucun compte trouvé avec cet email.',
+          submit: 'Aucun compte trouvé avec cet email',
           email: 'Email non reconnu'
         });
+      } else if (
+        errorMessage.toLowerCase().includes('network') ||
+        errorMessage.toLowerCase().includes('fetch') ||
+        errorMessage.toLowerCase().includes('failed') ||
+        errorMessage.toLowerCase().includes('cors') ||
+        errorMessage.toLowerCase().includes('serveur')
+      ) {
+        setErrors({ 
+          submit: 'Impossible de se connecter au serveur. Vérifiez votre connexion.'
+        });
       } else {
-        setErrors({ submit: errorMessage || 'Une erreur est survenue lors de la connexion' });
+        setErrors({ 
+          submit: errorMessage || 'Une erreur est survenue lors de la connexion'
+        });
       }
       
     } finally {
@@ -110,6 +145,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
     setShowPassword(!showPassword);
   };
 
+  // Le reste du JSX reste inchangé
   return (
     <div className="max-w-md w-full space-y-6">
       {/* En-tête du formulaire */}
