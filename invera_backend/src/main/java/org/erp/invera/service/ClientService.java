@@ -1,0 +1,136 @@
+package org.erp.invera.service;
+
+import org.erp.invera.dto.NouveauClientDTO;
+import org.erp.invera.model.Client;
+import org.erp.invera.repository.ClientRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class ClientService {
+
+    private final ClientRepository clientRepository;
+
+    public ClientService(ClientRepository clientRepository) {
+        this.clientRepository = clientRepository;
+    }
+
+    // ====================
+    // CRUD Operations
+    // ====================
+
+    /**
+     * Créer un client à partir du DTO
+     */
+    public Client creerClient(NouveauClientDTO clientDTO) {
+        // Vérifier l'unicité du téléphone
+        if (clientRepository.existsByTelephone(clientDTO.getTelephone())) {
+            throw new RuntimeException("Un client avec ce numéro de téléphone existe déjà");
+        }
+
+        // Vérifier l'email si fourni
+        if (clientDTO.getEmail() != null && !clientDTO.getEmail().isEmpty()) {
+            Optional<Client> existingEmail = clientRepository.findByEmail(clientDTO.getEmail());
+            if (existingEmail.isPresent()) {
+                throw new RuntimeException("Un client avec cet email existe déjà");
+            }
+        }
+
+        // Convertir DTO en entité
+        Client client = new Client();
+        client.setNom(clientDTO.getNom());
+        client.setPrenom(clientDTO.getPrenom());
+        client.setTelephone(clientDTO.getTelephone());
+        client.setAdresse(clientDTO.getAdresse());
+        client.setType(Client.TypeClient.valueOf(clientDTO.getType().toUpperCase()));
+        client.setEmail(clientDTO.getEmail());
+
+        return clientRepository.save(client);
+    }
+
+    /**
+     * Créer un client à partir de l'entité
+     */
+    public Client createClient(Client client) {
+        if (clientRepository.existsByTelephone(client.getTelephone())) {
+            throw new RuntimeException("Un client avec ce numéro de téléphone existe déjà");
+        }
+
+        if (client.getEmail() != null && !client.getEmail().isEmpty()) {
+            Optional<Client> existingEmail = clientRepository.findByEmail(client.getEmail());
+            if (existingEmail.isPresent()) {
+                throw new RuntimeException("Un client avec cet email existe déjà");
+            }
+        }
+
+        return clientRepository.save(client);
+    }
+
+    /**
+     * Récupérer tous les clients
+     */
+    public List<Client> getAllClients() {
+        return clientRepository.findAll();
+    }
+
+    /**
+     * Récupérer un client par ID
+     */
+    public Client getClientById(Integer id) {
+        return clientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Client non trouvé avec l'ID: " + id));
+    }
+
+    /**
+     * Rechercher des clients par mot-clé
+     */
+    public List<Client> searchClients(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return clientRepository.findAll();
+        }
+        return clientRepository.searchClients(keyword);
+    }
+
+    /**
+     * Vérifier si un téléphone existe
+     */
+    public boolean checkTelephoneExists(String telephone) {
+        return clientRepository.existsByTelephone(telephone);
+    }
+
+    /**
+     * Récupérer les types de clients disponibles
+     */
+    public List<String> getClientTypes() {
+        return List.of(
+                Client.TypeClient.PARTICULIER.name(),
+                Client.TypeClient.VIP.name(),
+                Client.TypeClient.PROFESSIONNEL.name(),
+                Client.TypeClient.ENTREPRISE.name(),
+                Client.TypeClient.FIDELE.name()
+        );
+    }
+
+    /**
+     * Calculer la remise selon le type de client
+     */
+    public Double calculerRemiseParType(Client.TypeClient type) {
+        switch (type) {
+            case VIP:
+                return 10.0;
+            case ENTREPRISE:
+                return 8.0;
+            case PROFESSIONNEL:
+                return 5.0;
+            case FIDELE:
+                return 3.0;
+            case PARTICULIER:
+            default:
+                return 0.0;
+        }
+    }
+}

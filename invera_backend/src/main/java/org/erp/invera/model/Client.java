@@ -4,9 +4,6 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "client")
@@ -17,18 +14,46 @@ public class Client {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idClient;
+    private Integer id;
 
+    @Column(name = "nom", nullable = false)
     private String nom;
-    private String email;
+
+    @Column(name = "prenom")
+    private String prenom;
+
+    @Column(name = "telephone", nullable = false, unique = true)
     private String telephone;
+
+    @Column(name = "adresse")
     private String adresse;
-    private String typeClient;
 
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_client", nullable = false)
+    private TypeClient type;
 
+    @Column(name = "email")
+    private String email;
+
+    public enum TypeClient {
+        PARTICULIER("Particulier"),
+        VIP("VIP"),
+        PROFESSIONNEL("Professionnel"),
+        ENTREPRISE("Entreprise"),
+        FIDELE("Fidèle");
+
+        private final String displayName;
+
+        TypeClient(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
 }
+
 
 
 

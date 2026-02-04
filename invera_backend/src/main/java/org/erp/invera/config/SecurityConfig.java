@@ -58,11 +58,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/register").hasRole("ADMIN")
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/product/**").permitAll()
+                        .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/achats/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/stocks/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
