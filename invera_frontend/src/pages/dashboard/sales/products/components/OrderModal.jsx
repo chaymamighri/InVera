@@ -16,19 +16,17 @@ const OrderModal = ({
   setSelectedProducts,
   clients,
   selectedClient,
-  setSelectedClient,
   newClientMode,
   setNewClientMode,
   nouveauClient,
   setNouveauClient,
   remiseAppliquee,
-  setRemiseAppliquee,
   handleSelectClient,
   handleAddNewClient,
   handleCreateCommande,
   checkDisponibilite,
   typesClient,
-  remisesParType
+
 }) => {
   // Fonctions internes
   const handleChangeQuantite = (productId, newQuantite) => {

@@ -1,7 +1,7 @@
 // src/pages/dashboard/sales/products/ProductsConsultationPage.jsx
 import React, { useState, useEffect } from 'react';
 import ProductFilters from './components/ProductFilterSection';
-import ProductStats from './components/ProductStats';
+import ProductStats from './components/ProductStatis';
 import ProductTable from './components/ProductTable';
 import OrderModal from './components/OrderModal';
 import OrderRecapModal from './components/OrderRecapModal';
