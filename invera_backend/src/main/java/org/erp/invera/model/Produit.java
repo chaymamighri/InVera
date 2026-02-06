@@ -1,10 +1,15 @@
-
 package org.erp.invera.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "produit")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Produit {
 
     @Id
@@ -12,71 +17,63 @@ public class Produit {
     private Integer idProduit;
 
     private String libelle;
-    private Double prix;
+
+    @Column(name = "prix_vente")
+    private Double prixVente;
+
+    @Column(name = "prix_achat")
+    private Double prixAchat;
+
+    @Column(name = "categorie")
+    private String categorie;
+
+    @Column(name = "quantite_stock")
     private Integer quantiteStock;
+
+    @Enumerated(EnumType.STRING)
+    private StockStatus status;
+
+    @Column(name = "seuil_minimum")
     private Integer seuilMinimum;
+
+    @Column(name = "unite_mesure")
     private String uniteMesure;
 
-    // Constructeur vide (obligatoire pour JPA)
-    public Produit() {
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @Column(name = "remise_temporaire")
+    private Double remiseTemporaire;
+
+    @Column(name = "remise_particulier")
+    private Double remiseParticulier;
+
+    @Column(name = "remise_vip")
+    private Double remiseVIP;
+
+    @Column(name = "remise_professionnelle")
+    private Double remiseProfessionnelle;
+
+    @Column(name = "remise_volume_min")
+    private Integer remiseVolumeMin;
+
+    @Column(name = "taux_remise_volume")
+    private Double tauxRemiseVolume;
+
+    public enum StockStatus {
+        EN_STOCK,
+        RUPTURE,
+        FAIBLE,
+        CRITIQUE
     }
 
-    // Constructeur complet
-    public Produit(Integer idProduit, String libelle, Double prix, Integer quantiteStock, Integer seuilMinimum, String uniteMesure) {
-        this.idProduit = idProduit;
-        this.libelle = libelle;
-        this.prix = prix;
-        this.quantiteStock = quantiteStock;
-        this.seuilMinimum = seuilMinimum;
-        this.uniteMesure = uniteMesure;
-    }
-
-    // Getters et setters
-    public Integer getIdProduit() {
-        return idProduit;
-    }
-
-    public void setIdProduit(Integer idProduit) {
-        this.idProduit = idProduit;
-    }
-
-    public String getLibelle() {
-        return libelle;
-    }
-
-    public void setLibelle(String libelle) {
-        this.libelle = libelle;
-    }
-
-    public Double getPrix() {
-        return prix;
-    }
-
-    public void setPrix(Double prix) {
-        this.prix = prix;
-    }
-
-    public Integer getQuantiteStock() {
-        return quantiteStock;
-    }
-
-    public void setQuantiteStock(Integer quantiteStock) {
-        this.quantiteStock = quantiteStock;
-    }
-
-    public Integer getSeuilMinimum() {
-        return seuilMinimum;
-    }
-
-    public void setSeuilMinimum(Integer seuilMinimum) {
-        this.seuilMinimum = seuilMinimum;
-    }
-
-    public String getUniteMesure() {
-        return uniteMesure;
-    }
-
-    public void setUniteMesure(String uniteMesure) {
-        this.uniteMesure = uniteMesure;
+    public enum CategorieProduit {
+        ELECTRONIQUE,
+        ELECTROMENAGER,
+        MEUBLE,
+        ALIMENTAIRE,
+        BUREAUTIQUE,
+        VETEMENT,
+        AUTRE
     }
 }

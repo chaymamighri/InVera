@@ -12,45 +12,25 @@ const AdminDashboard = () => {
       {/* Title */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">
-          Admin Dashboard
+          responsable_achat Dashboard
         </h1>
         <p className="text-gray-600 mt-1">
-          Gestion des utilisateurs (COMMERCIAL, ACHATS)
+          Gestion de stock et produits !!!
         </p>
       </div>
 
       {/* Alert */}
       <div className="mb-8 p-4 rounded-lg bg-yellow-50 border border-yellow-300 text-yellow-800">
-        ⚠️ Tableau de bord provisoire — fonctionnalités en cours de développement.
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Utilisateurs" value="--" icon={UsersIcon} />
-        <StatCard title="Ventes" value="--" icon={ShoppingBagIcon} />
-        <StatCard title="Chiffre d’affaires" value="--" icon={CurrencyDollarIcon} />
-        <StatCard title="Rapports" value="--" icon={ChartBarIcon} />
+         Tableau de bord provisoire — fonctionnalités en cours de développement.
       </div>
 
       {/* User Management Section */}
       <div className="mt-10 bg-white border rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold text-gray-800 mb-4">
-          Gestion des utilisateurs
+          Gestion de stock et produit
         </h2>
 
-        <p className="text-gray-600 mb-6">
-          L’administrateur peut gérer les comptes <b>COMMERCIAL</b> et <b>ACHATS</b>.
-        </p>
-
-        <div className="flex gap-4">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            ➕ Ajouter un utilisateur
-          </button>
-
-          <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">
-            👥 Voir la liste des utilisateurs
-          </button>
-        </div>
+       
       </div>
     </div>
   );
