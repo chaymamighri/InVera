@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LoginForm from '../../components/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import logo from '../../assets/images/InVera_logo_2.png';
+import logo from '../../assets/images/logo.png';
 
 const LoginPage = () => {
   const { login, loading, isAuthenticated, getSavedEmail } = useAuth();
@@ -38,27 +38,26 @@ const LoginPage = () => {
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
           
           {/* Logo simplifié et élargi */}
-          <div className="mb-8">
-            <div className="flex flex-col items-center">
-              <div className="w-full max-w-md flex items-center justify-center mb-6">
-                <img 
-                  src={logo} 
-                  alt="InVera ERP Logo" 
-                  className="w-full max-w-xs md:max-w-sm h-auto"
-                  onError={(e) => {
-                    console.error('Erreur de chargement du logo');
-                    e.target.style.display = 'none';
-                    const parent = e.target.parentNode;
-                    parent.innerHTML = `
-                      <div class="flex flex-col items-center justify-center">
-                        <div class="text-5xl md:text-6xl font-bold text-white mb-2">InVera</div>
-                        <div class="text-blue-200 text-lg">ERP Cloud Intelligent</div>
-                      </div>
-                    `;
-                  }}
-                />
-              </div>
-              
+         <div className="mb-8">
+  <div className="flex flex-col items-center">
+    <div className="w-full max-w-md flex items-center justify-center mb-6">
+      <img 
+        src={logo} 
+        alt="InVera ERP Logo" 
+        className="w-full max-w-[180px] md:max-w-[240px] h-auto" /* Réduction d'environ 25% */
+        onError={(e) => {
+          console.error('Erreur de chargement du logo');
+          e.target.style.display = 'none';
+          const parent = e.target.parentNode;
+          parent.innerHTML = `
+            <div class="flex flex-col items-center justify-center">
+              <div class="text-5xl md:text-6xl font-bold text-white mb-2">InVera</div>
+              <div class="text-blue-200 text-lg">ERP Cloud Intelligent</div>
+            </div>
+          `;
+        }}
+      />
+    </div>
               {/* Tagline */}
               <div className="text-center">
                 <p className="text-blue-200 text-xl font-medium">

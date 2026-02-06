@@ -1,7 +1,6 @@
 // src/pages/dashboard/sales/SalesDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import DashboardContent from './statistic/DashboardContent';
 
 const SalesDashboard = () => {
   const location = useLocation();
