@@ -4,6 +4,7 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -18,13 +19,22 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    // Solution 1: Clé auto-générée sécurisée
-    private final SecretKey jwtSecret = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    // Clé fixe pour le développement
+    private static final String FIXED_SECRET = "votre_clé_secrète_très_longue_et_complexe_pour_hs512_au_moins_64_caractères_1234567890";
 
-    // Solution alternative: Stocker la clé en Base64
-    // private String jwtSecretBase64 = Base64.getEncoder().encodeToString(
-    //     Keys.secretKeyFor(SignatureAlgorithm.HS512).getEncoded()
-    // );
+    private final SecretKey jwtSecret;
+
+    public JwtTokenProvider() {
+        // Convertir la clé fixe en SecretKey
+        byte[] keyBytes = FIXED_SECRET.getBytes(StandardCharsets.UTF_8);
+        this.jwtSecret = Keys.hmacShaKeyFor(keyBytes);
+
+        System.out.println("=== JWT CONFIG ===");
+        System.out.println("Using FIXED secret key");
+        System.out.println("Key length: " + FIXED_SECRET.length());
+        System.out.println("==================");
+    }
+
 
     // Durée de validité du token en millisecondes (24 heures par défaut)
     @Value("${app.jwt.expiration:86400000}")
@@ -38,8 +48,15 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
+        // Récupérer le rôle
+        String role = userPrincipal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .findFirst()
+                .orElse("ROLE_USER"); // fallback
+
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
+                .claim("role", role) // <-- ajouter le rôle ici
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(jwtSecret, SignatureAlgorithm.HS512)

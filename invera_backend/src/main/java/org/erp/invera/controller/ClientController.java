@@ -23,9 +23,7 @@ public class ClientController {
         this.clientService = clientService;
     }
 
-    // ====================
     // CRUD Clients
-    // ====================
 
     @PostMapping("/creer")
     public ResponseEntity<Map<String, Object>> creerClient(@RequestBody NouveauClientDTO clientDTO) {

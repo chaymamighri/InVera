@@ -36,11 +36,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String path = request.getRequestURI();
 
             // 🔹 Ignorer les endpoints publics
-            if (path.startsWith("/api/auth/")) {
+            if (path.equals("/api/auth/login") || path.equals("/api/auth/register")) {
                 filterChain.doFilter(request, response);
                 return;
             }
-
             // Extraire le token du header Authorization
             String jwt = getJwtFromRequest(request);
 
