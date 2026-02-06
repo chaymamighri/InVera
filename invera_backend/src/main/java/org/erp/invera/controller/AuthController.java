@@ -60,16 +60,17 @@ public class AuthController {
     }
 
     // Register (seulement pour ADMIN)
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("Username déjà utilisé"));
+                    .body(new MessageResponse("Email déjà utilisé"));
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByUsername(request.getUsername())) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("Email déjà utilisé"));
+                    .body(new MessageResponse("Username déjà utilisé"));
         }
 
         User user = new User();
@@ -78,7 +79,7 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNom(request.getNom());
         user.setPrenom(request.getPrenom());
-        user.setRole(RoleName.valueOf(request.getRole())); // ADMIN, COMMERCIAL, ou RESPONSABLE_ACHAT
+        user.setRole(RoleName.valueOf(request.getRole())); // ADMIN, COMMERCIAL, RESPONSABLE_ACHAT
         user.setActive(true);
 
         userRepository.save(user);
@@ -89,6 +90,10 @@ public class AuthController {
     // Récupérer l'utilisateur connecté
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(403).body("Utilisateur non authentifié");
+        }
+
         String username = authentication.getName();
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -102,4 +107,5 @@ public class AuthController {
                 user.getRole().name()
         ));
     }
+
 }

@@ -67,11 +67,11 @@ public class CommandeClient {
     @PrePersist
     public void generateNumeroCommande() {
         if (this.numeroCommande == null) {
-            this.numeroCommande = "CMD-" +
-                    LocalDateTime.now().getYear() + "-" +
-                    String.format("%06d", this.id != null ? this.id.hashCode() : 0);
+            this.numeroCommande = "CMD-" + LocalDateTime.now().getYear() + "-" +
+                    java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         }
     }
+
 
     public enum StatutCommande {
         EN_ATTENTE("En attente"),
