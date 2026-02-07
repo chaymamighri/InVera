@@ -33,56 +33,81 @@ export const useAuth = () => {
     initializeAuth();
   }, [navigate]);
 
+  // login fucntion 
   const login = async (credentials) => {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const result = await authService.login(credentials);
     
-    try {
-      const result = await authService.login(credentials);
+    if (result.success) {
+      // Stocker les données utilisateur
+      localStorage.setItem('token', result.data.token);
+
+      console.log('🔍 VÉRIFICATION IMMÉDIATE:');
+console.log('   - Token reçu:', result.data.token ? 'OUI' : 'NON');
+console.log('   - Token valeur:', result.data.token?.substring(0, 20) + '...');
+console.log('   - localStorage.getItem("token"):', localStorage.getItem('token'));
+console.log('   - Les deux sont égaux?', result.data.token === localStorage.getItem('token'));
       
-      if (result.success) {
-        // Stocker les données utilisateur
-        localStorage.setItem('token', result.data.token);
-        localStorage.setItem('userRole', result.data.user.role);
-        localStorage.setItem('userName', result.data.user.name);
-        localStorage.setItem('userEmail', result.data.user.email);
-        
-        // Déterminer le dashboard selon le rôle
-        let dashboardPath = '/dashboard';
-        switch (result.data.user.role) {
-          case 'ADMIN':
-            dashboardPath = '/dashboard/admin';
-            break;
-          case 'COMMERCIAL':
-            dashboardPath = '/dashboard/sales';
-            break;
-          case 'RESPONSABLE_ACHAT':
-            dashboardPath = '/dashboard/procurement';
-            break;
-          default:
-            dashboardPath = '/dashboard';
-        }
-        localStorage.setItem('userDashboard', dashboardPath);
-        
-        // Mettre à jour l'état
-        setUser(result.data.user);
-        
-        return { 
-          success: true, 
-          data: result.data,
-          dashboard: dashboardPath
-        };
+
+      
+      // Vérifiez que c'est bien stocké
+      const storedToken = localStorage.getItem('token');
+      console.log('🔍 Token vérifié dans localStorage:', 
+        storedToken ? storedToken.substring(0, 20) + '...' : 'NULL'
+      );
+      
+      localStorage.setItem('userRole', result.data.user.role);
+      localStorage.setItem('userName', result.data.user.name);
+      localStorage.setItem('userEmail', result.data.user.email);
+      
+      // Déterminer le dashboard
+      let dashboardPath = '/dashboard';
+      switch (result.data.user.role) {
+        case 'ADMIN':
+          dashboardPath = '/dashboard/admin';
+          break;
+        case 'COMMERCIAL':
+          dashboardPath = '/dashboard/sales';
+          break;
+        case 'RESPONSABLE_ACHAT':
+          dashboardPath = '/dashboard/procurement';
+          break;
+        default:
+          dashboardPath = '/dashboard';
       }
+      localStorage.setItem('userDashboard', dashboardPath);
       
-      throw new Error('Erreur de connexion');
+      // Mettre à jour l'état
+      setUser(result.data.user);
       
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+      // ⭐⭐ AJOUTEZ CE LOG POUR VOIR LE TOKEN STOCKÉ ⭐⭐
+      console.log('🏁 Login COMPLÈTEMENT terminé');
+      console.log('🔑 Token final dans localStorage:', 
+        localStorage.getItem('token') ? 'PRÉSENT' : 'ABSENT'
+      );
+      
+      return { 
+        success: true, 
+        data: result.data,
+        dashboard: dashboardPath
+      };
     }
-  };
+    
+    throw new Error('Erreur de connexion');
+    
+  } catch (err) {
+    console.error('💥 Erreur dans useAuth.login:', err);
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
+//logout function
 
   const logout = useCallback(async () => {
     setLoading(true);
