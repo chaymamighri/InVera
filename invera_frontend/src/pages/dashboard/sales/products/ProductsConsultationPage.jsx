@@ -3,189 +3,232 @@ import React, { useState, useEffect } from 'react';
 import ProductFilters from './components/ProductFilterSection';
 import ProductStats from './components/ProductStatis';
 import ProductTable from './components/ProductTable';
-import OrderModal from './components/OrderModal';
+import OrderModal from './components/OrderModal/OrderModal';
 import OrderRecapModal from './components/OrderRecapModal';
 import SuccessModal from './components/SuccessModal';
+import productService from '../../../../services/productService';
+import clientService from '../../../../services/clientService';
+import { useAuth } from '../../../../hooks/useAuth';
 
 const ProductsConsultationPage = () => {
-  // Données initiales des produits (à remplacer par API)
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      libelle: 'Ordinateur Portable Pro',
-      prix: 1299.99,
-      prixInitial: 1499.99,
-      quantiteStock: 45,
-      seuilMinimum: 10,
-      uniteMesure: 'unité',
-      categorie: 'Électronique',
-      remise: 13.33,
-      statut: 'En stock',
-      typeClientAutorise: ['Professionnel', 'VIP'],
-      derniereMAJ: '2024-01-15',
-      imageUrl: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 2,
-      libelle: 'Smartphone Premium',
-      prix: 899.99,
-      prixInitial: 999.99,
-      quantiteStock: 120,
-      seuilMinimum: 25,
-      uniteMesure: 'unité',
-      categorie: 'Électronique',
-      remise: 10.00,
-      statut: 'En stock',
-      typeClientAutorise: ['Tous'],
-      derniereMAJ: '2024-01-20',
-      imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 3,
-      libelle: 'Chaise de Bureau Ergonomique',
-      prix: 249.99,
-      prixInitial: 299.99,
-      quantiteStock: 32,
-      seuilMinimum: 15,
-      uniteMesure: 'unité',
-      categorie: 'Bureau',
-      remise: 16.67,
-      statut: 'Stock faible',
-      typeClientAutorise: ['Professionnel', 'Entreprise'],
-      derniereMAJ: '2024-01-18',
-      imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 4,
-      libelle: 'Table de Conférence',
-      prix: 1199.99,
-      prixInitial: 1299.99,
-      quantiteStock: 8,
-      seuilMinimum: 5,
-      uniteMesure: 'unité',
-      categorie: 'Mobilier',
-      remise: 7.69,
-      statut: 'Stock critique',
-      typeClientAutorise: ['Fidéle', 'VIP'],
-      derniereMAJ: '2024-01-10',
-      imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 5,
-      libelle: 'Pack Papier A4',
-      prix: 24.99,
-      prixInitial: 29.99,
-      quantiteStock: 500,
-      seuilMinimum: 100,
-      uniteMesure: 'paquet',
-      categorie: 'Fournitures',
-      remise: 16.67,
-      statut: 'En stock',
-      typeClientAutorise: ['Tous'],
-      derniereMAJ: '2024-01-22',
-      imageUrl: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 6,
-      libelle: 'Écran 27" 4K',
-      prix: 399.99,
-      prixInitial: 449.99,
-      quantiteStock: 0,
-      seuilMinimum: 10,
-      uniteMesure: 'unité',
-      categorie: 'Électronique',
-      remise: 11.11,
-      statut: 'Rupture',
-      typeClientAutorise: ['Tous'],
-      derniereMAJ: '2024-01-05',
-      imageUrl: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    },
-    {
-      id: 7,
-      libelle: 'Clavier Mécanique Gaming',
-      prix: 89.99,
-      prixInitial: 99.99,
-      quantiteStock: 0,
-      seuilMinimum: 15,
-      uniteMesure: 'unité',
-      categorie: 'Électronique',
-      remise: 10.00,
-      statut: 'Rupture',
-      typeClientAutorise: ['Tous'],
-      derniereMAJ: '2024-01-12',
-      imageUrl: 'https://images.unsplash.com/photo-1541140532154-b024d705b90a?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-    }
-  ]);
-
-  // Clients existants (à remplacer par API)
-  const [clients, setClients] = useState([
-    { id: 1, nom: 'SARL TechSolutions', type: 'Entreprise', telephone: '71 123 456', adresse: '15 Rue de la République, Tunis' },
-    { id: 2, nom: 'Mohamed Ben Ali', type: 'standard', telephone: '98 765 432', adresse: '42 Avenue Habib Bourguiba, Sfax' },
-    { id: 3, nom: 'Société Générale', type: 'Fidèle', telephone: '70 111 222', adresse: 'Centre Urbain Nord, Ariana' },
-    { id: 4, nom: 'Ahmed Ben Salah', type: 'VIP', telephone: '97 888 999', adresse: 'Les Berges du Lac, Tunis' },
-    { id: 5, nom: 'Boutique El Medina', type: 'Professionnel', telephone: '72 333 444', adresse: 'Medina, Tunis' },
-    { id: 6, nom: 'Client Normal', type: 'Standard', telephone: '55 666 777', adresse: '12 Rue des Oliviers, Nabeul' }
-  ]);
-
-  // États
+  // États pour les données
+  const { isAuthenticated } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [clientTypes, setClientTypes] = useState([]); // Types de clients dynamiques
+  
+  // États pour les commandes
   const [commandes, setCommandes] = useState([]);
+  
+  // États pour les filtres et tri
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [sortField, setSortField] = useState('libelle');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [categories, setCategories] = useState(['Tous']);
+  
+  // États pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  
+  // États pour les modales
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  
+  // États pour la sélection
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [newClientMode, setNewClientMode] = useState(false);
   const [remiseAppliquee, setRemiseAppliquee] = useState(0);
+  
+  // État pour nouveau client
   const [nouveauClient, setNouveauClient] = useState({
     nom: '',
     prenom: '',
-    type: 'Professionnel',
+    typeClient: 'PROFESSIONNEL', // Utiliser les mêmes valeurs que le backend
     telephone: '',
     adresse: ''
   });
 
-  // Données statiques (constantes)
-  const categories = ['Tous', 'Électronique', 'Bureau', 'Mobilier', 'Fournitures', 'Consommables', 'Services'];
-  const typesClient = ['VIP', 'Entreprise', 'Professionnel', 'Fidèle', 'Standard'];
-  
-  // Remises par type de client
-  const remisesParType = {
-    'VIP': 20,
-    'Professionnel': 15,
-    'Entreprise': 10,
-    'Fidèle': 5,
-    'Standard': 0
+  // Fonction pour charger les produits depuis l'API
+  const loadProducts = async (filters = {}) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Construire les paramètres de requête
+      const params = {
+        keyword: searchTerm,
+        ...filters
+      };
+      
+      // Appeler l'API
+      const response = await productService.getAllProducts(params);
+      
+      // Mettre à jour les produits
+      const produits = response.produits || [];
+      setProducts(produits);
+      
+      // Extraire les catégories uniques depuis les données de l'API
+      const allCategories = [...new Set(produits
+        .map(p => p.categorie)
+        .filter(Boolean) || [])];
+      setCategories(['Tous', ...allCategories]);
+      
+    } catch (err) {
+      console.error('Erreur lors du chargement des produits:', err);
+      setError(err.response?.data?.message || 'Erreur de chargement des produits');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Fonctions utilitaires
-  const calculateStats = (products) => {
-    return {
-      totalProduits: products.length,
-      enStock: products.filter(p => p.statut === 'En stock').length,
-      stockFaible: products.filter(p => p.statut === 'Stock faible').length,
-      stockCritique: products.filter(p => p.statut === 'Stock critique').length,
-      rupture: products.filter(p => p.statut === 'Rupture').length,
-      valeurStock: products.reduce((sum, p) => sum + (p.prix * (p.quantiteStock > 0 ? p.quantiteStock : 0)), 0)
-    };
+  // Fonction pour charger les clients depuis l'API
+  const loadClients = async () => {
+    setLoadingClients(true);
+    try {
+      const response = await clientService.getAllClients();
+      const clientsData = response.clients || response.data || [];
+      setClients(clientsData);
+      
+      // Extraire les types de clients uniques depuis l'API
+      const uniqueTypes = [...new Set(clientsData.map(c => c.typeClient))].filter(Boolean);
+      setClientTypes(uniqueTypes);
+      
+    } catch (err) {
+      console.error('Erreur lors du chargement des clients:', err);
+      // Ne pas utiliser de données statiques, laisser vide en cas d'erreur
+      setClients([]);
+      setClientTypes([]);
+    } finally {
+      setLoadingClients(false);
+    }
   };
+
+  // Fonction pour charger les types de clients depuis l'API (endpoint spécifique)
+  const loadClientTypes = async () => {
+    try {
+      // Si votre backend a un endpoint pour les types de clients
+      const response = await clientService.getClientTypes();
+      setClientTypes(response.types || []);
+    } catch (err) {
+      console.error('Erreur chargement types clients:', err);
+    }
+  };
+
+  // Fonction pour vérifier la disponibilité des stocks
+  const checkStockAvailability = async (productIds) => {
+    try {
+      const response = await productService.checkAvailability(productIds);
+      return response.allAvailable || false;
+    } catch (err) {
+      console.error('Erreur vérification disponibilité:', err);
+      return false;
+    }
+  };
+
+  // Fonctions utilitaires adaptées à la nouvelle structure
+ const calculateStats = (products) => {
+  if (!products || products.length === 0) {
+    return {
+      totalProduits: 0,
+      enStock: 0,
+      stockFaible: 0,
+      stockCritique: 0,
+      rupture: 0,
+      valeurStock: 0
+    };
+  }
+    
+  // Réinitialiser tous les compteurs
+  let enStock = 0;
+  let stockFaible = 0;
+  let stockCritique = 0;
+  let rupture = 0;
+  
+  // Parcourir chaque produit une seule fois
+  products.forEach(p => {
+    const stock = Number(p.quantiteStock) || 0;
+    const seuil = Number(p.seuilMinimum) || 5;
+    
+    if (stock <= 0) {
+      rupture++;
+    } else if (stock <= 3) {
+      // CRITIQUE: stock très bas (1-3 unités)
+      stockCritique++;
+    } else if (stock <= seuil) {
+      // FAIBLE: stock inférieur ou égal au seuil minimum
+      stockFaible++;
+    } else {
+      // EN STOCK: stock supérieur au seuil minimum
+      enStock++;
+    }
+  });
+    
+  const valeurStock = products.reduce((sum, p) => {
+    const prix = Number(p.prixVente) || 0;
+    const stock = Number(p.quantiteStock) || 0;
+    return sum + (prix * (stock > 0 ? stock : 0));
+  }, 0);
+    
+  return {
+    totalProduits: products.length,
+    enStock,
+    stockFaible,
+    stockCritique,
+    rupture,
+    valeurStock: valeurStock.toFixed(2)
+  };
+};
 
   const filterAndSortProducts = (products, searchTerm, selectedCategory, sortField, sortDirection) => {
+    if (!products) return [];
+    
     return products
       .filter(product => {
-        const matchesSearch = product.libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             product.categorie.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = selectedCategory === 'Tous' || product.categorie === selectedCategory;
+        const libelle = product.libelle || '';
+        const categorie = product.categorie || '';
+        const matchesSearch = libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             categorie.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'Tous' || 
+                               product.categorie === selectedCategory;
         return matchesSearch && matchesCategory;
       })
       .sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
+        let aValue, bValue;
         
-        if (sortField === 'libelle' || sortField === 'categorie' || sortField === 'statut') {
+        // Normaliser les champs selon la nouvelle structure
+        switch(sortField) {
+          case 'libelle':
+            aValue = a.libelle || '';
+            bValue = b.libelle || '';
+            break;
+          case 'categorie':
+            aValue = a.categorie || '';
+            bValue = b.categorie || '';
+            break;
+          case 'prixVente':
+            aValue = Number(a.prixVente) || 0;
+            bValue = Number(b.prixVente) || 0;
+            break;
+          case 'quantiteStock':
+            aValue = Number(a.quantiteStock) || 0;
+            bValue = Number(b.quantiteStock) || 0;
+            break;
+          case 'status':
+            aValue = a.status || '';
+            bValue = b.status || '';
+            break;
+          default:
+            aValue = a[sortField] || '';
+            bValue = b[sortField] || '';
+        }
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
           return sortDirection === 'asc' 
             ? aValue.localeCompare(bValue)
             : bValue.localeCompare(aValue);
@@ -195,39 +238,55 @@ const ProductsConsultationPage = () => {
       });
   };
 
-  const getStatusColor = (statut) => {
-    switch(statut) {
-      case 'En stock': return 'bg-green-100 text-green-800';
-      case 'Stock faible': return 'bg-yellow-100 text-yellow-800';
-      case 'Stock critique': return 'bg-orange-100 text-orange-800';
-      case 'Rupture': return 'bg-red-100 text-red-800';
-      case 'Service': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const getStatusColor = (product) => {
+    const stock = product.quantiteStock || 0;
+    const seuil = product.seuilMinimum || 5;
+    const statut = product.status || '';
+    
+    if (statut === 'RUPTURE' || stock <= 0) {
+      return 'bg-red-100 text-red-800';
+    } else if (statut === 'FAIBLE' || (stock > 0 && stock <= seuil)) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else if (statut === 'CRITIQUE' || stock <= 3) {
+      return 'bg-orange-100 text-orange-800';
+    } else if (statut === 'EN_STOCK' || stock > seuil) {
+      return 'bg-green-100 text-green-800';
+    } else {
+      return 'bg-gray-100 text-gray-800';
     }
   };
 
   const checkDisponibilite = (selectedProducts) => {
-    return selectedProducts.every(p => 
-      p.quantiteStock >= (p.quantiteCommande || 1)
-    );
+    return selectedProducts.every(p => {
+      const stock = p.quantiteStock || 0;
+      const quantite = p.quantiteCommande || 1;
+      return stock >= quantite;
+    });
   };
 
   const calculerTotaux = (selectedProducts, remisePourcentage = 0) => {
     if (!selectedProducts || selectedProducts.length === 0) {
-      return { sousTotal: 0, remise: 0, total: 0 };
+      return { 
+        sousTotal: 0, 
+        remise: 0, 
+        total: 0, 
+        remisePourcentage 
+      };
     }
     
-    const sousTotal = selectedProducts.reduce((sum, p) => 
-      sum + (p.prix * (p.quantiteCommande || 1)), 0
-    );
+    const sousTotal = selectedProducts.reduce((sum, p) => {
+      const prix = Number(p.prix) || Number(p.prixVente) || 0;
+      const quantite = Number(p.quantiteCommande) || 1;
+      return sum + (prix * quantite);
+    }, 0);
     
     const montantRemise = sousTotal * (remisePourcentage / 100);
     const total = sousTotal - montantRemise;
     
     return {
-      sousTotal: sousTotal.toFixed(2),
-      remise: montantRemise.toFixed(2),
-      total: total.toFixed(2),
+      sousTotal,
+      remise: montantRemise,
+      total,
       remisePourcentage
     };
   };
@@ -242,7 +301,7 @@ const ProductsConsultationPage = () => {
     return `CMD-${year}${month}${day}-${sequence}`;
   };
 
-  // Handlers
+  // Handlers adaptés
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -253,10 +312,20 @@ const ProductsConsultationPage = () => {
   };
 
   const handleSelectProduct = (product) => {
-    if (selectedProducts.some(p => p.id === product.id)) {
-      setSelectedProducts(selectedProducts.filter(p => p.id !== product.id));
+    const productId = product.idProduit || product.id;
+    
+    if (selectedProducts.some(p => (p.idProduit || p.id) === productId)) {
+      setSelectedProducts(selectedProducts.filter(p => (p.idProduit || p.id) !== productId));
     } else {
-      setSelectedProducts([...selectedProducts, { ...product, quantiteCommande: 1 }]);
+      setSelectedProducts([...selectedProducts, { 
+        ...product, 
+        quantiteCommande: 1,
+        // Normaliser les données selon la nouvelle structure
+        idProduit: productId,
+        prix: product.prix || product.prixVente || 0,
+        quantiteStock: product.quantiteStock || 0,
+        uniteMesure: product.uniteMesure || 'unité'
+      }]);
     }
   };
 
@@ -276,44 +345,76 @@ const ProductsConsultationPage = () => {
     setSelectedClient(client);
     setNewClientMode(false);
     
-    // Appliquer automatiquement la remise selon le type de client
-    if (client && remisesParType[client.type] !== undefined) {
-      setRemiseAppliquee(remisesParType[client.type]);
+    // Appliquer la remise selon le type de client (dynamique depuis le backend)
+    // Vous pouvez implémenter la logique de remise côté backend ou côté frontend
+    if (client && client.typeClient) {
+      // Logique de remise à définir selon votre business logic
+      // Par exemple, récupérer depuis une API
+      applyRemiseByClientType(client.typeClient);
     } else {
       setRemiseAppliquee(0);
     }
   };
 
-  const handleAddNewClient = () => {
-    const newId = Math.max(...clients.map(c => c.id)) + 1;
-    
-    // Combiner nom et prénom
-    const nomComplet = nouveauClient.prenom 
-      ? `${nouveauClient.nom} ${nouveauClient.prenom}`
-      : nouveauClient.nom;
-    
-    const clientToAdd = {
-      id: newId,
-      nom: nomComplet,
-      type: nouveauClient.type,
-      telephone: nouveauClient.telephone,
-      adresse: nouveauClient.adresse
-    };
-    
-    setClients([...clients, clientToAdd]);
-    setSelectedClient(clientToAdd);
-    setNewClientMode(false);
-    
-    // Appliquer automatiquement la remise selon le type de client
-    setRemiseAppliquee(remisesParType[clientToAdd.type] || 0);
-    
-    setNouveauClient({
-      nom: '',
-      prenom: '',
-      type: 'Professionnel',
-      telephone: '',
-      adresse: ''
-    });
+  const applyRemiseByClientType = async (clientType) => {
+    try {
+      // Appeler l'API pour obtenir la remise selon le type de client
+      const response = await clientService.getRemiseByType(clientType);
+      setRemiseAppliquee(response.remise || 0);
+    } catch (err) {
+      console.error('Erreur récupération remise:', err);
+      setRemiseAppliquee(0);
+    }
+  };
+
+  const handleAddNewClient = async () => {
+    try {
+      // Valider les données
+      if (!nouveauClient.nom.trim() || !nouveauClient.telephone.trim()) {
+        alert('Veuillez remplir les champs obligatoires (nom et téléphone)');
+        return;
+      }
+      
+      const clientData = {
+        nom: nouveauClient.nom,
+        prenom: nouveauClient.prenom || '',
+        typeClient: nouveauClient.typeClient || 'PROFESSIONNEL',
+        telephone: nouveauClient.telephone,
+        adresse: nouveauClient.adresse || ''
+      };
+      
+      // Appeler l'API pour créer le client
+      const response = await clientService.createClient(clientData);
+      const newClient = response.client || response.data;
+      
+      if (newClient) {
+        // Ajouter le client à la liste
+        setClients(prev => [...prev, newClient]);
+        // Ajouter le type à la liste si nouveau
+        if (!clientTypes.includes(newClient.typeClient)) {
+          setClientTypes(prev => [...prev, newClient.typeClient]);
+        }
+        
+        setSelectedClient(newClient);
+        setNewClientMode(false);
+        
+        // Appliquer la remise pour ce nouveau client
+        applyRemiseByClientType(newClient.typeClient);
+        
+        // Réinitialiser le formulaire
+        setNouveauClient({
+          nom: '',
+          prenom: '',
+          typeClient: 'PROFESSIONNEL',
+          telephone: '',
+          adresse: ''
+        });
+      }
+      
+    } catch (err) {
+      console.error('Erreur lors de la création du client:', err);
+      alert(err.response?.data?.message || 'Erreur lors de la création du client');
+    }
   };
 
   const handleCreateCommande = () => {
@@ -321,6 +422,7 @@ const ProductsConsultationPage = () => {
       alert('Veuillez sélectionner un client et au moins un produit');
       return;
     }
+
 
     if (!checkDisponibilite(selectedProducts)) {
       alert('Certains produits ne sont pas disponibles en quantité suffisante');
@@ -331,57 +433,132 @@ const ProductsConsultationPage = () => {
     setShowRecap(true);
   };
 
-  const handleEnregistrerCommande = () => {
-    const totaux = calculerTotaux(selectedProducts, remiseAppliquee);
-    const date = new Date();
-    
-    // Créer l'objet commande
-    const nouvelleCommande = {
-      id: Date.now(),
-      numero: genererNumeroCommande(commandes.length),
-      date: date.toISOString().split('T')[0],
-      heure: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
-      client: selectedClient,
-      produits: selectedProducts.map(p => ({
-        produitId: p.id,
-        libelle: p.libelle,
-        quantite: p.quantiteCommande || 1,
-        prixUnitaire: p.prix,
-        uniteMesure: p.uniteMesure,
-        sousTotal: (p.prix * (p.quantiteCommande || 1)).toFixed(2)
-      })),
-      sousTotal: totaux.sousTotal,
-      remise: totaux.remise,
-      remisePourcentage: totaux.remisePourcentage,
-      total: totaux.total,
-      statut: 'En attente',
-      disponibilite: checkDisponibilite(selectedProducts) ? 'Disponible' : 'Rupture'
-    };
+  const handleEnregistrerCommande = async () => {
+    try {
+      const totaux = calculerTotaux(selectedProducts, remiseAppliquee);
+      const date = new Date();
+      
+      // Préparer les données de la commande pour l'API
+      const commandeData = {
+        clientId: selectedClient.idProduit || selectedClient.id,
+        dateCommande: date.toISOString().split('T')[0],
+        heureCommande: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
+        produits: selectedProducts.map(p => ({
+          produitId: p.idProduit || p.id,
+          quantite: p.quantiteCommande || 1,
+          prixUnitaire: p.prix || p.prixVente || 0,
+          remiseProduit: p.remiseTemporaire || 0
+        })),
+        sousTotal: totaux.sousTotal,
+        remiseGlobale: totaux.remise,
+        remisePourcentage: remiseAppliquee,
+        total: totaux.total,
+        statut: 'EN_ATTENTE',
+        notes: ''
+      };
+      
+      // TODO: Appeler l'API pour enregistrer la commande
+      // const response = await orderService.createOrder(commandeData);
+      
+      // Pour l'instant, sauvegarder localement
+      const nouvelleCommande = {
+        id: Date.now(),
+        numero: genererNumeroCommande(commandes.length),
+        date: date.toISOString().split('T')[0],
+        heure: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
+        client: selectedClient,
+        produits: selectedProducts.map(p => ({
+          produitId: p.idProduit || p.id,
+          libelle: p.libelle || 'Produit',
+          quantite: p.quantiteCommande || 1,
+          prixUnitaire: p.prix || p.prixVente || 0,
+          uniteMesure: p.uniteMesure || 'unité',
+          sousTotal: ((p.prix || p.prixVente || 0) * (p.quantiteCommande || 1)).toFixed(2)
+        })),
+        sousTotal: totaux.sousTotal.toFixed(2),
+        remise: totaux.remise.toFixed(2),
+        remisePourcentage: totaux.remisePourcentage,
+        total: totaux.total.toFixed(2),
+        statut: 'EN_ATTENTE',
+        disponibilite: checkDisponibilite(selectedProducts) ? 'DISPONIBLE' : 'RUPTURE'
+      };
 
-    // Enregistrer la commande localement
-    const nouvellesCommandes = [...commandes, nouvelleCommande];
-    setCommandes(nouvellesCommandes);
-    
-    // Sauvegarder dans le localStorage
-    localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
-    
-    // Afficher le popup de succès
-    setShowSuccessPopup(true);
-    setShowRecap(false);
-    setShowCreateOrder(false);
+      // Enregistrer la commande localement
+      const nouvellesCommandes = [...commandes, nouvelleCommande];
+      setCommandes(nouvellesCommandes);
+      
+      // Sauvegarder dans le localStorage
+      localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
+      
+      // Mettre à jour les stocks (appeler l'API)
+      for (const product of selectedProducts) {
+        try {
+          const productId = product.idProduit || product.id;
+          const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
+          await productService.syncStock(productId, newStock);
+        } catch (err) {
+          console.error(`Erreur mise à jour stock produit ${product.idProduit || product.id}:`, err);
+        }
+      }
+      
+      // Afficher le popup de succès
+      setShowSuccessPopup(true);
+      setShowRecap(false);
+      setShowCreateOrder(false);
+      
+      // Réinitialiser la sélection
+      setSelectedProducts([]);
+      
+      // Recharger les produits pour mettre à jour les stocks
+      loadProducts();
+      
+    } catch (err) {
+      console.error('Erreur lors de l\'enregistrement de la commande:', err);
+      alert(err.response?.data?.message || 'Erreur lors de l\'enregistrement de la commande');
+    }
+  };
+
+  // Gestion des filtres
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    setCurrentPage(1); // Reset à la première page lors d'une nouvelle recherche
+    loadProducts({ keyword: term });
+  };
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    setCurrentPage(1); // Reset à la première page lors d'un changement de catégorie
+    loadProducts({ 
+      categorie: category !== 'Tous' ? category : undefined 
+    });
+  };
+
+  // Gestion de la pagination
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
 
   // Effets
   useEffect(() => {
+    // Charger les produits et clients au chargement de la page
+    loadProducts();
+    loadClients();
+    
+    // Charger les commandes sauvegardées
     const commandesSauvegardees = localStorage.getItem('commandes');
     if (commandesSauvegardees) {
-      setCommandes(JSON.parse(commandesSauvegardees));
+      try {
+        setCommandes(JSON.parse(commandesSauvegardees));
+      } catch (err) {
+        console.error('Erreur parsing commandes:', err);
+      }
     }
   }, []);
 
   // Calculs
   const stats = calculateStats(products);
   const filteredProducts = filterAndSortProducts(products, searchTerm, selectedCategory, sortField, sortDirection);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -393,10 +570,17 @@ const ProductsConsultationPage = () => {
           </div>
           
           {selectedProducts.length > 0 && (
-            <ProductStats 
-              selectedProducts={selectedProducts}
-              handleCreateOrder={handleCreateOrder}
-            />
+            <div className="mt-4 md:mt-0">
+              <button
+                onClick={handleCreateOrder}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-600 transition-all duration-200 flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Créer commande ({selectedProducts.length})
+              </button>
+            </div>
           )}
         </div>
 
@@ -404,17 +588,32 @@ const ProductsConsultationPage = () => {
 
         <ProductFilters 
           searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
+          setSearchTerm={handleSearch}
           selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
+          setSelectedCategory={handleCategoryChange}
           categories={categories}
         />
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="text-red-500 mr-3">
+              ⚠️
+            </div>
+            <div>
+              <p className="text-red-700 font-medium">Erreur de chargement</p>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProductTable 
         products={filteredProducts}
         selectedProducts={selectedProducts}
         handleSelectProduct={handleSelectProduct}
+        handleCreateOrder={handleCreateOrder}
         sortField={sortField}
         sortDirection={sortDirection}
         handleSort={handleSort}
@@ -422,6 +621,11 @@ const ProductsConsultationPage = () => {
         setSelectedProducts={setSelectedProducts}
         checkDisponibilite={checkDisponibilite}
         calculerTotaux={calculerTotaux}
+        loading={loading}
+        error={error}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
       />
 
       {showCreateOrder && !showRecap && (
@@ -431,6 +635,7 @@ const ProductsConsultationPage = () => {
           selectedProducts={selectedProducts}
           setSelectedProducts={setSelectedProducts}
           clients={clients}
+          clientTypes={clientTypes}
           selectedClient={selectedClient}
           setSelectedClient={setSelectedClient}
           newClientMode={newClientMode}
@@ -443,8 +648,10 @@ const ProductsConsultationPage = () => {
           handleAddNewClient={handleAddNewClient}
           handleCreateCommande={handleCreateCommande}
           checkDisponibilite={checkDisponibilite}
-          typesClient={typesClient}
-          remisesParType={remisesParType}
+          calculerTotaux={calculerTotaux}
+          loadingClients={loadingClients}
+          applyRemiseByClientType={applyRemiseByClientType}
+          loadClients={loadClients}
         />
       )}
 

@@ -1,41 +1,28 @@
-const API_URL = 'http://localhost:8081/api/auth';
+// authService.js
+import api from './api'; // Pour les autres requêtes
+
+const API_URL = '/auth';
 
 export const authService = {
-  // Connexion
   login: async (credentials) => {
     try {
-      const response = await fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: credentials.email,
-          password: credentials.password,
-        }),
+      console.log(' Tentative de connexion avec:', credentials.email);
+      const response = await api.post(`${API_URL}/login`, {
+        email: credentials.email,
+        password: credentials.password,
       });
-
-      if (!response.ok) {
-        let errorMessage = 'Erreur de connexion';
-        
-        if (response.status === 401) {
-          errorMessage = 'Email ou mot de passe incorrect';
-        } else if (response.status === 403) {
-          errorMessage = 'Accès non autorisé';
-        } else {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } catch {
-            // Si on ne peut pas parser le JSON
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
+      const data = response.data;
+      console.log('Données reçues:', data);
       
+      // Vérifiez que le token est présent
+      if (!data.token) {
+        console.error(' AUCUN TOKEN dans la réponse!', data);
+        throw new Error('Aucun token reçu du serveur');
+      }
+      const cleanedToken = String(data.token || '').replace(/^"|"$/g, '').trim();
+      const normalizedToken = cleanedToken.startsWith('Bearer ') ? cleanedToken.slice(7) : cleanedToken;
+      console.log('Token reçu:', normalizedToken.substring(0, 50) + '...');
+
       // Sauvegarder rememberMe si coché
       if (credentials.rememberMe) {
         localStorage.setItem('rememberMe', 'true');
@@ -48,9 +35,9 @@ export const authService = {
       return {
         success: true,
         data: {
-          token: data.jwt,
+          token: normalizedToken,
           user: {
-            email: data.email,
+            email: data.username, // C'est 'username' dans la réponse
             name: `${data.nom} ${data.prenom}`,
             role: data.role,
             firstName: data.prenom,
@@ -59,18 +46,14 @@ export const authService = {
         }
       };
     } catch (error) {
-      // Si c'est déjà une Error, la renvoyer
-      if (error instanceof Error) {
-        throw error;
-      }
-      // Sinon, créer une Error
-      throw new Error(error.message || 'Erreur de connexion');
+      console.error(' Erreur login:', error);
+      throw error;
     }
   },
 
   // Déconnexion
   logout: async () => {
-    // Nettoyer le localStorage
+    console.log('🚪 Déconnexion...');
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userName');
@@ -79,7 +62,7 @@ export const authService = {
     return { success: true };
   },
 
-  // Récupérer l'utilisateur courant
+  // Récupérer l'utilisateur courant - UTILISE api.get() (avec intercepteur)
   getCurrentUser: async () => {
     const token = localStorage.getItem('token');
     
@@ -88,27 +71,9 @@ export const authService = {
     }
 
     try {
-      const response = await fetch(`${API_URL}/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expiré ou invalide
-          localStorage.removeItem('token');
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('userName');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('userDashboard');
-        }
-        throw new Error('Erreur de récupération de l\'utilisateur');
-      }
-
-      const data = await response.json();
+      console.log('👤 Récupération utilisateur avec token:', token.substring(0, 30) + '...');
+      const response = await api.get(`${API_URL}/me`);
+      const data = response.data;
       
       return {
         success: true,
@@ -123,16 +88,22 @@ export const authService = {
         }
       };
     } catch (error) {
-      throw error;
+      console.error('❌ Erreur getCurrentUser:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userDashboard');
+      }
+      throw new Error('Erreur de récupération de l\'utilisateur');
     }
   },
 
   // Mot de passe oublié
   forgotPassword: async (email) => {
     try {
-      // Note: Vous devrez créer cet endpoint dans votre backend
-      // Pour l'instant, simulation
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await api.post(`${API_URL}/forgot-password`, { email });
       return { 
         success: true, 
         message: 'Instructions envoyées par email' 
@@ -145,13 +116,18 @@ export const authService = {
   // Vérifier si l'utilisateur est connecté
   isAuthenticated: () => {
     const token = localStorage.getItem('token');
-    if (!token) return false;
+    if (!token) {
+      console.log('🔒 Non authentifié: pas de token');
+      return false;
+    }
     
-    // Vérifier si le token est expiré (basique)
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.exp * 1000 > Date.now();
+      const isValid = payload.exp * 1000 > Date.now();
+      console.log('🔒 Authentification vérifiée:', isValid);
+      return isValid;
     } catch {
+      console.log('🔒 Token invalide');
       return false;
     }
   },
@@ -165,44 +141,22 @@ export const authService = {
   fetchWithAuth: async (url, options = {}) => {
     const token = localStorage.getItem('token');
     
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (!token) {
+      throw new Error('Non authentifié');
     }
 
     try {
-      const response = await fetch(`${API_URL}${url}`, {
+      const response = await api({
+        url: `${API_URL}${url}`,
         ...options,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          ...options.headers,
+        },
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Déconnecter l'utilisateur
-          localStorage.removeItem('token');
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('userName');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('userDashboard');
-          window.location.href = '/login';
-        }
-        
-        let errorMessage = 'Erreur de requête';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          // Ne rien faire si on ne peut pas parser
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      return await response.json();
+      return response.data;
     } catch (error) {
       throw error;
     }
