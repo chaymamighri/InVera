@@ -1,5 +1,5 @@
 // src/pages/dashboard/sales/orders/OrdersPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import OrderFilters from './components/OrderFilters';
 import OrderTable from './components/OrderTable';
 import CreateOrderModal from './components/CreateOrderModal';
@@ -11,155 +11,90 @@ import {
   ClockIcon 
 } from '@heroicons/react/24/outline';
 
+import useOrders from '../../../../hooks/useOrders';
+import clientService from '../../../../services/clientService';
+
 const OrdersPage = () => {
-  // Données initiales
-  const initialClients = [
-    { id: 1, nom: 'SARL TechSolutions', type: 'Entreprise', telephone: '71 123 456' },
-    { id: 2, nom: 'Mohamed Ben Ali', type: 'Standard', telephone: '98 765 432' },
-    { id: 3, nom: 'Société Générale', type: 'Fidèle', telephone: '70 111 222' },
-    { id: 4, nom: 'Ahmed Ben Salah', type: 'VIP', telephone: '97 888 999' },
-    { id: 5, nom: 'Boutique El Medina', type: 'Professionnel', telephone: '72 333 444' }
-  ];
+  // Utiliser le hook personnalisé
+  const {
+    commandes,
+    clients,
+    produits,
+    loading,
+    error,
+    selectedProducts,
+    setSelectedProducts,
+    selectedClient,
+    setSelectedClient,
+    toNumber,
+    chargerDonnees,
+    handleCreerCommande,
+    handleValiderCommande,
+    handleRejeterCommande,
+    handleSelectProduct,
+    handleModifierQuantite,
+    handleSupprimerProduit,
+    resetSelection
+  } = useOrders();
 
-  const initialProduits = [
-    {
-      id: 1,
-      libelle: 'Ordinateur Portable Pro',
-      prix: 1299.99,
-      quantiteStock: 45,
-      uniteMesure: 'unité',
-      categorie: 'Électronique'
-    },
-    {
-      id: 2,
-      libelle: 'Smartphone Premium',
-      prix: 899.99,
-      quantiteStock: 120,
-      uniteMesure: 'unité',
-      categorie: 'Électronique'
-    },
-    {
-      id: 3,
-      libelle: 'Chaise de Bureau Ergonomique',
-      prix: 249.99,
-      quantiteStock: 32,
-      uniteMesure: 'unité',
-      categorie: 'Bureau'
-    }
-  ];
-
-  const initialCommandes = [
-    {
-      id: 1,
-      numero: 'CMD001-2026',
-      client: { id: 1, nom: 'SARL TechSolutions', type: 'Entreprise' },
-      dateCreation: '2026-01-15',
-      dateLivraisonPrevue: '2026-01-22',
-      produits: [
-        { id: 1, libelle: 'Ordinateur Portable Pro', quantite: 2, prix: 1299.99, sousTotal: 2599.98 },
-        { id: 2, libelle: 'Smartphone Premium', quantite: 5, prix: 899.99, sousTotal: 4499.95 }
-      ],
-      sousTotal: 7099.93,
-      remise: 709.99,
-      total: 6389.94,
-      statut: 'Confirmé',
-      remarques: 'Livraison urgente demandée'
-    },
-    {
-      id: 2,
-      numero: 'CMD002-2026',
-      client: { id: 2, nom: 'Mohamed Ben Ali', type: 'Standard' },
-      dateCreation: '2026-01-18',
-      dateLivraisonPrevue: '2026-01-25',
-      produits: [
-        { id: 3, libelle: 'Chaise de Bureau Ergonomique', quantite: 3, prix: 249.99, sousTotal: 749.97 }
-      ],
-      sousTotal: 749.97,
-      remise: 0,
-      total: 749.97,
-      statut: 'En attente',
-      remarques: ''
-    }
-  ];
-
-  // États
-  const [commandes, setCommandes] = useState([]);
+  // États locaux pour le composant
   const [filteredCommandes, setFilteredCommandes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('Tous');
-  const [selectedClient, setSelectedClient] = useState('Tous');
+  const [selectedClientId, setSelectedClientId] = useState('Tous'); // Changé de selectedClientFilter
+  const [selectedClientType, setSelectedClientType] = useState('Tous');
+  const [clientTypes, setClientTypes] = useState([]);
   const [sortField, setSortField] = useState('dateCreation');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
-  const [clients, setClients] = useState(initialClients);
-  const [produits, setProduits] = useState(initialProduits);
-  const [nouvelleCommande, setNouvelleCommande] = useState({
-    client: '',
-    produits: [],
-    remarques: ''
-  });
 
-  // Fonction utilitaire
-  const toNumber = (value) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? 0 : num;
-  };
-
-  // Fonction pour normaliser les données
-  const normaliserCommandes = (commandesData) => {
-    return commandesData.map(commande => ({
-      ...commande,
-      sousTotal: toNumber(commande.sousTotal),
-      remise: toNumber(commande.remise),
-      total: toNumber(commande.total),
-      produits: commande.produits?.map(produit => ({
-        ...produit,
-        prix: toNumber(produit.prix),
-        sousTotal: toNumber(produit.sousTotal),
-        quantite: toNumber(produit.quantite)
-      })) || []
-    }));
-  };
-
-  // Charger les commandes au démarrage
+  // Charger les données initiales
   useEffect(() => {
-    const commandesSauvegardees = localStorage.getItem('commandes');
-    
-    if (commandesSauvegardees) {
-      try {
-        const parsedCommandes = JSON.parse(commandesSauvegardees);
-        const commandesNormalisees = normaliserCommandes(parsedCommandes);
-        setCommandes(commandesNormalisees);
-      } catch (error) {
-        console.error('Erreur lors du chargement des commandes:', error);
-        const commandesNormalisees = normaliserCommandes(initialCommandes);
-        setCommandes(commandesNormalisees);
+    chargerDonnees();
+    chargerTypesClient();
+  }, []);
+
+  // Fonction pour charger les types de client
+  const chargerTypesClient = useCallback(async () => {
+    try {
+      const response = await clientService.getClientTypes();
+      if (response.success && response.types) {
+        setClientTypes(response.types);
       }
-    } else {
-      const commandesNormalisees = normaliserCommandes(initialCommandes);
-      setCommandes(commandesNormalisees);
+    } catch (error) {
+      console.error('Erreur lors du chargement des types de client:', error);
     }
   }, []);
 
-  // Filtrer les commandes
+  // Filtrer les commandes - CORRIGÉ
   useEffect(() => {
     const filtered = commandes
       .filter(commande => {
+        // Filtre par recherche
         const matchesSearch = 
           commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = selectedStatus === 'Tous' || commande.statut === selectedStatus;
-        const matchesClient = selectedClient === 'Tous' || commande.client?.id === parseInt(selectedClient);
         
-        return matchesSearch && matchesStatus && matchesClient;
+        // Filtre par statut
+        const matchesStatus = selectedStatus === 'Tous' || commande.statut === selectedStatus;
+        
+        // Filtre par client spécifique
+        const matchesClient = selectedClientId === 'Tous' || 
+          commande.client?.id === parseInt(selectedClientId);
+        
+        // Filtre par type de client - CORRIGÉ
+        const matchesClientType = selectedClientType === 'Tous' || 
+          commande.client?.type === selectedClientType;
+        
+        return matchesSearch && matchesStatus && matchesClient && matchesClientType;
       })
       .sort((a, b) => {
         let aValue = a[sortField];
         let bValue = b[sortField];
         
-        if (sortField === 'dateCreation' || sortField === 'dateLivraisonPrevue') {
+        if (sortField === 'dateCreation') {
           aValue = new Date(aValue);
           bValue = new Date(bValue);
         }
@@ -180,153 +115,105 @@ const OrdersPage = () => {
       });
     
     setFilteredCommandes(filtered);
-  }, [commandes, searchTerm, selectedStatus, selectedClient, sortField, sortDirection]);
+  }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
 
-  // Fonctions de gestion des commandes
-  const handleSort = (field) => {
+  // Fonction de réinitialisation des filtres
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setSelectedStatus('Tous');
+    setSelectedClientId('Tous');
+    setSelectedClientType('Tous');
+  }, []);
+
+  // Fonctions stabilisées avec useCallback
+  const handleSort = useCallback((field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
     }
-  };
+  }, [sortField, sortDirection]);
 
-  const handleValiderCommande = (commandeId) => {
-    const commandesMaj = commandes.map(commande => {
-      if (commande.id === commandeId) {
-        // Vérifier la disponibilité
-        const produitsDisponibles = commande.produits.every(produit => {
-          const produitStock = produits.find(p => p.id === produit.id);
-          return produitStock && produitStock.quantiteStock >= toNumber(produit.quantite);
-        });
+  const handleValiderCommandeAPI = useCallback(async (commandeId) => {
+    try {
+      await handleValiderCommande(commandeId);
+      alert('Commande validée avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de la validation:', error);
+      alert('Erreur lors de la validation de la commande');
+    }
+  }, [handleValiderCommande]);
 
-        if (!produitsDisponibles) {
-          alert('Stock insuffisant pour certains produits');
-          return commande;
-        }
+  const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
+    try {
+      await handleRejeterCommande(commandeId);
+      alert('Commande rejetée.');
+    } catch (error) {
+      console.error('Erreur lors du rejet:', error);
+      alert('Erreur lors du rejet de la commande');
+    }
+  }, [handleRejeterCommande]);
 
-        // Mettre à jour le stock
-        const nouveauxProduits = [...produits];
-        commande.produits.forEach(produitCmd => {
-          const index = nouveauxProduits.findIndex(p => p.id === produitCmd.id);
-          if (index !== -1) {
-            nouveauxProduits[index].quantiteStock -= toNumber(produitCmd.quantite);
-          }
-        });
-
-        setProduits(nouveauxProduits);
-
-        return {
-          ...commande,
-          statut: 'Confirmé',
-          dateValidation: new Date().toISOString().split('T')[0]
-        };
-      }
-      return commande;
-    });
-
-    setCommandes(commandesMaj);
-    localStorage.setItem('commandes', JSON.stringify(commandesMaj));
-    alert('Commande validée avec succès !');
-  };
-
-  const handleRejeterCommande = (commandeId) => {
-    const commandesMaj = commandes.map(commande => 
-      commande.id === commandeId 
-        ? { ...commande, statut: 'Refusé' }
-        : commande
-    );
-
-    setCommandes(commandesMaj);
-    localStorage.setItem('commandes', JSON.stringify(commandesMaj));
-    alert('Commande rejetée.');
-  };
-
-  const handleVoirDetails = (commande) => {
+  const handleVoirDetails = useCallback((commande) => {
     setSelectedCommande(commande);
     setShowDetailModal(true);
-  };
+  }, []);
 
-  const handleCreerCommande = () => {
-    if (!nouvelleCommande.client || nouvelleCommande.produits.length === 0) {
-      alert('Veuillez sélectionner un client et ajouter au moins un produit');
-      return;
+  const handleCreerCommandeAPI = useCallback(async (clientId, remarques) => {
+    try {
+      if (!clientId || selectedProducts.length === 0) {
+        alert('Veuillez sélectionner un client et ajouter au moins un produit');
+        return;
+      }
+
+      const produitsMap = {};
+      selectedProducts.forEach(produit => {
+        produitsMap[produit.id] = produit.quantite;
+      });
+
+      const commandeData = {
+        clientId: parseInt(clientId),
+        produits: produitsMap,
+        notes: remarques || '',
+        typeVente: 'SUR_COMMANDE'
+      };
+
+      await handleCreerCommande(commandeData);
+      
+      resetSelection();
+      setShowCreateModal(false);
+      alert('Commande créée avec succès !');
+      
+    } catch (error) {
+      console.error('Erreur lors de la création:', error);
+      alert('Erreur lors de la création de la commande: ' + error.message);
     }
-
-    const clientSelectionne = clients.find(c => c.id === parseInt(nouvelleCommande.client));
-    
-    // Générer numéro de commande
-    const date = new Date();
-    const annee = date.getFullYear();
-    const mois = (date.getMonth() + 1).toString().padStart(2, '0');
-    const jour = date.getDate().toString().padStart(2, '0');
-    const dernierNum = commandes.length > 0 
-      ? Math.max(...commandes.map(c => {
-          const match = c.numero?.match(/CMD(\d+)-/);
-          return match ? parseInt(match[1]) || 0 : 0;
-        }))
-      : 0;
-    const nouveauNum = (dernierNum + 1).toString().padStart(3, '0');
-    const numeroCommande = `CMD${nouveauNum}-${annee}${mois}${jour}`;
-    
-    // Calculer les totaux
-    const sousTotal = nouvelleCommande.produits.reduce((sum, p) => sum + toNumber(p.sousTotal), 0);
-    const total = sousTotal;
-
-    const nouvelleCommandeObj = {
-      id: Date.now(),
-      numero: numeroCommande,
-      client: clientSelectionne,
-      dateCreation: date.toISOString().split('T')[0],
-      dateLivraisonPrevue: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      produits: nouvelleCommande.produits.map(p => ({
-        id: p.id,
-        libelle: p.libelle,
-        quantite: toNumber(p.quantite),
-        prix: toNumber(p.prix),
-        sousTotal: toNumber(p.sousTotal)
-      })),
-      sousTotal: sousTotal,
-      remise: 0,
-      total: total,
-      statut: 'En attente',
-      remarques: nouvelleCommande.remarques
-    };
-
-    const nouvellesCommandes = [...commandes, nouvelleCommandeObj];
-    setCommandes(nouvellesCommandes);
-    localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
-
-    // Réinitialiser
-    setNouvelleCommande({
-      client: '',
-      produits: [],
-      remarques: ''
-    });
-    
-    setShowCreateModal(false);
-    alert('Commande créée avec succès !');
-  };
+  }, [selectedProducts, handleCreerCommande, resetSelection]);
 
   // Fonctions pour les icônes et couleurs
-  const getStatusIcon = (statut) => {
+  const getStatusIcon = useCallback((statut) => {
     switch(statut) {
       case 'Confirmé': return <CheckCircleIcon className="h-5 w-5" />;
       case 'En attente': return <ClockIcon className="h-5 w-5" />;
       case 'Refusé': return <XCircleIcon className="h-5 w-5" />;
       default: return <ClockIcon className="h-5 w-5" />;
     }
-  };
+  }, []);
 
-  const getStatusColor = (statut) => {
+  const getStatusColor = useCallback((statut) => {
     switch(statut) {
       case 'Confirmé': return 'bg-green-100 text-green-800';
       case 'En attente': return 'bg-yellow-100 text-yellow-800';
       case 'Refusé': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
+
+  const handleCloseCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    resetSelection();
+  }, [resetSelection]);
 
   return (
     <div className="space-y-6">
@@ -349,19 +236,19 @@ const OrdersPage = () => {
           </div>
         </div>
 
+        {/* Mettre à jour OrderFilters avec les bonnes props */}
         <OrderFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
-          selectedClient={selectedClient}
-          setSelectedClient={setSelectedClient}
+          selectedClient={selectedClientId} // Changé ici
+          setSelectedClient={setSelectedClientId} // Changé ici
+          selectedClientType={selectedClientType}
+          setSelectedClientType={setSelectedClientType}
           clients={clients}
-          onReset={() => {
-            setSearchTerm('');
-            setSelectedStatus('Tous');
-            setSelectedClient('Tous');
-          }}
+          clientTypes={clientTypes}
+          onReset={handleResetFilters}
         />
       </div>
 
@@ -371,8 +258,8 @@ const OrdersPage = () => {
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
-        onValider={handleValiderCommande}
-        onRejeter={handleRejeterCommande}
+        onValider={handleValiderCommandeAPI}
+        onRejeter={handleRejeterCommandeAPI}
         onVoirDetails={handleVoirDetails}
         getStatusIcon={getStatusIcon}
         getStatusColor={getStatusColor}
@@ -383,12 +270,16 @@ const OrdersPage = () => {
       {showCreateModal && (
         <CreateOrderModal
           show={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          onClose={handleCloseCreateModal}
           clients={clients}
           produits={produits}
-          nouvelleCommande={nouvelleCommande}
-          setNouvelleCommande={setNouvelleCommande}
-          onCreerCommande={handleCreerCommande}
+          selectedProducts={selectedProducts}
+          selectedClient={selectedClient}
+          onSelectClient={setSelectedClient}
+          onSelectProduct={handleSelectProduct}
+          onModifierQuantite={handleModifierQuantite}
+          onSupprimerProduit={handleSupprimerProduit}
+          onCreateCommande={handleCreerCommandeAPI}
           toNumber={toNumber}
         />
       )}

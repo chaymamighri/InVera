@@ -1,6 +1,7 @@
 // src/pages/dashboard/sales/products/components/OrderRecapModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { commandeService } from '../../../../../services/commandeService';
 
 const OrderRecapModal = ({
   showRecap,
@@ -9,8 +10,14 @@ const OrderRecapModal = ({
   selectedClient,
   remiseAppliquee,
   calculerTotaux,
-  handleEnregistrerCommande
+  setShowSuccessPopup,
+  setShowCreateOrder,
+  setSelectedProducts,
+  setSelectedClient
 }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
   if (!showRecap) return null;
 
   const totaux = calculerTotaux(selectedProducts, remiseAppliquee);
@@ -35,6 +42,85 @@ const OrderRecapModal = ({
       : number;
   };
 
+  const handleEnregistrerCommande = async () => {
+    // Validation
+    if (!selectedClient) {
+      alert('Veuillez sélectionner un client');
+      return;
+    }
+
+    if (selectedProducts.length === 0) {
+      alert('Veuillez sélectionner au moins un produit');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Préparer les données selon le format attendu par le backend Java
+      const commandeData = {
+        clientId: selectedClient.id,
+        produits: selectedProducts.map(p => ({
+          produitId: p.idProduit || p.id,
+          quantite: p.quantiteCommande || 1,
+          prixUnitaire: p.prixVente || p.prix || 0,
+          remisePourcentage: p.remiseTemporaire || 0
+        })),
+        remiseTotale: remiseAppliquee || 0,
+        dateCommande: new Date().toISOString(),
+        statut: 'EN_ATTENTE'
+      };
+
+      console.log('Données envoyées au backend:', commandeData);
+
+      // Appeler le service
+      const result = await commandeService.createCommande(commandeData);
+      
+      console.log('Réponse du backend:', result);
+      
+      if (result.success) {
+        // Fermer tous les modals
+        setShowRecap(false);
+        if (setShowCreateOrder) setShowCreateOrder(false);
+        
+        // Afficher le modal de succès
+        if (setShowSuccessPopup) {
+          setShowSuccessPopup(true);
+        }
+        
+        // Réinitialiser les sélections
+        if (setSelectedProducts) setSelectedProducts([]);
+        if (setSelectedClient) setSelectedClient(null);
+        
+        // Rafraîchir la page après 2 secondes
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Erreur lors de la création de la commande');
+      }
+      
+    } catch (error) {
+      console.error('Erreur complète:', error);
+      
+      // Extraire le message d'erreur
+      let errorMessage = 'Erreur lors de la création de la commande';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      alert(`Erreur: ${errorMessage}`);
+      
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -43,11 +129,34 @@ const OrderRecapModal = ({
             <h2 className="text-xl font-bold text-gray-800">Récapitulatif de la Commande</h2>
             <button
               onClick={() => setShowRecap(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              disabled={loading}
+              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Message d'erreur */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center text-red-700">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Loading overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-2xl">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-700 font-medium">Création de la commande en cours...</p>
+              </div>
+            </div>
+          )}
 
           {/* Informations client */}
           <div className="mb-6 bg-gray-50 rounded-xl p-6">
@@ -205,7 +314,6 @@ const OrderRecapModal = ({
                   </div>
                 </div>
               </div>
-          
             </div>
           </div>
 
@@ -214,7 +322,8 @@ const OrderRecapModal = ({
             <button
               type="button"
               onClick={() => setShowRecap(false)}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              disabled={loading}
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Retour
             </button>
@@ -226,7 +335,8 @@ const OrderRecapModal = ({
                   // Option: Imprimer le récapitulatif
                   window.print();
                 }}
-                className="px-6 py-2.5 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium flex items-center"
+                disabled={loading}
+                className="px-6 py-2.5 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -236,10 +346,22 @@ const OrderRecapModal = ({
               
               <button
                 onClick={handleEnregistrerCommande}
-                className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg hover:from-green-700 hover:to-emerald-600 font-medium flex items-center shadow-sm hover:shadow"
+                disabled={loading || !selectedClient || selectedProducts.length === 0}
+                className={`px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg hover:from-green-700 hover:to-emerald-600 font-medium flex items-center shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed ${
+                  loading ? 'opacity-70' : ''
+                }`}
               >
-                <DocumentTextIcon className="h-5 w-5 mr-2" />
-                Enregistrer la Commande
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    En cours...
+                  </>
+                ) : (
+                  <>
+                    <DocumentTextIcon className="h-5 w-5 mr-2" />
+                    Enregistrer la Commande
+                  </>
+                )}
               </button>
             </div>
           </div>
