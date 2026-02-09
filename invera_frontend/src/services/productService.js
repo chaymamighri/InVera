@@ -102,18 +102,14 @@ import { authHeader } from './authHeader';
   },
 
   // Synchroniser les stocks
-  syncStock: async (productId, quantity) => {
-    try {
-      const response = await api.post(
-        `/products/${productId}/sync-stock`,
-        { quantity },
-        { headers: authHeader() }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la synchronisation du stock:', error);
-      throw error;
-    }
+   syncStock: async (productId, quantity) => {
+    console.log(`⚠️ Synchronisation stock désactivée pour produit ${productId}`);
+    return {
+      success: true,
+      message: 'Synchronisation désactivée - Stock non mis à jour',
+      productId,
+      quantity
+    };
   },
 
   // Importer des produits

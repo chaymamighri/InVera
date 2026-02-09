@@ -535,7 +535,7 @@ const NewClientForm = ({
           ) : (
             <>
               <UserPlusIcon className="h-5 w-5 mr-2" />
-              Ajouter le client à la base de données
+              Ajouter Client
             </>
           )}
         </button>

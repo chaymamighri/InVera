@@ -1,15 +1,21 @@
 // src/pages/dashboard/sales/orders/components/OrderFilters.jsx
 import React from 'react';
-import { MagnifyingGlassIcon, FunnelIcon, UserIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { 
+  MagnifyingGlassIcon, 
+  FunnelIcon, 
+  UserIcon, 
+  ArrowPathIcon,
+  BuildingLibraryIcon 
+} from '@heroicons/react/24/outline';
 
 const OrderFilters = ({
   searchTerm,
   setSearchTerm,
   selectedStatus,
   setSelectedStatus,
-  selectedClient,
-  setSelectedClient,
-  clients,
+  selectedClientType,
+  setSelectedClientType,
+  clientTypes,
   onReset
 }) => {
   return (
@@ -29,11 +35,11 @@ const OrderFilters = ({
         </div>
       </div>
       
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-wrap">
         <div className="relative">
           <FunnelIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
           <select
-            className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
@@ -43,27 +49,28 @@ const OrderFilters = ({
             <option value="Refusé">Refusé</option>
           </select>
         </div>
+      
         
         <div className="relative">
-          <UserIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+          <BuildingLibraryIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
           <select
-            className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
+            className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
+            value={selectedClientType}
+            onChange={(e) => setSelectedClientType(e.target.value)}
           >
-            <option value="Tous">Tous les clients</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>{client.nom}</option>
+            <option value="Tous">Tous les types</option>
+            {clientTypes && clientTypes.map((type, index) => (
+              <option key={index} value={type}>{type}</option>
             ))}
           </select>
         </div>
         
-        <button
+           <button
           onClick={onReset}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+          className="p-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+          title="Réinitialiser les filtres"
         >
-          <ArrowPathIcon className="h-5 w-5 mr-2" />
-          Réinitialiser
+          <ArrowPathIcon className="h-5 w-5" />
         </button>
       </div>
     </div>
