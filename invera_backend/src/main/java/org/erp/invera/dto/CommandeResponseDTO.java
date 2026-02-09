@@ -40,7 +40,7 @@ public class CommandeResponseDTO {
     private String notes;
 
     // Produits de la commande (avec détails)
-    private List<ProduitCommandeDTO> produits;
+    private List<ProduitCommandeDetailDTO> produits;
 
     // Informations de remise calculée
     private Map<String, Object> detailsRemises;
@@ -79,7 +79,7 @@ public class CommandeResponseDTO {
 
         // Produits avec détails
         if (commande.getProduits() != null && !commande.getProduits().isEmpty()) {
-            dto.setProduits(ProduitCommandeDTO.fromMap(
+            dto.setProduits(ProduitCommandeDetailDTO.fromMap(
                     commande.getProduits(),
                     produitService
             ));
