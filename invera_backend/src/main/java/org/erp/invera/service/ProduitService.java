@@ -105,6 +105,14 @@ public class ProduitService {
         );
     }
 
+    public boolean verifierDisponibilite(Integer produitId, Integer quantiteDemandee) {
+        // Implémentez la logique de vérification de stock
+        // Par exemple:
+        Produit produit = produitRepository.findById(produitId)
+                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+
+        return produit.getQuantiteStock() >= quantiteDemandee;
+    }
     // Méthode privée pour mettre à jour le statut du stock
     private void updateStockStatus(Produit produit) {
         if (produit.getQuantiteStock() == null || produit.getSeuilMinimum() == null) {

@@ -91,7 +91,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/product/**").permitAll() // Note: j'ai corrigé le chemin (product -> products)
+                        .requestMatchers("/api/product/**").permitAll()
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .requestMatchers("/api/stocks/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")

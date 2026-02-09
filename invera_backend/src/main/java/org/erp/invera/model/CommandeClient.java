@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -33,6 +34,11 @@ public class CommandeClient {
     @Column(name = "statut", nullable = false)
     private StatutCommande statut = StatutCommande.EN_ATTENTE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_vente", nullable = false)
+    @ColumnDefault("'SUR_COMMANDE'") // Ajouter une valeur par défaut
+    private TypeVente typeVente = TypeVente.SUR_COMMANDE;
+
     @CreationTimestamp
     @Column(name = "date_creation", nullable = false)
     private LocalDateTime dateCreation;
@@ -55,15 +61,13 @@ public class CommandeClient {
     @Column(name = "notes")
     private String notes;
 
-    // Stockage des produits sous forme de JSON ou Map
     @ElementCollection
     @CollectionTable(name = "commande_produits",
             joinColumns = @JoinColumn(name = "commande_id"))
     @MapKeyColumn(name = "produit_id")
     @Column(name = "quantite")
-    private Map<Integer, Integer> produits = new HashMap<>(); // produitId -> quantite
+    private Map<Integer, Integer> produits = new HashMap<>();
 
-    // Méthode pour générer le numéro de commande
     @PrePersist
     public void generateNumeroCommande() {
         if (this.numeroCommande == null) {
@@ -72,17 +76,29 @@ public class CommandeClient {
         }
     }
 
-
     public enum StatutCommande {
         EN_ATTENTE("En attente"),
         CONFIRMEE("Confirmée"),
-        EN_PREPARATION("En préparation"),
-        LIVREE("Livrée"),
         ANNULEE("Annulée");
 
         private final String displayName;
 
         StatutCommande(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
+
+    public enum TypeVente {
+        DIRECTE("Vente directe"),
+        SUR_COMMANDE("Vente sur commande");
+
+        private final String displayName;
+
+        TypeVente(String displayName) {
             this.displayName = displayName;
         }
 

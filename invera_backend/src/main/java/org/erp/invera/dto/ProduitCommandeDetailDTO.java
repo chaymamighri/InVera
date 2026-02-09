@@ -15,7 +15,7 @@ import java.util.Optional;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProduitCommandeDTO {
+public class ProduitCommandeDetailDTO { // Renommé
     private Integer id;
     private String libelle;
     private String imageUrl;
@@ -28,11 +28,11 @@ public class ProduitCommandeDTO {
     private String statutStock;
 
     // Méthode pour créer une liste de DTOs à partir du Map
-    public static List<ProduitCommandeDTO> fromMap(
-            Map<Integer, Integer> produitsMap,
-            ProduitService produitService) {
+    public static List<ProduitCommandeDetailDTO> fromMap( // Renommé
+                                                          Map<Integer, Integer> produitsMap,
+                                                          ProduitService produitService) {
 
-        List<ProduitCommandeDTO> produits = new ArrayList<>();
+        List<ProduitCommandeDetailDTO> produits = new ArrayList<>();
 
         if (produitsMap == null || produitsMap.isEmpty()) {
             return produits;
@@ -42,13 +42,12 @@ public class ProduitCommandeDTO {
             Integer produitId = entry.getKey();
             Integer quantite = entry.getValue();
 
-            // Récupérer le produit avec Optional
             Optional<Produit> produitOpt = produitService.getProduitById(produitId);
 
             if (produitOpt.isPresent()) {
                 Produit produit = produitOpt.get();
 
-                ProduitCommandeDTO dto = new ProduitCommandeDTO();
+                ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO(); // Renommé
                 dto.setId(produitId);
                 dto.setLibelle(produit.getLibelle());
                 dto.setImageUrl(produit.getImageUrl());
@@ -59,21 +58,15 @@ public class ProduitCommandeDTO {
                 dto.setStatutStock(produit.getStatus() != null ?
                         produit.getStatus().name() : "INCONNU");
 
-                // Calculs
                 BigDecimal sousTotal = dto.getPrixUnitaire()
                         .multiply(BigDecimal.valueOf(quantite));
                 dto.setSousTotal(sousTotal);
-
-                // Ici vous pourriez calculer la remise spécifique au produit
-                // Pour l'instant, on met 0
                 dto.setRemiseProduit(BigDecimal.ZERO);
-
                 dto.setTotalLigne(sousTotal.subtract(dto.getRemiseProduit()));
 
                 produits.add(dto);
             } else {
-                // Produit non trouvé, créer un DTO minimal
-                ProduitCommandeDTO dto = new ProduitCommandeDTO();
+                ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO(); // Renommé
                 dto.setId(produitId);
                 dto.setLibelle("Produit non trouvé (ID: " + produitId + ")");
                 dto.setImageUrl(null);
