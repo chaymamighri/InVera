@@ -7,7 +7,7 @@ export const commandeService = {
   // Récupérer toutes les commandes
   async getAllCommandes() {
     try {
-      const response = await api.get('/commandes', { headers: authHeader() });
+      const response = await api.get('/commandes/getAllCommandes', { headers: authHeader() });
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des commandes:', error);

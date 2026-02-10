@@ -48,80 +48,173 @@ const useOrders = () => {
     }
   }, []);
 
-  const getProduitsAvecDetails = useCallback((produitsMap, produitsData) => {
-    if (!produitsMap || typeof produitsMap !== 'object') {
-      return [];
-    }
+ // CORRECTION de la fonction getProduitsAvecDetails
+const getProduitsAvecDetails = useCallback((produitsMap, produitsData) => {
+  console.log('🔍 getProduitsAvecDetails appelée');
+  console.log('🔍 produitsMap reçu:', produitsMap);
+  console.log('🔍 produitsData:', produitsData?.length || 0, 'produits');
+  
+  // CAS 1: produitsMap est déjà un tableau (venant du backend)
+  if (Array.isArray(produitsMap)) {
+    console.log('✅ produitsMap est déjà un tableau - retour direct');
+    return produitsMap.map(p => ({
+      id: p.id,
+      libelle: p.libelle || `Produit ${p.id}`,
+      prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
+      quantite: toNumber(p.quantite || 1),
+      sousTotal: toNumber(p.sousTotal || 0),
+      totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
+      categorie: p.categorie || '',
+      imageUrl: p.imageUrl || '',
+      quantiteStock: p.quantiteStock || 0,
+      statutStock: p.statutStock || 'INCONNU'
+    }));
+  }
+  
+  // CAS 2: produitsMap est un objet Map {produitId: quantite}
+  if (produitsMap && typeof produitsMap === 'object' && !Array.isArray(produitsMap)) {
+    console.log('🔄 Conversion Map -> Tableau');
     
     return Object.entries(produitsMap).map(([produitId, quantite]) => {
-      const produit = produitsData.find(p => 
-        p.id === parseInt(produitId) || 
-        p.idProduit === parseInt(produitId) ||
-        p.id === produitId ||
-        p.idProduit === produitId
-      );
+      const produitIdNum = parseInt(produitId);
+      console.log(`🔍 Traitement produit ID ${produitId}, quantité: ${quantite}`);
       
-      const correctId = produit?.id || produit?.idProduit || parseInt(produitId);
-      const prix = produit?.prix || produit?.prixVente || produit?.price || 0;
-      const quantiteNum = toNumber(quantite);
+      // Chercher le produit dans produitsData
+      let produit = null;
+      if (produitsData && Array.isArray(produitsData)) {
+        produit = produitsData.find(p => 
+          p.id === produitIdNum || 
+          p.idProduit === produitIdNum
+        );
+      }
       
-      return {
-        id: correctId,
-        libelle: produit?.libelle || produit?.nom || produit?.name || `Produit ${produitId}`,
-        quantite: quantiteNum,
-        prix: prix,
-        sousTotal: prix * quantiteNum,
-        produitOriginal: produit
-      };
+      if (produit) {
+        console.log(`✅ Produit trouvé: ${produit.libelle}`);
+        return {
+          id: produitIdNum,
+          libelle: produit.libelle || `Produit ${produitIdNum}`,
+          prixUnitaire: toNumber(produit.prix || produit.prixVente || 0),
+          quantite: toNumber(quantite),
+          sousTotal: toNumber(produit.prix || produit.prixVente || 0) * toNumber(quantite),
+          categorie: produit.categorie || '',
+          imageUrl: produit.image || produit.imageUrl || '',
+          quantiteStock: produit.quantiteStock || 0,
+          statutStock: produit.status || produit.statut || 'INCONNU'
+        };
+      } else {
+        console.log(`⚠️ Produit ${produitIdNum} non trouvé dans produitsData`);
+        return {
+          id: produitIdNum,
+          libelle: `Produit ${produitIdNum}`,
+          prixUnitaire: 0,
+          quantite: toNumber(quantite),
+          sousTotal: 0,
+          categorie: '',
+          imageUrl: '',
+          quantiteStock: 0,
+          statutStock: 'INCONNU'
+        };
+      }
     });
-  }, [toNumber]);
-
-  const transformCommandes = useCallback((commandesData, produitsData) => {
-    if (!Array.isArray(commandesData)) {
-      return [];
+  }
+  
+  console.log('⚠️ Format produitsMap non reconnu, retour tableau vide');
+  return [];
+}, [toNumber]);
+const transformCommandes = useCallback((commandesData, produitsData) => {
+  if (!Array.isArray(commandesData)) {
+    console.log('❌ commandesData n\'est pas un tableau:', typeof commandesData);
+    return [];
+  }
+  
+  console.log(`🔄 Transformation de ${commandesData.length} commandes`);
+  
+  return commandesData.map((commande, index) => {
+    if (!commande) return null;
+    
+    console.log(`🔍 Commande ${index}:`, {
+      id: commande.id,
+      numero: commande.numeroCommande,
+      statut: commande.statut,
+      produits: commande.produits
+    });
+    
+    // DEBUG: Vérifiez la structure des produits
+    console.log(`📦 Produits commande ${commande.id}:`, commande.produits);
+    console.log(`📦 Type produits:`, typeof commande.produits);
+    console.log(`📦 Est un array?`, Array.isArray(commande.produits));
+    
+    if (commande.produits && Array.isArray(commande.produits)) {
+      commande.produits.forEach((p, i) => {
+        console.log(`  Produit ${i}:`, {
+          id: p.id,
+          libelle: p.libelle,
+          quantite: p.quantite,
+          prixUnitaire: p.prixUnitaire
+        });
+      });
     }
     
-    return commandesData.map(commande => {
-      if (!commande) return null;
-      
-      const clientNom = commande.client?.nom || 
-                       commande.clientNom || 
-                       `${commande.client?.prenom || ''} ${commande.client?.nom || ''}`.trim() ||
-                       'Client inconnu';
-      
-      const clientId = commande.client?.id || commande.clientId;
-      const clientType = commande.client?.type || commande.clientType || 'STANDARD';
-      
-      return {
-        id: commande.id || commande.idCommande,
-        numero: commande.numeroCommande || commande.numero || commande.reference || `CMD-${commande.id || 'N/A'}`,
-        client: {
-          id: clientId,
-          nom: clientNom,
-          type: clientType,
-          telephone: commande.client?.telephone || '',
-          email: commande.client?.email || ''
-        },
-        dateCreation: commande.dateCreation || commande.dateCommande || commande.createdAt
-          ? new Date(commande.dateCreation || commande.dateCommande || commande.createdAt).toLocaleDateString('fr-FR')
-          : 'Non définie',
-        dateLivraisonPrevue: commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate
-          ? new Date(commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate).toLocaleDateString('fr-FR')
-          : 'Non définie',
-        produits: getProduitsAvecDetails(
-          commande.produits || commande.produitsMap || commande.products || {}, 
-          produitsData
-        ),
-        sousTotal: toNumber(commande.sousTotal || commande.montantHorsTaxe || commande.amountWithoutTax || 0),
-        remise: toNumber(commande.montantRemise || commande.remise || commande.discount || 0),
-        total: toNumber(commande.total || commande.montantTotal || commande.totalAmount || 0),
-        statut: getStatutDisplay(commande.statut || commande.status || commande.state),
-        remarques: commande.notes || commande.remarques || commande.remarks || '',
-        statutOriginal: commande.statut || commande.status || commande.state || 'EN_ATTENTE'
-      };
-    }).filter(Boolean);
-  }, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
-
+    const clientNom = commande.client?.nom || 
+                     commande.clientNom || 
+                     `${commande.client?.prenom || ''} ${commande.client?.nom || ''}`.trim() ||
+                     'Client inconnu';
+    
+    const clientId = commande.client?.id || commande.clientId;
+    const clientType = commande.client?.type || commande.clientType || 'STANDARD';
+    
+    // IMPORTANT: Utilisez directement commande.produits s'il est déjà un tableau
+    const produitsTransformes = commande.produits && Array.isArray(commande.produits) 
+      ? commande.produits.map(p => ({
+          id: p.id,
+          libelle: p.libelle || `Produit ${p.id}`,
+          prixUnitaire: toNumber(p.prixUnitaire || 0),
+          quantite: toNumber(p.quantite || 1),
+          sousTotal: toNumber(p.sousTotal || 0),
+          totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
+          categorie: p.categorie || '',
+          imageUrl: p.imageUrl || '',
+          quantiteStock: p.quantiteStock || 0,
+          statutStock: p.statutStock || 'INCONNU'
+        }))
+      : getProduitsAvecDetails(commande.produits, produitsData);
+    
+    console.log(`✅ Produits transformés pour commande ${commande.id}:`, produitsTransformes.length);
+    
+    const result = {
+      id: commande.id || commande.idCommande,
+      numero: commande.numeroCommande || commande.numero || commande.reference || `CMD-${commande.id || 'N/A'}`,
+      client: {
+        id: clientId,
+        nom: clientNom,
+        type: clientType,
+        telephone: commande.client?.telephone || '',
+        email: commande.client?.email || ''
+      },
+      dateCreation: commande.dateCreation || commande.dateCommande || commande.createdAt
+        ? new Date(commande.dateCreation || commande.dateCommande || commande.createdAt).toLocaleDateString('fr-FR')
+        : 'Non définie',
+      dateLivraisonPrevue: commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate
+        ? new Date(commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate).toLocaleDateString('fr-FR')
+        : 'Non définie',
+      produits: produitsTransformes, // CORRECTION ICI
+      sousTotal: toNumber(commande.sousTotal || commande.montantHorsTaxe || commande.amountWithoutTax || 0),
+      remise: toNumber(commande.montantRemise || commande.remise || commande.discount || 0),
+      total: toNumber(commande.total || commande.montantTotal || commande.totalAmount || 0),
+      statut: getStatutDisplay(commande.statut || commande.status || commande.state),
+      remarques: commande.notes || commande.remarques || commande.remarks || '',
+      statutOriginal: commande.statut || commande.status || commande.state || 'EN_ATTENTE'
+    };
+    
+    console.log(`📋 Commande ${result.id} transformée:`, {
+      numero: result.numero,
+      produitsCount: result.produits.length,
+      produits: result.produits
+    });
+    
+    return result;
+  }).filter(Boolean);
+}, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
   const transformClients = useCallback((clientsData) => {
     if (!Array.isArray(clientsData)) {
       if (clientsData && clientsData.clients && Array.isArray(clientsData.clients)) {
