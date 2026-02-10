@@ -8,8 +8,7 @@ import {
   MinusIcon,
   UserCircleIcon,
   ShoppingCartIcon,
-  CheckCircleIcon,
-  ClipboardDocumentCheckIcon
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
 // Badge simple pour le type de client
@@ -97,7 +96,8 @@ const CreateOrderModal = ({
   onModifierQuantite,
   onSupprimerProduit,
   onCreateCommande,
-  toNumber
+  toNumber,
+  isCreating = false
 }) => {
   const [searchProduit, setSearchProduit] = useState('');
   const [searchClient, setSearchClient] = useState('');
@@ -129,23 +129,45 @@ const CreateOrderModal = ({
   const montantRemise = totalProduits * remisePourcentage;
   const totalFinal = totalProduits - montantRemise;
 
-  const handleAddProduct = (produit) => {
-    const existing = selectedProducts.find(p => p.id === produit.id);
-    if (existing) {
-      onModifierQuantite(produit.id, existing.quantite + 1);
-    } else {
-      onSelectProduct({
-        ...produit,
-        quantite: 1
-      });
+ const handleAddProduct = (produit) => {
+  const existing = selectedProducts.find(p => p.id === produit.id);
+  if (existing) {
+    onModifierQuantite(produit.id, existing.quantite + 1);
+  } else {
+    // VÉRIFIEZ QUE LE PRODUIT A UN ID
+    if (!produit.id) {
+      console.error('Produit ajouté sans ID:', produit);
+      alert('Erreur: le produit n\'a pas d\'ID');
+      return;
     }
-  };
+    
+    onSelectProduct({
+      ...produit,
+      quantite: 1,
+      // Assurez-vous que le prix est bien présent
+      prix: produit.prix || produit.prixUnitaire || 0
+    });
+  }
+};
 
   const handleCreateOrder = () => {
     if (!selectedClient || selectedProducts.length === 0) {
       alert('Veuillez sélectionner un client et ajouter des produits');
       return;
     }
+    
+    // Vérifier les stocks
+    const produitSansStock = selectedProducts.find(p => {
+      const produitOriginal = produits.find(prod => prod.id === p.id);
+      const stockDisponible = produitOriginal?.quantiteStock || 0;
+      return p.quantite > stockDisponible;
+    });
+
+    if (produitSansStock) {
+      alert(`Quantité insuffisante pour "${produitSansStock.libelle}". Stock disponible: ${produitSansStock.quantiteStock}`);
+      return;
+    }
+
     onCreateCommande(selectedClient, notes);
   };
 
@@ -169,13 +191,12 @@ const CreateOrderModal = ({
 
   // Fonction pour gérer la sélection/désélection d'un client
   const handleClientClick = (clientId) => {
-    // Si le client est déjà sélectionné, on le désélectionne
+    if (isCreating) return; // Empêcher le changement pendant la création
+    
     if (selectedClient === clientId.toString()) {
       onSelectClient('');
-      // Si on désélectionne le client, on retourne à l'étape 1
       setCurrentStep(1);
     } else {
-      // Sinon, on sélectionne le nouveau client
       onSelectClient(clientId.toString());
       setCurrentStep(2);
     }
@@ -203,6 +224,7 @@ const CreateOrderModal = ({
               <button 
                 onClick={onClose}
                 className="p-1.5 hover:bg-blue-700 rounded"
+                disabled={isCreating}
               >
                 <XMarkIcon className="h-5 w-5 text-white" />
               </button>
@@ -230,6 +252,7 @@ const CreateOrderModal = ({
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 value={searchClient}
                 onChange={(e) => setSearchClient(e.target.value)}
+                disabled={isCreating}
               />
               <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             </div>
@@ -248,6 +271,7 @@ const CreateOrderModal = ({
                   <button
                     onClick={() => handleClientClick(parseInt(selectedClient))}
                     className="text-sm text-red-600 hover:text-red-700"
+                    disabled={isCreating}
                   >
                     Changer
                   </button>
@@ -268,7 +292,8 @@ const CreateOrderModal = ({
                       isSelected
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                    }`}
+                    } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isCreating}
                   >
                     <div className="flex items-center">
                       <UserCircleIcon className={`h-4 w-4 mr-2 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -301,16 +326,17 @@ const CreateOrderModal = ({
               <SimpleButton
                 onClick={onClose}
                 variant="outline"
+                disabled={isCreating}
               >
                 Annuler
               </SimpleButton>
               <SimpleButton
                 onClick={handleNextStep}
-                disabled={!clientSelectionne}
+                disabled={!clientSelectionne || isCreating}
                 variant="primary"
                 className="px-5"
               >
-                Suivant
+                {isCreating ? 'Chargement...' : 'Suivant'}
               </SimpleButton>
             </div>
           </div>
@@ -337,12 +363,12 @@ const CreateOrderModal = ({
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 rounded px-3 py-1.5">
                   <div className="text-xs text-blue-100">Total</div>
-                  {/* MODIFICATION ICI : texte total en vert */}
                   <div className="text-sm font-semibold text-white">{totalFinal.toFixed(2)} dt</div>
                 </div>
                 <button 
                   onClick={onClose}
                   className="p-1.5 hover:bg-blue-700 rounded"
+                  disabled={isCreating}
                 >
                   <XMarkIcon className="h-5 w-5 text-white" />
                 </button>
@@ -373,6 +399,7 @@ const CreateOrderModal = ({
                   <button
                     onClick={() => handleClientClick(parseInt(selectedClient))}
                     className="text-sm text-blue-600 hover:text-blue-700"
+                    disabled={isCreating}
                   >
                     ← Changer client
                   </button>
@@ -387,6 +414,7 @@ const CreateOrderModal = ({
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   value={searchProduit}
                   onChange={(e) => setSearchProduit(e.target.value)}
+                  disabled={isCreating}
                 />
                 <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               </div>
@@ -398,7 +426,7 @@ const CreateOrderModal = ({
                   const stock = produit.quantiteStock || 0;
                   
                   return (
-                    <div key={produit.id} className={`border rounded-lg p-3 ${selected ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+                    <div key={produit.id} className={`border rounded-lg p-3 ${selected ? 'border-blue-300 bg-blue-50' : 'border-gray-200'} ${isCreating ? 'opacity-50' : ''}`}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
@@ -411,8 +439,8 @@ const CreateOrderModal = ({
                           <div className="font-semibold text-blue-600 text-sm">{toNumber(produit.prix).toFixed(2)} dt</div>
                           <button
                             onClick={() => handleAddProduct(produit)}
-                            disabled={stock <= 0}
-                            className={`mt-1 px-2 py-1 text-xs rounded flex items-center ${stock > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500'}`}
+                            disabled={stock <= 0 || isCreating}
+                            className={`mt-1 px-2 py-1 text-xs rounded flex items-center ${stock > 0 && !isCreating ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500'}`}
                           >
                             <PlusIcon className="h-3 w-3 mr-1" />
                             {selected ? '+1' : 'Ajouter'}
@@ -427,23 +455,24 @@ const CreateOrderModal = ({
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => onModifierQuantite(produit.id, selected.quantite - 1)}
-                                disabled={selected.quantite <= 1}
-                                className="w-7 h-7 flex items-center justify-center bg-gray-100 rounded hover:bg-gray-200"
+                                disabled={selected.quantite <= 1 || isCreating}
+                                className="w-7 h-7 flex items-center justify-center bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
                               >
                                 <MinusIcon className="h-3 w-3" />
                               </button>
                               <span className="font-medium">{selected.quantite}</span>
                               <button
                                 onClick={() => onModifierQuantite(produit.id, selected.quantite + 1)}
-                                disabled={selected.quantite >= stock}
-                                className="w-7 h-7 flex items-center justify-center bg-gray-100 rounded hover:bg-gray-200"
+                                disabled={selected.quantite >= stock || isCreating}
+                                className="w-7 h-7 flex items-center justify-center bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
                               >
                                 <PlusIcon className="h-3 w-3" />
                               </button>
                             </div>
                             <button
                               onClick={() => onSupprimerProduit(produit.id)}
-                              className="text-red-600 hover:text-red-700 text-xs flex items-center"
+                              className="text-red-600 hover:text-red-700 text-xs flex items-center disabled:opacity-50"
+                              disabled={isCreating}
                             >
                               <TrashIcon className="h-3 w-3 mr-1" />
                               Retirer
@@ -458,15 +487,15 @@ const CreateOrderModal = ({
 
               {/* Navigation */}
               <div className="mt-6 flex justify-between">
-                <SimpleButton onClick={handlePrevStep} variant="outline">
+                <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
                   ← Retour
                 </SimpleButton>
                 <SimpleButton
                   onClick={handleNextStep}
-                  disabled={selectedProducts.length === 0}
+                  disabled={selectedProducts.length === 0 || isCreating}
                   variant="primary"
                 >
-                  Suivant → Valider
+                  {isCreating ? 'Chargement...' : 'Suivant → Valider'}
                 </SimpleButton>
               </div>
             </div>
@@ -489,8 +518,9 @@ const CreateOrderModal = ({
                     <ClientBadge type={clientSelectionne.type} />
                     <button
                       onClick={() => handleClientClick(parseInt(selectedClient))}
-                      className="text-xs text-red-600 hover:text-red-700"
+                      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
                       title="Changer de client"
+                      disabled={isCreating}
                     >
                       ✕
                     </button>
@@ -531,6 +561,7 @@ const CreateOrderModal = ({
                     onClick={handleClearCart}
                     variant="danger"
                     className="w-full mb-4"
+                    disabled={isCreating}
                   >
                     <TrashIcon className="h-3 w-3 mr-1 inline" />
                     Vider le panier
@@ -555,7 +586,6 @@ const CreateOrderModal = ({
                     <div className="border-t pt-3">
                       <div className="flex justify-between font-medium">
                         <span>Total</span>
-                        {/* MODIFICATION ICI : texte total en vert */}
                         <span className="text-green-600">{totalFinal.toFixed(2)} dt</span>
                       </div>
                     </div>
@@ -584,6 +614,7 @@ const CreateOrderModal = ({
             <button 
               onClick={onClose}
               className="p-1.5 hover:bg-blue-700 rounded"
+              disabled={isCreating}
             >
               <XMarkIcon className="h-5 w-5 text-white" />
             </button>
@@ -621,6 +652,7 @@ const CreateOrderModal = ({
               <button
                 onClick={() => handleClientClick(parseInt(selectedClient))}
                 className="text-sm text-blue-600 hover:text-blue-700"
+                disabled={isCreating}
               >
                 Changer
               </button>
@@ -640,6 +672,7 @@ const CreateOrderModal = ({
                     onClick={() => handleClientClick(parseInt(selectedClient))}
                     className="text-xs text-red-600 hover:text-red-700"
                     title="Changer de client"
+                    disabled={isCreating}
                   >
                     ✕
                   </button>
@@ -688,6 +721,7 @@ const CreateOrderModal = ({
                 <button
                   onClick={() => setCurrentStep(2)}
                   className="text-sm text-blue-600 hover:text-blue-700"
+                  disabled={isCreating}
                 >
                   ← Modifier
                 </button>
@@ -704,6 +738,7 @@ const CreateOrderModal = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Instructions supplémentaires..."
+              disabled={isCreating}
             />
           </div>
 
@@ -726,7 +761,6 @@ const CreateOrderModal = ({
               <div className="border-t pt-3">
                 <div className="flex justify-between font-medium">
                   <span>Total commande</span>
-                  {/* MODIFICATION ICI : texte total en vert */}
                   <span className="text-green-600 text-lg">{totalFinal.toFixed(2)} dt</span>
                 </div>
               </div>
@@ -735,17 +769,34 @@ const CreateOrderModal = ({
 
           {/* Boutons finaux */}
           <div className="flex justify-between pt-4 border-t">
-            <SimpleButton onClick={handlePrevStep} variant="outline">
+            <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
               ← Retour
             </SimpleButton>
             
             <div className="flex space-x-3">
-              <SimpleButton onClick={onClose} variant="outline">
+              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>
                 Annuler
               </SimpleButton>
-              <SimpleButton onClick={handleCreateOrder} variant="primary" className="px-6">
-                <CheckCircleIcon className="h-4 w-4 mr-1 inline" />
-                Créer la commande
+              <SimpleButton 
+                onClick={handleCreateOrder} 
+                variant="primary" 
+                className="px-6"
+                disabled={isCreating}
+              >
+                {isCreating ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin h-4 w-4 mr-2 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Création en cours...
+                  </span>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="h-4 w-4 mr-1 inline" />
+                    Créer la commande
+                  </>
+                )}
               </SimpleButton>
             </div>
           </div>

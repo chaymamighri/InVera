@@ -28,8 +28,6 @@ const OrderTable = ({
   onValider,
   onRejeter,
   onVoirDetails,
-  getStatusIcon,
-  getStatusColor,
   toNumber
 }) => {
   // États pour la pagination
@@ -221,6 +219,9 @@ const OrderTable = ({
             {currentCommandes.map((commande) => {
               const pourcentageRemise = calculerPourcentageRemise(commande.sousTotal, commande.remise);
               
+              // DEBUG: Vérifiez les données
+              console.log(`📊 Commande ${commande.id} - Produits:`, commande.produits);
+              
               return (
                 <tr key={commande.id} className="hover:bg-gray-50 transition-colors">
                   {/* N° Commande */}
@@ -264,39 +265,49 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                      {/* Produits */}
-                  <td className="px-4 py-3">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 flex items-center">
-                        <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-1.5">
-                          {commande.produits?.length || 0}
-                        </span>
-                        produit{commande.produits?.length !== 1 ? 's' : ''}
-                      </div>
-                      
-                      {/* CORRECTION : Supprimez la ligne dupliquée et gardez seulement ceci */}
-                      <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
-                        {/* Vérifiez d'abord si les produits existent */}
-                        {commande.produits && commande.produits.length > 0 ? (
-                          <>
-                            {/* Affichez les noms des produits */}
-                            {commande.produits.slice(0, 2).map((p, idx) => {
-                              // Essayez plusieurs propriétés possibles pour le nom
-                              const produitName = p.libelle || p.nom || p.name || 
-                                                  p.description || p.reference || 
-                                                  p.libelleProduit || `Produit ${idx + 1}`;
-                              return produitName;
-                            }).filter(name => name && name.trim() !== '').join(', ')}
-                            
-                            {/* Ajoutez "..." s'il y a plus de 2 produits */}
-                            {commande.produits.length > 2 && '...'}
-                          </>
-                        ) : (
-                          <span className="text-gray-400 italic">Aucun produit</span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
+                 {/* Produits - CORRECTION */}
+<td className="px-4 py-3">
+  <div>
+    <div className="text-sm font-medium text-gray-900 flex items-center">
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-1.5">
+        {commande.produits?.length || 0}
+      </span>
+      produit{commande.produits?.length !== 1 ? 's' : ''}
+    </div>
+    
+    <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
+      {(() => {
+        if (!commande.produits || commande.produits.length === 0) {
+          return <span className="text-gray-400 italic">Aucun produit</span>;
+        }
+        
+        // On prend les 2 premiers produits valides
+        const produitsAAfficher = commande.produits
+          .filter(p => p && (p.libelle || p.id_produit))
+          .slice(0, 2);
+        
+        if (produitsAAfficher.length === 0) {
+          return `${commande.produits.length} produit(s)`;
+        }
+
+        const affichage = produitsAAfficher.map(p => {
+          const libelle = p.libelle || `Produit ${p.id_produit || 'ID inconnu'}`;
+          const quantite = p.quantite ? `x${p.quantite}` : '';
+          return quantite ? `${libelle} (${quantite})` : libelle;
+        }).join(', ');
+
+        // Ajouter "..." si plus de 2 produits
+        const totalValides = commande.produits.filter(p => p && (p.libelle || p.id_produit)).length;
+        if (totalValides > 2) {
+          return `${affichage} + ${totalValides - 2} autre(s)`;
+        }
+
+        return affichage;
+      })()}
+    </div>
+  </div>
+</td>
+
 
                   {/* Montant Final avec Remise */}
                   <td className="px-4 py-3">
@@ -323,17 +334,19 @@ const OrderTable = ({
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <button className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center justify-center w-32 ${
-                        commande.statut === 'En attente' 
+                        commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente'
                           ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300' 
-                          : commande.statut === 'Confirmé'
+                          : commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé'
                           ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
                           : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
                       } transition-colors`}>
-                        {commande.statut === 'En attente' && <ClockIcon className="h-3.5 w-3.5 mr-1.5" />}
-                        {commande.statut === 'Confirmé' && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
-                        {commande.statut === 'Refusé' && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && <ClockIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
                         <span className="font-semibold">
-                          {commande.statut}
+                          {commande.statut === 'EN_ATTENTE' ? 'En attente' : 
+                           commande.statut === 'CONFIRMEE' ? 'Confirmé' : 
+                           commande.statut === 'ANNULEE' ? 'Refusé' : commande.statut}
                         </span>
                       </button>
                     </div>
@@ -350,7 +363,7 @@ const OrderTable = ({
                         <EyeIcon className="h-4 w-4" />
                       </button>
                       
-                      {commande.statut === 'En attente' && (
+                      {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && (
                         <>
                           <button
                             onClick={() => onValider(commande.id)}
@@ -370,7 +383,8 @@ const OrderTable = ({
                         </>
                       )}
 
-                      {(commande.statut === 'Confirmé' || commande.statut === 'Refusé') && (
+                      {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' || 
+                        commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
                         <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300">
                           Traitée
                         </span>

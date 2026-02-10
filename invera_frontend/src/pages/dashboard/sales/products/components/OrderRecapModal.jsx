@@ -60,19 +60,19 @@ const OrderRecapModal = ({
     try {
       // Préparer les données selon le format attendu par le backend Java
       const commandeData = {
-        clientId: selectedClient.id,
-        produits: selectedProducts.map(p => ({
-          produitId: p.idProduit || p.id,
-          quantite: p.quantiteCommande || 1,
-          prixUnitaire: p.prixVente || p.prix || 0,
-          remisePourcentage: p.remiseTemporaire || 0
-        })),
-        remiseTotale: remiseAppliquee || 0,
-        dateCommande: new Date().toISOString(),
-        statut: 'EN_ATTENTE'
-      };
+  clientId: selectedClient.id,
+  produits: selectedProducts.map(p => ({
+    produitId: p.idProduit || p.id, 
+    quantite: p.quantiteCommande || 1,
+    prixUnitaire: p.prixVente || p.prix || 0,
+    remisePourcentage: p.remiseTemporaire || 0
+  })),
+  remiseTotale: remiseAppliquee || 0,
+  notes: "Commande créée depuis l'interface",
+  statut: 'EN_ATTENTE'
+};
 
-      console.log('Données envoyées au backend:', commandeData);
+console.log('Données envoyées au backend:', JSON.stringify(commandeData, null, 2));
 
       // Appeler le service
       const result = await commandeService.createCommande(commandeData);

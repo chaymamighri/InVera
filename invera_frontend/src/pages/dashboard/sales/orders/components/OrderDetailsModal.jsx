@@ -90,7 +90,7 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
   );
 };
 
-// Composant de produit simplifié
+// Composant de produit simplifié (pour la version alternative)
 const ProductItem = ({ produit, index }) => {
   const hasUsefulData = produit.libelle || produit.categorie || produit.description;
   
@@ -165,16 +165,6 @@ const OrderDetailsModal = ({
   const client = commande.client || {};
   const hasClientInfo = client.nom || client.prenom || client.telephone || client.email || client.adresse;
   
-  // Filtrer les produits pour n'afficher que ceux avec des données utiles
-  const produitsUtiles = (commande.produits || []).filter(produit => 
-    produit.libelle || produit.categorie || produit.description || produit.reference
-  );
-
-  // Vérifier si on a des sous-totaux utiles
-  const hasSousTotals = produitsUtiles.some(produit => 
-    produit.sousTotal && parseFloat(produit.sousTotal) > 0
-  );
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
@@ -325,224 +315,212 @@ const OrderDetailsModal = ({
             </div>
           </div>
 
-                   {/* Section 2 : Produits commandés - TABLEAU */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                  <CubeIcon className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-800">Produits commandés</h3>
-                  <p className="text-sm text-gray-600">Articles inclus dans la commande</p>
-                </div>
-              </div>
-              <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1.5 rounded-full">
-                {produitsUtiles.length} article{produitsUtiles.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+     {/* Section 2 : Produits commandés - TABLEAU */}
+<div className="mb-6">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+    <div className="flex items-center">
+      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mr-2.5">
+        <CubeIcon className="h-4 w-4 text-emerald-600" />
+      </div>
+      <div>
+        <h3 className="font-medium text-gray-900 text-sm">Produits Commandés</h3>
+        <p className="text-xs text-gray-500">Détails des articles</p>
+      </div>
+    </div>
+    <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
+      {commande.produits?.length || 0} article{commande.produits?.length !== 1 ? 's' : ''}
+    </span>
+  </div>
 
-            {produitsUtiles.length > 0 ? (
-              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          #
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Produit
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Catégorie
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Référence
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Qté
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Prix unitaire
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Sous-total
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Remise
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {produitsUtiles.map((produit, index) => {
-                        // Calculer les valeurs
-                        const prixUnitaire = parseFloat(produit.prix) || 0;
-                        const quantite = parseFloat(produit.quantite) || 0;
-                        const sousTotal = parseFloat(produit.sousTotal) || (prixUnitaire * quantite);
-                        const remiseProduit = parseFloat(produit.remise) || 0;
-                        const totalProduit = sousTotal - remiseProduit;
-                        const tauxRemiseProduit = sousTotal > 0 ? Math.round((remiseProduit / sousTotal) * 100) : 0;
+  {/* Section Produits */}
+  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
+    {commande.produits?.length > 0 ? (
+      <>
+        {/* Tableau */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Produit</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Catégorie</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Qté</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Prix unit.</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Sous-total</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Remise</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
+              </tr>
+            </thead>
+            
+            <tbody className="divide-y divide-gray-200">
+              {commande.produits.map((produit, index) => {
+                const quantite = parseFloat(produit.quantite) || 0;
+                const prixUnitaire = parseFloat(produit.prixUnitaire) || 0;
+                const sousTotal = quantite * prixUnitaire;
+                const remiseProduit = parseFloat(produit.remiseProduit) || 0;
+                const tauxRemiseProduit = parseFloat(produit.tauxRemiseProduit) || 0;
+                const totalProduit = sousTotal - remiseProduit;
 
-                        return (
-                          <tr key={produit.id || index} className="hover:bg-gray-50 transition-colors">
-                            {/* Numéro */}
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-xs font-medium text-blue-600">{index + 1}</span>
-                                </div>
-                              </div>
-                            </td>
-                            
-                            {/* Produit */}
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <div className="font-medium text-gray-900">
-                                  {produit.libelle || 'Produit sans nom'}
-                                </div>
-                                {produit.description && (
-                                  <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
-                                    {produit.description}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            
-                            {/* Catégorie */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center">
-                                {produit.categorie ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {produit.categorie}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 text-sm">-</span>
-                                )}
-                              </div>
-                            </td>
-                            
-                            {/* Référence */}
-                            <td className="px-4 py-3">
-                              <div className="text-sm text-gray-900">
-                                {produit.reference || (
-                                  <span className="text-gray-400">N/A</span>
-                                )}
-                              </div>
-                            </td>
-                            
-                            {/* Quantité */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center">
-                                <div className="font-medium text-gray-900">
-                                  {quantite}
-                                </div>
-                                {produit.uniteMesure && (
-                                  <span className="ml-1 text-xs text-gray-500">
-                                    {produit.uniteMesure}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            
-                            {/* Prix unitaire */}
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium text-blue-600">
-                                {prixUnitaire.toFixed(2)} dt
-                              </div>
-                            </td>
-                            
-                            {/* Sous-total */}
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium text-gray-900">
-                                {sousTotal.toFixed(2)} dt
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {quantite} × {prixUnitaire.toFixed(2)} dt
-                              </div>
-                            </td>
-                            
-                            {/* Remise */}
-                            <td className="px-4 py-3">
-                              {remiseProduit > 0 ? (
-                                <div className="flex flex-col">
-                                  <div className="text-sm font-medium text-green-600">
-                                    -{remiseProduit.toFixed(2)} dt
-                                  </div>
-                                  <div className="text-xs text-green-500">
-                                    ({tauxRemiseProduit}%)
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-400">-</div>
-                              )}
-                            </td>
-                            
-                            {/* Total */}
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <div className="text-sm font-bold text-green-600">
-                                  {totalProduit.toFixed(2)} dt
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Net à payer
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      
-                      {/* Ligne de totaux */}
-                      <tr className="bg-gray-50">
-                        <td colSpan="6" className="px-4 py-3 text-right font-medium text-gray-900">
-                          Totaux:
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-900">
-                          {produitsUtiles.reduce((sum, p) => sum + (parseFloat(p.sousTotal) || 0), 0).toFixed(2)} dt
-                        </td>
-                        <td className="px-4 py-3 font-medium text-green-600">
-                          -{produitsUtiles.reduce((sum, p) => sum + (parseFloat(p.remise) || 0), 0).toFixed(2)} dt
-                        </td>
-                        <td className="px-4 py-3 font-bold text-green-600">
-                          {produitsUtiles.reduce((sum, p) => {
-                            const sousTotal = parseFloat(p.sousTotal) || 0;
-                            const remise = parseFloat(p.remise) || 0;
-                            return sum + (sousTotal - remise);
-                          }, 0).toFixed(2)} dt
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                
-                {/* Résumé des produits */}
-                <div className="border-t border-gray-200 p-4 bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                      Affichage des produits avec données utiles
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">{produitsUtiles.length}</span> sur <span className="font-medium">{(commande.produits || []).length}</span> produits
-                    </div>
+                return (
+                  <tr key={produit.id || index} className="hover:bg-gray-50/50">
+                    {/* Produit - SEULEMENT LE LIBELLÉ COMPLET */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        {produit.imageUrl && (
+                          <div className="relative flex-shrink-0">
+                            <img 
+                              src={produit.imageUrl}
+                              alt={produit.libelle}
+                              className="h-8 w-8 rounded object-cover border border-gray-200"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900">
+                            {produit.libelle || `Produit ${produit.id}`}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Catégorie */}
+                    <td className="px-4 py-3">
+                      {produit.categorie ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          {produit.categorie}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    
+                    {/* Quantité */}
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <div className="font-medium text-gray-900">
+                          {quantite.toLocaleString('fr-FR')}
+                          {produit.uniteMesure && (
+                            <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
+                          )}
+                        </div>
+                        {produit.quantiteStock !== undefined && (
+                          <div className="text-xs text-gray-500">
+                            Stock: {produit.quantiteStock}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    
+                    {/* Prix unitaire */}
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {prixUnitaire.toFixed(2)} dt
+                    </td>
+                    
+                    {/* Sous-total */}
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <div className="font-medium text-gray-900">{sousTotal.toFixed(2)} dt</div>
+                        <div className="text-xs text-gray-500">
+                          {quantite} × {prixUnitaire.toFixed(2)}
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Remise */}
+                    <td className="px-4 py-3">
+                      {remiseProduit > 0 ? (
+                        <div className="space-y-1">
+                          <div className="font-medium text-red-600 text-sm">-{remiseProduit.toFixed(2)} dt</div>
+                          <div className="text-xs text-red-500">{tauxRemiseProduit}%</div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    
+                    {/* Total produit */}
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <div className="font-bold text-green-700">{totalProduit.toFixed(2)} dt</div>
+                        <div className="text-xs text-gray-500">Net</div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            
+            {/* Totaux */}
+            <tfoot className="bg-gray-50">
+              <tr className="font-medium border-t border-gray-300">
+                <td colSpan="4" className="px-4 py-3 text-right text-gray-600 text-sm">
+                  Sous-total
+                </td>
+                <td className="px-4 py-3 text-gray-900">
+                  <div className="text-sm font-medium">
+                    {commande.produits.reduce((sum, p) => sum + ((parseFloat(p.quantite) || 0) * (parseFloat(p.prixUnitaire) || 0)), 0).toFixed(2)} dt
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 border border-gray-200 rounded-xl bg-gray-50">
-                <CubeIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">Aucun détail produit disponible</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {(commande.produits || []).length > 0 
-                    ? `${(commande.produits || []).length} produits sans détails` 
-                    : 'Aucun produit dans cette commande'}
-                </p>
-              </div>
-            )}
-          </div>
+                </td>
+                <td className="px-4 py-3 text-red-600">
+                  <div className="text-sm font-medium">
+                    -{commande.produits.reduce((sum, p) => sum + (parseFloat(p.remiseProduit) || 0), 0).toFixed(2)} dt
+                  </div>
+                </td>
+                <td className="px-4 py-3 font-bold text-green-700">
+                  <div className="text-sm">
+                    {commande.produits.reduce((sum, p) => {
+                      const qty = parseFloat(p.quantite) || 0;
+                      const prix = parseFloat(p.prixUnitaire) || 0;
+                      const remise = parseFloat(p.remiseProduit) || 0;
+                      return sum + (qty * prix - remise);
+                    }, 0).toFixed(2)} dt
+                  </div>
+                </td>
+              </tr>
+              
+              {/* Remise globale */}
+              {toNumber(commande.tauxRemise) > 0 && (
+                <tr className="bg-green-50">
+                  <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
+                    <div className="text-sm font-medium flex items-center justify-end gap-1">
+                      <TagIcon className="h-3 w-3 text-green-600" />
+                      Remise globale ({toNumber(commande.tauxRemise).toFixed(1)}%)
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="font-bold text-red-600 text-sm">
+                      -{toNumber(commande.montantRemise).toFixed(2)} dt
+                    </div>
+                  </td>
+                </tr>
+              )}
+              
+              {/* Total final */}
+              <tr className="bg-green-50 border-t border-green-200">
+                <td colSpan="6" className="px-4 py-3 text-right text-gray-900">
+                  <div className="font-bold">Total commande</div>
+                </td>
+                <td className="px-4 py-3 font-bold text-green-700">
+                  <div className="text-base">{toNumber(commande.total).toFixed(2)} dt</div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </>
+    ) : (
+      <div className="text-center py-10">
+        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+          <CubeIcon className="h-6 w-6 text-gray-400" />
+        </div>
+        <h4 className="text-sm font-medium text-gray-700 mb-1">Aucun produit</h4>
+        <p className="text-xs text-gray-500 max-w-xs mx-auto">
+          Cette commande ne contient aucun produit.
+        </p>
+      </div>
+    )}
+  </div>
+</div>
 
           {/* Section 3 : Récapitulatif financier */}
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-100 mb-6">
