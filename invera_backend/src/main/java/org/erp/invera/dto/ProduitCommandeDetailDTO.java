@@ -15,7 +15,7 @@ import java.util.Optional;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProduitCommandeDetailDTO { // Renommé
+public class ProduitCommandeDetailDTO {
     private Integer id;
     private String libelle;
     private String imageUrl;
@@ -26,11 +26,12 @@ public class ProduitCommandeDetailDTO { // Renommé
     private BigDecimal totalLigne;
     private Integer quantiteStock;
     private String statutStock;
+    private String categorie;
+    private String uniteMesure;
 
-    // Méthode pour créer une liste de DTOs à partir du Map
-    public static List<ProduitCommandeDetailDTO> fromMap( // Renommé
-                                                          Map<Integer, Integer> produitsMap,
-                                                          ProduitService produitService) {
+    public static List<ProduitCommandeDetailDTO> fromMap(
+            Map<Integer, Integer> produitsMap,
+            ProduitService produitService) {
 
         List<ProduitCommandeDetailDTO> produits = new ArrayList<>();
 
@@ -42,40 +43,52 @@ public class ProduitCommandeDetailDTO { // Renommé
             Integer produitId = entry.getKey();
             Integer quantite = entry.getValue();
 
-            Optional<Produit> produitOpt = produitService.getProduitById(produitId);
+            try {
+                Optional<Produit> produitOpt = produitService.getProduitById(produitId);
 
-            if (produitOpt.isPresent()) {
-                Produit produit = produitOpt.get();
+                if (produitOpt.isPresent()) {
+                    Produit produit = produitOpt.get();
 
-                ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO(); // Renommé
-                dto.setId(produitId);
-                dto.setLibelle(produit.getLibelle());
-                dto.setImageUrl(produit.getImageUrl());
-                dto.setPrixUnitaire(BigDecimal.valueOf(
-                        produit.getPrixVente() != null ? produit.getPrixVente() : 0.0));
-                dto.setQuantite(quantite);
-                dto.setQuantiteStock(produit.getQuantiteStock());
-                dto.setStatutStock(produit.getStatus() != null ?
-                        produit.getStatus().name() : "INCONNU");
+                    ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
 
-                BigDecimal sousTotal = dto.getPrixUnitaire()
-                        .multiply(BigDecimal.valueOf(quantite));
-                dto.setSousTotal(sousTotal);
-                dto.setRemiseProduit(BigDecimal.ZERO);
-                dto.setTotalLigne(sousTotal.subtract(dto.getRemiseProduit()));
+                    dto.setId(produit.getIdProduit());
+                    dto.setLibelle(produit.getLibelle());
+                    dto.setImageUrl(produit.getImageUrl());
+                    dto.setCategorie(produit.getCategorie());
+                    dto.setUniteMesure(produit.getUniteMesure());
 
-                produits.add(dto);
-            } else {
-                ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO(); // Renommé
-                dto.setId(produitId);
-                dto.setLibelle("Produit non trouvé (ID: " + produitId + ")");
-                dto.setImageUrl(null);
-                dto.setPrixUnitaire(BigDecimal.ZERO);
-                dto.setQuantite(quantite);
-                dto.setSousTotal(BigDecimal.ZERO);
-                dto.setRemiseProduit(BigDecimal.ZERO);
-                dto.setTotalLigne(BigDecimal.ZERO);
-                produits.add(dto);
+                    // Prix
+                    dto.setPrixUnitaire(BigDecimal.valueOf(
+                            produit.getPrixVente() != null ? produit.getPrixVente() : 0.0));
+
+                    // Quantité
+                    dto.setQuantite(quantite != null && quantite > 0 ? quantite : 1);
+
+                    // Stock
+                    dto.setQuantiteStock(produit.getQuantiteStock());
+                    dto.setStatutStock(produit.getStatus() != null ?
+                            produit.getStatus().name() : "INCONNU");
+
+                    // Calculs
+                    BigDecimal sousTotal = dto.getPrixUnitaire()
+                            .multiply(BigDecimal.valueOf(dto.getQuantite()));
+                    dto.setSousTotal(sousTotal);
+                    dto.setRemiseProduit(BigDecimal.ZERO); // Pour l'instant
+                    dto.setTotalLigne(sousTotal);
+
+                    produits.add(dto);
+                } else {
+                    // Produit non trouvé - créez un DTO avec l'ID
+                    ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
+                    dto.setId(produitId);
+                    dto.setLibelle("Produit ID: " + produitId);
+                    dto.setQuantite(quantite != null ? quantite : 1);
+                    dto.setPrixUnitaire(BigDecimal.ZERO);
+                    dto.setSousTotal(BigDecimal.ZERO);
+                    produits.add(dto);
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur produit ID " + produitId + ": " + e.getMessage());
             }
         }
 

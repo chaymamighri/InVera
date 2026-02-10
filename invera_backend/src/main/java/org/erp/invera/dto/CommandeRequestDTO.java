@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CommandeRequestDTO {
     private Integer clientId;
-    private List<ProduitCommandeRequestDTO> produits; // Utiliser la nouvelle classe
+    private List<ProduitCommandeRequestDTO> produits;
     private BigDecimal remiseTotale;
     private LocalDateTime dateCommande;
     private String statut;
