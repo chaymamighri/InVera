@@ -5,6 +5,7 @@ import org.erp.invera.dto.CommandeResponseDTO;
 import org.erp.invera.dto.ProduitCommandeDetailDTO;
 import org.erp.invera.dto.ProduitCommandeRequestDTO;
 import org.erp.invera.model.CommandeClient;
+import org.erp.invera.model.Produit;
 import org.erp.invera.repository.CommandeClientRepository;
 import org.erp.invera.service.CommandeClientService;
 import org.erp.invera.service.ClientService;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -39,7 +41,7 @@ public class CommandeClientController {
         this.produitService = produitService;
     }
 
-    @GetMapping
+    @GetMapping("/getAllCommandes")
     public ResponseEntity<Map<String, Object>> getAllCommandes(
             @RequestParam(required = false) String statut,
             @RequestParam(required = false) Integer clientId) {
@@ -301,6 +303,51 @@ public class CommandeClientController {
             errorResponse.put("success", false);
             errorResponse.put("message", "Erreur: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+
+    @GetMapping("/{id}/test-produit")
+    public ResponseEntity<Map<String, Object>> testProduitMethod(@PathVariable Integer id) {
+        try {
+            // Récupérez un produit
+            Optional<Produit> produitOpt = produitService.getProduitById(1);
+
+            Map<String, Object> response = new HashMap<>();
+
+            if (produitOpt.isPresent()) {
+                Produit p = produitOpt.get();
+
+                // Testez les méthodes
+                response.put("libelle", p.getLibelle());
+
+                // Test ID méthodes
+                try {
+                    response.put("getIdProduit", p.getIdProduit());
+                } catch (Exception e) {
+                    response.put("getIdProduit_error", e.getMessage());
+                }
+
+                try {
+                    // Lombok ne génère pas getId() car l'attribut s'appelle idProduit
+                    response.put("getId", "N'EXISTE PAS - Utilisez getIdProduit()");
+                } catch (Exception e) {
+                    response.put("getId_error", e.getMessage());
+                }
+
+                // Vérifiez la classe
+                response.put("classe", p.getClass().getName());
+                response.put("methodes", p.getClass().getDeclaredMethods());
+            }
+
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }
