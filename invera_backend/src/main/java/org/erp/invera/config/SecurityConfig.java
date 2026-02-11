@@ -42,8 +42,8 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
+    /* @Bean
+      public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
@@ -53,7 +53,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
-    }
+    } */
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -101,7 +101,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/stocks/**").hasAnyRole("ADMIN","RESPONSABLE_ACHAT")
                         .anyRequest().authenticated()
                 )
-                .authenticationProvider(authenticationProvider())
+                //.authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
