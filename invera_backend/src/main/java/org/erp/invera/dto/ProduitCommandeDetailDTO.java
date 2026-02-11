@@ -48,50 +48,38 @@ public class ProduitCommandeDetailDTO {
 
                 if (produitOpt.isPresent()) {
                     Produit produit = produitOpt.get();
-
                     ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
 
                     dto.setId(produit.getIdProduit());
-                    dto.setLibelle(produit.getLibelle());
+                    dto.setLibelle(produit.getLibelle());  // ✅ Vrai libellé
                     dto.setImageUrl(produit.getImageUrl());
                     dto.setCategorie(produit.getCategorie());
                     dto.setUniteMesure(produit.getUniteMesure());
-
-                    // Prix
                     dto.setPrixUnitaire(BigDecimal.valueOf(
                             produit.getPrixVente() != null ? produit.getPrixVente() : 0.0));
-
-                    // Quantité
                     dto.setQuantite(quantite != null && quantite > 0 ? quantite : 1);
-
-                    // Stock
                     dto.setQuantiteStock(produit.getQuantiteStock());
                     dto.setStatutStock(produit.getStatus() != null ?
                             produit.getStatus().name() : "INCONNU");
 
-                    // Calculs
                     BigDecimal sousTotal = dto.getPrixUnitaire()
                             .multiply(BigDecimal.valueOf(dto.getQuantite()));
                     dto.setSousTotal(sousTotal);
-                    dto.setRemiseProduit(BigDecimal.ZERO); // Pour l'instant
+                    dto.setRemiseProduit(BigDecimal.ZERO);
                     dto.setTotalLigne(sousTotal);
 
                     produits.add(dto);
                 } else {
-                    // Produit non trouvé - créez un DTO avec l'ID
-                    ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
-                    dto.setId(produitId);
-                    dto.setLibelle("Produit ID: " + produitId);
-                    dto.setQuantite(quantite != null ? quantite : 1);
-                    dto.setPrixUnitaire(BigDecimal.ZERO);
-                    dto.setSousTotal(BigDecimal.ZERO);
-                    produits.add(dto);
+                    // ❌ PRODUIT NON TROUVÉ - NE PAS AJOUTER
+                    System.out.println("⚠️ Produit ID " + produitId + " non trouvé en base - ignoré");
+                    // continue; - Ne rien ajouter
                 }
             } catch (Exception e) {
-                System.out.println("Erreur produit ID " + produitId + ": " + e.getMessage());
+                System.out.println("❌ Erreur produit ID " + produitId + ": " + e.getMessage());
             }
         }
 
+        System.out.println("✅ fromMap retourne " + produits.size() + " produits trouvés");
         return produits;
     }
 }
