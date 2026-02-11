@@ -61,7 +61,7 @@ const LoginPage = () => {
                 <img 
                   src={logo} 
                   alt="InVera ERP Logo" 
-                  className="w-full max-w-xs md:max-w-sm h-auto"
+                  className="w-40 md:w-48 h-auto"
                   onError={(e) => {
                     console.error('Erreur de chargement du logo');
                     e.target.style.display = 'none';
@@ -131,23 +131,24 @@ const LoginPage = () => {
       </div>
 
       {/* Section droite - Formulaire login */}
-      <div className="md:w-1/2 flex flex-col">
-        <div className="flex-1 flex items-center justify-center p-6 md:p-12">
-          <div className="w-full max-w-md">
-            <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-              <LoginForm 
-                onSubmit={handleSubmit} 
-                loading={loading}
-                savedEmail={getSavedEmail()}
-              />
-              {loginError && !loading && (
-                <div className="mt-4 text-center text-sm text-red-600">
-                  {loginError}
-                </div>
-              )}
-            </div>
+     <div className="md:w-1/2 flex flex-col">
+  <div className="flex-1 flex items-center justify-center p-6 md:p-12">
+    {/* ✅ Utilisez la même classe max-w-lg ou max-w-xl */}
+    <div className="w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <LoginForm 
+          onSubmit={handleSubmit} 
+          loading={loading}
+          savedEmail={getSavedEmail()}
+        />
+        {loginError && !loading && (
+          <div className="mt-4 text-center text-sm text-red-600">
+            {loginError}
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+  </div>
 
         {/* Footer */}
         <div className="hidden md:block p-8">
