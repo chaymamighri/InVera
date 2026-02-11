@@ -48,23 +48,25 @@ public class CommandeClientController {
         try {
             List<CommandeClient> commandes;
 
-            // Récupérer les commandes selon les filtres
             if (statut != null && clientId != null) {
-                commandes = commandeClientRepository.findByStatutAndClientId(
+                commandes = commandeClientRepository.findByStatutAndClientIdWithDetails(
                         CommandeClient.StatutCommande.valueOf(statut), clientId);
             } else if (statut != null) {
-                commandes = commandeClientRepository.findByStatut(
+                commandes = commandeClientRepository.findByStatutWithDetails(
                         CommandeClient.StatutCommande.valueOf(statut));
             } else if (clientId != null) {
-                commandes = commandeClientRepository.findByClientId(clientId);
+                commandes = commandeClientRepository.findByClientIdWithDetails(clientId);
             } else {
-                commandes = commandeClientRepository.findAll();
+                commandes = commandeClientRepository.findAllWithDetails();
             }
 
-            // Convertir en DTOs
+            // ✅ CORRECTION ICI - Utiliser la méthode AVEC services
             List<CommandeResponseDTO> commandesDTO = commandes.stream()
                     .map(commande -> CommandeResponseDTO.fromEntity(
-                            commande, clientService, produitService))
+                            commande,
+                            clientService,
+                            produitService
+                    ))
                     .collect(Collectors.toList());
 
             Map<String, Object> response = new HashMap<>();
@@ -74,15 +76,16 @@ public class CommandeClientController {
             response.put("message", "Commandes récupérées avec succès");
 
             return ResponseEntity.ok(response);
+
         } catch (IllegalArgumentException e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("message", "Statut invalide. Valeurs acceptées: EN_ATTENTE, CONFIRMEE, ANNULEE");
+            errorResponse.put("message", "Statut invalide");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("message", "Erreur lors de la récupération des commandes: " + e.getMessage());
+            errorResponse.put("message", "Erreur: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
@@ -91,52 +94,50 @@ public class CommandeClientController {
     @GetMapping("/validated")
     public ResponseEntity<Map<String, Object>> getCommandesValidees() {
         try {
-            System.out.println(" API appelée: GET /api/commandes/validated");
+            System.out.println("📌 API appelée: GET /api/commandes/validated");
 
-            // 1. Récupérer uniquement les commandes CONFIRMEE
-            List<CommandeClient> commandes = commandeClientRepository.findByStatut(
+            // ✅ 1. Récupérer les commandes avec JOIN FETCH
+            List<CommandeClient> commandes = commandeClientRepository.findByStatutWithDetails(
                     CommandeClient.StatutCommande.CONFIRMEE);
 
-            System.out.println(" Nombre de commandes validées trouvées: " + commandes.size());
+            System.out.println("📊 " + commandes.size() + " commandes validées trouvées");
 
-            // 2. Log des premières commandes pour debug
-            if (!commandes.isEmpty()) {
-                System.out.println(" Exemple de commandes validées:");
-                for (int i = 0; i < Math.min(3, commandes.size()); i++) {
-                    CommandeClient cmd = commandes.get(i);
-                    System.out.println("  - ID: " + cmd.getId() +
-                            ", N°: " + cmd.getNumeroCommande() +
-                            ", Client: " + (cmd.getClient() != null ? cmd.getClient().getNom() : "N/A") +
-                            ", Statut: " + cmd.getStatut() +
-                            ", Total: " + cmd.getTotal());
+            // ✅ 2. *** CORRECTION ICI *** - Utiliser la méthode AVEC services
+            List<CommandeResponseDTO> commandesDTO = commandes.stream()
+                    .map(commande -> CommandeResponseDTO.fromEntity(
+                            commande,
+                            clientService,     // ✅ NÉCESSAIRE pour les remises
+                            produitService     // ✅ NÉCESSAIRE pour les détails produits (image, libellé)
+                    ))
+                    .collect(Collectors.toList());
+
+            // ✅ 3. Vérification
+            if (!commandesDTO.isEmpty()) {
+                CommandeResponseDTO first = commandesDTO.get(0);
+                System.out.println("📋 Première commande: " + first.getNumeroCommande());
+                if (first.getProduits() != null && !first.getProduits().isEmpty()) {
+                    ProduitCommandeDetailDTO p = first.getProduits().get(0);
+                    System.out.println("   ✅ Produit: " + p.getLibelle());
+                    System.out.println("   ✅ Image: " + p.getImageUrl());
+                    System.out.println("   ✅ Catégorie: " + p.getCategorie());
                 }
             }
 
-            // 3. Convertir en DTOs
-            List<CommandeResponseDTO> commandesDTO = commandes.stream()
-                    .map(commande -> CommandeResponseDTO.fromEntity(
-                            commande, clientService, produitService))
-                    .collect(Collectors.toList());
-
-            // 4. Créer la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("commandes", commandesDTO);  // Nom clé: "commandes" comme dans votre getAllCommandes
+            response.put("commandes", commandesDTO);
             response.put("total", commandesDTO.size());
             response.put("message", commandesDTO.size() + " commande(s) validée(s) récupérée(s)");
-
-            System.out.println("🎉 Réponse prête avec " + commandesDTO.size() + " commande(s) DTO");
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println(" ERREUR dans getCommandesValidees: " + e.getMessage());
+            System.err.println("❌ ERREUR: " + e.getMessage());
             e.printStackTrace();
 
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("message", "Erreur lors de la récupération des commandes validées");
-
+            errorResponse.put("message", "Erreur: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
@@ -144,12 +145,16 @@ public class CommandeClientController {
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getCommandeById(@PathVariable Integer id) {
         try {
-            CommandeClient commande = commandeClientRepository.findById(id)
+            // ✅ 1. Récupérer la commande avec détails
+            CommandeClient commande = commandeClientRepository.findByIdWithDetails(id)
                     .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + id));
 
-            // Convertir en DTO
+            // ✅ 2. CORRECTION - Utiliser la méthode AVEC services
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commande, clientService, produitService);
+                    commande,
+                    clientService,
+                    produitService
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -157,6 +162,7 @@ public class CommandeClientController {
             response.put("message", "Commande récupérée avec succès");
 
             return ResponseEntity.ok(response);
+
         } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
@@ -166,6 +172,7 @@ public class CommandeClientController {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("message", "Erreur serveur: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
@@ -173,7 +180,7 @@ public class CommandeClientController {
     @PostMapping("/creer")
     public ResponseEntity<Map<String, Object>> creerCommande(@RequestBody CommandeRequestDTO commandeRequest) {
         try {
-            System.out.println(" Données reçues pour création de commande:");
+            System.out.println("📦 Données reçues pour création de commande:");
             System.out.println("Client ID: " + commandeRequest.getClientId());
             System.out.println("Produits: " + commandeRequest.getProduits());
 
@@ -184,13 +191,11 @@ public class CommandeClientController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
-            // Convertir List<ProduitCommandeRequestDTO> en Map<Integer, Integer>
             Map<Integer, Integer> produitsMap = new HashMap<>();
-            for (ProduitCommandeRequestDTO produit : commandeRequest.getProduits()) { // Note: ProduitCommandeRequestDTO
+            for (ProduitCommandeRequestDTO produit : commandeRequest.getProduits()) {
                 produitsMap.put(produit.getProduitId(), produit.getQuantite());
             }
 
-            // Vérifier la disponibilité
             boolean disponible = commandeService.verifierDisponibilite(produitsMap);
 
             if (!disponible) {
@@ -200,12 +205,21 @@ public class CommandeClientController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
-            // Créer la commande
             CommandeClient commande = commandeService.createCommande(commandeRequest);
 
-            // Convertir en DTO pour la réponse
+            // ✅ Recharger avec les détails
+            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
+                    .stream()
+                    .filter(c -> c.getId().equals(commande.getId()))
+                    .findFirst()
+                    .orElse(commande);
+
+            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commande, clientService, produitService);
+                    commandeAvecDetails,
+                    clientService,
+                    produitService
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -241,9 +255,19 @@ public class CommandeClientController {
 
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-            // Convertir en DTO
+            // ✅ Recharger avec détails
+            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
+                    .stream()
+                    .filter(c -> c.getId().equals(commandeMaj.getId()))
+                    .findFirst()
+                    .orElse(commandeMaj);
+
+            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commandeMaj, clientService, produitService);
+                    commandeAvecDetails,
+                    clientService,
+                    produitService
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -268,9 +292,19 @@ public class CommandeClientController {
             commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-            // Convertir en DTO
+            // ✅ Recharger avec détails
+            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
+                    .stream()
+                    .filter(c -> c.getId().equals(commandeMaj.getId()))
+                    .findFirst()
+                    .orElse(commandeMaj);
+
+            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commandeMaj, clientService, produitService);
+                    commandeAvecDetails,
+                    clientService,
+                    produitService
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -286,39 +320,32 @@ public class CommandeClientController {
         }
     }
 
+    // ✅ Autres méthodes inchangées...
     @PostMapping("/verifier-disponibilite")
     public ResponseEntity<Map<String, Object>> verifierDisponibilite(@RequestBody Map<String, Object> request) {
+        // ... (inchangé)
         try {
-            System.out.println(" Vérification disponibilité - Données reçues: " + request);
+            System.out.println("🔍 Vérification disponibilité - Données reçues: " + request);
 
-            // Gérer les deux formats possibles
             Object produitsObj = request.get("produits");
             boolean disponible;
 
             if (produitsObj instanceof List) {
-                // Format: List de Map (depuis le frontend)
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> produitsList = (List<Map<String, Object>>) produitsObj;
-
-                // Convertir en Map<Integer, Integer>
                 Map<Integer, Integer> produitsMap = new HashMap<>();
                 for (Map<String, Object> produitMap : produitsList) {
                     Integer produitId = ((Number) produitMap.get("produitId")).intValue();
                     Integer quantite = ((Number) produitMap.get("quantite")).intValue();
                     produitsMap.put(produitId, quantite);
                 }
-
                 disponible = commandeService.verifierDisponibilite(produitsMap);
-
             } else if (produitsObj instanceof Map) {
-                // Format: Map<Integer, Integer> (ancien format)
                 @SuppressWarnings("unchecked")
                 Map<Integer, Integer> produitsMap = (Map<Integer, Integer>) produitsObj;
                 disponible = commandeService.verifierDisponibilite(produitsMap);
-
             } else {
-                throw new RuntimeException("Format de produits invalide: " +
-                        (produitsObj != null ? produitsObj.getClass().getName() : "null"));
+                throw new RuntimeException("Format de produits invalide");
             }
 
             Map<String, Object> response = new HashMap<>();
@@ -341,6 +368,7 @@ public class CommandeClientController {
     @GetMapping("/remise-client/{typeClient}")
     public ResponseEntity<Map<String, Object>> getRemiseForClientType(
             @PathVariable String typeClient) {
+        // ... (inchangé)
         try {
             Double remise = commandeService.getRemiseForClientType(typeClient);
 
@@ -359,43 +387,23 @@ public class CommandeClientController {
         }
     }
 
-
     @GetMapping("/{id}/test-produit")
     public ResponseEntity<Map<String, Object>> testProduitMethod(@PathVariable Integer id) {
+        // ... (inchangé)
         try {
-            // Récupérez un produit
             Optional<Produit> produitOpt = produitService.getProduitById(1);
 
             Map<String, Object> response = new HashMap<>();
 
             if (produitOpt.isPresent()) {
                 Produit p = produitOpt.get();
-
-                // Testez les méthodes
                 response.put("libelle", p.getLibelle());
-
-                // Test ID méthodes
-                try {
-                    response.put("getIdProduit", p.getIdProduit());
-                } catch (Exception e) {
-                    response.put("getIdProduit_error", e.getMessage());
-                }
-
-                try {
-                    // Lombok ne génère pas getId() car l'attribut s'appelle idProduit
-                    response.put("getId", "N'EXISTE PAS - Utilisez getIdProduit()");
-                } catch (Exception e) {
-                    response.put("getId_error", e.getMessage());
-                }
-
-                // Vérifiez la classe
+                response.put("getIdProduit", p.getIdProduit());
                 response.put("classe", p.getClass().getName());
-                response.put("methodes", p.getClass().getDeclaredMethods());
             }
 
             response.put("success", true);
             return ResponseEntity.ok(response);
-
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
