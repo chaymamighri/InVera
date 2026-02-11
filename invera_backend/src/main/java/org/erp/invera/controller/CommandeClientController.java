@@ -88,6 +88,59 @@ public class CommandeClientController {
         }
     }
 
+    @GetMapping("/validated")
+    public ResponseEntity<Map<String, Object>> getCommandesValidees() {
+        try {
+            System.out.println(" API appelée: GET /api/commandes/validated");
+
+            // 1. Récupérer uniquement les commandes CONFIRMEE
+            List<CommandeClient> commandes = commandeClientRepository.findByStatut(
+                    CommandeClient.StatutCommande.CONFIRMEE);
+
+            System.out.println(" Nombre de commandes validées trouvées: " + commandes.size());
+
+            // 2. Log des premières commandes pour debug
+            if (!commandes.isEmpty()) {
+                System.out.println(" Exemple de commandes validées:");
+                for (int i = 0; i < Math.min(3, commandes.size()); i++) {
+                    CommandeClient cmd = commandes.get(i);
+                    System.out.println("  - ID: " + cmd.getId() +
+                            ", N°: " + cmd.getNumeroCommande() +
+                            ", Client: " + (cmd.getClient() != null ? cmd.getClient().getNom() : "N/A") +
+                            ", Statut: " + cmd.getStatut() +
+                            ", Total: " + cmd.getTotal());
+                }
+            }
+
+            // 3. Convertir en DTOs
+            List<CommandeResponseDTO> commandesDTO = commandes.stream()
+                    .map(commande -> CommandeResponseDTO.fromEntity(
+                            commande, clientService, produitService))
+                    .collect(Collectors.toList());
+
+            // 4. Créer la réponse
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("commandes", commandesDTO);  // Nom clé: "commandes" comme dans votre getAllCommandes
+            response.put("total", commandesDTO.size());
+            response.put("message", commandesDTO.size() + " commande(s) validée(s) récupérée(s)");
+
+            System.out.println("🎉 Réponse prête avec " + commandesDTO.size() + " commande(s) DTO");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            System.err.println(" ERREUR dans getCommandesValidees: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur lors de la récupération des commandes validées");
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getCommandeById(@PathVariable Integer id) {
         try {
@@ -120,7 +173,7 @@ public class CommandeClientController {
     @PostMapping("/creer")
     public ResponseEntity<Map<String, Object>> creerCommande(@RequestBody CommandeRequestDTO commandeRequest) {
         try {
-            System.out.println("📦 Données reçues pour création de commande:");
+            System.out.println(" Données reçues pour création de commande:");
             System.out.println("Client ID: " + commandeRequest.getClientId());
             System.out.println("Produits: " + commandeRequest.getProduits());
 
@@ -236,7 +289,7 @@ public class CommandeClientController {
     @PostMapping("/verifier-disponibilite")
     public ResponseEntity<Map<String, Object>> verifierDisponibilite(@RequestBody Map<String, Object> request) {
         try {
-            System.out.println("🔍 Vérification disponibilité - Données reçues: " + request);
+            System.out.println(" Vérification disponibilité - Données reçues: " + request);
 
             // Gérer les deux formats possibles
             Object produitsObj = request.get("produits");
