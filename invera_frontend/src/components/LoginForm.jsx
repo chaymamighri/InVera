@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from './Button';
 
-const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
+const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    email: savedEmail || '',
     password: '',
     rememberMe: false
   });
@@ -11,21 +13,19 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
 
-  // Récupérer l'email sauvegardé au chargement si rememberMe était coché
   useEffect(() => {
     const rememberMe = localStorage.getItem('rememberMe');
-    const savedEmail = localStorage.getItem('savedEmail');
+    const savedEmailFromStorage = localStorage.getItem('savedEmail');
     
-    if (rememberMe === 'true' && savedEmail) {
+    if (rememberMe === 'true' && savedEmailFromStorage) {
       setFormData(prev => ({
         ...prev,
-        email: savedEmail,
+        email: savedEmailFromStorage,
         rememberMe: true
       }));
     }
   }, []);
 
-  // Utilise le loading externe s'il est fourni, sinon le loading interne
   const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
 
   const handleChange = (e) => {
@@ -35,109 +35,63 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
       [name]: type === 'checkbox' ? checked : value
     }));
     
-    // Effacer l'erreur quand l'utilisateur commence à taper
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-    // Effacer aussi l'erreur générale
-    if (errors.submit) {
-      setErrors(prev => ({ ...prev, submit: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (errors.submit) setErrors(prev => ({ ...prev, submit: '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 1. Réinitialiser les erreurs
     setErrors({});
     
-    // 2. Validation simple
     const newErrors = {};
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email requis';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Format d\'email invalide';
-    }
+    if (!formData.email.trim()) newErrors.email = 'Email requis';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Format d\'email invalide';
     
-    if (!formData.password.trim()) {
-      newErrors.password = 'Mot de passe requis';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Minimum 6 caractères';
-    }
+    if (!formData.password.trim()) newErrors.password = 'Mot de passe requis';
+    else if (formData.password.length < 6) newErrors.password = 'Minimum 6 caractères';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      return; // Pas de loading, on s'arrête ici
+      return;
     }
 
-    // 3. Si validation OK, on démarre le loading
-    if (externalLoading === undefined) {
-      setInternalLoading(true);
-    }
-    
+    if (externalLoading === undefined) setInternalLoading(true);
+
     try {
-      // 4. Appeler la fonction onSubmit avec les données nettoyées
-      const credentials = {
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        rememberMe: formData.rememberMe
-      };
-      
-      await onSubmit(credentials);
-      
-      // 5. Si succès: onSubmit doit faire la redirection
-      // Le loading s'arrêtera automatiquement avec la navigation
+      // Call the parent onSubmit which should handle the actual API call
+      await onSubmit(formData);
       
     } catch (error) {
-      // 6. Si erreur: arrêter le loading et afficher l'erreur
-      const errorMessage = error.message || error.toString();
+      console.error('Login error:', error);
       
-      // Détection du type d'erreur spécifique à l'API backend
-      if (
-        errorMessage.toLowerCase().includes('mot de passe') ||
-        errorMessage.toLowerCase().includes('password') ||
-        errorMessage.toLowerCase().includes('incorrect') ||
-        errorMessage.toLowerCase().includes('invalid') ||
-        errorMessage.includes('401') ||
-        errorMessage.toLowerCase().includes('bad credentials')
-      ) {
-        setErrors({ 
-          submit: 'Email ou mot de passe incorrect',
-          password: 'Mot de passe incorrect'
-        });
-      } else if (
-        errorMessage.toLowerCase().includes('utilisateur') ||
-        errorMessage.toLowerCase().includes('user') ||
-        errorMessage.toLowerCase().includes('email') ||
-        errorMessage.toLowerCase().includes('compte') ||
-        errorMessage.toLowerCase().includes('not found') ||
-        errorMessage.includes('404')
-      ) {
-        setErrors({ 
-          submit: 'Aucun compte trouvé avec cet email',
-          email: 'Email non reconnu'
-        });
-      } else if (
-        errorMessage.toLowerCase().includes('network') ||
-        errorMessage.toLowerCase().includes('fetch') ||
-        errorMessage.toLowerCase().includes('failed') ||
-        errorMessage.toLowerCase().includes('cors') ||
-        errorMessage.toLowerCase().includes('serveur')
-      ) {
-        setErrors({ 
-          submit: 'Impossible de se connecter au serveur. Vérifiez votre connexion.'
-        });
+      // Handle error responses
+      if (error.message) {
+        if (error.message.includes('Email ou mot de passe incorrect') || 
+            error.message.includes('401')) {
+          setErrors({ 
+            submit: 'Email ou mot de passe incorrect',
+            password: 'Mot de passe incorrect'
+          });
+        } else if (error.message.includes('non trouvé') || 
+                   error.message.includes('not found') || 
+                   error.message.includes('404')) {
+          setErrors({ 
+            submit: 'Aucun compte trouvé avec cet email',
+            email: 'Email non reconnu'
+          });
+        } else {
+          setErrors({ 
+            submit: error.message || 'Une erreur est survenue lors de la connexion'
+          });
+        }
       } else {
         setErrors({ 
-          submit: errorMessage || 'Une erreur est survenue lors de la connexion'
+          submit: 'Impossible de se connecter au serveur. Vérifiez votre connexion.'
         });
       }
       
     } finally {
-      // 7. Toujours arrêter le loading (même en cas d'erreur)
-      if (externalLoading === undefined) {
-        setInternalLoading(false);
-      }
+      if (externalLoading === undefined) setInternalLoading(false);
     }
   };
 
@@ -145,10 +99,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
     setShowPassword(!showPassword);
   };
 
-  // Le reste du JSX reste inchangé
   return (
     <div className="max-w-md w-full space-y-6">
-      {/* En-tête du formulaire */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900">
           Connectez-vous à votre compte
@@ -159,7 +111,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
-        {/* Champ Email */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
             Adresse email
@@ -184,12 +135,9 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
               disabled={isLoading}
             />
           </div>
-          {errors.email && (
-            <p className="mt-2 text-sm text-red-600">{errors.email}</p>
-          )}
+          {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
         </div>
 
-        {/* Champ Mot de passe */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -197,7 +145,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
             </label>
             <button
               type="button"
-              onClick={() => alert('Fonctionnalité à implémenter')}
+              onClick={() => navigate('/forget-password')}
               className="text-sm text-blue-600 hover:text-blue-500 font-medium disabled:text-gray-400"
               disabled={isLoading}
             >
@@ -241,12 +189,9 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
               )}
             </button>
           </div>
-          {errors.password && (
-            <p className="mt-2 text-sm text-red-600">{errors.password}</p>
-          )}
+          {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
         </div>
 
-        {/* Remember Me */}
         <div className="flex items-center">
           <input
             id="remember-me"
@@ -262,7 +207,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
           </label>
         </div>
 
-        {/* Bouton de connexion */}
         <Button
           type="submit"
           loading={isLoading}
@@ -274,7 +218,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
           {isLoading ? 'Connexion...' : 'Se connecter'}
         </Button>
 
-        {/* Message d'erreur général */}
         {errors.submit && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
             <div className="flex items-center">
@@ -287,7 +230,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
         )}
       </form>
 
-      {/* Séparateur */}
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-300"></div>
@@ -297,7 +239,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false }) => {
         </div>
       </div>
       
-      {/* Bouton pour contacter */}
       <div className="text-center">
         <button
           type="button"
