@@ -101,17 +101,53 @@ export const authService = {
   },
 
   // Mot de passe oublié
-  forgotPassword: async (email) => {
-    try {
-      await api.post(`${API_URL}/forgot-password`, { email });
-      return { 
-        success: true, 
-        message: 'Instructions envoyées par email' 
-      };
-    } catch (error) {
-      throw new Error('Erreur lors de la récupération du mot de passe');
-    }
-  },
+  
+  // ✅ CORRECTION - forgotPassword avec @RequestParam
+forgotPassword: async (email) => {
+  try {
+    // IMPORTANT: Le backend attend @RequestParam, pas @RequestBody !
+    const response = await api.post(
+      `/auth/forgot-password?email=${encodeURIComponent(email)}`,  // ← Paramètre dans l'URL
+      {},  // ← Body vide !
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    return { 
+      success: true, 
+      message: 'Instructions envoyées par email' 
+    };
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    throw new Error(error.response?.data?.message || 'Erreur lors de la récupération du mot de passe');
+  }
+},
+
+// ✅ CORRECTION - resetPassword avec @RequestBody
+resetPassword: async (token, newPassword) => {
+  try {
+    const response = await api.post(
+      `/auth/reset-password`,
+      { token, newPassword },  // ← Body JSON
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    return { 
+      success: true, 
+      message: 'Mot de passe réinitialisé avec succès' 
+    };
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    throw new Error(error.response?.data?.message || 'Erreur lors de la réinitialisation');
+  }
+},
 
   // Vérifier si l'utilisateur est connecté
   isAuthenticated: () => {
