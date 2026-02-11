@@ -32,14 +32,14 @@ public class CustomUserDetailsService implements UserDetailsService {
         GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
 
         // Créer un UserDetails à partir de notre User
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),       // utiliser l'email comme username pour Spring Security
-                user.getPassword(),
-                user.isActive(),       // enabled
-                true,                  // accountNonExpired
-                true,                  // credentialsNonExpired
-                true,                  // accountNonLocked
-                Collections.singletonList(authority)
-        );
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(user.getEmail())
+                .password(user.getPassword())
+                .authorities(authority)
+                .accountExpired(false)
+                .accountLocked(false)
+                .credentialsExpired(false)
+                .disabled(!user.isActive())
+                .build();
     }
 }
