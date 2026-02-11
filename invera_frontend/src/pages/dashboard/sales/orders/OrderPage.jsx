@@ -178,23 +178,22 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
       throw new Error(`ID client invalide: "${clientId}"`);
     }
 
-    // STRUCTURE EXACTE SELON LES DTOs SPRING BOOT :
     const commandeData = {
-      clientId: parsedClientId,  // ← Doit être camelCase "clientId" (pas "idClient")
+      clientId: parsedClientId,  
       produits: selectedProducts.map(p => {
-        console.log('📝 Préparation produit:', p.id, p.libelle);
+        console.log(' Préparation produit:', p.id, p.libelle);
         
-        // IMPORTANT: Vérifiez que p.id est bien un Integer (nombre)
+    
         const produitId = parseInt(p.id, 10);
         if (isNaN(produitId) || produitId <= 0) {
           throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
         }
         
         return {
-          produitId: produitId,  // ← Doit être camelCase "produitId" (pas "idProduit")
-          quantite: parseInt(p.quantite, 10),  // ← Doit être Integer
-          prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), // ← Doit être nombre
-          remisePourcentage: 0  // ← BigDecimal, mettre 0 par défaut
+          produitId: produitId,  
+          quantite: parseInt(p.quantite, 10),  
+          prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
+          remisePourcentage: 0 
         };
       }),
       remarques: notes || '',
@@ -202,10 +201,10 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
     };
 
     // VÉRIFICATION DÉTAILLÉE
-    console.log('📦 Données envoyées:', JSON.stringify(commandeData, null, 2));
-    console.log('🔍 Vérification des types:');
-    console.log('  clientId:', commandeData.clientId, 'Type:', typeof commandeData.clientId);
-    console.log('  Est un nombre?', Number.isInteger(commandeData.clientId));
+    console.log(' Données envoyées:', JSON.stringify(commandeData, null, 2));
+    console.log(' Vérification des types:');
+    console.log(' clientId:', commandeData.clientId, 'Type:', typeof commandeData.clientId);
+    console.log(' Est un nombre?', Number.isInteger(commandeData.clientId));
     
     commandeData.produits.forEach((p, i) => {
       console.log(`  Produit ${i}:`);
@@ -218,7 +217,7 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
     const response = await commandeService.createCommande(commandeData);
     
     if (response.success) {
-      alert('✅ Commande créée avec succès !');
+      alert(' Commande créée avec succès !');
       resetSelection();
       setShowCreateModal(false);
       await chargerDonnees();
@@ -259,7 +258,7 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
 // Fonction pour valider une commande
 const handleValiderCommandeAPI = useCallback(async (commandeId) => {
   try {
-    console.log('✅ Validation commande:', commandeId);
+    console.log('Validation commande:', commandeId);
     
     // Utilisez handleValiderCommande du hook useOrders
     await handleValiderCommande(commandeId);
@@ -275,12 +274,12 @@ const handleValiderCommandeAPI = useCallback(async (commandeId) => {
 // Fonction pour rejeter une commande
 const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
   try {
-    console.log('❌ Rejet commande:', commandeId);
+    console.log(' Rejet commande:', commandeId);
     
     // Utilisez handleRejeterCommande du hook useOrders
     await handleRejeterCommande(commandeId);
     
-    alert('✅ Commande rejetée avec succès !');
+    alert(' Commande rejetée avec succès !');
     await chargerDonnees();
   } catch (error) {
     console.error('Erreur lors du rejet:', error);
@@ -300,7 +299,6 @@ const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
     resetSelection();
   }, [resetSelection]);
 
-  // Charger les produits et clients séparément pour le modal de création
   const [modalProduits, setModalProduits] = useState([]);
   const [modalClients, setModalClients] = useState([]);
 

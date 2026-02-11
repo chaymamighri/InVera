@@ -206,7 +206,7 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
       statutOriginal: commande.statut || commande.status || commande.state || 'EN_ATTENTE'
     };
     
-    console.log(`📋 Commande ${result.id} transformée:`, {
+    console.log(` Commande ${result.id} transformée:`, {
       numero: result.numero,
       produitsCount: result.produits.length,
       produits: result.produits
@@ -522,6 +522,8 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
         : c
     ));
   }, [getStatutDisplay]);
+
+
 
   return {
     // États

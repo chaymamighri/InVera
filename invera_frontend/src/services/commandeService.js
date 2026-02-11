@@ -15,6 +15,40 @@ export const commandeService = {
     }
   },
 
+  // NOUVELLE FONCTION : Récupérer uniquement les commandes validées
+ getCommandesValidees: async () => {
+    try {
+      console.log('📡 Appel API: /api/commandes/validated');
+      const response = await api.get('/commandes/validated');
+      
+      // Vérifiez la structure de la réponse
+      console.log('📦 Réponse reçue:', response.data);
+      
+      // Retournez directement les commandes
+      return response.data.commandes || response.data.data || response.data;
+      
+    } catch (error) {
+      console.error('❌ Erreur getCommandesValidees:', error);
+      
+      // Fallback: utiliser getAllCommandes avec filtre
+      console.warn('Fallback: utilisation de getAllCommandes avec filtre');
+      try {
+        const allResponse = await api.get('/commandes/getAllCommandes');
+        const allCommandes = allResponse.data.commandes || allResponse.data.data || allResponse.data;
+        
+        // Filtrer côté client
+        return allCommandes.filter(cmd => 
+          cmd.statut === 'CONFIRMEE' || 
+          cmd.statut === 'validée' ||
+          cmd.status === 'CONFIRMEE'
+        );
+      } catch (fallbackError) {
+        console.error('❌ Erreur fallback:', fallbackError);
+        throw error;
+      }
+    }
+  },
+
   // Créer une nouvelle commande
   async createCommande(commandeData) {
     try {

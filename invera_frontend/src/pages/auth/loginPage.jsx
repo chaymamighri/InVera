@@ -44,7 +44,7 @@ const LoginPage = () => {
       <img 
         src={logo} 
         alt="InVera ERP Logo" 
-        className="w-full max-w-[180px] md:max-w-[240px] h-auto" /* Réduction d'environ 25% */
+        className="w-full max-w-[120px] md:max-w-[200px] h-auto" 
         onError={(e) => {
           console.error('Erreur de chargement du logo');
           e.target.style.display = 'none';
