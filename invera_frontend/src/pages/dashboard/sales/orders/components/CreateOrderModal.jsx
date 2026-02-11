@@ -144,7 +144,7 @@ const CreateOrderModal = ({
     onSelectProduct({
       ...produit,
       quantite: 1,
-      // Assurez-vous que le prix est bien présent
+      // Assurez que le prix est bien présent
       prix: produit.prix || produit.prixUnitaire || 0
     });
   }

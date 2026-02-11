@@ -1,245 +1,222 @@
 // src/pages/dashboard/sales/sales/components/OrderDetailsModal.jsx
 import React from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  XMarkIcon,
+  DocumentTextIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  MapPinIcon,
+  BuildingOfficeIcon,
+  ArrowLeftIcon,
+  CheckCircleIcon
+} from '@heroicons/react/24/outline';
 
 const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => {
-  // Fonctions utilitaires
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const formatCurrency = (amount) => {
-    return parseFloat(amount || 0).toLocaleString('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }) + ' dt';
-  };
-
-  // Si le modal n'est pas ouvert ou si aucune commande n'est sélectionnée
   if (!isOpen || !commande) return null;
 
+  // Données client
+  const client = commande.client || {};
+  const produits = commande.produits || [];
+  const total = parseFloat(commande.montantTotal || commande.total || 0);
+  const [isGenerating, setIsGenerating] = React.useState(false);
+
+  // Vérifier si le client a des coordonnées
+  const hasContact = client.telephone || client.email || client.adresse;
+
+  const handleGenerateInvoice = async () => {
+    if (!onGenerateInvoice) return;
+    
+    try {
+      setIsGenerating(true);
+      await onGenerateInvoice(commande.id);
+      onClose();
+    } catch (error) {
+      console.error('Erreur génération facture:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Header du modal */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">
-              Détails de la Commande
-            </h2>
-            <p className="text-sm text-gray-600">
-              {commande.numeroCommande || `CMD-${commande.id}`}
-            </p>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
+        
+        {/* Header avec badge de validation - FIXE */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex-shrink-0">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full">
+                <CheckCircleIcon className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Commande {commande.numeroCommande || `#${commande.id}`}
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs bg-white/30 text-white px-2.5 py-1 rounded-full">
+                    ✓ Validée
+                  </span>
+                  <span className="text-xs text-white/80">
+                    Prête pour facturation
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-white/20 rounded-lg text-white/80 hover:text-white transition-colors flex-shrink-0"
+              title="Fermer"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <XMarkIcon className="h-5 w-5 text-gray-500" />
-          </button>
         </div>
 
-        {/* Contenu du modal */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Informations commande */}
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-3">Informations Commande</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Date création:</span>
-                    <span className="font-medium">{formatDate(commande.dateCreation)}</span>
-                  </div>
-                  {commande.dateValidation && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Date validation:</span>
-                      <span className="font-medium text-green-600">{formatDate(commande.dateValidation)}</span>
-                    </div>
-                  )}
-                  {commande.dateLivraisonPrevue && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Livraison prévue:</span>
-                      <span className="font-medium">{formatDate(commande.dateLivraisonPrevue)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Mode de paiement:</span>
-                    <span className="font-medium">{commande.modePaiement || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Mode de livraison:</span>
-                    <span className="font-medium">{commande.modeLivraison || '-'}</span>
-                  </div>
-                  {commande.statut && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Statut:</span>
-                      <span className={`font-medium ${
-                        commande.statut === 'validée' ? 'text-green-600' : 'text-gray-600'
-                      }`}>
-                        {commande.statut}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Informations client */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-3">Informations Client</h3>
-                <div className="space-y-2">
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {commande.client?.nomComplet || commande.client?.nom || 'Client non spécifié'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {commande.client?.entreprise || commande.client?.societe || ''}
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <span className="font-medium mr-2">Tél:</span>
-                      <span>{commande.client?.telephone || commande.client?.phone || '-'}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="font-medium mr-2">Email:</span>
-                      <span className="truncate">{commande.client?.email || '-'}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="font-medium mr-2">Type:</span>
-                      <span className={`px-2 py-0.5 rounded text-xs ${
-                        commande.client?.type === 'VIP' ? 'bg-purple-100 text-purple-800' :
-                        commande.client?.type === 'Entreprise' ? 'bg-blue-100 text-blue-800' :
-                        commande.client?.type === 'Professionnel' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {commande.client?.type || 'Standard'}
-                      </span>
-                    </div>
-                    {commande.client?.adresse && (
-                      <div className="flex items-start text-gray-600">
-                        <span className="font-medium mr-2">Adresse:</span>
-                        <span className="flex-1">{commande.client.adresse}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {commande.notes && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-700 mb-2">Notes</h3>
-                  <p className="text-gray-600 text-sm">{commande.notes}</p>
-                </div>
+        {/* Contenu - SCROLLABLE */}
+        <div className="p-6 overflow-y-auto flex-1">
+          
+          {/* Client - Informations complètes */}
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+              INFORMATIONS CLIENT
+            </p>
+            
+            <div className="mb-3">
+              <p className="font-medium text-gray-900 text-base">
+                {client.nomComplet || client.nom || 'Client'}
+              </p>
+              {client.entreprise && (
+                <p className="text-sm text-gray-600 flex items-center mt-1">
+                  <BuildingOfficeIcon className="h-4 w-4 mr-1.5 text-gray-400" />
+                  {client.entreprise}
+                </p>
               )}
             </div>
 
-            {/* Produits et résumé */}
-            <div className="space-y-4">
-              {/* Liste des produits */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-3">Produits ({commande.produits?.length || 0})</h3>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {commande.produits?.map((produit, index) => (
-                    <div key={produit.id || index} className="bg-white p-3 rounded border">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            {produit.nom || produit.libelle || `Produit ${index + 1}`}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Réf: {produit.reference || produit.code || 'N/A'}
-                          </div>
-                          {produit.description && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              {produit.description}
-                            </div>
-                          )}
-                          {produit.categorie && (
-                            <div className="mt-1">
-                              <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                                {produit.categorie}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium text-gray-900">
-                            {formatCurrency((produit.prixUnitaire || produit.prix || 0) * (produit.quantite || 1))}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {produit.quantite || 1} × {formatCurrency(produit.prixUnitaire || produit.prix || 0)}
-                          </div>
-                          {produit.stockDisponible !== undefined && (
-                            <div className="text-xs mt-1">
-                              Stock: <span className={
-                                produit.quantite > produit.stockDisponible ? 'text-red-600' : 'text-green-600'
-                              }>
-                                {produit.stockDisponible}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {(produit.remiseMontant || produit.remisePourcentage > 0) && (
-                        <div className="text-xs text-red-600 border-t pt-2 mt-2">
-                          Remise: -{formatCurrency(produit.remiseMontant || 0)}
-                          {produit.remisePourcentage > 0 && ` (${produit.remisePourcentage}%)`}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+            {hasContact && (
+              <div className="space-y-2 mt-3 bg-gray-50 p-3 rounded-lg">
+                {client.telephone && (
+                  <p className="text-sm text-gray-700 flex items-center">
+                    <PhoneIcon className="h-4 w-4 mr-2 text-gray-500" />
+                    {client.telephone}
+                  </p>
+                )}
+                {client.email && (
+                  <p className="text-sm text-gray-700 flex items-center truncate">
+                    <EnvelopeIcon className="h-4 w-4 mr-2 text-gray-500" />
+                    {client.email}
+                  </p>
+                )}
+                {client.adresse && (
+                  <p className="text-sm text-gray-700 flex items-start">
+                    <MapPinIcon className="h-4 w-4 mr-2 text-gray-500 flex-shrink-0 mt-0.5" />
+                    <span className="break-words">{client.adresse}</span>
+                  </p>
+                )}
               </div>
+            )}
 
-              {/* Résumé financier */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-700 mb-3">Résumé Financier</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Sous-total:</span>
-                    <span>{formatCurrency(commande.sousTotal || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Remise:</span>
-                    <span className="text-red-600">-{formatCurrency(commande.remiseTotal || 0)}</span>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between font-medium">
-                      <span className="text-gray-800">Total:</span>
-                      <span className="text-lg text-blue-700">
-                        {formatCurrency(commande.montantTotal || commande.total || 0)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+            {client.type && (
+              <div className="mt-3">
+                <span className="text-xs px-2.5 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-200">
+                  {client.type}
+                </span>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Actions */}
-          <div className="mt-6 pt-6 border-t flex justify-end space-x-3">
+          {/* Produits */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+              ARTICLES ({produits.length})
+            </p>
+            
+            {produits.length > 0 ? (
+              <div className="space-y-3">
+                {produits.map((p, idx) => {
+                  const quantite = parseFloat(p.quantite || 1);
+                  const prix = parseFloat(p.prixUnitaire || p.prix || 0);
+                  
+                  return (
+                    <div key={p.id || idx} className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0">
+                      <div className="flex-1 pr-4">
+                        <p className="text-sm font-medium text-gray-900">
+                          {p.nom || p.libelle || `Produit ${idx + 1}`}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {quantite} × {prix.toFixed(2)} dt
+                        </p>
+                        {p.reference && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Réf: {p.reference}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                        {(quantite * prix).toFixed(2)} dt
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 italic">Aucun article dans cette commande</p>
+            )}
+          </div>
+
+          {/* Total */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-sm font-medium text-gray-700">Total TTC</span>
+                <p className="text-xs text-gray-500 mt-0.5">Toutes taxes comprises</p>
+              </div>
+              <span className="text-2xl font-bold text-green-700">
+                {total.toFixed(2)} dt
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-green-200 text-xs text-green-600">
+              <CheckCircleIcon className="h-3.5 w-3.5" />
+              <span>Commande validée - Prête pour facturation</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions - FIXES en bas avec BONS ESPACEMENTS */}
+        <div className="flex-shrink-0 px-6 py-4 bg-white border-t border-gray-200">
+          <div className="flex items-center gap-3">
+            {/* Bouton Retour */}
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg"
+              disabled={isGenerating}
+              className="px-5 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
             >
-              Fermer
+              <ArrowLeftIcon className="h-4 w-4" />
+              Retour
             </button>
+
+            {/* Bouton Facture avec SPINNER */}
             {onGenerateInvoice && (
               <button
-                onClick={() => {
-                  onGenerateInvoice(commande.id);
-                  onClose();
-                }}
-                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg"
+                onClick={handleGenerateInvoice}
+                disabled={isGenerating}
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center gap-2 text-sm font-medium shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Générer Facture
+                {isGenerating ? (
+                  <>
+                    {/* Spinner animé */}
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Génération...</span>
+                  </>
+                ) : (
+                  <>
+                    <DocumentTextIcon className="h-5 w-5" />
+                    <span>Générer la facture</span>
+                  </>
+                )}
               </button>
             )}
           </div>
