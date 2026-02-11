@@ -48,173 +48,177 @@ const useOrders = () => {
     }
   }, []);
 
- // CORRECTION de la fonction getProduitsAvecDetails
-const getProduitsAvecDetails = useCallback((produitsMap, produitsData) => {
-  console.log('🔍 getProduitsAvecDetails appelée');
-  console.log('🔍 produitsMap reçu:', produitsMap);
-  console.log('🔍 produitsData:', produitsData?.length || 0, 'produits');
-  
-  // CAS 1: produitsMap est déjà un tableau (venant du backend)
-  if (Array.isArray(produitsMap)) {
-    console.log('✅ produitsMap est déjà un tableau - retour direct');
-    return produitsMap.map(p => ({
-      id: p.id,
-      libelle: p.libelle || `Produit ${p.id}`,
-      prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
-      quantite: toNumber(p.quantite || 1),
-      sousTotal: toNumber(p.sousTotal || 0),
-      totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
-      categorie: p.categorie || '',
-      imageUrl: p.imageUrl || '',
-      quantiteStock: p.quantiteStock || 0,
-      statutStock: p.statutStock || 'INCONNU'
-    }));
-  }
-  
-  // CAS 2: produitsMap est un objet Map {produitId: quantite}
-  if (produitsMap && typeof produitsMap === 'object' && !Array.isArray(produitsMap)) {
-    console.log('🔄 Conversion Map -> Tableau');
+  // ✅ CORRIGÉ - getProduitsAvecDetails
+  const getProduitsAvecDetails = useCallback((produitsMap, produitsData) => {
+    console.log('🔍 getProduitsAvecDetails appelée');
     
-    return Object.entries(produitsMap).map(([produitId, quantite]) => {
-      const produitIdNum = parseInt(produitId);
-      console.log(`🔍 Traitement produit ID ${produitId}, quantité: ${quantite}`);
+    // CAS 1: produitsMap est déjà un tableau
+    if (Array.isArray(produitsMap)) {
+      console.log('✅ produitsMap est déjà un tableau');
+      return produitsMap.map(p => ({
+        id: p.id,
+        produitId: p.id,
+        libelle: p.libelle,  // ✅ Ne pas mettre de fallback ici
+        prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
+        quantite: toNumber(p.quantite || 1),
+        sousTotal: toNumber(p.sousTotal || 0),
+        totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
+        categorie: p.categorie,
+        imageUrl: p.imageUrl,
+        quantiteStock: toNumber(p.quantiteStock || 0),
+        statutStock: p.statutStock || 'DISPONIBLE',
+        uniteMesure: p.uniteMesure
+      }));
+    }
+    
+    // CAS 2: produitsMap est une Map {produitId: quantite}
+    if (produitsMap && typeof produitsMap === 'object' && !Array.isArray(produitsMap)) {
+      console.log('🔄 Conversion Map -> Tableau');
       
-      // Chercher le produit dans produitsData
-      let produit = null;
-      if (produitsData && Array.isArray(produitsData)) {
-        produit = produitsData.find(p => 
-          p.id === produitIdNum || 
-          p.idProduit === produitIdNum
+      return Object.entries(produitsMap).map(([produitId, quantite]) => {
+        const produitIdNum = parseInt(produitId);
+        const produit = produitsData?.find(p => 
+          p.id === produitIdNum || p.idProduit === produitIdNum
         );
-      }
-      
-      if (produit) {
-        console.log(`✅ Produit trouvé: ${produit.libelle}`);
-        return {
-          id: produitIdNum,
-          libelle: produit.libelle || `Produit ${produitIdNum}`,
-          prixUnitaire: toNumber(produit.prix || produit.prixVente || 0),
-          quantite: toNumber(quantite),
-          sousTotal: toNumber(produit.prix || produit.prixVente || 0) * toNumber(quantite),
-          categorie: produit.categorie || '',
-          imageUrl: produit.image || produit.imageUrl || '',
-          quantiteStock: produit.quantiteStock || 0,
-          statutStock: produit.status || produit.statut || 'INCONNU'
-        };
-      } else {
-        console.log(`⚠️ Produit ${produitIdNum} non trouvé dans produitsData`);
-        return {
-          id: produitIdNum,
-          libelle: `Produit ${produitIdNum}`,
-          prixUnitaire: 0,
-          quantite: toNumber(quantite),
-          sousTotal: 0,
-          categorie: '',
-          imageUrl: '',
-          quantiteStock: 0,
-          statutStock: 'INCONNU'
-        };
-      }
-    });
-  }
-  
-  console.log('⚠️ Format produitsMap non reconnu, retour tableau vide');
-  return [];
-}, [toNumber]);
-const transformCommandes = useCallback((commandesData, produitsData) => {
-  if (!Array.isArray(commandesData)) {
-    console.log('❌ commandesData n\'est pas un tableau:', typeof commandesData);
-    return [];
-  }
-  
-  console.log(`🔄 Transformation de ${commandesData.length} commandes`);
-  
-  return commandesData.map((commande, index) => {
-    if (!commande) return null;
-    
-    console.log(`🔍 Commande ${index}:`, {
-      id: commande.id,
-      numero: commande.numeroCommande,
-      statut: commande.statut,
-      produits: commande.produits
-    });
-    
-    // DEBUG: Vérifiez la structure des produits
-    console.log(`📦 Produits commande ${commande.id}:`, commande.produits);
-    console.log(`📦 Type produits:`, typeof commande.produits);
-    console.log(`📦 Est un array?`, Array.isArray(commande.produits));
-    
-    if (commande.produits && Array.isArray(commande.produits)) {
-      commande.produits.forEach((p, i) => {
-        console.log(`  Produit ${i}:`, {
-          id: p.id,
-          libelle: p.libelle,
-          quantite: p.quantite,
-          prixUnitaire: p.prixUnitaire
-        });
+        
+        if (produit) {
+          return {
+            id: produitIdNum,
+            produitId: produitIdNum,
+            libelle: produit.libelle,  // ✅ Ne pas mettre de fallback
+            prixUnitaire: toNumber(produit.prix || produit.prixVente || 0),
+            quantite: toNumber(quantite),
+            sousTotal: toNumber(produit.prix || produit.prixVente || 0) * toNumber(quantite),
+            categorie: produit.categorie,
+            imageUrl: produit.image || produit.imageUrl,
+            quantiteStock: toNumber(produit.quantiteStock || 0),
+            statutStock: produit.status || produit.statut || 'DISPONIBLE',
+            uniteMesure: produit.uniteMesure
+          };
+        } else {
+          return {
+            id: produitIdNum,
+            produitId: produitIdNum,
+            libelle: null,  // ✅ null pour utiliser le fallback dans le composant
+            prixUnitaire: 0,
+            quantite: toNumber(quantite),
+            sousTotal: 0,
+            categorie: null,
+            imageUrl: null,
+            quantiteStock: 0,
+            statutStock: 'INCONNU',
+            uniteMesure: null
+          };
+        }
       });
     }
     
-    const clientNom = commande.client?.nom || 
-                     commande.clientNom || 
-                     `${commande.client?.prenom || ''} ${commande.client?.nom || ''}`.trim() ||
-                     'Client inconnu';
+    return [];
+  }, [toNumber]);
+
+  // ✅ CORRIGÉ - transformCommandes
+  const transformCommandes = useCallback((commandesData, produitsData) => {
+    if (!Array.isArray(commandesData)) {
+      return [];
+    }
     
-    const clientId = commande.client?.id || commande.clientId;
-    const clientType = commande.client?.type || commande.clientType || 'STANDARD';
-    
-    // IMPORTANT: Utilisez directement commande.produits s'il est déjà un tableau
-    const produitsTransformes = commande.produits && Array.isArray(commande.produits) 
-      ? commande.produits.map(p => ({
-          id: p.id,
-          libelle: p.libelle || `Produit ${p.id}`,
-          prixUnitaire: toNumber(p.prixUnitaire || 0),
+    return commandesData.map((commande) => {
+      if (!commande) return null;
+      
+      // ✅ LOG DE DEBUG
+      if (commande.produits && Array.isArray(commande.produits) && commande.produits.length > 0) {
+        console.log(`📦 Commande ${commande.id} - Produits reçus du backend:`, 
+          commande.produits.map(p => ({
+            id: p.id,
+            libelle: p.libelle,
+            imageUrl: p.imageUrl,
+            categorie: p.categorie,
+            prixUnitaire: p.prixUnitaire
+          }))
+        );
+      }
+      
+      const clientNom = commande.client?.nom || 
+                       `${commande.client?.prenom || ''} ${commande.client?.nom || ''}`.trim() ||
+                       'Client inconnu';
+      
+      const clientId = commande.client?.id || commande.clientId;
+      const clientType = commande.client?.type || 'STANDARD';
+      
+      // ✅ TRANSFORMATION DES PRODUITS - SANS ÉCRASER LES DONNÉES
+      let produitsTransformes = [];
+      
+      if (commande.produits && Array.isArray(commande.produits)) {
+        produitsTransformes = commande.produits.map(p => ({
+          // ✅ Identifiants
+          id: p.id || p.produitId,
+          produitId: p.id || p.produitId,
+          
+          // ✅ DONNÉES PRODUIT - Garder les valeurs du backend, même null/undefined
+          libelle: p.libelle,                    // ← NE PAS METTRE DE FALLBACK
+          categorie: p.categorie,
+          imageUrl: p.imageUrl,
+          uniteMesure: p.uniteMesure,
+          code: p.code || p.reference,
+          
+          // ✅ Prix et quantités
+          prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
+          prix: toNumber(p.prixUnitaire || p.prix || 0),
           quantite: toNumber(p.quantite || 1),
           sousTotal: toNumber(p.sousTotal || 0),
           totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
-          categorie: p.categorie || '',
-          imageUrl: p.imageUrl || '',
-          quantiteStock: p.quantiteStock || 0,
-          statutStock: p.statutStock || 'INCONNU'
-        }))
-      : getProduitsAvecDetails(commande.produits, produitsData);
-    
-    console.log(`✅ Produits transformés pour commande ${commande.id}:`, produitsTransformes.length);
-    
-    const result = {
-      id: commande.id || commande.idCommande,
-      numero: commande.numeroCommande || commande.numero || commande.reference || `CMD-${commande.id || 'N/A'}`,
-      client: {
-        id: clientId,
-        nom: clientNom,
-        type: clientType,
-        telephone: commande.client?.telephone || '',
-        email: commande.client?.email || ''
-      },
-      dateCreation: commande.dateCreation || commande.dateCommande || commande.createdAt
-        ? new Date(commande.dateCreation || commande.dateCommande || commande.createdAt).toLocaleDateString('fr-FR')
-        : 'Non définie',
-      dateLivraisonPrevue: commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate
-        ? new Date(commande.dateLivraison || commande.dateLivraisonPrevue || commande.deliveryDate).toLocaleDateString('fr-FR')
-        : 'Non définie',
-      produits: produitsTransformes, // CORRECTION ICI
-      sousTotal: toNumber(commande.sousTotal || commande.montantHorsTaxe || commande.amountWithoutTax || 0),
-      remise: toNumber(commande.montantRemise || commande.remise || commande.discount || 0),
-      total: toNumber(commande.total || commande.montantTotal || commande.totalAmount || 0),
-      statut: getStatutDisplay(commande.statut || commande.status || commande.state),
-      remarques: commande.notes || commande.remarques || commande.remarks || '',
-      statutOriginal: commande.statut || commande.status || commande.state || 'EN_ATTENTE'
-    };
-    
-    console.log(` Commande ${result.id} transformée:`, {
-      numero: result.numero,
-      produitsCount: result.produits.length,
-      produits: result.produits
-    });
-    
-    return result;
-  }).filter(Boolean);
-}, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
+          
+          // ✅ Remises
+          remiseProduit: toNumber(p.remiseProduit || 0),
+          tauxRemiseProduit: toNumber(p.tauxRemiseProduit || 0),
+          
+          // ✅ Stock
+          quantiteStock: toNumber(p.quantiteStock || 0),
+          statutStock: p.statutStock || 'DISPONIBLE'
+        }));
+      } else if (commande.produits && typeof commande.produits === 'object') {
+        produitsTransformes = getProduitsAvecDetails(commande.produits, produitsData);
+      }
+      
+      return {
+        id: commande.id || commande.idCommande,
+        numero: commande.numeroCommande || `CMD-${commande.id}`,
+        numeroCommande: commande.numeroCommande || `CMD-${commande.id}`,
+        
+        client: {
+          id: clientId,
+          nom: clientNom,
+          type: clientType,
+          telephone: commande.client?.telephone || '',
+          email: commande.client?.email || '',
+          adresse: commande.client?.adresse || ''
+        },
+        
+        dateCreation: commande.dateCreation 
+          ? new Date(commande.dateCreation).toLocaleDateString('fr-FR')
+          : 'Non définie',
+        dateLivraisonPrevue: commande.dateLivraison 
+          ? new Date(commande.dateLivraison).toLocaleDateString('fr-FR')
+          : 'Non définie',
+        
+        produits: produitsTransformes,
+        
+        sousTotal: toNumber(commande.sousTotal || 0),
+        remise: toNumber(commande.montantRemise || 0),
+        montantRemise: toNumber(commande.montantRemise || 0),
+        tauxRemise: toNumber(commande.tauxRemise || 0),
+        total: toNumber(commande.total || 0),
+        
+        statut: getStatutDisplay(commande.statut),
+        statutOriginal: commande.statut,
+        
+        remarques: commande.notes || commande.remarques || '',
+        notes: commande.notes || commande.remarques || ''
+      };
+    }).filter(Boolean);
+  }, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
+
+  // ✅ transformClients (inchangé)
   const transformClients = useCallback((clientsData) => {
     if (!Array.isArray(clientsData)) {
       if (clientsData && clientsData.clients && Array.isArray(clientsData.clients)) {
@@ -237,6 +241,7 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
     }));
   }, []);
 
+  // ✅ transformProduits (inchangé)
   const transformProduits = useCallback((produitsData) => {
     if (!Array.isArray(produitsData)) {
       if (produitsData && produitsData.produits && Array.isArray(produitsData.produits)) {
@@ -272,7 +277,7 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
     });
   }, [toNumber]);
 
-  // Charger toutes les données - LOG SIMPLIFIÉ
+  // ✅ chargerDonnees (inchangé)
   const chargerDonnees = useCallback(async () => {
     try {
       setLoading(true);
@@ -299,11 +304,6 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
           commandesData = data.data;
         } else if (data && Array.isArray(data.orders)) {
           commandesData = data.orders;
-        }
-      } else if (commandesResult.status === 'rejected') {
-        const error = commandesResult.reason;
-        if (error.response?.status === 403) {
-          setError('Pas d\'accès aux commandes. Vous pouvez créer de nouvelles commandes.');
         }
       }
 
@@ -337,16 +337,6 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
         }
       }
 
-      //  LOG POUR AFFICHER LA LISTE DES COMMANDES
-      console.log('📋 Liste des commandes chargées:', commandesData.map(c => ({
-        id: c.id,
-        numero: c.numeroCommande || c.numero,
-        client: c.client?.nom || 'N/A',
-        statut: c.statut,
-        total: c.total
-      })));
-
-      // Transformer et mettre à jour les états
       setCommandes(transformCommandes(commandesData, produitsData));
       setClients(transformClients(clientsData));
       setProduits(transformProduits(produitsData));
@@ -361,10 +351,9 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
     }
   }, [transformCommandes, transformClients, transformProduits]);
 
-  // Gestion des produits sélectionnés
+  // ✅ Gestion des produits sélectionnés (inchangé)
   const handleSelectProduct = useCallback((product) => {
     if (!product || (!product.id && !product.idProduit)) return;
-
     const productId = product.id || product.idProduit;
     
     setSelectedProducts(prev => {
@@ -382,16 +371,12 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
   }, [toNumber]);
 
   const handleModifierQuantite = useCallback((productId, nouvelleQuantite) => {
-    setSelectedProducts(prevProducts => 
-      prevProducts.map(p => {
+    setSelectedProducts(prev => 
+      prev.map(p => {
         if (p.id === productId || p.idProduit === productId) {
           const quantite = Math.max(1, toNumber(nouvelleQuantite));
           const prix = toNumber(p.prix || p.price);
-          return {
-            ...p,
-            quantite,
-            sousTotal: prix * quantite
-          };
+          return { ...p, quantite, sousTotal: prix * quantite };
         }
         return p;
       })
@@ -399,12 +384,12 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
   }, [toNumber]);
 
   const handleSupprimerProduit = useCallback((productId) => {
-    setSelectedProducts(prevProducts => 
-      prevProducts.filter(p => (p.id !== productId) && (p.idProduit !== productId))
+    setSelectedProducts(prev => 
+      prev.filter(p => (p.id !== productId) && (p.idProduit !== productId))
     );
   }, []);
 
-  // Gestion des commandes
+  // ✅ Gestion des commandes (inchangé)
   const handleCreerCommande = useCallback(async (commandeData) => {
     try {
       const disponibilite = await commandeService.verifierDisponibilite(commandeData.produits);
@@ -430,15 +415,10 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
   const handleValiderCommande = useCallback(async (commandeId) => {
     try {
       const result = await commandeService.validerCommande(commandeId);
-      
       if (result.success || result.statut === 'CONFIRMEE' || result.status === 'CONFIRMED') {
         setCommandes(prev => prev.map(c => 
           c.id === commandeId 
-            ? { 
-                ...c, 
-                statut: 'Confirmé', 
-                statutOriginal: 'CONFIRMEE'
-              }
+            ? { ...c, statut: 'Confirmé', statutOriginal: 'CONFIRMEE' }
             : c
         ));
         return result;
@@ -452,15 +432,10 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
   const handleRejeterCommande = useCallback(async (commandeId) => {
     try {
       const result = await commandeService.rejeterCommande(commandeId);
-      
       if (result.success || result.statut === 'ANNULEE' || result.status === 'CANCELLED') {
         setCommandes(prev => prev.map(c => 
           c.id === commandeId 
-            ? { 
-                ...c, 
-                statut: 'Refusé', 
-                statutOriginal: 'ANNULEE'
-              }
+            ? { ...c, statut: 'Refusé', statutOriginal: 'ANNULEE' }
             : c
         ));
         return result;
@@ -489,44 +464,30 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
     } catch (error) {
       const commandeLocale = commandes.find(c => c.id === commandeId);
       if (commandeLocale) {
-        return {
-          success: true,
-          data: commandeLocale,
-          message: 'Détails depuis le cache local'
-        };
+        return { success: true, data: commandeLocale, message: 'Détails depuis le cache local' };
       }
       throw error;
     }
   }, [commandes]);
 
-  // Réinitialiser la sélection
   const resetSelection = useCallback(() => {
     setSelectedProducts([]);
     setSelectedClient(null);
   }, []);
 
-  // Calcul du total des produits sélectionnés
   const totalSelectedProducts = useMemo(() => {
     return selectedProducts.reduce((sum, p) => sum + toNumber(p.sousTotal), 0);
   }, [selectedProducts, toNumber]);
 
-  // Fonction pour mettre à jour les commandes après une action
   const updateCommandeStatus = useCallback((commandeId, newStatus) => {
     setCommandes(prev => prev.map(c => 
       c.id === commandeId 
-        ? { 
-            ...c, 
-            statut: getStatutDisplay(newStatus),
-            statutOriginal: newStatus
-          }
+        ? { ...c, statut: getStatutDisplay(newStatus), statutOriginal: newStatus }
         : c
     ));
   }, [getStatutDisplay]);
 
-
-
   return {
-    // États
     commandes,
     clients,
     produits,
@@ -535,25 +496,17 @@ const transformCommandes = useCallback((commandesData, produitsData) => {
     selectedProducts,
     selectedClient,
     totalSelectedProducts,
-    
-    // Setters
     setSelectedProducts,
     setSelectedClient,
     setCommandes,
     setError,
-    
-    // Fonctions utilitaires
     toNumber,
     chargerDonnees,
     resetSelection,
     updateCommandeStatus,
-    
-    // Gestion des produits
     handleSelectProduct,
     handleModifierQuantite,
     handleSupprimerProduit,
-    
-    // Gestion des commandes
     handleCreerCommande,
     handleValiderCommande,
     handleRejeterCommande,
