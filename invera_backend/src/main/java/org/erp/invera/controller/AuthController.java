@@ -174,25 +174,21 @@ public class AuthController {
     }
 
     // ===== FORGOT PASSWORD =====
-    // ===== FORGOT PASSWORD =====
-    @PostMapping("/forgot-password")
     @Transactional
+    @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestParam String email) {
+
         userRepository.findByEmail(email).ifPresent(user -> {
 
-            // Supprimer l'ancien token s'il existe
-            //passwordResetTokenRepository.findByUserEmail(email)
-              //      .ifPresent(passwordResetTokenRepository::delete);
+            // Delete old codes
+            passwordResetTokenRepository.deleteByUserEmail(email);
 
-            // Créer un nouveau token
             PasswordResetToken resetToken = new PasswordResetToken();
             resetToken.setUser(user);
-            resetToken.setToken(UUID.randomUUID().toString()); // Générer un token unique
             resetToken.setExpiryDate(LocalDateTime.now().plusMinutes(10));
 
             passwordResetTokenRepository.save(resetToken);
 
-            // Envoyer l'email
             emailService.sendResetPasswordEmail(email, resetToken.getToken());
         });
 
@@ -202,7 +198,32 @@ public class AuthController {
     }
 
 
+
     // ===== RESET PASSWORD =====
+    @Transactional
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByTokenAndUserEmail(request.getCode(), request.getEmail())
+                        .orElseThrow(() ->
+                                new RuntimeException("Invalid code"));
+
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Code expired"));
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        passwordResetTokenRepository.delete(resetToken);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Password reset successful"));
+    }
 
 
     // ===== CREATE TEMP ADMIN =====
