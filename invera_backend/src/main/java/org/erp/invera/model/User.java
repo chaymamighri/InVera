@@ -37,7 +37,7 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private RoleName role; // ADMIN, COMMERCIAL, RESPONSABLE_ACHAT
+    private Role role; // ADMIN, COMMERCIAL, RESPONSABLE_ACHAT
 
     private boolean active = true;
 
@@ -46,7 +46,7 @@ public class User implements UserDetails {
 
     // Optional custom constructor
     public User(String username, String nom, String prenom,
-                String email, String password, RoleName role) {
+                String email, String password, Role role) {
         this.username = username;
         this.nom = nom;
         this.prenom = prenom;
