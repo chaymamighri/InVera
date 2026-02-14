@@ -4,10 +4,10 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Random;
 
 /**
- * Password reset tokens
+ * Password reset OTP (6-digit code)
  */
 @Data
 @Entity
@@ -18,10 +18,12 @@ public class PasswordResetToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    /**
+     * 6-digit OTP code
+     */
+    @Column(nullable = false)
     private String token;
 
-    // Many tokens can belong to one user
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -30,6 +32,12 @@ public class PasswordResetToken {
     private LocalDateTime expiryDate;
 
     public PasswordResetToken() {
-        this.token = UUID.randomUUID().toString();
+        this.token = generateOtp();
+    }
+
+    private String generateOtp() {
+        Random random = new Random();
+        int number = 100000 + random.nextInt(900000);
+        return String.valueOf(number);
     }
 }
