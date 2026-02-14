@@ -11,9 +11,9 @@ const OrderRecapModal = ({
   remiseAppliquee,
   calculerTotaux,
   setShowSuccessPopup,
-  setShowCreateOrder,
   setSelectedProducts,
-  setSelectedClient
+  setSelectedClient,
+   onOrderCreated 
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -42,84 +42,86 @@ const OrderRecapModal = ({
       : number;
   };
 
-  const handleEnregistrerCommande = async () => {
-    // Validation
-    if (!selectedClient) {
-      alert('Veuillez sélectionner un client');
-      return;
-    }
+ const handleEnregistrerCommande = async () => {
+  // Validation
+  if (!selectedClient) {
+    alert('Veuillez sélectionner un client');
+    return;
+  }
 
-    if (selectedProducts.length === 0) {
-      alert('Veuillez sélectionner au moins un produit');
-      return;
-    }
+  if (selectedProducts.length === 0) {
+    alert('Veuillez sélectionner au moins un produit');
+    return;
+  }
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      // Préparer les données selon le format attendu par le backend Java
-      const commandeData = {
-  clientId: selectedClient.id,
-  produits: selectedProducts.map(p => ({
-    produitId: p.idProduit || p.id, 
-    quantite: p.quantiteCommande || 1,
-    prixUnitaire: p.prixVente || p.prix || 0,
-    remisePourcentage: p.remiseTemporaire || 0
-  })),
-  remiseTotale: remiseAppliquee || 0,
-  notes: "Commande créée depuis l'interface",
-  statut: 'EN_ATTENTE'
-};
+  try {
+    // Préparer les données
+    const commandeData = {
+      clientId: selectedClient.id,
+      produits: selectedProducts.map(p => ({
+        produitId: p.idProduit || p.id,
+        quantite: p.quantiteCommande || 1,
+        prixUnitaire: p.prixVente || p.prix || 0,
+        remisePourcentage: p.remiseTemporaire || 0
+      })),
+      remiseTotale: remiseAppliquee || 0,
+      notes: "Commande créée depuis l'interface",
+      statut: 'EN_ATTENTE'
+    };
 
-console.log('Données envoyées au backend:', JSON.stringify(commandeData, null, 2));
+    console.log('Données envoyées:', JSON.stringify(commandeData, null, 2));
 
-      // Appeler le service
-      const result = await commandeService.createCommande(commandeData);
-      
-      console.log('Réponse du backend:', result);
-      
-      if (result.success) {
-        // Fermer tous les modals
-        setShowRecap(false);
-        if (setShowCreateOrder) setShowCreateOrder(false);
-        
-        // Afficher le modal de succès
-        if (setShowSuccessPopup) {
-          setShowSuccessPopup(true);
+    // Appeler le service
+    const result = await commandeService.createCommande(commandeData);
+    
+    console.log('Réponse du backend:', result);
+    
+   if (result.success) {
+
+    if (onOrderCreated && result.data) {
+          console.log("✅ Nouvelle commande créée:", result.data);
+          onOrderCreated(result.data); // Ajoute la commande en tête de liste
         }
-        
-        // Réinitialiser les sélections
-        if (setSelectedProducts) setSelectedProducts([]);
-        if (setSelectedClient) setSelectedClient(null);
-        
-        // Rafraîchir la page après 2 secondes
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        throw new Error(result.message || 'Erreur lors de la création de la commande');
+
+      // Afficher le modal de succès
+      if (setShowSuccessPopup) {
+        setShowSuccessPopup(true);
       }
       
-    } catch (error) {
-      console.error('Erreur complète:', error);
+      // Réinitialiser les sélections
+      if (setSelectedProducts) setSelectedProducts([]);
+      if (setSelectedClient) setSelectedClient(null);
       
-      // Extraire le message d'erreur
-      let errorMessage = 'Erreur lors de la création de la commande';
+      // 🔥 REDIRECTION VERS LA PAGE DES COMMANDES
+      setTimeout(() => {
+        window.location.href = '/dashboard/sales/orders'; // selon route dans app.jsx
+      }, 1500); // 1.5 secondes pour voir le message de succès
       
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-      alert(`Erreur: ${errorMessage}`);
-      
-    } finally {
-      setLoading(false);
+    } else {
+      throw new Error(result.message || 'Erreur lors de la création de la commande');
     }
-  };
+    
+  } catch (error) {
+    console.error('Erreur complète:', error);
+    
+    let errorMessage = 'Erreur lors de la création de la commande';
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    setError(errorMessage);
+    alert(`Erreur: ${errorMessage}`);
+    
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -327,22 +329,6 @@ console.log('Données envoyées au backend:', JSON.stringify(commandeData, null,
             >
               Retour
             </button>
-            
-            <div className="flex space-x-3">
-              <button
-                type="button"
-                onClick={() => {
-                  // Option: Imprimer le récapitulatif
-                  window.print();
-                }}
-                disabled={loading}
-                className="px-6 py-2.5 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Imprimer
-              </button>
               
               <button
                 onClick={handleEnregistrerCommande}
@@ -367,7 +353,7 @@ console.log('Données envoyées au backend:', JSON.stringify(commandeData, null,
           </div>
         </div>
       </div>
-    </div>
+    
   );
 };
 

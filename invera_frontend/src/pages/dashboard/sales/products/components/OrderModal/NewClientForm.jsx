@@ -362,7 +362,7 @@ const NewClientForm = ({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Prénom
+            Prénom  <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -461,7 +461,7 @@ const NewClientForm = ({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Email
+          Email  <span className="text-red-500">*</span>
         </label>
         <div className="relative">
           <input

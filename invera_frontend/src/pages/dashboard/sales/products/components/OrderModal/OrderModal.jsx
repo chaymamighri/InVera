@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import SelectedProductsSection from './SelectedProductsSection';
 import ClientSelectionSection from './ClientSelectionSection';
+import { useNavigate } from 'react-router-dom';
 
 const OrderModal = ({
   showCreateOrder,
@@ -28,8 +29,11 @@ const OrderModal = ({
   clientTypes,
   loadClients,
   loadingClients,
-  applyRemiseByClientType
+  applyRemiseByClientType,
+  onOrderCreated
 }) => {
+  const navigate = useNavigate();
+  
   if (!showCreateOrder) return null;
 
   return (
