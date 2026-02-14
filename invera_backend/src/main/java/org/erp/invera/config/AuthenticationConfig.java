@@ -28,7 +28,7 @@ public class AuthenticationConfig {
         return provider;
     }
 
-    // ✅ SOLUTION 1: Utiliser AuthenticationConfiguration (recommandé)
+    // Utiliser AuthenticationConfiguration
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
