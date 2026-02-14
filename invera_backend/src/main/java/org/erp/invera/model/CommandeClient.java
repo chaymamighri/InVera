@@ -34,17 +34,9 @@ public class CommandeClient {
     @Column(name = "statut", nullable = false)
     private StatutCommande statut = StatutCommande.EN_ATTENTE;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type_vente", nullable = false)
-    @ColumnDefault("'SUR_COMMANDE'") // Ajouter une valeur par défaut
-    private TypeVente typeVente = TypeVente.SUR_COMMANDE;
-
     @CreationTimestamp
     @Column(name = "date_creation", nullable = false)
     private LocalDateTime dateCreation;
-
-    @Column(name = "date_livraison")
-    private LocalDateTime dateLivraison;
 
     @Column(name = "sous_total", precision = 10, scale = 2)
     private BigDecimal sousTotal;
@@ -58,13 +50,11 @@ public class CommandeClient {
     @Column(name = "total", precision = 10, scale = 2, nullable = false)
     private BigDecimal total;
 
-    @Column(name = "notes")
-    private String notes;
-
     @ElementCollection
     @CollectionTable(name = "commande_produits",
             joinColumns = @JoinColumn(name = "commande_id"))
     @MapKeyColumn(name = "produit_id")
+
     @Column(name = "quantite")
     private Map<Integer, Integer> produits = new HashMap<>();
 
@@ -92,18 +82,5 @@ public class CommandeClient {
         }
     }
 
-    public enum TypeVente {
-        DIRECTE("Vente directe"),
-        SUR_COMMANDE("Vente sur commande");
 
-        private final String displayName;
-
-        TypeVente(String displayName) {
-            this.displayName = displayName;
-        }
-
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 }

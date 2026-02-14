@@ -97,7 +97,8 @@ const CreateOrderModal = ({
   onSupprimerProduit,
   onCreateCommande,
   toNumber,
-  isCreating = false
+  isCreating = false,
+  onOrderCreated
 }) => {
   const [searchProduit, setSearchProduit] = useState('');
   const [searchClient, setSearchClient] = useState('');

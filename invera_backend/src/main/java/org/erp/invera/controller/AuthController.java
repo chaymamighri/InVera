@@ -2,7 +2,7 @@ package org.erp.invera.controller;
 
 import jakarta.validation.Valid;
 import org.erp.invera.dto.*;
-import org.erp.invera.model.RoleName;
+import org.erp.invera.model.Role;
 import org.erp.invera.model.User;
 import org.erp.invera.model.PasswordResetToken;
 import org.erp.invera.repository.UserRepository;
@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -74,7 +73,7 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNom(request.getNom());
         user.setPrenom(request.getPrenom());
-        user.setRole(RoleName.valueOf(request.getRole()));
+        user.setRole(Role.valueOf(request.getRole()));
         user.setActive(true);
 
         userRepository.save(user);
@@ -118,7 +117,7 @@ public class AuthController {
                     user.setUsername(request.getUsername());
                     user.setNom(request.getNom());
                     user.setPrenom(request.getPrenom());
-                    user.setRole(RoleName.valueOf(request.getRole()));
+                    user.setRole(Role.valueOf(request.getRole()));
                     if (request.getPassword() != null && !request.getPassword().isBlank()) {
                         user.setPassword(passwordEncoder.encode(request.getPassword()));
                     }
@@ -240,7 +239,7 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode("hamdi123!"));
         user.setNom("hamdi");
         user.setPrenom("hamdi");
-        user.setRole(RoleName.ADMIN);
+        user.setRole(Role.ADMIN);
         user.setActive(true);
 
         userRepository.save(user);

@@ -83,7 +83,6 @@ public class CommandeClientService {
         commande.setClient(client);
         commande.setStatut(CommandeClient.StatutCommande.EN_ATTENTE);
         commande.setDateCreation(LocalDateTime.now());
-        commande.setNotes(commandeRequest.getNotes());
 
         // 5. Ajouter les produits et calculer les totaux
         BigDecimal sousTotal = BigDecimal.ZERO;

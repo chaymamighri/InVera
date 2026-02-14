@@ -48,8 +48,6 @@ public class ProduitService {
                     produit.setRemiseParticulier(produitDetails.getRemiseParticulier());
                     produit.setRemiseVIP(produitDetails.getRemiseVIP());
                     produit.setRemiseProfessionnelle(produitDetails.getRemiseProfessionnelle());
-                    produit.setRemiseVolumeMin(produitDetails.getRemiseVolumeMin());
-                    produit.setTauxRemiseVolume(produitDetails.getTauxRemiseVolume());
 
                     // Recalculer le statut
                     updateStockStatus(produit);

@@ -19,5 +19,4 @@ public class Fournisseur {
     private String nom;
     private String contact;
     private String email;
-    private String fiabilite;
 }

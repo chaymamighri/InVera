@@ -51,7 +51,7 @@ const LoginPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col md:flex-row">
       
       {/* Section gauche - Branding */}
-      <div className="md:w-1/2 bg-gradient-to-br from-blue-900 to-blue-800 text-white p-6 md:p-12 flex flex-col">
+      <div className="md:w-1/2 bg-gradient-to-br from-blue-700 to-blue-800 text-white p-6 md:p-12 flex flex-col">
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
 
           {/* Logo et tagline */}
@@ -119,11 +119,6 @@ const LoginPage = () => {
               <p className="mb-2">
                 © {new Date().getFullYear()} InVera ERP. Tous droits réservés.
               </p>
-              <div className="flex justify-center items-center space-x-4 text-xs">
-                <span>Version 2.1.4</span>
-                <span className="h-1 w-1 rounded-full bg-blue-400/50"></span>
-                <span>Serveur: online</span>
-              </div>
             </div>
           </div>
 

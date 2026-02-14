@@ -71,21 +71,12 @@ public class CommandeResponseDTO {
             );
         }
 
-        dto.setDateLivraisonPrevue(commande.getDateLivraison());
-        if (commande.getDateLivraison() != null) {
-            dto.setDateLivraisonPrevueFormatted(
-                    commande.getDateLivraison().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-            );
-        }
 
         dto.setSousTotal(commande.getSousTotal());
         dto.setMontantRemise(commande.getMontantRemise());
         dto.setRemise(commande.getMontantRemise());
         dto.setTauxRemise(commande.getTauxRemise());
         dto.setTotal(commande.getTotal());
-
-        dto.setRemarques(commande.getNotes());
-        dto.setNotes(commande.getNotes());
 
         dto.setProduits(new ArrayList<>());
         dto.setDetailsRemises(new HashMap<>());
