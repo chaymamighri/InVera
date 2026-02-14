@@ -195,7 +195,7 @@ const OrderTable = ({
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
                   DATE CRÉATION
                   {sortField === 'dateCreation' && (
-                    sortDirection === 'asc' ? 
+                    sortDirection === 'desc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
                       <ChevronDownIcon className="ml-1 h-3 w-3" />
                   )}
@@ -259,9 +259,6 @@ const OrderTable = ({
                   <td className="px-4 py-3">
                     <div className="text-sm text-gray-900">
                       {commande.dateCreation}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Livraison: {commande.dateLivraisonPrevue}
                     </div>
                   </td>
 

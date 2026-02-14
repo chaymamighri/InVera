@@ -5,17 +5,16 @@ import { authService } from '../services/authService';
 
 const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('login'); // 'login' ou 'forgot'
+  const [mode, setMode] = useState('login');
   const [formData, setFormData] = useState({
     email: savedEmail || '',
     password: '',
     rememberMe: false,
-    // Pour récupération
     resetCode: '',
     newPassword: '',
     confirmPassword: ''
   });
-  const [step, setStep] = useState(1); // 1: email, 2: code, 3: new password
+  const [step, setStep] = useState(1);
   const [internalLoading, setInternalLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -49,22 +48,22 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
 
-  // Validation
+  // Validations
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) return 'Email requis';
+    if (!email?.trim()) return 'Email requis';
     if (!emailRegex.test(email)) return 'Format d\'email invalide';
     return '';
   };
 
   const validatePassword = (password) => {
-    if (!password.trim()) return 'Mot de passe requis';
+    if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 6) return 'Minimum 6 caractères';
     return '';
   };
 
   const validateNewPassword = (password) => {
-    if (!password.trim()) return 'Mot de passe requis';
+    if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 8) return 'Minimum 8 caractères';
     if (!/(?=.*[A-Z])/.test(password)) return 'Au moins une majuscule';
     if (!/(?=.*\d)/.test(password)) return 'Au moins un chiffre';
@@ -83,17 +82,24 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     if (message.text) setMessage({ type: '', text: '' });
   };
 
-  // LOGIN SUBMIT
+  const togglePasswordVisibility = (field) => {
+    setShowPassword(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  // LOGIN
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
     
     const newErrors = {};
-    if (!formData.email.trim()) newErrors.email = 'Email requis';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Format d\'email invalide';
+    const emailError = validateEmail(formData.email);
+    if (emailError) newErrors.email = emailError;
     
-    if (!formData.password.trim()) newErrors.password = 'Mot de passe requis';
-    else if (formData.password.length < 6) newErrors.password = 'Minimum 6 caractères';
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) newErrors.password = passwordError;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -135,7 +141,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   };
 
-  // FORGOT PASSWORD - STEP 1: Email
+  // FORGOT PASSWORD - Step 1: Email
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -165,12 +171,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   };
 
-  // FORGOT PASSWORD - STEP 2: Code
+  // Step 2: Code
   const handleVerifyCode = async (e) => {
     e.preventDefault();
     setErrors({});
 
-    if (!formData.resetCode.trim()) {
+    if (!formData.resetCode?.trim()) {
       setErrors({ resetCode: 'Code requis' });
       return;
     }
@@ -187,7 +193,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     });
   };
 
-  // FORGOT PASSWORD - STEP 3: New Password
+  // Step 3: New Password
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -249,13 +255,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     } finally {
       setInternalLoading(false);
     }
-  };
-
-  const togglePasswordVisibility = (field) => {
-    setShowPassword(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
   };
 
   // RENDER LOGIN FORM
@@ -359,7 +358,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           disabled={isLoading}
         />
         <label htmlFor="remember-me" className="ml-2 text-sm text-gray-700">
-          Se souvenir de moi 
+          Se souvenir de moi
         </label>
       </div>
 
@@ -389,7 +388,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // RENDER FORGOT PASSWORD FORM
   const renderForgotForm = () => {
-    // Step indicator
     const renderStepIndicator = () => (
       <div className="flex items-center justify-center mb-6">
         {[1, 2, 3].map((stepNumber) => (
@@ -414,22 +412,22 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
     return (
       <div className="space-y-5">
-  {/* Back button - Version premium avec effet hover */}
-  <button
-    type="button"
-    onClick={() => {
-      setMode('login');
-      setStep(1);
-      setErrors({});
-      setMessage({ type: '', text: '' });
-    }}
-    className="text-sm text-blue-600 hover:text-blue-700 flex items-center font-medium transition-all duration-200 group"
-  >
-    <svg className="h-4 w-4 mr-1 text-blue-600 group-hover:text-blue-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-    </svg>
-    <span className="group-hover">Retour à la connexion</span>
-  </button>
+        {/* Back button */}
+        <button
+          type="button"
+          onClick={() => {
+            setMode('login');
+            setStep(1);
+            setErrors({});
+            setMessage({ type: '', text: '' });
+          }}
+          className="text-sm text-blue-600 hover:text-blue-700 flex items-center font-medium transition-all duration-200 group"
+        >
+          <svg className="h-4 w-4 mr-1 text-blue-600 group-hover:text-blue-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span>Retour à la connexion</span>
+        </button>
 
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -674,47 +672,20 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   };
 
   return (
-      <div className="max-w-lg w-full space-y-6">
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-gray-900">
-        {mode === 'login' ? 'Connectez-vous à votre compte' : 'Réinitialisation'}
-      </h2>
-      <p className="mt-2 text-gray-600">
-        {mode === 'login' 
-          ? 'Entrez vos identifiants pour accéder à la plateforme'
-          : 'Suivez les étapes pour réinitialiser votre mot de passe'
-        }
-      </p>
-    </div>
-
-      {mode === 'login' ? renderLoginForm() : renderForgotForm()}
-
-      {/* Contact admin - toujours visible */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Ou contacter Nous</span>
-        </div>
-      </div>
-      
+    <div className="max-w-lg w-full space-y-6">
       <div className="text-center">
-        <button
-          type="button"
-          onClick={() => alert('Page contact à implémenter')}
-          className="inline-flex items-center justify-center w-full py-3 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors font-medium"
-          disabled={isLoading}
-        >
-          <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          Contactez l'administrateur
-        </button>
-        <p className="mt-2 text-xs text-gray-500">
-          Pour obtenir un compte ou assistance technique
+        <h2 className="text-2xl font-bold text-gray-900">
+          {mode === 'login' ? 'Connectez-vous à votre compte' : 'Réinitialisation'}
+        </h2>
+        <p className="mt-2 text-gray-600">
+          {mode === 'login' 
+            ? 'Entrez vos identifiants pour accéder à la plateforme'
+            : 'Suivez les étapes pour réinitialiser votre mot de passe'
+          }
         </p>
       </div>
+
+      {mode === 'login' ? renderLoginForm() : renderForgotForm()}
     </div>
   );
 };

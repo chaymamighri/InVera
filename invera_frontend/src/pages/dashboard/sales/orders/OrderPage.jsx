@@ -20,6 +20,7 @@ const OrdersPage = () => {
   // Utiliser le hook personnalisé
   const {
     commandes,
+    setCommandes, // 👈 AJOUTER CETTE LIGNE (important!)
     clients,
     produits,
     loading,
@@ -42,7 +43,7 @@ const OrdersPage = () => {
   const [selectedClientId, setSelectedClientId] = useState('Tous');
   const [selectedClientType, setSelectedClientType] = useState('Tous');
   const [clientTypes, setClientTypes] = useState([]);
-  const [sortField, setSortField] = useState('dateCreation');
+  const [sortField, setSortField] = useState('null');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -60,6 +61,14 @@ const OrdersPage = () => {
     init();
   }, []);
 
+  // ✅ Fonction pour ajouter la nouvelle commande en PREMIÈRE position
+  const ajouterNouvelleCommande = (nouvelleCommande) => {
+    setCommandes(prevCommandes => {
+      // Ajoute la nouvelle commande en PREMIÈRE position
+      return [nouvelleCommande, ...prevCommandes];
+    });
+  };
+
   // Fonction pour charger les types de client
   const chargerTypesClient = useCallback(async () => {
     try {
@@ -76,54 +85,63 @@ const OrdersPage = () => {
   }, []);
 
   // Filtrer les commandes
+ // Filtrer les commandes (SANS TRI)
   useEffect(() => {
-    const filtered = commandes
-      .filter(commande => {
-        const matchesSearch = searchTerm === '' || 
-          (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()));
-        
-        const matchesStatus = selectedStatus === 'Tous' || 
-          commande.statut === selectedStatus ||
-          (selectedStatus === 'En attente' && commande.statut === 'EN_ATTENTE') ||
-          (selectedStatus === 'Confirmé' && commande.statut === 'CONFIRMEE') ||
-          (selectedStatus === 'Refusé' && commande.statut === 'ANNULEE');
-        
-        const matchesClient = selectedClientId === 'Tous' || 
-          commande.client?.id === parseInt(selectedClientId);
-        
-        const matchesClientType = selectedClientType === 'Tous' || 
-          (commande.client?.type && 
-           commande.client.type.toUpperCase() === selectedClientType.toUpperCase());
-        
-        return matchesSearch && matchesStatus && matchesClient && matchesClientType;
-      })
-      .sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        if (sortField === 'dateCreation') {
-          aValue = new Date(aValue);
-          bValue = new Date(bValue);
-        }
-        
-        if (sortField === 'client') {
-          aValue = a.client?.nom || '';
-          bValue = b.client?.nom || '';
-        }
-        
-        if (sortField === 'total' || sortField === 'sousTotal') {
-          aValue = toNumber(aValue);
-          bValue = toNumber(bValue);
-        }
-        
-        return sortDirection === 'asc' 
-          ? (aValue > bValue ? 1 : -1)
-          : (aValue < bValue ? 1 : -1);
-      });
+  // 1. D'abord on filtre
+  const filtered = commandes.filter(commande => {
+    const matchesSearch = searchTerm === '' || 
+      (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    setFilteredCommandes(filtered);
-  }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
+    const matchesStatus = selectedStatus === 'Tous' || 
+      commande.statut === selectedStatus ||
+      (selectedStatus === 'En attente' && commande.statut === 'EN_ATTENTE') ||
+      (selectedStatus === 'Confirmé' && commande.statut === 'CONFIRMEE') ||
+      (selectedStatus === 'Refusé' && commande.statut === 'ANNULEE');
+    
+    const matchesClient = selectedClientId === 'Tous' || 
+      commande.client?.id === parseInt(selectedClientId);
+    
+    const matchesClientType = selectedClientType === 'Tous' || 
+      (commande.client?.type && 
+       commande.client.type.toUpperCase() === selectedClientType.toUpperCase());
+    
+    return matchesSearch && matchesStatus && matchesClient && matchesClientType;
+  });
+
+  // 2. ✅ NE PAS TRIER SI ON VEUT GARDER L'ORDRE D'AJOUT
+  // Si on veut un tri, on le fait conditionnellement
+  if (sortField) {
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (sortField === 'dateCreation') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+      
+      if (sortField === 'client') {
+        aValue = a.client?.nom || '';
+        bValue = b.client?.nom || '';
+      }
+      
+      if (sortField === 'total' || sortField === 'sousTotal') {
+        aValue = toNumber(aValue);
+        bValue = toNumber(bValue);
+      }
+      
+      return sortDirection === 'asc' 
+        ? (aValue > bValue ? 1 : -1)
+        : (aValue < bValue ? 1 : -1);
+    });
+  } else {
+    // 3. ✅ Si pas de tri, on garde l'ordre actuel (nouveau en tête)
+    // Pas besoin de faire quoi que ce soit
+  }
+  
+  setFilteredCommandes(filtered);
+}, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
 
   // Fonction de réinitialisation des filtres
   const handleResetFilters = useCallback(() => {
@@ -134,14 +152,23 @@ const OrdersPage = () => {
   }, []);
 
   // Fonctions stabilisées avec useCallback
-  const handleSort = useCallback((field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
+ const handleSort = useCallback((field) => {
+  if (sortField === field) {
+    // Si on clique sur le même champ
+    if (sortDirection === 'desc') {
+      // Passer de desc → asc
       setSortDirection('asc');
+    } else if (sortDirection === 'asc') {
+      // Passer de asc → null (pas de tri)
+      setSortField(null);
+      setSortDirection('desc'); // reset
     }
-  }, [sortField, sortDirection]);
+  } else {
+    // Nouveau champ de tri
+    setSortField(field);
+    setSortDirection('asc');
+  }
+}, [sortField, sortDirection]);
 
   // Fonctions pour gérer les produits sélectionnés
   const handleSelectProduct = useCallback((produit) => {
@@ -161,133 +188,114 @@ const OrdersPage = () => {
   }, [setSelectedProducts]);
 
   // Fonction pour créer la commande
-const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
-  console.log('🔴 handleCreerCommandeAPI DÉBUT');
+  const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
+    console.log('🔴 handleCreerCommandeAPI DÉBUT');
 
-  if (!clientId || selectedProducts.length === 0) {
-    alert('Veuillez sélectionner un client et ajouter au moins un produit');
-    return;
-  }
-
-  setIsCreating(true);
-
-  try {
-    const parsedClientId = parseInt(clientId, 10);
-    
-    if (isNaN(parsedClientId) || parsedClientId <= 0) {
-      throw new Error(`ID client invalide: "${clientId}"`);
+    if (!clientId || selectedProducts.length === 0) {
+      alert('Veuillez sélectionner un client et ajouter au moins un produit');
+      return;
     }
 
-    const commandeData = {
-      clientId: parsedClientId,  
-      produits: selectedProducts.map(p => {
-        console.log(' Préparation produit:', p.id, p.libelle);
+    setIsCreating(true);
+
+    try {
+      const parsedClientId = parseInt(clientId, 10);
+      
+      if (isNaN(parsedClientId) || parsedClientId <= 0) {
+        throw new Error(`ID client invalide: "${clientId}"`);
+      }
+
+      const commandeData = {
+        clientId: parsedClientId,  
+        produits: selectedProducts.map(p => {
+          console.log(' Préparation produit:', p.id, p.libelle);
+          
+          const produitId = parseInt(p.id, 10);
+          if (isNaN(produitId) || produitId <= 0) {
+            throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
+          }
+          
+          return {
+            produitId: produitId,  
+            quantite: parseInt(p.quantite, 10),  
+            prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
+            remisePourcentage: 0 
+          };
+        }),
+        remarques: notes || '',
+        statut: 'EN_ATTENTE'
+      };
+
+      // VÉRIFICATION DÉTAILLÉE
+      console.log(' Données envoyées:', JSON.stringify(commandeData, null, 2));
+      
+      const response = await commandeService.createCommande(commandeData);
+      
+      if (response.success) {
+        alert(' Commande créée avec succès !');
         
-    
-        const produitId = parseInt(p.id, 10);
-        if (isNaN(produitId) || produitId <= 0) {
-          throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
+        // ✅ 1. Ajouter la nouvelle commande en tête de liste
+        if (response.data) {
+          ajouterNouvelleCommande(response.data);
         }
         
-        return {
-          produitId: produitId,  
-          quantite: parseInt(p.quantite, 10),  
-          prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
-          remisePourcentage: 0 
-        };
-      }),
-      remarques: notes || '',
-      statut: 'EN_ATTENTE'
-    };
-
-    // VÉRIFICATION DÉTAILLÉE
-    console.log(' Données envoyées:', JSON.stringify(commandeData, null, 2));
-    console.log(' Vérification des types:');
-    console.log(' clientId:', commandeData.clientId, 'Type:', typeof commandeData.clientId);
-    console.log(' Est un nombre?', Number.isInteger(commandeData.clientId));
-    
-    commandeData.produits.forEach((p, i) => {
-      console.log(`  Produit ${i}:`);
-      console.log(`    produitId: ${p.produitId}, Type: ${typeof p.produitId}, Est Integer? ${Number.isInteger(p.produitId)}`);
-      console.log(`    quantite: ${p.quantite}, Type: ${typeof p.quantite}, Est Integer? ${Number.isInteger(p.quantite)}`);
-      console.log(`    prixUnitaire: ${p.prixUnitaire}, Type: ${typeof p.prixUnitaire}`);
-      console.log(`    remisePourcentage: ${p.remisePourcentage}, Type: ${typeof p.remisePourcentage}`);
-    });
-
-    const response = await commandeService.createCommande(commandeData);
-    
-    if (response.success) {
-      alert(' Commande créée avec succès !');
-      resetSelection();
-      setShowCreateModal(false);
-      await chargerDonnees();
-    } else {
-      alert('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
-    }
-  } catch (error) {
-    console.error('❌ ERREUR DÉTAILLÉE:');
-    console.error('  Message:', error.message);
-    
-    if (error.response) {
-      console.error('  Status:', error.response.status);
-      console.error('  Données erreur:', error.response.data);
-      console.error('  Headers:', error.response.headers);
-      
-      // Affichez la requête exacte
-      if (error.response.config) {
-        console.error('  URL:', error.response.config.url);
-        console.error('  Méthode:', error.response.config.method);
-        console.error('  Données envoyées:', error.response.config.data);
+        // ✅ 2. Réinitialiser la sélection
+        resetSelection();
+        
+        // ✅ 3. Fermer le modal
+        setShowCreateModal(false);
+        
+        // ❌ 4. NE PAS recharger toutes les commandes
+        // await chargerDonnees(); // ← COMMENTÉ ou SUPPRIMÉ
+        
+      } else {
+        alert('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
       }
+    } catch (error) {
+      console.error('❌ ERREUR DÉTAILLÉE:', error);
+      
+      let errorMessage = 'Erreur lors de la création de la commande';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert('❌ Erreur: ' + errorMessage);
+    } finally {
+      setIsCreating(false);
     }
-    
-    let errorMessage = 'Erreur lors de la création de la commande';
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
+  }, [selectedProducts, toNumber, resetSelection, ajouterNouvelleCommande]); // 👈 AJOUTER ajouterNouvelleCommande
+
+  // Fonction pour valider une commande
+  const handleValiderCommandeAPI = useCallback(async (commandeId) => {
+    try {
+      console.log('Validation commande:', commandeId);
+      
+      await handleValiderCommande(commandeId);
+      
+      alert('✅ Commande validée avec succès !');
+      await chargerDonnees();
+    } catch (error) {
+      console.error('Erreur lors de la validation:', error);
+      alert('Erreur lors de la validation de la commande: ' + error.message);
     }
-    
-    alert('❌ Erreur: ' + errorMessage);
-  } finally {
-    setIsCreating(false);
-  }
-}, [selectedProducts, produits, toNumber, resetSelection, chargerDonnees]);
+  }, [handleValiderCommande, chargerDonnees]);
 
-
-// Fonction pour valider une commande
-const handleValiderCommandeAPI = useCallback(async (commandeId) => {
-  try {
-    console.log('Validation commande:', commandeId);
-    
-    // Utilisez handleValiderCommande du hook useOrders
-    await handleValiderCommande(commandeId);
-    
-    alert('✅ Commande validée avec succès !');
-    await chargerDonnees();
-  } catch (error) {
-    console.error('Erreur lors de la validation:', error);
-    alert('Erreur lors de la validation de la commande: ' + error.message);
-  }
-}, [handleValiderCommande, chargerDonnees]);
-
-// Fonction pour rejeter une commande
-const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
-  try {
-    console.log(' Rejet commande:', commandeId);
-    
-    // Utilisez handleRejeterCommande du hook useOrders
-    await handleRejeterCommande(commandeId);
-    
-    alert(' Commande rejetée avec succès !');
-    await chargerDonnees();
-  } catch (error) {
-    console.error('Erreur lors du rejet:', error);
-    alert('Erreur lors du rejet de la commande: ' + error.message);
-  }
-}, [handleRejeterCommande, chargerDonnees]);
-
-
+  // Fonction pour rejeter une commande
+  const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
+    try {
+      console.log(' Rejet commande:', commandeId);
+      
+      await handleRejeterCommande(commandeId);
+      
+      alert(' Commande rejetée avec succès !');
+      await chargerDonnees();
+    } catch (error) {
+      console.error('Erreur lors du rejet:', error);
+      alert('Erreur lors du rejet de la commande: ' + error.message);
+    }
+  }, [handleRejeterCommande, chargerDonnees]);
 
   const handleVoirDetails = useCallback((commande) => {
     setSelectedCommande(commande);
@@ -305,7 +313,6 @@ const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
   // Charger les données pour le modal de création
   useEffect(() => {
     if (showCreateModal) {
-      // Utiliser directement les données du hook useOrders
       setModalProduits(produits || []);
       setModalClients(clients || []);
     }
@@ -470,6 +477,7 @@ const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
           onSupprimerProduit={handleSupprimerProduit}
           onCreateCommande={handleCreerCommandeAPI}
           toNumber={toNumber}
+          onOrderCreated={ajouterNouvelleCommande}
           isCreating={isCreating}
         />
       )}

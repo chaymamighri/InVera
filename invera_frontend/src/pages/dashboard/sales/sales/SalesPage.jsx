@@ -9,7 +9,6 @@ import {
 
 import SalesFilters from './components/SalesFilter'; 
 import SalesTable from './components/SalesTable'; 
-import CreateSalesModal from './components/CreateSalesModal';
 import InvoiceModal from './components/InvoiceModal'; 
 import { commandeService } from '../../../../services/commandeService'; 
 
@@ -321,21 +320,7 @@ const SalesPage = () => {
           )}
         </div>
         
-        <div className="flex items-center gap-3">
-          
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            disabled={loading}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white 
-                     px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-indigo-700 
-                     transition-all flex items-center justify-center gap-2 
-                     shadow-sm hover:shadow-md disabled:opacity-50 
-                     disabled:cursor-not-allowed active:scale-95"
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span>Nouvelle Commande</span>
-          </button>
-        </div>
+        
       </div>
          
       {/* Filtres - avec totalFiltered */}
@@ -353,12 +338,6 @@ const SalesPage = () => {
         filters={filters} 
       />
 
-      {/* Modals */}
-      <CreateSalesModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSave={handleCreateSale}
-      />
 
       <InvoiceModal
         isOpen={isInvoiceModalOpen}

@@ -20,14 +20,12 @@ const ClientSelectionSection = ({
   setNouveauClient,
   remiseAppliquee,
   handleSelectClient,
-  clientTypes,
   loadingClients,
   applyRemiseByClientType,
   loadClients 
 }) => {
   const [searchClientTerm, setSearchClientTerm] = useState('');
   const [filteredClients, setFilteredClients] = useState(clients);
-  const [refreshLoading, setRefreshLoading] = useState(false);
   const [clientCreeEtSelectionne, setClientCreeEtSelectionne] = useState(null);
   const searchInputRef = useRef(null);
 
@@ -107,23 +105,7 @@ const ClientSelectionSection = ({
     }
   };
 
-  // Fonction pour rafraîchir la liste des clients
-  const handleRefreshClients = async () => {
-    if (!loadClients) return;
-    
-    setRefreshLoading(true);
-    try {
-      await loadClients();
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-      }
-    } catch (error) {
-      console.error('Erreur lors du rafraîchissement:', error);
-    } finally {
-      setRefreshLoading(false);
-    }
-  };
-
+  
   // Fonction UNIFIÉE pour sélectionner un client (utilisée pour les deux modes)
   const handleSelectClientUnified = (client) => {
     console.log('🔄 Sélection du client:', client.nom, client);
@@ -167,15 +149,7 @@ const ClientSelectionSection = ({
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-gray-800">Sélection du Client</h3>
         <div className="flex items-center space-x-2">
-          {/* Bouton Refresh */}
-          <button
-            onClick={handleRefreshClients}
-            disabled={refreshLoading || loadingClients}
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Rafraîchir la liste"
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${refreshLoading ? 'animate-spin' : ''}`} />
-          </button>
+
           
           <button
             onClick={() => {

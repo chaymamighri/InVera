@@ -156,8 +156,7 @@ public class ProduitController {
                     remises.put("remiseVIP", produit.getRemiseVIP());
                     remises.put("remiseProfessionnelle", produit.getRemiseProfessionnelle());
                     remises.put("remiseTemporaire", produit.getRemiseTemporaire());
-                    remises.put("remiseVolumeMin", produit.getRemiseVolumeMin());
-                    remises.put("tauxRemiseVolume", produit.getTauxRemiseVolume());
+
                     return ResponseEntity.ok(remises);
                 })
                 .orElse(ResponseEntity.notFound().build());

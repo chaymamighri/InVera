@@ -1,6 +1,6 @@
 package org.erp.invera.repository;
 
-import org.erp.invera.model.RoleName;
+import org.erp.invera.model.Role;
 import org.erp.invera.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,7 +11,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Boolean existsByEmail(String email);
     Boolean existsByUsername(String username);
-    List<User> findByRole(RoleName role);
+    List<User> findByRole(Role role);
 
     // Filtering users
     List<User> findByNomIgnoreCaseAndPrenomIgnoreCase(String nom, String prenom);
