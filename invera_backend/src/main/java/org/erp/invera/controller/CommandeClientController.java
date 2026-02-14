@@ -60,7 +60,6 @@ public class CommandeClientController {
                 commandes = commandeClientRepository.findAllWithDetails();
             }
 
-            // ✅ CORRECTION ICI - Utiliser la méthode AVEC services
             List<CommandeResponseDTO> commandesDTO = commandes.stream()
                     .map(commande -> CommandeResponseDTO.fromEntity(
                             commande,
@@ -96,22 +95,20 @@ public class CommandeClientController {
         try {
             System.out.println("📌 API appelée: GET /api/commandes/validated");
 
-            // ✅ 1. Récupérer les commandes avec JOIN FETCH
             List<CommandeClient> commandes = commandeClientRepository.findByStatutWithDetails(
                     CommandeClient.StatutCommande.CONFIRMEE);
 
             System.out.println("📊 " + commandes.size() + " commandes validées trouvées");
 
-            // ✅ 2. *** CORRECTION ICI *** - Utiliser la méthode AVEC services
             List<CommandeResponseDTO> commandesDTO = commandes.stream()
                     .map(commande -> CommandeResponseDTO.fromEntity(
                             commande,
-                            clientService,     // ✅ NÉCESSAIRE pour les remises
-                            produitService     // ✅ NÉCESSAIRE pour les détails produits (image, libellé)
+                            clientService,
+                            produitService
                     ))
                     .collect(Collectors.toList());
 
-            // ✅ 3. Vérification
+            // 3. Vérification
             if (!commandesDTO.isEmpty()) {
                 CommandeResponseDTO first = commandesDTO.get(0);
                 System.out.println("📋 Première commande: " + first.getNumeroCommande());
@@ -145,11 +142,11 @@ public class CommandeClientController {
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getCommandeById(@PathVariable Integer id) {
         try {
-            // ✅ 1. Récupérer la commande avec détails
+            // Récupérer la commande avec détails
             CommandeClient commande = commandeClientRepository.findByIdWithDetails(id)
                     .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + id));
 
-            // ✅ 2. CORRECTION - Utiliser la méthode AVEC services
+
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commande,
                     clientService,
@@ -207,14 +204,13 @@ public class CommandeClientController {
 
             CommandeClient commande = commandeService.createCommande(commandeRequest);
 
-            // ✅ Recharger avec les détails
+            //  Recharger avec les détails
             CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
                     .stream()
                     .filter(c -> c.getId().equals(commande.getId()))
                     .findFirst()
                     .orElse(commande);
 
-            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commandeAvecDetails,
                     clientService,
@@ -251,18 +247,16 @@ public class CommandeClientController {
                     .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
             commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
-            commande.setDateLivraison(LocalDateTime.now().plusDays(7));
-
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-            // ✅ Recharger avec détails
+            // Recharger avec détails
             CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
                     .stream()
                     .filter(c -> c.getId().equals(commandeMaj.getId()))
                     .findFirst()
                     .orElse(commandeMaj);
 
-            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
+
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commandeAvecDetails,
                     clientService,
@@ -292,14 +286,13 @@ public class CommandeClientController {
             commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-            // ✅ Recharger avec détails
+
             CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
                     .stream()
                     .filter(c -> c.getId().equals(commandeMaj.getId()))
                     .findFirst()
                     .orElse(commandeMaj);
 
-            // ✅ CORRECTION ICI - AJOUTER clientService ET produitService
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commandeAvecDetails,
                     clientService,
@@ -320,10 +313,9 @@ public class CommandeClientController {
         }
     }
 
-    // ✅ Autres méthodes inchangées...
     @PostMapping("/verifier-disponibilite")
     public ResponseEntity<Map<String, Object>> verifierDisponibilite(@RequestBody Map<String, Object> request) {
-        // ... (inchangé)
+
         try {
             System.out.println("🔍 Vérification disponibilité - Données reçues: " + request);
 
@@ -368,7 +360,7 @@ public class CommandeClientController {
     @GetMapping("/remise-client/{typeClient}")
     public ResponseEntity<Map<String, Object>> getRemiseForClientType(
             @PathVariable String typeClient) {
-        // ... (inchangé)
+
         try {
             Double remise = commandeService.getRemiseForClientType(typeClient);
 
@@ -389,7 +381,7 @@ public class CommandeClientController {
 
     @GetMapping("/{id}/test-produit")
     public ResponseEntity<Map<String, Object>> testProduitMethod(@PathVariable Integer id) {
-        // ... (inchangé)
+
         try {
             Optional<Produit> produitOpt = produitService.getProduitById(1);
 

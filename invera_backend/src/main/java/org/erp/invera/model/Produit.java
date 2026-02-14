@@ -54,11 +54,6 @@ public class Produit {
     @Column(name = "remise_professionnelle")
     private Double remiseProfessionnelle;
 
-    @Column(name = "remise_volume_min")
-    private Integer remiseVolumeMin;
-
-    @Column(name = "taux_remise_volume")
-    private Double tauxRemiseVolume;
 
     public enum StockStatus {
         EN_STOCK,
@@ -67,6 +62,8 @@ public class Produit {
         CRITIQUE
     }
 
+
+     ///  doit etre dans un classe séparé
     public enum CategorieProduit {
         ELECTRONIQUE,
         ELECTROMENAGER,
