@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @RestController
@@ -178,7 +179,6 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestParam String email) {
 
         userRepository.findByEmail(email).ifPresent(user -> {
-
             // Delete old codes
             passwordResetTokenRepository.deleteByUserEmail(email);
 
@@ -188,15 +188,17 @@ public class AuthController {
 
             passwordResetTokenRepository.save(resetToken);
 
-            emailService.sendResetPasswordEmail(email, resetToken.getToken());
+            // Envoi d'email asynchrone
+            CompletableFuture.runAsync(() -> {
+                emailService.sendResetPasswordEmail(email, resetToken.getToken());
+            });
         });
 
+        //  Réponse immédiate
         return ResponseEntity.ok(
                 new MessageResponse("If the email exists, a reset code was sent")
         );
     }
-
-
 
     // ===== RESET PASSWORD =====
     @Transactional
