@@ -38,5 +38,5 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 
 ### 🔁 Cloner le projet
 ```bash
-git clone https://github.com/USERNAME/invera-project.git
-cd invera-project
+git clone https://github.com/chaymamighri/InVera.git
+cd InVera
