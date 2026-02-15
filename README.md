@@ -19,7 +19,7 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 - **Frontend Web** : React.js  
 - **Application Mobile** : Flutter  
 - **Backend** : Spring Boot (Java)  
-- **Base de données** : PostgreSQL (Cloud)  
+- **Base de données** : PostgreSQL   
 - **Sécurité** : JWT Authentication  
 - **Assistant intelligent** : WhatsApp & Telegram Bots  
 - **Communication** : REST API  
