@@ -1,5 +1,6 @@
 package org.erp.invera.service;
 
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -65,4 +66,46 @@ public class EmailService {
             throw new RuntimeException("Erreur lors de l'envoi de l'email", e);
         }
     }
+
+
+    public void sendCreatePasswordEmail(String email, String token) {
+
+        try {
+            String link = "http://localhost:5173/create-password?token="
+                    + token + "&email=" + email;
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(email);
+            helper.setSubject("Activate Your Account - Invera ERP");
+
+            String htmlContent = """
+                <h2>Welcome to Invera ERP</h2>
+                <p>An administrator created an account for you.</p>
+                <p>Click the button below to create your password:</p>
+
+                <a href="%s"
+                   style="padding:10px 20px;
+                          background-color:#1976d2;
+                          color:white;
+                          text-decoration:none;
+                          border-radius:5px;">
+                    Create Password
+                </a>
+
+                <p>This link expires in 24 hours.</p>
+                """.formatted(link);
+
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error sending activation email");
+        }
+    }
+
 }
+
