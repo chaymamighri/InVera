@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from './Button';
-import { authService } from '../services/authService';
+import { useAuth } from '../hooks/useAuth'; 
 
 const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) => {
   const navigate = useNavigate();
+  const { forgotPassword, resetPassword, loading: authLoading } = useAuth(); // AJOUTEZ resetPassword ici
+  
   const [mode, setMode] = useState('login');
   const [formData, setFormData] = useState({
     email: savedEmail || '',
@@ -24,7 +26,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     confirmPassword: false
   });
   const [countdown, setCountdown] = useState(0);
-  const [resetToken, setResetToken] = useState('');
 
   useEffect(() => {
     const rememberMe = localStorage.getItem('rememberMe');
@@ -46,7 +47,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   }, [countdown]);
 
-  const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
+  const isLoading = externalLoading || internalLoading || authLoading;
 
   // Validations
   const validateEmail = (email) => {
@@ -106,7 +107,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
       return;
     }
 
-    if (externalLoading === undefined) setInternalLoading(true);
+    setInternalLoading(true);
 
     try {
       await onSubmit(formData);
@@ -137,7 +138,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         });
       }
     } finally {
-      if (externalLoading === undefined) setInternalLoading(false);
+      setInternalLoading(false);
     }
   };
 
@@ -154,7 +155,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
     setInternalLoading(true);
     try {
-      await authService.forgotPassword(formData.email);
+      await forgotPassword(formData.email);
       setMessage({
         type: 'success',
         text: `Un code de réinitialisation a été envoyé à ${formData.email}`
@@ -185,7 +186,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
       return;
     }
 
-    setResetToken(formData.resetCode);
     setStep(3);
     setMessage({
       type: 'success',
@@ -193,7 +193,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     });
   };
 
-  // Step 3: New Password
+  // Step 3: New Password - CORRIGÉ avec resetPassword du hook
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -211,7 +211,19 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
     setInternalLoading(true);
     try {
-      await authService.resetPassword(resetToken, formData.newPassword);
+      console.log('Envoi reset password:', {
+        code: formData.resetCode,
+        email: formData.email,
+        newPassword: formData.newPassword
+      });
+
+      // UTILISEZ resetPassword DU HOOK (déjà importé)
+      await resetPassword(
+        formData.resetCode,
+        formData.email,
+        formData.newPassword
+      );
+      
       setMessage({
         type: 'success',
         text: 'Mot de passe réinitialisé avec succès ! Redirection...'
@@ -228,9 +240,10 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         setMessage({ type: '', text: '' });
       }, 3000);
     } catch (error) {
+      console.error('Reset password error:', error);
       setMessage({
         type: 'error',
-        text: error.message || 'Code invalide ou expiré'
+        text: error.response?.data?.message || error.message || 'Code invalide ou expiré'
       });
     } finally {
       setInternalLoading(false);
@@ -241,7 +254,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     if (countdown > 0) return;
     setInternalLoading(true);
     try {
-      await authService.forgotPassword(formData.email);
+      await forgotPassword(formData.email);
       setCountdown(60);
       setMessage({
         type: 'success',

@@ -107,7 +107,7 @@ forgotPassword: async (email) => {
   try {
     // IMPORTANT: Le backend attend @RequestParam, pas @RequestBody !
     const response = await api.post(
-      `/auth/forgot-password?email=${encodeURIComponent(email)}`,  // ← Paramètre dans l'URL
+      `/auth/forgot-password?email=${encodeURIComponent(email)}`,  
       {},  // ← Body vide !
       {
         headers: {
@@ -126,26 +126,28 @@ forgotPassword: async (email) => {
   }
 },
 
-// ✅ CORRECTION - resetPassword avec @RequestBody
-resetPassword: async (token, newPassword) => {
+/// authService.js - VERSION CORRIGÉE
+resetPassword: async (code, email, newPassword) => {
   try {
-    const response = await api.post(
-      `/auth/reset-password`,
-      { token, newPassword },  // ← Body JSON
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    console.log('📤 Envoi reset password - URL:', '/auth/reset-password');
+    console.log('📤 Données envoyées:', { code, email, newPassword });
     
-    return { 
-      success: true, 
-      message: 'Mot de passe réinitialisé avec succès' 
-    };
+    const response = await api.post('/auth/reset-password', {
+      code: code,        // ← IMPORTANT: s'appelle 'code' dans le backend
+      email: email,      // ← IMPORTANT: s'appelle 'email' dans le backend
+      newPassword: newPassword
+    });
+    
+    console.log('✅ Réponse reçue:', response.data);
+    return response.data;
   } catch (error) {
-    console.error('❌ Reset password error:', error);
-    throw new Error(error.response?.data?.message || 'Erreur lors de la réinitialisation');
+    console.error('❌ Erreur complète:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
+    throw error;
   }
 },
 

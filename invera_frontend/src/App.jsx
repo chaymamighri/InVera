@@ -15,7 +15,6 @@ import DashboardContent from './pages/dashboard/sales/statistic/DashboardContent
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
 
 import LoginPage from './pages/auth/loginPage';
-import ForgetPasswordPage from './pages/auth/ForgetPasswordPage'; // <-- import ajouté
 
 // Mapping des rôles entre API (backend) et frontend
 const ROLE_MAPPING = {
@@ -101,7 +100,6 @@ function App() {
 
         {/* Pages publiques */}
         <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
-        <Route path="/forget-password" element={<PublicLayout><ForgetPasswordPage /></PublicLayout>} />
 
         {/* Dashboard Admin */}
         <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -116,7 +114,8 @@ function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
-        </Route>
+        </Route>   
+
 
         {/* Pages partagées */}
         <Route path="/profile" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>} />
