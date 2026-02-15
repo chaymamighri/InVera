@@ -19,7 +19,7 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 - **Frontend Web** : React.js  
 - **Application Mobile** : Flutter  
 - **Backend** : Spring Boot (Java)  
-- **Base de données** : PostgreSQL (Cloud)  
+- **Base de données** : PostgreSQL   
 - **Sécurité** : JWT Authentication  
 - **Assistant intelligent** : WhatsApp & Telegram Bots  
 - **Communication** : REST API  
@@ -38,5 +38,5 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 
 ### 🔁 Cloner le projet
 ```bash
-git clone https://github.com/USERNAME/invera-project.git
-cd invera-project
+git clone https://github.com/chaymamighri/InVera.git
+cd InVera
