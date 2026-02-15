@@ -174,6 +174,21 @@ console.log('   - Les deux sont égaux?', result.data.token === localStorage.get
     return authService.fetchWithAuth(url, options);
   }, []);
 
+ const resetPassword = async (code, email, newPassword) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await authService.resetPassword(code, email, newPassword);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -181,10 +196,11 @@ console.log('   - Les deux sont égaux?', result.data.token === localStorage.get
     login,
     logout,
     forgotPassword,
+    resetPassword,
     isAuthenticated,
     getCurrentUser,
     getUserRole,
     getSavedEmail,
-    fetchWithAuth // Exporté pour usage dans d'autres composants
+    fetchWithAuth 
   };
 };
