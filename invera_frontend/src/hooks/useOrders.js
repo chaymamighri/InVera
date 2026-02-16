@@ -25,95 +25,37 @@ const useOrders = () => {
 
   // Fonctions de transformation
   const getStatutDisplay = useCallback((statut) => {
-    switch(statut?.toUpperCase()) {
-      case 'CONFIRMEE': 
-      case 'CONFIRMÉ': 
-      case 'VALIDEE': 
-      case 'VALIDÉ': 
-        return 'Confirmé';
-      case 'EN_ATTENTE': 
-      case 'EN ATTENTE': 
-      case 'PENDING': 
-        return 'En attente';
-      case 'ANNULEE': 
-      case 'ANNULÉ': 
-      case 'REFUSEE': 
-      case 'REJECTED': 
-        return 'Refusé';
-      case 'LIVREE': 
-      case 'DELIVERED': 
-        return 'Livrée';
-      default: 
-        return statut || 'En attente';
+    switch(statut) {
+      case 'EN_ATTENTE': return 'En attente';
+      case 'CONFIRMEE': return 'Confirmée';
+      case 'ANNULEE': return 'Annulée';
+      default: return statut || 'En attente';
     }
   }, []);
 
   // ✅ CORRIGÉ - getProduitsAvecDetails
-  const getProduitsAvecDetails = useCallback((produitsMap, produitsData) => {
+  const getProduitsAvecDetails = useCallback((lignesCommande, produitsData) => {
     console.log('🔍 getProduitsAvecDetails appelée');
     
-    // CAS 1: produitsMap est déjà un tableau
-    if (Array.isArray(produitsMap)) {
-      console.log('✅ produitsMap est déjà un tableau');
-      return produitsMap.map(p => ({
-        id: p.id,
-        produitId: p.id,
-        libelle: p.libelle,  // ✅ Ne pas mettre de fallback ici
-        prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
-        quantite: toNumber(p.quantite || 1),
-        sousTotal: toNumber(p.sousTotal || 0),
-        totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
-        categorie: p.categorie,
-        imageUrl: p.imageUrl,
-        quantiteStock: toNumber(p.quantiteStock || 0),
-        statutStock: p.statutStock || 'DISPONIBLE',
-        uniteMesure: p.uniteMesure
-      }));
+    if (!Array.isArray(lignesCommande)) {
+      return [];
     }
     
-    // CAS 2: produitsMap est une Map {produitId: quantite}
-    if (produitsMap && typeof produitsMap === 'object' && !Array.isArray(produitsMap)) {
-      console.log('🔄 Conversion Map -> Tableau');
+    return lignesCommande.map(ligne => {
+      const produit = ligne.produit || {};
       
-      return Object.entries(produitsMap).map(([produitId, quantite]) => {
-        const produitIdNum = parseInt(produitId);
-        const produit = produitsData?.find(p => 
-          p.id === produitIdNum || p.idProduit === produitIdNum
-        );
-        
-        if (produit) {
-          return {
-            id: produitIdNum,
-            produitId: produitIdNum,
-            libelle: produit.libelle,  // ✅ Ne pas mettre de fallback
-            prixUnitaire: toNumber(produit.prix || produit.prixVente || 0),
-            quantite: toNumber(quantite),
-            sousTotal: toNumber(produit.prix || produit.prixVente || 0) * toNumber(quantite),
-            categorie: produit.categorie,
-            imageUrl: produit.image || produit.imageUrl,
-            quantiteStock: toNumber(produit.quantiteStock || 0),
-            statutStock: produit.status || produit.statut || 'DISPONIBLE',
-            uniteMesure: produit.uniteMesure
-          };
-        } else {
-          return {
-            id: produitIdNum,
-            produitId: produitIdNum,
-            libelle: null,  // ✅ null pour utiliser le fallback dans le composant
-            prixUnitaire: 0,
-            quantite: toNumber(quantite),
-            sousTotal: 0,
-            categorie: null,
-            imageUrl: null,
-            quantiteStock: 0,
-            statutStock: 'INCONNU',
-            uniteMesure: null
-          };
-        }
-      });
-    }
-    
-    return [];
+      return {
+        id: ligne.idLigneCommandeClient,
+        ligneId: ligne.idLigneCommandeClient,
+        produitId: produit.idProduit || ligne.produitId,
+        libelle: produit.libelle || ligne.libelle || 'Produit',
+        prixUnitaire: toNumber(ligne.prixUnitaire || 0),
+        quantite: toNumber(ligne.quantite || 1),
+        sousTotal: toNumber(ligne.sousTotal || 0),
+        imageUrl: produit.imageUrl || ligne.imageUrl,
+        uniteMesure: produit.uniteMesure || ligne.uniteMesure || 'unité'
+      };
+    });
   }, [toNumber]);
 
   // ✅ CORRIGÉ - transformCommandes
@@ -125,100 +67,56 @@ const useOrders = () => {
     return commandesData.map((commande) => {
       if (!commande) return null;
       
-      // ✅ LOG DE DEBUG
-      if (commande.produits && Array.isArray(commande.produits) && commande.produits.length > 0) {
-        console.log(`📦 Commande ${commande.id} - Produits reçus du backend:`, 
-          commande.produits.map(p => ({
-            id: p.id,
-            libelle: p.libelle,
-            imageUrl: p.imageUrl,
-            categorie: p.categorie,
-            prixUnitaire: p.prixUnitaire
-          }))
-        );
-      }
-      
-      const clientNom = commande.client?.nom || 
-                       `${commande.client?.prenom || ''} ${commande.client?.nom || ''}`.trim() ||
-                       'Client inconnu';
-      
-      const clientId = commande.client?.id || commande.clientId;
-      const clientType = commande.client?.type || 'STANDARD';
-      
-      // ✅ TRANSFORMATION DES PRODUITS - SANS ÉCRASER LES DONNÉES
-      let produitsTransformes = [];
-      
-      if (commande.produits && Array.isArray(commande.produits)) {
-        produitsTransformes = commande.produits.map(p => ({
-          // ✅ Identifiants
-          id: p.id || p.produitId,
-          produitId: p.id || p.produitId,
-          
-          // ✅ DONNÉES PRODUIT - Garder les valeurs du backend, même null/undefined
-          libelle: p.libelle,                    // ← NE PAS METTRE DE FALLBACK
-          categorie: p.categorie,
-          imageUrl: p.imageUrl,
-          uniteMesure: p.uniteMesure,
-          code: p.code || p.reference,
-          
-          // ✅ Prix et quantités
-          prixUnitaire: toNumber(p.prixUnitaire || p.prix || 0),
-          prix: toNumber(p.prixUnitaire || p.prix || 0),
-          quantite: toNumber(p.quantite || 1),
-          sousTotal: toNumber(p.sousTotal || 0),
-          totalLigne: toNumber(p.totalLigne || p.sousTotal || 0),
-          
-          // ✅ Remises
-          remiseProduit: toNumber(p.remiseProduit || 0),
-          tauxRemiseProduit: toNumber(p.tauxRemiseProduit || 0),
-          
-          // ✅ Stock
-          quantiteStock: toNumber(p.quantiteStock || 0),
-          statutStock: p.statutStock || 'DISPONIBLE'
-        }));
-      } else if (commande.produits && typeof commande.produits === 'object') {
-        produitsTransformes = getProduitsAvecDetails(commande.produits, produitsData);
-      }
+      // ✅ Récupérer les lignes de commande
+      const lignes = commande.lignesCommande || [];
       
       return {
-        id: commande.id || commande.idCommande,
-        numero: commande.numeroCommande || `CMD-${commande.id}`,
-        numeroCommande: commande.numeroCommande || `CMD-${commande.id}`,
+        idCommandeClient: commande.idCommandeClient,
+        id: commande.idCommandeClient, // Pour compatibilité
+        referenceCommandeClient: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
+        numero: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
         
-        client: {
-          id: clientId,
-          nom: clientNom,
-          type: clientType,
-          telephone: commande.client?.telephone || '',
-          email: commande.client?.email || '',
-          adresse: commande.client?.adresse || ''
-        },
+        client: commande.client ? {
+          idClient: commande.client.idClient,
+          id: commande.client.idClient,
+          nom: commande.client.nom || '',
+          prenom: commande.client.prenom || '',
+          typeClient: commande.client.typeClient || 'PARTICULIER',
+          telephone: commande.client.telephone || '',
+          email: commande.client.email || '',
+          adresse: commande.client.adresse || ''
+        } : null,
         
-        dateCreation: commande.dateCreation 
-          ? new Date(commande.dateCreation).toLocaleDateString('fr-FR')
-          : 'Non définie',
-        dateLivraisonPrevue: commande.dateLivraison 
-          ? new Date(commande.dateLivraison).toLocaleDateString('fr-FR')
-          : 'Non définie',
+        dateCommande: commande.dateCommande,
         
-        produits: produitsTransformes,
+        lignesCommande: lignes.map(l => ({
+          idLigneCommandeClient: l.idLigneCommandeClient,
+          produit: l.produit ? {
+            idProduit: l.produit.idProduit,
+            libelle: l.produit.libelle,
+            imageUrl: l.produit.imageUrl,
+            uniteMesure: l.produit.uniteMesure,
+            prixVente: l.produit.prixVente
+          } : null,
+          quantite: l.quantite,
+          prixUnitaire: l.prixUnitaire,
+          sousTotal: l.sousTotal
+        })),
+        
+        // ✅ Version simplifiée pour l'affichage
+        produits: getProduitsAvecDetails(lignes, produitsData),
         
         sousTotal: toNumber(commande.sousTotal || 0),
-        remise: toNumber(commande.montantRemise || 0),
-        montantRemise: toNumber(commande.montantRemise || 0),
         tauxRemise: toNumber(commande.tauxRemise || 0),
         total: toNumber(commande.total || 0),
         
-        statut: getStatutDisplay(commande.statut),
-        statutOriginal: commande.statut,
-        
-        remarques: commande.notes || commande.remarques || '',
-        notes: commande.notes || commande.remarques || ''
+        statut: commande.statut || 'EN_ATTENTE',
+        statutDisplay: getStatutDisplay(commande.statut)
       };
     }).filter(Boolean);
   }, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
 
-  // ✅ transformClients (inchangé)
+  // ✅ transformClients
   const transformClients = useCallback((clientsData) => {
     if (!Array.isArray(clientsData)) {
       if (clientsData && clientsData.clients && Array.isArray(clientsData.clients)) {
@@ -229,55 +127,47 @@ const useOrders = () => {
     }
     
     return clientsData.map(client => ({
-      id: client.id,
-      nom: client.nom || client.name || `Client ${client.id}`,
-      prenom: client.prenom || client.firstName || '',
-      nomComplet: `${client.prenom || client.firstName || ''} ${client.nom || client.name || ''}`.trim(),
-      type: client.type || client.typeClient || client.clientType || 'STANDARD',
-      telephone: client.telephone || client.phone || client.phoneNumber || '',
-      email: client.email || client.mail || '',
-      adresse: client.adresse || client.address || client.adresseComplete || '',
-      ville: client.ville || client.city || ''
+      idClient: client.idClient,
+      id: client.idClient,
+      nom: client.nom || '',
+      prenom: client.prenom || '',
+      typeClient: client.typeClient || 'PARTICULIER',
+      telephone: client.telephone || '',
+      email: client.email || '',
+      adresse: client.adresse || '',
+      nomComplet: `${client.prenom || ''} ${client.nom || ''}`.trim()
     }));
   }, []);
 
-  // ✅ transformProduits (inchangé)
+  // ✅ transformProduits
   const transformProduits = useCallback((produitsData) => {
     if (!Array.isArray(produitsData)) {
       if (produitsData && produitsData.produits && Array.isArray(produitsData.produits)) {
         produitsData = produitsData.produits;
-      } else if (produitsData && produitsData.products && Array.isArray(produitsData.products)) {
-        produitsData = produitsData.products;
-      } else if (produitsData && produitsData.items && Array.isArray(produitsData.items)) {
-        produitsData = produitsData.items;
-      } else if (produitsData && produitsData.data && Array.isArray(produitsData.data)) {
-        produitsData = produitsData.data;
       } else {
         return [];
       }
     }
     
-    return produitsData.map(produit => {
-      const produitId = produit.id || produit.idProduit || produit.productId;
-      
-      return {
-        id: produitId,
-        idProduit: produit.idProduit,
-        libelle: produit.libelle || produit.nom || produit.name || produit.label || `Produit ${produitId}`,
-        description: produit.description || '',
-        prix: toNumber(produit.prixVente || produit.prix || produit.price || produit.sellingPrice || 0),
-        prixAchat: toNumber(produit.prixAchat || produit.costPrice || produit.purchasePrice || 0),
-        quantiteStock: toNumber(produit.quantiteStock || produit.stock || produit.quantity || produit.availableStock || 0),
-        uniteMesure: produit.uniteMesure || produit.unit || produit.unitMeasure || 'unité',
-        categorie: produit.categorie || produit.category || 'Non catégorisé',
-        code: produit.code || produit.reference || produit.sku || '',
-        image: produit.image || produit.imageUrl || '',
-        estActif: produit.estActif !== false
-      };
-    });
+    return produitsData.map(produit => ({
+      idProduit: produit.idProduit,
+      id: produit.idProduit,
+      libelle: produit.libelle || 'Produit sans nom',
+      prixVente: toNumber(produit.prixVente || 0),
+      prixAchat: toNumber(produit.prixAchat || 0),
+      quantiteStock: toNumber(produit.quantiteStock || 0),
+      seuilMinimum: toNumber(produit.seuilMinimum || 5),
+      uniteMesure: produit.uniteMesure || 'unité',
+      status: produit.status || 'EN_STOCK',
+      imageUrl: produit.imageUrl || '',
+      categorie: produit.categorie ? {
+        idCategorie: produit.categorie.idCategorie,
+        nomCategorie: produit.categorie.nomCategorie
+      } : null
+    }));
   }, [toNumber]);
 
-  // ✅ chargerDonnees (inchangé)
+  // ✅ chargerDonnees
   const chargerDonnees = useCallback(async () => {
     try {
       setLoading(true);
@@ -296,179 +186,144 @@ const useOrders = () => {
       // Commandes
       if (commandesResult.status === 'fulfilled') {
         const data = commandesResult.value;
-        if (Array.isArray(data)) {
-          commandesData = data;
-        } else if (data && Array.isArray(data.commandes)) {
+        console.log('📦 Commandes brutes:', data);
+        
+        if (data && data.success && data.commandes) {
           commandesData = data.commandes;
+        } else if (Array.isArray(data)) {
+          commandesData = data;
         } else if (data && Array.isArray(data.data)) {
           commandesData = data.data;
-        } else if (data && Array.isArray(data.orders)) {
-          commandesData = data.orders;
         }
       }
 
       // Clients
       if (clientsResult.status === 'fulfilled') {
         const data = clientsResult.value;
-        if (Array.isArray(data)) {
-          clientsData = data;
-        } else if (data && Array.isArray(data.clients)) {
+        console.log('👥 Clients bruts:', data);
+        
+        if (data && data.success && data.clients) {
           clientsData = data.clients;
-        } else if (data && Array.isArray(data.data)) {
-          clientsData = data.data;
-        } else if (data && Array.isArray(data.customers)) {
-          clientsData = data.customers;
+        } else if (Array.isArray(data)) {
+          clientsData = data;
         }
       }
 
       // Produits
       if (produitsResult.status === 'fulfilled') {
         const data = produitsResult.value;
-        if (Array.isArray(data)) {
-          produitsData = data;
-        } else if (data && Array.isArray(data.produits)) {
+        console.log('📦 Produits bruts:', data);
+        
+        if (data && data.success && data.produits) {
           produitsData = data.produits;
-        } else if (data && Array.isArray(data.products)) {
-          produitsData = data.products;
-        } else if (data && Array.isArray(data.data)) {
-          produitsData = data.data;
-        } else if (data && Array.isArray(data.items)) {
-          produitsData = data.items;
+        } else if (Array.isArray(data)) {
+          produitsData = data;
         }
       }
 
-      setCommandes(transformCommandes(commandesData, produitsData));
+      const commandesTransformees = transformCommandes(commandesData, produitsData);
+      console.log('✅ Commandes transformées:', commandesTransformees);
+      
+      setCommandes(commandesTransformees);
       setClients(transformClients(clientsData));
       setProduits(transformProduits(produitsData));
       
     } catch (err) {
+      console.error('❌ Erreur chargerDonnees:', err);
       setError('Erreur système lors du chargement des données.');
-      setClients([]);
-      setProduits([]);
-      setCommandes([]);
     } finally {
       setLoading(false);
     }
   }, [transformCommandes, transformClients, transformProduits]);
 
-  // ✅ Gestion des produits sélectionnés (inchangé)
+  // ✅ Gestion des produits sélectionnés
   const handleSelectProduct = useCallback((product) => {
-    if (!product || (!product.id && !product.idProduit)) return;
-    const productId = product.id || product.idProduit;
+    if (!product || !product.idProduit) return;
     
     setSelectedProducts(prev => {
-      const exists = prev.some(p => (p.id === productId) || (p.idProduit === productId));
+      const exists = prev.some(p => p.idProduit === product.idProduit);
       if (exists) {
-        return prev.filter(p => (p.id !== productId) && (p.idProduit !== productId));
+        return prev.filter(p => p.idProduit !== product.idProduit);
       } else {
         return [...prev, { 
           ...product, 
-          quantite: 1,
-          sousTotal: toNumber(product.prix || product.price)
+          quantiteCommande: 1,
+          prix: product.prixVente || 0
         }];
       }
     });
-  }, [toNumber]);
+  }, []);
 
-  const handleModifierQuantite = useCallback((productId, nouvelleQuantite) => {
+  const handleModifierQuantite = useCallback((produitId, nouvelleQuantite) => {
     setSelectedProducts(prev => 
       prev.map(p => {
-        if (p.id === productId || p.idProduit === productId) {
+        if (p.idProduit === produitId) {
           const quantite = Math.max(1, toNumber(nouvelleQuantite));
-          const prix = toNumber(p.prix || p.price);
-          return { ...p, quantite, sousTotal: prix * quantite };
+          return { ...p, quantiteCommande: quantite };
         }
         return p;
       })
     );
   }, [toNumber]);
 
-  const handleSupprimerProduit = useCallback((productId) => {
+  const handleSupprimerProduit = useCallback((produitId) => {
     setSelectedProducts(prev => 
-      prev.filter(p => (p.id !== productId) && (p.idProduit !== productId))
+      prev.filter(p => p.idProduit !== produitId)
     );
   }, []);
 
-  // ✅ Gestion des commandes (inchangé)
-  const handleCreerCommande = useCallback(async (commandeData) => {
-    try {
-      const disponibilite = await commandeService.verifierDisponibilite(commandeData.produits);
-      if (!disponibilite.disponible) {
-        throw new Error('Stock insuffisant pour certains produits');
-      }
-
-      const result = await commandeService.createCommande(commandeData);
-      
-      if (result.success || result.id || result.commandeId) {
-        await chargerDonnees();
-        setSelectedProducts([]);
-        setSelectedClient(null);
-        return result;
-      } else {
-        throw new Error(result.message || result.error || 'Erreur lors de la création');
-      }
-    } catch (error) {
-      throw error;
-    }
-  }, [chargerDonnees]);
-
+  // ✅ Gestion des commandes
   const handleValiderCommande = useCallback(async (commandeId) => {
     try {
+      console.log('🔍 Validation commande ID:', commandeId);
+      
+      if (!commandeId) {
+        throw new Error('ID de commande manquant');
+      }
+      
       const result = await commandeService.validerCommande(commandeId);
-      if (result.success || result.statut === 'CONFIRMEE' || result.status === 'CONFIRMED') {
+      console.log('✅ Résultat validation:', result);
+      
+      if (result && result.success) {
         setCommandes(prev => prev.map(c => 
-          c.id === commandeId 
-            ? { ...c, statut: 'Confirmé', statutOriginal: 'CONFIRMEE' }
+          c.idCommandeClient === commandeId 
+            ? { ...c, statut: 'CONFIRMEE', statutDisplay: 'Confirmée' }
             : c
         ));
         return result;
       }
-      throw new Error(result.message || 'Échec de la validation');
+      throw new Error(result?.message || 'Échec de la validation');
     } catch (error) {
+      console.error('❌ Erreur handleValiderCommande:', error);
       throw error;
     }
   }, []);
 
   const handleRejeterCommande = useCallback(async (commandeId) => {
     try {
+      console.log('🔍 Rejet commande ID:', commandeId);
+      
+      if (!commandeId) {
+        throw new Error('ID de commande manquant');
+      }
+      
       const result = await commandeService.rejeterCommande(commandeId);
-      if (result.success || result.statut === 'ANNULEE' || result.status === 'CANCELLED') {
+      console.log('✅ Résultat rejet:', result);
+      
+      if (result && result.success) {
         setCommandes(prev => prev.map(c => 
-          c.id === commandeId 
-            ? { ...c, statut: 'Refusé', statutOriginal: 'ANNULEE' }
+          c.idCommandeClient === commandeId 
+            ? { ...c, statut: 'ANNULEE', statutDisplay: 'Annulée' }
             : c
         ));
         return result;
       }
-      throw new Error(result.message || 'Échec du rejet');
+      throw new Error(result?.message || 'Échec du rejet');
     } catch (error) {
+      console.error('❌ Erreur handleRejeterCommande:', error);
       throw error;
     }
   }, []);
-
-  const handleGetRemise = useCallback(async (typeClient) => {
-    try {
-      return await commandeService.getRemiseForClientType(typeClient);
-    } catch (error) {
-      return { 
-        success: false, 
-        remise: typeClient === 'VIP' ? 10 : typeClient === 'FIDELE' ? 5 : 0,
-        message: 'Remise par défaut appliquée'
-      };
-    }
-  }, []);
-
-  const handleVoirDetails = useCallback(async (commandeId) => {
-    try {
-      return await commandeService.getCommandeDetails(commandeId);
-    } catch (error) {
-      const commandeLocale = commandes.find(c => c.id === commandeId);
-      if (commandeLocale) {
-        return { success: true, data: commandeLocale, message: 'Détails depuis le cache local' };
-      }
-      throw error;
-    }
-  }, [commandes]);
 
   const resetSelection = useCallback(() => {
     setSelectedProducts([]);
@@ -476,19 +331,13 @@ const useOrders = () => {
   }, []);
 
   const totalSelectedProducts = useMemo(() => {
-    return selectedProducts.reduce((sum, p) => sum + toNumber(p.sousTotal), 0);
+    return selectedProducts.reduce((sum, p) => 
+      sum + (toNumber(p.prixVente) * toNumber(p.quantiteCommande)), 0);
   }, [selectedProducts, toNumber]);
-
-  const updateCommandeStatus = useCallback((commandeId, newStatus) => {
-    setCommandes(prev => prev.map(c => 
-      c.id === commandeId 
-        ? { ...c, statut: getStatutDisplay(newStatus), statutOriginal: newStatus }
-        : c
-    ));
-  }, [getStatutDisplay]);
 
   return {
     commandes,
+    setCommandes, // Important pour OrdersPage.jsx
     clients,
     produits,
     loading,
@@ -498,20 +347,14 @@ const useOrders = () => {
     totalSelectedProducts,
     setSelectedProducts,
     setSelectedClient,
-    setCommandes,
-    setError,
     toNumber,
     chargerDonnees,
     resetSelection,
-    updateCommandeStatus,
     handleSelectProduct,
     handleModifierQuantite,
     handleSupprimerProduit,
-    handleCreerCommande,
     handleValiderCommande,
-    handleRejeterCommande,
-    handleGetRemise,
-    handleVoirDetails
+    handleRejeterCommande
   };
 };
 

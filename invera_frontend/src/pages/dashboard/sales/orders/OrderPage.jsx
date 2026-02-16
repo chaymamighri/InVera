@@ -20,7 +20,7 @@ const OrdersPage = () => {
   // Utiliser le hook personnalisé
   const {
     commandes,
-    setCommandes, // 👈 AJOUTER CETTE LIGNE (important!)
+    setCommandes, 
     clients,
     produits,
     loading,

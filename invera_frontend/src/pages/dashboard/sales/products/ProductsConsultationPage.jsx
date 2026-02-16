@@ -18,7 +18,7 @@ const ProductsConsultationPage = () => {
   const [error, setError] = useState(null);
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
-  const [clientTypes, setClientTypes] = useState([]); // Types de clients dynamiques
+  const [clientTypes, setClientTypes] = useState([]);
   
   // États pour les commandes
   const [commandes, setCommandes] = useState([]);
@@ -49,74 +49,109 @@ const ProductsConsultationPage = () => {
   const [nouveauClient, setNouveauClient] = useState({
     nom: '',
     prenom: '',
-    typeClient: 'PROFESSIONNEL', // Utiliser les mêmes valeurs que le backend
+    typeClient: 'PARTICULIER', // Changé de PROFESSIONNEL à PARTICULIER pour correspondre au backend
     telephone: '',
     adresse: ''
   });
 
-  // Fonction pour charger les produits depuis l'API
+  // Fonction pour charger les produits depuis l'API - CORRIGÉE
   const loadProducts = async (filters = {}) => {
     setLoading(true);
     setError(null);
     
     try {
+      console.log('🔄 Chargement des produits...');
+      
       // Construire les paramètres de requête
       const params = {
-        keyword: searchTerm,
+        keyword: searchTerm || filters.keyword,
         ...filters
       };
       
       // Appeler l'API
       const response = await productService.getAllProducts(params);
+      console.log('📥 Réponse reçue:', response);
       
-      // Mettre à jour les produits
-      const produits = response.produits || [];
-      setProducts(produits);
+      // Extraire les produits de la réponse
+      let produitsData = [];
+      
+      // Vérifier la structure de la réponse
+      if (response && response.data) {
+        if (Array.isArray(response.data)) {
+          produitsData = response.data;
+        } else if (response.data.produits) {
+          produitsData = response.data.produits;
+        }
+      } else if (response && response.produits) {
+        produitsData = response.produits;
+      } else if (Array.isArray(response)) {
+        produitsData = response;
+      } else if (response && response.data && response.data.data) {
+        produitsData = response.data.data;
+      }
+      
+      console.log('✅ Produits extraits:', produitsData);
+      setProducts(produitsData);
       
       // Extraire les catégories uniques depuis les données de l'API
-      const allCategories = [...new Set(produits
-        .map(p => p.categorie)
-        .filter(Boolean) || [])];
-      setCategories(['Tous', ...allCategories]);
+      const allCategories = [];
+      produitsData.forEach(p => {
+        if (p.categorie) {
+          if (typeof p.categorie === 'object') {
+            allCategories.push(p.categorie.nomCategorie);
+          } else {
+            allCategories.push(p.categorie);
+          }
+        }
+      });
+      
+      const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
+      setCategories(['Tous', ...uniqueCategories]);
       
     } catch (err) {
-      console.error('Erreur lors du chargement des produits:', err);
-      setError(err.response?.data?.message || 'Erreur de chargement des produits');
+      console.error('❌ Erreur lors du chargement des produits:', err);
+      setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fonction pour charger les clients depuis l'API
+  // Fonction pour charger les clients depuis l'API - CORRIGÉE
   const loadClients = async () => {
     setLoadingClients(true);
     try {
+      console.log('🔄 Chargement des clients...');
       const response = await clientService.getAllClients();
-      const clientsData = response.clients || response.data || [];
+      console.log('📥 Clients reçus:', response);
+      
+      // Extraire les clients de la réponse
+      let clientsData = [];
+      
+      if (response && response.clients) {
+        clientsData = response.clients;
+      } else if (response && response.data) {
+        if (Array.isArray(response.data)) {
+          clientsData = response.data;
+        } else if (response.data.clients) {
+          clientsData = response.data.clients;
+        }
+      } else if (Array.isArray(response)) {
+        clientsData = response;
+      }
+      
       setClients(clientsData);
       
-      // Extraire les types de clients uniques depuis l'API
+      // Extraire les types de clients uniques
       const uniqueTypes = [...new Set(clientsData.map(c => c.typeClient))].filter(Boolean);
       setClientTypes(uniqueTypes);
       
     } catch (err) {
-      console.error('Erreur lors du chargement des clients:', err);
-      // Ne pas utiliser de données statiques, laisser vide en cas d'erreur
+      console.error('❌ Erreur lors du chargement des clients:', err);
       setClients([]);
       setClientTypes([]);
     } finally {
       setLoadingClients(false);
-    }
-  };
-
-  // Fonction pour charger les types de clients depuis l'API (endpoint spécifique)
-  const loadClientTypes = async () => {
-    try {
-      // Si votre backend a un endpoint pour les types de clients
-      const response = await clientService.getClientTypes();
-      setClientTypes(response.types || []);
-    } catch (err) {
-      console.error('Erreur chargement types clients:', err);
     }
   };
 
@@ -131,85 +166,94 @@ const ProductsConsultationPage = () => {
     }
   };
 
-  // Fonctions utilitaires adaptées à la nouvelle structure
- const calculateStats = (products) => {
-  if (!products || products.length === 0) {
-    return {
-      totalProduits: 0,
-      enStock: 0,
-      stockFaible: 0,
-      stockCritique: 0,
-      rupture: 0,
-      valeurStock: 0
-    };
-  }
-    
-  // Réinitialiser tous les compteurs
-  let enStock = 0;
-  let stockFaible = 0;
-  let stockCritique = 0;
-  let rupture = 0;
-  
-  // Parcourir chaque produit une seule fois
-  products.forEach(p => {
-    const stock = Number(p.quantiteStock) || 0;
-    const seuil = Number(p.seuilMinimum) || 5;
-    
-    if (stock <= 0) {
-      rupture++;
-    } else if (stock <= 3) {
-      // CRITIQUE: stock très bas (1-3 unités)
-      stockCritique++;
-    } else if (stock <= seuil) {
-      // FAIBLE: stock inférieur ou égal au seuil minimum
-      stockFaible++;
-    } else {
-      // EN STOCK: stock supérieur au seuil minimum
-      enStock++;
+  // Fonctions utilitaires
+  const calculateStats = (products) => {
+    if (!products || products.length === 0) {
+      return {
+        totalProduits: 0,
+        enStock: 0,
+        stockFaible: 0,
+        stockCritique: 0,
+        rupture: 0,
+        valeurStock: 0
+      };
     }
-  });
     
-  const valeurStock = products.reduce((sum, p) => {
-    const prix = Number(p.prixVente) || 0;
-    const stock = Number(p.quantiteStock) || 0;
-    return sum + (prix * (stock > 0 ? stock : 0));
-  }, 0);
+    let enStock = 0;
+    let stockFaible = 0;
+    let stockCritique = 0;
+    let rupture = 0;
     
-  return {
-    totalProduits: products.length,
-    enStock,
-    stockFaible,
-    stockCritique,
-    rupture,
-    valeurStock: valeurStock.toFixed(2)
+    products.forEach(p => {
+      const stock = Number(p.quantiteStock) || 0;
+      const seuil = Number(p.seuilMinimum) || 5;
+      
+      if (stock <= 0) {
+        rupture++;
+      } else if (stock <= 3) {
+        stockCritique++;
+      } else if (stock <= seuil) {
+        stockFaible++;
+      } else {
+        enStock++;
+      }
+    });
+    
+    const valeurStock = products.reduce((sum, p) => {
+      const prix = Number(p.prixVente) || 0;
+      const stock = Number(p.quantiteStock) || 0;
+      return sum + (prix * (stock > 0 ? stock : 0));
+    }, 0);
+    
+    return {
+      totalProduits: products.length,
+      enStock,
+      stockFaible,
+      stockCritique,
+      rupture,
+      valeurStock: valeurStock.toFixed(2)
+    };
   };
-};
 
   const filterAndSortProducts = (products, searchTerm, selectedCategory, sortField, sortDirection) => {
-    if (!products) return [];
+    if (!products || !Array.isArray(products)) return [];
     
     return products
       .filter(product => {
+        if (!product) return false;
+        
         const libelle = product.libelle || '';
-        const categorie = product.categorie || '';
+        let categorie = '';
+        
+        if (product.categorie) {
+          if (typeof product.categorie === 'object') {
+            categorie = product.categorie.nomCategorie || '';
+          } else {
+            categorie = product.categorie;
+          }
+        }
+        
         const matchesSearch = libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                              categorie.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = selectedCategory === 'Tous' || 
-                               product.categorie === selectedCategory;
+        
+        let matchesCategory = selectedCategory === 'Tous';
+        if (!matchesCategory) {
+          if (typeof product.categorie === 'object') {
+            matchesCategory = product.categorie.nomCategorie === selectedCategory;
+          } else {
+            matchesCategory = product.categorie === selectedCategory;
+          }
+        }
+        
         return matchesSearch && matchesCategory;
       })
       .sort((a, b) => {
         let aValue, bValue;
         
-        // Normaliser les champs selon la nouvelle structure
         switch(sortField) {
           case 'libelle':
             aValue = a.libelle || '';
             bValue = b.libelle || '';
-            break;
-          case 'categorie':
-            aValue = a.categorie || '';
-            bValue = b.categorie || '';
             break;
           case 'prixVente':
             aValue = Number(a.prixVente) || 0;
@@ -236,24 +280,6 @@ const ProductsConsultationPage = () => {
           return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
         }
       });
-  };
-
-  const getStatusColor = (product) => {
-    const stock = product.quantiteStock || 0;
-    const seuil = product.seuilMinimum || 5;
-    const statut = product.status || '';
-    
-    if (statut === 'RUPTURE' || stock <= 0) {
-      return 'bg-red-100 text-red-800';
-    } else if (statut === 'FAIBLE' || (stock > 0 && stock <= seuil)) {
-      return 'bg-yellow-100 text-yellow-800';
-    } else if (statut === 'CRITIQUE' || stock <= 3) {
-      return 'bg-orange-100 text-orange-800';
-    } else if (statut === 'EN_STOCK' || stock > seuil) {
-      return 'bg-green-100 text-green-800';
-    } else {
-      return 'bg-gray-100 text-gray-800';
-    }
   };
 
   const checkDisponibilite = (selectedProducts) => {
@@ -301,7 +327,7 @@ const ProductsConsultationPage = () => {
     return `CMD-${year}${month}${day}-${sequence}`;
   };
 
-  // Handlers adaptés
+  // Handlers
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -320,7 +346,6 @@ const ProductsConsultationPage = () => {
       setSelectedProducts([...selectedProducts, { 
         ...product, 
         quantiteCommande: 1,
-        // Normaliser les données selon la nouvelle structure
         idProduit: productId,
         prix: product.prix || product.prixVente || 0,
         quantiteStock: product.quantiteStock || 0,
@@ -345,11 +370,7 @@ const ProductsConsultationPage = () => {
     setSelectedClient(client);
     setNewClientMode(false);
     
-    // Appliquer la remise selon le type de client (dynamique depuis le backend)
-    // Vous pouvez implémenter la logique de remise côté backend ou côté frontend
     if (client && client.typeClient) {
-      // Logique de remise à définir selon votre business logic
-      // Par exemple, récupérer depuis une API
       applyRemiseByClientType(client.typeClient);
     } else {
       setRemiseAppliquee(0);
@@ -358,7 +379,6 @@ const ProductsConsultationPage = () => {
 
   const applyRemiseByClientType = async (clientType) => {
     try {
-      // Appeler l'API pour obtenir la remise selon le type de client
       const response = await clientService.getRemiseByType(clientType);
       setRemiseAppliquee(response.remise || 0);
     } catch (err) {
@@ -369,7 +389,6 @@ const ProductsConsultationPage = () => {
 
   const handleAddNewClient = async () => {
     try {
-      // Valider les données
       if (!nouveauClient.nom.trim() || !nouveauClient.telephone.trim()) {
         alert('Veuillez remplir les champs obligatoires (nom et téléphone)');
         return;
@@ -378,41 +397,41 @@ const ProductsConsultationPage = () => {
       const clientData = {
         nom: nouveauClient.nom,
         prenom: nouveauClient.prenom || '',
-        typeClient: nouveauClient.typeClient || 'PROFESSIONNEL',
+        type: nouveauClient.typeClient || 'PARTICULIER',
         telephone: nouveauClient.telephone,
         adresse: nouveauClient.adresse || ''
       };
       
-      // Appeler l'API pour créer le client
       const response = await clientService.createClient(clientData);
-      const newClient = response.client || response.data;
+      let newClient = null;
+      
+      if (response && response.client) {
+        newClient = response.client;
+      } else if (response && response.data) {
+        newClient = response.data;
+      }
       
       if (newClient) {
-        // Ajouter le client à la liste
         setClients(prev => [...prev, newClient]);
-        // Ajouter le type à la liste si nouveau
         if (!clientTypes.includes(newClient.typeClient)) {
           setClientTypes(prev => [...prev, newClient.typeClient]);
         }
         
         setSelectedClient(newClient);
         setNewClientMode(false);
-        
-        // Appliquer la remise pour ce nouveau client
         applyRemiseByClientType(newClient.typeClient);
         
-        // Réinitialiser le formulaire
         setNouveauClient({
           nom: '',
           prenom: '',
-          typeClient: 'PROFESSIONNEL',
+          typeClient: 'PARTICULIER',
           telephone: '',
           adresse: ''
         });
       }
       
     } catch (err) {
-      console.error('Erreur lors de la création du client:', err);
+      console.error('Erreur création client:', err);
       alert(err.response?.data?.message || 'Erreur lors de la création du client');
     }
   };
@@ -423,13 +442,11 @@ const ProductsConsultationPage = () => {
       return;
     }
 
-
     if (!checkDisponibilite(selectedProducts)) {
       alert('Certains produits ne sont pas disponibles en quantité suffisante');
       return;
     }
 
-    // Passer à l'étape du récapitulatif
     setShowRecap(true);
   };
 
@@ -438,29 +455,22 @@ const ProductsConsultationPage = () => {
       const totaux = calculerTotaux(selectedProducts, remiseAppliquee);
       const date = new Date();
       
-      // Préparer les données de la commande pour l'API
       const commandeData = {
-        clientId: selectedClient.idProduit || selectedClient.id,
+        clientId: selectedClient.idClient || selectedClient.id,
         dateCommande: date.toISOString().split('T')[0],
         heureCommande: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
         produits: selectedProducts.map(p => ({
           produitId: p.idProduit || p.id,
           quantite: p.quantiteCommande || 1,
-          prixUnitaire: p.prix || p.prixVente || 0,
-          remiseProduit: p.remiseTemporaire || 0
+          prixUnitaire: p.prix || p.prixVente || 0
         })),
-        sousTotal: totaux.sousTotal,
-        remiseGlobale: totaux.remise,
-        remisePourcentage: remiseAppliquee,
-        total: totaux.total,
-        statut: 'EN_ATTENTE',
-        notes: ''
+        remiseTotale: remiseAppliquee
       };
       
       // TODO: Appeler l'API pour enregistrer la commande
       // const response = await orderService.createOrder(commandeData);
       
-      // Pour l'instant, sauvegarder localement
+      // Sauvegarde locale temporaire
       const nouvelleCommande = {
         id: Date.now(),
         numero: genererNumeroCommande(commandes.length),
@@ -472,79 +482,63 @@ const ProductsConsultationPage = () => {
           libelle: p.libelle || 'Produit',
           quantite: p.quantiteCommande || 1,
           prixUnitaire: p.prix || p.prixVente || 0,
-          uniteMesure: p.uniteMesure || 'unité',
           sousTotal: ((p.prix || p.prixVente || 0) * (p.quantiteCommande || 1)).toFixed(2)
         })),
         sousTotal: totaux.sousTotal.toFixed(2),
         remise: totaux.remise.toFixed(2),
-        remisePourcentage: totaux.remisePourcentage,
+        remisePourcentage: remiseAppliquee,
         total: totaux.total.toFixed(2),
-        statut: 'EN_ATTENTE',
-        disponibilite: checkDisponibilite(selectedProducts) ? 'DISPONIBLE' : 'RUPTURE'
+        statut: 'EN_ATTENTE'
       };
 
-      // Enregistrer la commande localement
       const nouvellesCommandes = [...commandes, nouvelleCommande];
       setCommandes(nouvellesCommandes);
-      
-      // Sauvegarder dans le localStorage
       localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
       
-      // Mettre à jour les stocks (appeler l'API)
+      // Mettre à jour les stocks
       for (const product of selectedProducts) {
         try {
           const productId = product.idProduit || product.id;
           const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
           await productService.syncStock(productId, newStock);
         } catch (err) {
-          console.error(`Erreur mise à jour stock produit ${product.idProduit || product.id}:`, err);
+          console.error('Erreur mise à jour stock:', err);
         }
       }
       
-      // Afficher le popup de succès
       setShowSuccessPopup(true);
       setShowRecap(false);
       setShowCreateOrder(false);
-      
-      // Réinitialiser la sélection
       setSelectedProducts([]);
-      
-      // Recharger les produits pour mettre à jour les stocks
       loadProducts();
       
     } catch (err) {
-      console.error('Erreur lors de l\'enregistrement de la commande:', err);
-      alert(err.response?.data?.message || 'Erreur lors de l\'enregistrement de la commande');
+      console.error('Erreur enregistrement commande:', err);
+      alert(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
     }
   };
 
   // Gestion des filtres
   const handleSearch = (term) => {
     setSearchTerm(term);
-    setCurrentPage(1); // Reset à la première page lors d'une nouvelle recherche
+    setCurrentPage(1);
     loadProducts({ keyword: term });
   };
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
-    setCurrentPage(1); // Reset à la première page lors d'un changement de catégorie
-    loadProducts({ 
-      categorie: category !== 'Tous' ? category : undefined 
-    });
+    setCurrentPage(1);
   };
 
-  // Gestion de la pagination
   const handlePageChange = (page) => {
     setCurrentPage(page);
   };
 
-  // Effets
+  // Effet de chargement initial
   useEffect(() => {
-    // Charger les produits et clients au chargement de la page
     loadProducts();
     loadClients();
     
-    // Charger les commandes sauvegardées
     const commandesSauvegardees = localStorage.getItem('commandes');
     if (commandesSauvegardees) {
       try {
@@ -560,8 +554,10 @@ const ProductsConsultationPage = () => {
   const filteredProducts = filterAndSortProducts(products, searchTerm, selectedCategory, sortField, sortDirection);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
+  // Rendu (inchangé - gardez votre design existant)
   return (
     <div className="space-y-6">
+      {/* ... votre JSX existant (inchangé) ... */}
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
@@ -598,9 +594,7 @@ const ProductsConsultationPage = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center">
-            <div className="text-red-500 mr-3">
-              ⚠️
-            </div>
+            <div className="text-red-500 mr-3">⚠️</div>
             <div>
               <p className="text-red-700 font-medium">Erreur de chargement</p>
               <p className="text-red-600 text-sm">{error}</p>
@@ -617,7 +611,6 @@ const ProductsConsultationPage = () => {
         sortField={sortField}
         sortDirection={sortDirection}
         handleSort={handleSort}
-        getStatusColor={getStatusColor}
         setSelectedProducts={setSelectedProducts}
         checkDisponibilite={checkDisponibilite}
         calculerTotaux={calculerTotaux}
