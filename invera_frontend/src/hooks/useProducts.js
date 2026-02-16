@@ -28,17 +28,23 @@ const useProducts = (initialFilters = {}) => {
 
       const response = await productService.getAllProducts(params);
       
-      setProducts(response.data || response.products || []);
-      
-      if (response.pagination) {
-        setPagination(response.pagination);
-      } else if (response.total !== undefined) {
-        setPagination(prev => ({
-          ...prev,
-          page,
-          total: response.total,
-          totalPages: Math.ceil(response.total / pagination.limit)
-        }));
+      // Adapter la structure du backend
+      if (response.data) {
+        setProducts(response.data);
+        if (response.pagination) {
+          setPagination(response.pagination);
+        } else if (response.total) {
+          setPagination(prev => ({
+            ...prev,
+            page,
+            total: response.total,
+            totalPages: Math.ceil(response.total / pagination.limit)
+          }));
+        }
+      } else if (Array.isArray(response)) {
+        setProducts(response);
+      } else {
+        setProducts([]);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du chargement des produits');
@@ -53,7 +59,16 @@ const useProducts = (initialFilters = {}) => {
     setLoading(true);
     try {
       const response = await productService.searchProducts(searchTerm, searchFilters);
-      setProducts(response.data || []);
+      
+      if (response.data) {
+        setProducts(response.data);
+        setPagination(prev => ({
+          ...prev,
+          total: response.count || response.data.length,
+          totalPages: Math.ceil((response.count || response.data.length) / pagination.limit)
+        }));
+        return response;
+      }
       return response;
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la recherche');
@@ -61,13 +76,15 @@ const useProducts = (initialFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.limit]);
 
   // Créer un produit
   const createProduct = async (productData) => {
     try {
       const response = await productService.createProduct(productData);
-      await loadProducts(pagination.page); // Recharger la liste
+      if (response && response.success) {
+        await loadProducts(pagination.page); // Recharger la liste
+      }
       return response;
     } catch (err) {
       throw err;
@@ -78,10 +95,15 @@ const useProducts = (initialFilters = {}) => {
   const updateProduct = async (id, productData) => {
     try {
       const response = await productService.updateProduct(id, productData);
-      // Mettre à jour le produit dans la liste
-      setProducts(prev => prev.map(p => 
-        p.id === id ? { ...p, ...productData } : p
-      ));
+      if (response && response.success && response.produit) {
+        // Mettre à jour le produit dans la liste
+        setProducts(prev => prev.map(p => 
+          p.idProduit === id ? response.produit : p
+        ));
+      } else {
+        // Recharger complètement si pas de retour précis
+        await loadProducts(pagination.page);
+      }
       return response;
     } catch (err) {
       throw err;
@@ -91,8 +113,11 @@ const useProducts = (initialFilters = {}) => {
   // Supprimer un produit
   const deleteProduct = async (id) => {
     try {
-      await productService.deleteProduct(id);
-      setProducts(prev => prev.filter(p => p.id !== id));
+      const response = await productService.deleteProduct(id);
+      if (response && response.success) {
+        setProducts(prev => prev.filter(p => p.idProduit !== id));
+      }
+      return response;
     } catch (err) {
       throw err;
     }
@@ -122,7 +147,7 @@ const useProducts = (initialFilters = {}) => {
   // Charger initialement
   useEffect(() => {
     loadProducts();
-  }, [loadProducts]);
+  }, []); // Enlever loadProducts des dépendances pour éviter les boucles
 
   return {
     products,

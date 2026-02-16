@@ -1,4 +1,3 @@
-
 // src/services/commandeService.js
 import api from './api'; 
 import { authHeader } from './authHeader';
@@ -7,45 +6,38 @@ export const commandeService = {
   // Récupérer toutes les commandes
   async getAllCommandes() {
     try {
+      console.log('📡 Appel API: /commandes/getAllCommandes');
       const response = await api.get('/commandes/getAllCommandes', { headers: authHeader() });
+      
+      if (response.data && response.data.success && response.data.commandes) {
+        return response.data.commandes;
+      }
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      if (response.data && response.data.data) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la récupération des commandes:', error);
+      console.error('❌ Erreur getAllCommandes:', error);
       throw error;
     }
   },
 
-  // NOUVELLE FONCTION : Récupérer uniquement les commandes validées
- getCommandesValidees: async () => {
+  // Récupérer les commandes validées
+  getCommandesValidees: async () => {
     try {
-      console.log('📡 Appel API: /api/commandes/validated');
-      const response = await api.get('/commandes/validated');
+      console.log('📡 Appel API: /commandes/validated');
+      const response = await api.get('/commandes/validated', { headers: authHeader() });
       
-      // Vérifiez la structure de la réponse
-      console.log('📦 Réponse reçue:', response.data);
-      
-      // Retournez directement les commandes
-      return response.data.commandes || response.data.data || response.data;
-      
+      if (response.data && response.data.success && response.data.commandes) {
+        return response.data.commandes;
+      }
+      return response.data;
     } catch (error) {
       console.error('❌ Erreur getCommandesValidees:', error);
-      
-      // Fallback: utiliser getAllCommandes avec filtre
-      console.warn('Fallback: utilisation de getAllCommandes avec filtre');
-      try {
-        const allResponse = await api.get('/commandes/getAllCommandes');
-        const allCommandes = allResponse.data.commandes || allResponse.data.data || allResponse.data;
-        
-        // Filtrer côté client
-        return allCommandes.filter(cmd => 
-          cmd.statut === 'CONFIRMEE' || 
-          cmd.statut === 'validée' ||
-          cmd.status === 'CONFIRMEE'
-        );
-      } catch (fallbackError) {
-        console.error('❌ Erreur fallback:', fallbackError);
-        throw error;
-      }
+      throw error;
     }
   },
 
@@ -57,78 +49,106 @@ export const commandeService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la création de la commande:', error);
+      console.error('❌ Erreur createCommande:', error);
       throw error;
     }
   },
 
-  // Vérifier la disponibilité des produits
-  async verifierDisponibilite(produits) {
+  // Récupérer une commande par ID
+  async getCommandeById(id) {
     try {
-      const response = await api.post('/commandes/verifier-disponibilite', 
-        { produits }, 
-        { headers: authHeader() }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la vérification de disponibilité:', error);
-      throw error;
-    }
-  },
-
-  // Obtenir la remise pour un type de client
-  async getRemiseForClientType(typeClient) {
-    try {
-      const response = await api.get(`/commandes/remise-client/${typeClient}`, {
+      const response = await api.get(`/commandes/${id}`, {
         headers: authHeader()
       });
+      
+      if (response.data && response.data.success && response.data.commande) {
+        return response.data.commande;
+      }
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la récupération de la remise:', error);
+      console.error(`❌ Erreur getCommandeById ${id}:`, error);
       throw error;
     }
   },
 
-  // Valider une commande
+  // 🔥 CORRECTION: Vérifier le bon endpoint pour valider
   async validerCommande(commandeId) {
     try {
-      // Note: Vous devrez créer cet endpoint dans votre backend
-      const response = await api.put(`/commandes/${commandeId}/valider`, {}, {
-        headers: authHeader()
-      });
-      return response.data;
+      console.log(`✅ Tentative validation commande ${commandeId}`);
+      
+      // Essayer différents endpoints possibles
+      const endpoints = [
+        `/commandes/${commandeId}/valider`,           // Format 1
+        `/api/commandes/${commandeId}/valider`,       // Format 2
+        `/commandes/valider/${commandeId}`            // Format 3
+      ];
+      
+      let lastError = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`📡 Essai endpoint: ${endpoint}`);
+          const response = await api.put(endpoint, {}, { 
+            headers: authHeader() 
+          });
+          
+          console.log(`✅ Succès avec endpoint: ${endpoint}`);
+          return response.data;
+        } catch (err) {
+          console.log(`❌ Échec endpoint ${endpoint}:`, err.response?.status);
+          lastError = err;
+          // Continuer avec le prochain endpoint
+        }
+      }
+      
+      // Si tous les endpoints échouent
+      throw lastError || new Error('Aucun endpoint de validation trouvé');
+      
     } catch (error) {
-      console.error('Erreur lors de la validation de la commande:', error);
+      console.error('❌ Erreur validerCommande:', error);
+      
+      // Message d'erreur plus explicite
+      if (error.response?.status === 403) {
+        console.error('⛔ ACCÈS REFUSÉ: Votre rôle n\'a pas la permission de valider des commandes');
+      }
+      
       throw error;
     }
   },
 
-  // Rejeter une commande
+  // 🔥 CORRECTION: Même chose pour rejeter
   async rejeterCommande(commandeId) {
     try {
-      // Note: Vous devrez créer cet endpoint dans votre backend
-      const response = await api.put(`/commandes/${commandeId}/rejeter`, {}, {
-        headers: authHeader()
-      });
-      return response.data;
+      console.log(`❌ Tentative rejet commande ${commandeId}`);
+      
+      const endpoints = [
+        `/commandes/${commandeId}/rejeter`,
+        `/api/commandes/${commandeId}/rejeter`,
+        `/commandes/rejeter/${commandeId}`
+      ];
+      
+      let lastError = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`📡 Essai endpoint: ${endpoint}`);
+          const response = await api.put(endpoint, {}, { 
+            headers: authHeader() 
+          });
+          
+          console.log(`✅ Succès avec endpoint: ${endpoint}`);
+          return response.data;
+        } catch (err) {
+          console.log(`❌ Échec endpoint ${endpoint}:`, err.response?.status);
+          lastError = err;
+        }
+      }
+      
+      throw lastError || new Error('Aucun endpoint de rejet trouvé');
+      
     } catch (error) {
-      console.error('Erreur lors du rejet de la commande:', error);
+      console.error('❌ Erreur rejeterCommande:', error);
       throw error;
     }
-  },
-
-  // Obtenir les détails d'une commande
-  async getCommandeDetails(commandeId) {
-    try {
-      const response = await api.get(`/commandes/${commandeId}`, {
-        headers: authHeader()
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des détails:', error);
-      throw error;
-    }
-  },
-
-
+  }
 };
