@@ -1,5 +1,6 @@
 package org.erp.invera.service;
 
+import org.erp.invera.dto.ClientDTO;
 import org.erp.invera.dto.NouveauClientDTO;
 import org.erp.invera.model.Client;
 import org.erp.invera.repository.ClientRepository;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -46,8 +48,14 @@ public class ClientService {
         client.setPrenom(clientDTO.getPrenom());
         client.setTelephone(clientDTO.getTelephone());
         client.setAdresse(clientDTO.getAdresse());
-        client.setType(Client.TypeClient.valueOf(clientDTO.getType().toUpperCase()));
+        client.setTypeClient(Client.TypeClient.valueOf(clientDTO.getType().toUpperCase()));
         client.setEmail(clientDTO.getEmail());
+
+        // Initialiser les remises à null (nullable)
+        client.setRemiseStandard(null);
+        client.setRemiseClientFidele(null);
+        client.setRemiseClientVIP(null);
+        client.setRemiseClientProfessionnelle(null);
 
         return clientRepository.save(client);
     }
@@ -71,14 +79,32 @@ public class ClientService {
     }
 
     /**
-     * Récupérer tous les clients
+     * Récupérer tous les clients en DTO
+     */
+    public List<ClientDTO> getAllClientsDTO() {
+        return clientRepository.findAll()
+                .stream()
+                .map(ClientDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Récupérer tous les clients en entités
      */
     public List<Client> getAllClients() {
         return clientRepository.findAll();
     }
 
     /**
-     * Récupérer un client par ID
+     * Récupérer un client par ID en DTO
+     */
+    public ClientDTO getClientDTOById(Integer id) {
+        Client client = getClientById(id);
+        return ClientDTO.fromEntity(client);
+    }
+
+    /**
+     * Récupérer un client par ID en entité
      */
     public Client getClientById(Integer id) {
         return clientRepository.findById(id)
@@ -86,7 +112,22 @@ public class ClientService {
     }
 
     /**
-     * Rechercher des clients par mot-clé
+     * Rechercher des clients par mot-clé en DTO
+     */
+    public List<ClientDTO> searchClientsDTO(String keyword) {
+        List<Client> clients;
+        if (keyword == null || keyword.trim().isEmpty()) {
+            clients = clientRepository.findAll();
+        } else {
+            clients = clientRepository.searchClients(keyword);
+        }
+        return clients.stream()
+                .map(ClientDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Rechercher des clients par mot-clé en entités
      */
     public List<Client> searchClients(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
@@ -116,7 +157,57 @@ public class ClientService {
     }
 
     /**
-     * Calculer la remise selon le type de client
+     * Mettre à jour les remises d'un client
+     */
+    public ClientDTO updateClientRemises(Integer clientId,
+                                         Double remiseStandard,
+                                         Double remiseFidele,
+                                         Double remiseVIP,
+                                         Double remiseProfessionnelle) {
+        Client client = getClientById(clientId);
+
+        client.setRemiseStandard(remiseStandard);
+        client.setRemiseClientFidele(remiseFidele);
+        client.setRemiseClientVIP(remiseVIP);
+        client.setRemiseClientProfessionnelle(remiseProfessionnelle);
+
+        Client updatedClient = clientRepository.save(client);
+        return ClientDTO.fromEntity(updatedClient);
+    }
+
+    /**
+     * Récupérer les remises d'un client via DTO
+     */
+    public ClientDTO getClientRemises(Integer clientId) {
+        Client client = getClientById(clientId);
+        return ClientDTO.fromEntity(client);
+    }
+
+    /**
+     * Mettre à jour un client complet
+     */
+    public ClientDTO updateClient(Integer id, Client clientDetails) {
+        Client client = getClientById(id);
+
+        client.setNom(clientDetails.getNom());
+        client.setPrenom(clientDetails.getPrenom());
+        client.setTelephone(clientDetails.getTelephone());
+        client.setAdresse(clientDetails.getAdresse());
+        client.setEmail(clientDetails.getEmail());
+        client.setTypeClient(clientDetails.getTypeClient());
+
+        // Mise à jour des remises
+        client.setRemiseStandard(clientDetails.getRemiseStandard());
+        client.setRemiseClientFidele(clientDetails.getRemiseClientFidele());
+        client.setRemiseClientVIP(clientDetails.getRemiseClientVIP());
+        client.setRemiseClientProfessionnelle(clientDetails.getRemiseClientProfessionnelle());
+
+        Client updatedClient = clientRepository.save(client);
+        return ClientDTO.fromEntity(updatedClient);
+    }
+
+    /**
+     * Calculer la remise selon le type de client (valeur par défaut si non personnalisée)
      */
     public Double calculerRemiseParType(Client.TypeClient type) {
         switch (type) {
@@ -132,5 +223,39 @@ public class ClientService {
             default:
                 return 0.0;
         }
+    }
+
+    /**
+     * Obtenir la remise effective d'un client (personnalisée si définie, sinon par défaut)
+     */
+    public Double getRemiseEffective(Client client) {
+        if (client == null) return 0.0;
+
+        switch (client.getTypeClient()) {
+            case VIP:
+                return client.getRemiseClientVIP() != null ?
+                        client.getRemiseClientVIP() : calculerRemiseParType(Client.TypeClient.VIP);
+            case PROFESSIONNEL:
+                return client.getRemiseClientProfessionnelle() != null ?
+                        client.getRemiseClientProfessionnelle() : calculerRemiseParType(Client.TypeClient.PROFESSIONNEL);
+            case FIDELE:
+                return client.getRemiseClientFidele() != null ?
+                        client.getRemiseClientFidele() : calculerRemiseParType(Client.TypeClient.FIDELE);
+            case PARTICULIER:
+            case ENTREPRISE:
+            default:
+                return client.getRemiseStandard() != null ?
+                        client.getRemiseStandard() : calculerRemiseParType(client.getTypeClient());
+        }
+    }
+
+    /**
+     * Supprimer un client
+     */
+    public void deleteClient(Integer id) {
+        if (!clientRepository.existsById(id)) {
+            throw new RuntimeException("Client non trouvé avec l'ID: " + id);
+        }
+        clientRepository.deleteById(id);
     }
 }

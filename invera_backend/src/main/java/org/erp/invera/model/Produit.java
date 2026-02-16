@@ -16,27 +16,30 @@ public class Produit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer idProduit;
 
+    @Column(name = "libelle", nullable = false)
     private String libelle;
 
-    @Column(name = "prix_vente")
+    @Column(name = "prix_vente", nullable = false)
     private Double prixVente;
 
-    @Column(name = "prix_achat")
+    @Column(name = "prix_achat", nullable = false)
     private Double prixAchat;
 
-    @Column(name = "categorie")
-    private String categorie;
+    @ManyToOne
+    @JoinColumn(name = "categorie_id", nullable = false)
+    private Categorie categorie;
 
-    @Column(name = "quantite_stock")
+    @Column(name = "quantite_stock", nullable = false)
     private Integer quantiteStock;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private StockStatus status;
 
-    @Column(name = "seuil_minimum")
+    @Column(name = "seuil_minimum", nullable = false)
     private Integer seuilMinimum;
 
-    @Column(name = "unite_mesure")
+    @Column(name = "unite_mesure", nullable = false)
     private String uniteMesure;
 
     @Column(name = "image_url")
@@ -45,32 +48,10 @@ public class Produit {
     @Column(name = "remise_temporaire")
     private Double remiseTemporaire;
 
-    @Column(name = "remise_particulier")
-    private Double remiseParticulier;
-
-    @Column(name = "remise_vip")
-    private Double remiseVIP;
-
-    @Column(name = "remise_professionnelle")
-    private Double remiseProfessionnelle;
-
-
     public enum StockStatus {
         EN_STOCK,
         RUPTURE,
         FAIBLE,
         CRITIQUE
-    }
-
-
-     ///  doit etre dans un classe séparé
-    public enum CategorieProduit {
-        ELECTRONIQUE,
-        ELECTROMENAGER,
-        MEUBLE,
-        ALIMENTAIRE,
-        BUREAUTIQUE,
-        VETEMENT,
-        AUTRE
     }
 }

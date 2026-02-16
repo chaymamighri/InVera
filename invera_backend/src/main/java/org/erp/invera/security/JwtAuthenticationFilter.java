@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -42,27 +43,62 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        String path = request.getRequestURI();
+        System.out.println("\n=== JWT FILTER EXÉCUTÉ ===");
+        System.out.println("🔍 Path: " + path);
+
         String jwt = getJwtFromRequest(request);
+        System.out.println("🔍 JWT présent: " + (jwt != null ? "OUI" : "NON"));
 
-        if (StringUtils.hasText(jwt)
-                && jwtTokenProvider.validateToken(jwt)
-                && SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (jwt != null) {
+            System.out.println("🔍 JWT (début): " + jwt.substring(0, Math.min(20, jwt.length())) + "...");
 
-            String username = jwtTokenProvider.getUsernameFromToken(jwt);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            boolean isValid = jwtTokenProvider.validateToken(jwt);
+            System.out.println("🔍 Token valide: " + isValid);
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities()
-                    );
+            if (isValid) {
+                String username = jwtTokenProvider.getUsernameFromToken(jwt);
+                System.out.println("🔍 Username du token: " + username);
 
-            authentication.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
-            );
+                boolean alreadyAuthenticated = SecurityContextHolder.getContext().getAuthentication() != null;
+                System.out.println("🔍 Déjà authentifié: " + alreadyAuthenticated);
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (!alreadyAuthenticated) {
+                    try {
+                        System.out.println("🔍 Chargement UserDetails pour: " + username);
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                        System.out.println("✅ UserDetails chargé!");
+                        System.out.println("   - Username: " + userDetails.getUsername());
+                        System.out.println("   - Authorities: " + userDetails.getAuthorities());
+                        System.out.println("   - Enabled: " + userDetails.isEnabled());
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails, null, userDetails.getAuthorities()
+                                );
+
+                        authentication.setDetails(
+                                new WebAuthenticationDetailsSource().buildDetails(request)
+                        );
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        System.out.println("✅ Authentication placée dans le contexte");
+
+                    } catch (Exception e) {
+                        System.out.println("❌ ERREUR chargement UserDetails: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            } else {
+                System.out.println("❌ Token invalide - vérifiez JwtTokenProvider");
+            }
+        } else {
+            System.out.println("❌ Aucun JWT trouvé dans Authorization header");
+            System.out.println("   Headers: " + Collections.list(request.getHeaderNames()));
         }
 
+        System.out.println("=== FIN JWT FILTER ===\n");
         filterChain.doFilter(request, response);
     }
 
