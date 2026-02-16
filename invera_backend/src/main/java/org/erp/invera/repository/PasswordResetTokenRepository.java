@@ -11,4 +11,5 @@ public interface PasswordResetTokenRepository
     Optional<PasswordResetToken> findByTokenAndUserEmail(String token, String email);
 
     void deleteByUserEmail(String email);
+
 }

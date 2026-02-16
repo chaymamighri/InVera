@@ -57,29 +57,43 @@ public class AuthController {
     // ===== REGISTER =====
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register")
+    @Transactional
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Email déjà utilisé"));
         }
 
-        if (userRepository.existsByUsername(request.getUsername())) {
+        // 🚨 Prevent admin creation
+        if (request.getRole().equalsIgnoreCase("ADMIN")) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("Username déjà utilisé"));
+                    .body(new MessageResponse("Vous ne pouvez pas créer un autre ADMIN"));
         }
 
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNom(request.getNom());
         user.setPrenom(request.getPrenom());
         user.setRole(Role.valueOf(request.getRole()));
-        user.setActive(true);
+        user.setActive(false);
+        user.setPassword(null);
 
         userRepository.save(user);
-        return ResponseEntity.ok(new MessageResponse("Utilisateur créé avec succès"));
+
+        // Generate token for password creation
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUser(user);
+        token.setExpiryDate(LocalDateTime.now().plusHours(24));
+        passwordResetTokenRepository.save(token);
+
+        emailService.sendCreatePasswordEmail(user.getEmail(), token.getToken());
+
+        return ResponseEntity.ok(
+                new MessageResponse("Utilisateur créé. Email envoyé."));
     }
+
 
     // ===== FILTER USERS =====
     @PreAuthorize("hasRole('ADMIN')")
@@ -112,21 +126,35 @@ public class AuthController {
     // ===== UPDATE USER =====
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/update/{email}")
-    public ResponseEntity<?> updateUser(@PathVariable String email, @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> updateUser(@PathVariable String email,
+                                        @RequestBody RegisterRequest request) {
+
+        if (request.getRole().equalsIgnoreCase("ADMIN")) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Modification vers ADMIN interdite"));
+        }
+
         return userRepository.findByEmail(email)
                 .map(user -> {
+
                     user.setUsername(request.getUsername());
                     user.setNom(request.getNom());
                     user.setPrenom(request.getPrenom());
                     user.setRole(Role.valueOf(request.getRole()));
-                    if (request.getPassword() != null && !request.getPassword().isBlank()) {
-                        user.setPassword(passwordEncoder.encode(request.getPassword()));
-                    }
+
                     userRepository.save(user);
-                    return ResponseEntity.ok(new MessageResponse("Utilisateur mis à jour avec succès"));
+
+                    return ResponseEntity.ok(
+                            new MessageResponse("Utilisateur mis à jour"));
                 })
-                .orElseGet(() -> ResponseEntity.badRequest().body(new MessageResponse("User not found")));
+                .orElseGet(() ->
+                        ResponseEntity.badRequest()
+                                .body(new MessageResponse("User not found")));
     }
+
+
+
+
 
     // ===== DELETE USER =====
     @PreAuthorize("hasRole('ADMIN')")
