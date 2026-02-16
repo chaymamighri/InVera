@@ -3,14 +3,10 @@ package org.erp.invera.service;
 import org.erp.invera.model.User;
 import org.erp.invera.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-
-import java.util.Collections;
 
 /**
  * Service qui charge les détails de l'utilisateur depuis la base de données
@@ -28,18 +24,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        // Convertir le role en GrantedAuthority
-        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
-
-        // Créer un UserDetails à partir de notre User
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(authority)
-                .accountExpired(false)
-                .accountLocked(false)
-                .credentialsExpired(false)
-                .disabled(!user.isActive())
-                .build();
+        return user;
     }
 }

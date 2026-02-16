@@ -3,6 +3,7 @@ package org.erp.invera.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.erp.invera.model.LigneCommandeClient;
 import org.erp.invera.model.Produit;
 import org.erp.invera.service.ProduitService;
 
@@ -26,8 +27,73 @@ public class ProduitCommandeDetailDTO {
     private BigDecimal totalLigne;
     private Integer quantiteStock;
     private String statutStock;
-    private String categorie;
+
+    // Catégorie - maintenant c'est un objet avec id et nom
+    private Integer categorieId;
+    private String categorieNom;
+
     private String uniteMesure;
+
+    /**
+     * Convertit une ligne de commande en DTO
+     */
+    public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne, ProduitService produitService) {
+        if (ligne == null) {
+            return null;
+        }
+
+        ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
+        Produit produit = ligne.getProduit();
+
+        if (produit != null) {
+            dto.setId(produit.getIdProduit());
+            dto.setLibelle(produit.getLibelle());
+            dto.setImageUrl(produit.getImageUrl());
+
+            // Gestion de la catégorie
+            if (produit.getCategorie() != null) {
+                dto.setCategorieId(produit.getCategorie().getIdCategorie());
+                dto.setCategorieNom(produit.getCategorie().getNomCategorie());
+            }
+
+            dto.setUniteMesure(produit.getUniteMesure());
+            dto.setPrixUnitaire(ligne.getPrixUnitaire());
+            dto.setQuantiteStock(produit.getQuantiteStock());
+            dto.setStatutStock(produit.getStatus() != null ?
+                    produit.getStatus().name() : "INCONNU");
+        } else if (produitService != null && ligne.getProduit() != null) {
+            // Fallback: récupérer via le service si nécessaire
+            Optional<Produit> produitOpt = produitService.getProduitById(
+                    ligne.getProduit().getIdProduit());
+
+            if (produitOpt.isPresent()) {
+                Produit p = produitOpt.get();
+                dto.setId(p.getIdProduit());
+                dto.setLibelle(p.getLibelle());
+                dto.setImageUrl(p.getImageUrl());
+
+                if (p.getCategorie() != null) {
+                    dto.setCategorieId(p.getCategorie().getIdCategorie());
+                    dto.setCategorieNom(p.getCategorie().getNomCategorie());
+                }
+
+                dto.setUniteMesure(p.getUniteMesure());
+                dto.setQuantiteStock(p.getQuantiteStock());
+                dto.setStatutStock(p.getStatus() != null ?
+                        p.getStatus().name() : "INCONNU");
+            }
+        }
+
+        dto.setQuantite(ligne.getQuantite());
+        dto.setPrixUnitaire(ligne.getPrixUnitaire());
+        dto.setSousTotal(ligne.getSousTotal());
+
+        // Calculs supplémentaires
+        dto.setRemiseProduit(BigDecimal.ZERO); // À ajuster si vous avez des remises par produit
+        dto.setTotalLigne(ligne.getSousTotal()); // Par défaut, le total = sous-total
+
+        return dto;
+    }
 
     public static List<ProduitCommandeDetailDTO> fromMap(
             Map<Integer, Integer> produitsMap,
@@ -51,9 +117,17 @@ public class ProduitCommandeDetailDTO {
                     ProduitCommandeDetailDTO dto = new ProduitCommandeDetailDTO();
 
                     dto.setId(produit.getIdProduit());
-                    dto.setLibelle(produit.getLibelle());  // ✅ Vrai libellé
+                    dto.setLibelle(produit.getLibelle());
                     dto.setImageUrl(produit.getImageUrl());
-                    dto.setCategorie(produit.getCategorie());
+
+                    if (produit.getCategorie() != null) {
+                        dto.setCategorieId(produit.getCategorie().getIdCategorie());
+                        dto.setCategorieNom(produit.getCategorie().getNomCategorie());
+                    } else {
+                        dto.setCategorieId(null);
+                        dto.setCategorieNom("Non catégorisé");
+                    }
+
                     dto.setUniteMesure(produit.getUniteMesure());
                     dto.setPrixUnitaire(BigDecimal.valueOf(
                             produit.getPrixVente() != null ? produit.getPrixVente() : 0.0));
@@ -69,17 +143,27 @@ public class ProduitCommandeDetailDTO {
                     dto.setTotalLigne(sousTotal);
 
                     produits.add(dto);
+
+                    System.out.println("✅ Produit ajouté: " + produit.getLibelle() +
+                            " | Catégorie: " + dto.getCategorieNom());
                 } else {
-                    // ❌ PRODUIT NON TROUVÉ - NE PAS AJOUTER
                     System.out.println("⚠️ Produit ID " + produitId + " non trouvé en base - ignoré");
-                    // continue; - Ne rien ajouter
                 }
             } catch (Exception e) {
                 System.out.println("❌ Erreur produit ID " + produitId + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
         System.out.println("✅ fromMap retourne " + produits.size() + " produits trouvés");
         return produits;
+    }
+
+    public String getCategorieDisplay() {
+        return categorieNom != null ? categorieNom : "Non catégorisé";
+    }
+
+    public boolean hasCategorie() {
+        return categorieId != null && categorieNom != null;
     }
 }
