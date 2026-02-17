@@ -85,13 +85,13 @@ const OrdersPage = () => {
   }, []);
 
   // Filtrer les commandes
- // Filtrer les commandes (SANS TRI)
-  useEffect(() => {
+useEffect(() => {
   // 1. D'abord on filtre
   const filtered = commandes.filter(commande => {
     const matchesSearch = searchTerm === '' || 
       (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()));
+       commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       commande.client?.prenom?.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = selectedStatus === 'Tous' || 
       commande.statut === selectedStatus ||
@@ -103,41 +103,60 @@ const OrdersPage = () => {
       commande.client?.id === parseInt(selectedClientId);
     
     const matchesClientType = selectedClientType === 'Tous' || 
-      (commande.client?.type && 
-       commande.client.type.toUpperCase() === selectedClientType.toUpperCase());
+      (commande.client?.typeClient && 
+       commande.client.typeClient.toUpperCase() === selectedClientType.toUpperCase());
     
     return matchesSearch && matchesStatus && matchesClient && matchesClientType;
   });
 
-  // 2. ✅ NE PAS TRIER SI ON VEUT GARDER L'ORDRE D'AJOUT
-  // Si on veut un tri, on le fait conditionnellement
+  // 2. Appliquer le tri si nécessaire
   if (sortField) {
     filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+      let aValue, bValue;
       
-      if (sortField === 'dateCreation') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
+      switch(sortField) {
+        case 'clientNom':
+          aValue = `${a.client?.nom || ''} ${a.client?.prenom || ''}`.trim().toLowerCase();
+          bValue = `${b.client?.nom || ''} ${b.client?.prenom || ''}`.trim().toLowerCase();
+          break;
+          
+        case 'dateCommande':
+          aValue = a.dateCommande ? new Date(a.dateCommande).getTime() : 0;
+          bValue = b.dateCommande ? new Date(b.dateCommande).getTime() : 0;
+          break;
+          
+        case 'total':
+          aValue = toNumber(a.total);
+          bValue = toNumber(b.total);
+          break;
+          
+        case 'sousTotal':
+          aValue = toNumber(a.sousTotal);
+          bValue = toNumber(b.sousTotal);
+          break;
+          
+        case 'numero':
+        case 'referenceCommandeClient':
+          aValue = a.numero || '';
+          bValue = b.numero || '';
+          break;
+          
+        default:
+          aValue = a[sortField] || '';
+          bValue = b[sortField] || '';
       }
       
-      if (sortField === 'client') {
-        aValue = a.client?.nom || '';
-        bValue = b.client?.nom || '';
-      }
+      // Gestion des valeurs null/undefined
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
       
-      if (sortField === 'total' || sortField === 'sousTotal') {
-        aValue = toNumber(aValue);
-        bValue = toNumber(bValue);
+      // Comparaison
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
       }
-      
-      return sortDirection === 'asc' 
-        ? (aValue > bValue ? 1 : -1)
-        : (aValue < bValue ? 1 : -1);
     });
-  } else {
-    // 3. ✅ Si pas de tri, on garde l'ordre actuel (nouveau en tête)
-    // Pas besoin de faire quoi que ce soit
   }
   
   setFilteredCommandes(filtered);
@@ -152,8 +171,16 @@ const OrdersPage = () => {
   }, []);
 
   // Fonctions stabilisées avec useCallback
- const handleSort = useCallback((field) => {
-  if (sortField === field) {
+const handleSort = useCallback((field) => {
+  // Mapping des champs d'affichage vers les champs réels
+  const fieldMap = {
+    'client': 'clientNom',        
+    'dateCreation': 'dateCommande' 
+  };
+  
+  const actualField = fieldMap[field] || field;
+  
+  if (sortField === actualField) {
     // Si on clique sur le même champ
     if (sortDirection === 'desc') {
       // Passer de desc → asc
@@ -165,7 +192,7 @@ const OrdersPage = () => {
     }
   } else {
     // Nouveau champ de tri
-    setSortField(field);
+    setSortField(actualField);
     setSortDirection('asc');
   }
 }, [sortField, sortDirection]);
@@ -187,85 +214,169 @@ const OrdersPage = () => {
     setSelectedProducts(prev => prev.filter(p => p.id !== produitId));
   }, [setSelectedProducts]);
 
-  // Fonction pour créer la commande
-  const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
-    console.log('🔴 handleCreerCommandeAPI DÉBUT');
+// Fonction pour créer la commande - CORRIGÉE
+// Fonction pour créer la commande - CORRIGÉE (uniquement la partie référence)
+const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
+  console.log('🔴 handleCreerCommandeAPI DÉBUT');
 
-    if (!clientId || selectedProducts.length === 0) {
-      alert('Veuillez sélectionner un client et ajouter au moins un produit');
-      return;
+  if (!clientId || selectedProducts.length === 0) {
+    alert('Veuillez sélectionner un client et ajouter au moins un produit');
+    return;
+  }
+
+  setIsCreating(true);
+
+  try {
+    const parsedClientId = parseInt(clientId, 10);
+    
+    if (isNaN(parsedClientId) || parsedClientId <= 0) {
+      throw new Error(`ID client invalide: "${clientId}"`);
     }
 
-    setIsCreating(true);
-
-    try {
-      const parsedClientId = parseInt(clientId, 10);
-      
-      if (isNaN(parsedClientId) || parsedClientId <= 0) {
-        throw new Error(`ID client invalide: "${clientId}"`);
-      }
-
-      const commandeData = {
-        clientId: parsedClientId,  
-        produits: selectedProducts.map(p => {
-          console.log(' Préparation produit:', p.id, p.libelle);
-          
-          const produitId = parseInt(p.id, 10);
-          if (isNaN(produitId) || produitId <= 0) {
-            throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
-          }
-          
-          return {
-            produitId: produitId,  
-            quantite: parseInt(p.quantite, 10),  
-            prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
-            remisePourcentage: 0 
-          };
-        }),
-        remarques: notes || '',
-        statut: 'EN_ATTENTE'
-      };
-
-      // VÉRIFICATION DÉTAILLÉE
-      console.log(' Données envoyées:', JSON.stringify(commandeData, null, 2));
-      
-      const response = await commandeService.createCommande(commandeData);
-      
-      if (response.success) {
-        alert(' Commande créée avec succès !');
+    const commandeData = {
+      clientId: parsedClientId,  
+      produits: selectedProducts.map(p => {
+        console.log('📦 Préparation produit:', p.id, p.libelle);
         
-        // ✅ 1. Ajouter la nouvelle commande en tête de liste
-        if (response.data) {
-          ajouterNouvelleCommande(response.data);
+        const produitId = parseInt(p.id, 10);
+        if (isNaN(produitId) || produitId <= 0) {
+          throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
         }
         
-        // ✅ 2. Réinitialiser la sélection
-        resetSelection();
-        
-        // ✅ 3. Fermer le modal
-        setShowCreateModal(false);
-        
-        // ❌ 4. NE PAS recharger toutes les commandes
-        // await chargerDonnees(); // ← COMMENTÉ ou SUPPRIMÉ
-        
-      } else {
-        alert('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
-      }
-    } catch (error) {
-      console.error('❌ ERREUR DÉTAILLÉE:', error);
+        return {
+          produitId: produitId,  
+          quantite: parseInt(p.quantite, 10),  
+          prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
+          remisePourcentage: 0 
+        };
+      }),
+      remarques: notes || '',
+      statut: 'EN_ATTENTE'
+    };
+
+    console.log('📤 Données envoyées:', JSON.stringify(commandeData, null, 2));
+    
+    const response = await commandeService.createCommande(commandeData);
+    console.log('📥 Réponse brute:', response);
+    
+    if (response.success) {
+      alert('✅ Commande créée avec succès !');
       
-      let errorMessage = 'Erreur lors de la création de la commande';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
+      // ✅ Extraire la commande de la réponse
+      const commandeBrute = response.data || response;
+      console.log('📦 Commande brute à transformer:', commandeBrute);
+      
+      // ✅ Vérifier toutes les sources possibles pour la référence
+      console.log('🔍 Recherche de la référence:', {
+        referenceCommandeClient: commandeBrute.referenceCommandeClient,
+        reference: commandeBrute.reference,
+        numero: commandeBrute.numero,
+        id: commandeBrute.id,
+        idCommandeClient: commandeBrute.idCommandeClient
+      });
+      
+      // ✅ Essayer différentes sources pour la référence
+      let referenceBackend = 
+        commandeBrute.referenceCommandeClient || 
+        commandeBrute.reference || 
+        commandeBrute.numero;
+      
+      // ✅ Si pas de référence, générer une avec le format du backend
+      if (!referenceBackend) {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const random = Math.floor(Math.random() * 1000);
+        referenceBackend = `CMD-${today}-${random}`;
+        console.log('📋 Référence générée localement:', referenceBackend);
       }
       
-      alert('❌ Erreur: ' + errorMessage);
-    } finally {
-      setIsCreating(false);
+      // ✅ Récupérer le client sélectionné
+      const clientSelectionne = clients.find(c => c.id === parsedClientId);
+      
+      // Calculer les totaux
+      const sousTotal = selectedProducts.reduce((sum, p) => 
+        sum + (toNumber(p.prix) * p.quantite), 0
+      );
+      
+      const remise = clientSelectionne ? 
+        (clientSelectionne.typeClient === 'VIP' ? 0.15 :
+         clientSelectionne.typeClient === 'FIDELE' ? 0.10 :
+         clientSelectionne.typeClient === 'ENTREPRISE' ? 0.08 :
+         clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.05 : 0) : 0;
+      
+      const total = sousTotal * (1 - remise);
+      
+      // Construire la commande transformée - ✅ CORRIGÉ pour la référence
+      const commandeTransformee = {
+        idCommandeClient: commandeBrute.idCommandeClient || commandeBrute.id || Date.now(),
+        id: commandeBrute.idCommandeClient || commandeBrute.id || Date.now(),
+        referenceCommandeClient: referenceBackend,  // ✅ Utiliser la référence trouvée
+        numero: referenceBackend,                   // ✅ Utiliser la référence trouvée
+        
+        client: clientSelectionne ? {
+          idClient: clientSelectionne.id,
+          id: clientSelectionne.id,
+          nom: clientSelectionne.nom || '',
+          prenom: clientSelectionne.prenom || '',
+          typeClient: clientSelectionne.typeClient || 'PARTICULIER',
+          telephone: clientSelectionne.telephone || '',
+          email: clientSelectionne.email || '',
+          adresse: clientSelectionne.adresse || ''
+        } : null,
+        
+        dateCommande: commandeBrute.dateCommande || new Date().toISOString(),
+        
+        // Produits à partir de la sélection
+        produits: selectedProducts.map(p => ({
+          id: p.id,
+          ligneId: p.id,
+          produitId: p.id,
+          libelle: p.libelle,
+          prixUnitaire: toNumber(p.prix),
+          quantite: p.quantite,
+          sousTotal: toNumber(p.prix) * p.quantite,
+          imageUrl: p.imageUrl,
+          uniteMesure: p.uniteMesure,
+          categorie: p.categorie,
+          categorieNom: p.categorieNom
+        })),
+        
+        sousTotal: sousTotal,
+        tauxRemise: remise * 100,
+        total: total,
+        
+        statut: 'EN_ATTENTE',
+        statutDisplay: 'En attente'
+      };
+      
+      console.log('✅ Commande transformée avec numéro:', commandeTransformee.numero);
+      
+      // ✅ Ajouter la commande transformée
+      ajouterNouvelleCommande(commandeTransformee);
+      
+      // ✅ Réinitialiser la sélection
+      resetSelection();
+      
+      // ✅ Fermer le modal
+      setShowCreateModal(false);
+      
+    } else {
+      alert('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
     }
-  }, [selectedProducts, toNumber, resetSelection, ajouterNouvelleCommande]); // 👈 AJOUTER ajouterNouvelleCommande
+  } catch (error) {
+    console.error('❌ ERREUR DÉTAILLÉE:', error);
+    
+    let errorMessage = 'Erreur lors de la création de la commande';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    alert('❌ Erreur: ' + errorMessage);
+  } finally {
+    setIsCreating(false);
+  }
+}, [selectedProducts, toNumber, resetSelection, ajouterNouvelleCommande, clients]);
 
   // Fonction pour valider une commande
   const handleValiderCommandeAPI = useCallback(async (commandeId) => {

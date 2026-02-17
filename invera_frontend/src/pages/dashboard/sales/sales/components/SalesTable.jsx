@@ -185,21 +185,44 @@ const SalesTable = ({ commandes, loading, onGenerateInvoice }) => {
                   onMouseLeave={() => setHoveredRow(null)}
                 >
                   {/* N° Commande avec badge de statut */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="p-1.5 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                          <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
-                        </div>
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white"></span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors">
-                          {commande.numeroCommande || `CMD-${String(commande.id).padStart(5, '0')}`}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
+                {/* N° Commande avec badge de statut - CORRIGÉ */}
+<td className="px-6 py-4">
+  <div className="flex items-center gap-3">
+    <div className="relative">
+      <div className="p-1.5 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">
+        <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
+      </div>
+      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white"></span>
+    </div>
+    <div>
+      <span className="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors">
+        {(() => {
+          // 1. Essayer tous les champs possibles pour la référence
+          const reference = 
+            commande.referenceCommandeClient || 
+            commande.numero || 
+            commande.numeroCommande;
+          
+          if (reference) return reference;
+          
+          // 2. Essayer de construire à partir d'un ID
+          const id = commande.id || commande.idCommandeClient || commande.idCommande;
+          if (id) {
+            // Vérifier si l'ID est un nombre
+            const idNum = parseInt(id);
+            if (!isNaN(idNum)) {
+              return `CMD-${String(idNum).padStart(5, '0')}`;
+            }
+            return `CMD-${id}`;
+          }
+          
+          // 3. Fallback
+          return 'CMD-00000';
+        })()}
+      </span>
+    </div>
+  </div>
+</td>
 
                   {/* Client avec design élégant */}
                   <td className="px-6 py-4">
