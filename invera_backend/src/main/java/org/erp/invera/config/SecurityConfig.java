@@ -100,6 +100,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .anyRequest().authenticated()
                 )
                 //.authenticationProvider(authenticationProvider())
