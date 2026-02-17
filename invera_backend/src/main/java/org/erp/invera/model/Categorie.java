@@ -1,30 +1,38 @@
 package org.erp.invera.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Entité représentant une catégorie
- */
-@Data
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
-@Builder
+@Table(name = "categorie")
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "categories")
 public class Categorie {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "idcategorie")
-    private Long idCategorie;
+    private Integer idCategorie;
 
-    @Column(name = "nomcategorie", nullable = false, unique = true, length = 100)
+    @Column(name = "nom_categorie", nullable = false, unique = true)
     private String nomCategorie;
 
-    @Column(name = "description", length = 500)
+    @Column(name = "description")
     private String description;
+
+    @OneToMany(mappedBy = "categorie")
+    @JsonIgnore
+    private List<Produit> produits = new ArrayList<>();
+
+    // Constructeur pour faciliter la création
+    public Categorie(String nomCategorie, String description) {
+        this.nomCategorie = nomCategorie;
+        this.description = description;
+    }
 }

@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,15 +107,16 @@ public class CommandeClientController {
                     ))
                     .collect(Collectors.toList());
 
-            // 3. Vérification
             if (!commandesDTO.isEmpty()) {
                 CommandeResponseDTO first = commandesDTO.get(0);
-                System.out.println("📋 Première commande: " + first.getNumeroCommande());
+                System.out.println("📋 Première commande: " + first.getReferenceCommandeClient());
                 if (first.getProduits() != null && !first.getProduits().isEmpty()) {
                     ProduitCommandeDetailDTO p = first.getProduits().get(0);
                     System.out.println("   ✅ Produit: " + p.getLibelle());
                     System.out.println("   ✅ Image: " + p.getImageUrl());
-                    System.out.println("   ✅ Catégorie: " + p.getCategorie());
+                    // Correction: utiliser getCategorieNom() au lieu de getCategorie()
+                    System.out.println("   ✅ Catégorie: " + p.getCategorieNom());
+                    System.out.println("   ✅ Catégorie ID: " + p.getCategorieId());
                 }
             }
 
@@ -142,10 +142,8 @@ public class CommandeClientController {
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getCommandeById(@PathVariable Integer id) {
         try {
-            // Récupérer la commande avec détails
             CommandeClient commande = commandeClientRepository.findByIdWithDetails(id)
                     .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + id));
-
 
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commande,
@@ -204,11 +202,7 @@ public class CommandeClientController {
 
             CommandeClient commande = commandeService.createCommande(commandeRequest);
 
-            //  Recharger avec les détails
-            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
-                    .stream()
-                    .filter(c -> c.getId().equals(commande.getId()))
-                    .findFirst()
+            CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commande.getIdCommandeClient())
                     .orElse(commande);
 
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
@@ -221,7 +215,7 @@ public class CommandeClientController {
             response.put("success", true);
             response.put("message", "Commande créée avec succès");
             response.put("commande", commandeDTO);
-            response.put("numeroCommande", commande.getNumeroCommande());
+            response.put("referenceCommande", commande.getReferenceCommandeClient());
             response.put("total", commande.getTotal());
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -249,13 +243,8 @@ public class CommandeClientController {
             commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-            // Recharger avec détails
-            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
-                    .stream()
-                    .filter(c -> c.getId().equals(commandeMaj.getId()))
-                    .findFirst()
+            CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commandeMaj.getIdCommandeClient())
                     .orElse(commandeMaj);
-
 
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
                     commandeAvecDetails,
@@ -286,11 +275,7 @@ public class CommandeClientController {
             commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
             CommandeClient commandeMaj = commandeClientRepository.save(commande);
 
-
-            CommandeClient commandeAvecDetails = commandeClientRepository.findAllWithDetails()
-                    .stream()
-                    .filter(c -> c.getId().equals(commandeMaj.getId()))
-                    .findFirst()
+            CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commandeMaj.getIdCommandeClient())
                     .orElse(commandeMaj);
 
             CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
@@ -315,7 +300,6 @@ public class CommandeClientController {
 
     @PostMapping("/verifier-disponibilite")
     public ResponseEntity<Map<String, Object>> verifierDisponibilite(@RequestBody Map<String, Object> request) {
-
         try {
             System.out.println("🔍 Vérification disponibilité - Données reçues: " + request);
 
@@ -381,7 +365,6 @@ public class CommandeClientController {
 
     @GetMapping("/{id}/test-produit")
     public ResponseEntity<Map<String, Object>> testProduitMethod(@PathVariable Integer id) {
-
         try {
             Optional<Produit> produitOpt = produitService.getProduitById(1);
 
@@ -390,8 +373,12 @@ public class CommandeClientController {
             if (produitOpt.isPresent()) {
                 Produit p = produitOpt.get();
                 response.put("libelle", p.getLibelle());
-                response.put("getIdProduit", p.getIdProduit());
+                response.put("idProduit", p.getIdProduit());
                 response.put("classe", p.getClass().getName());
+                if (p.getCategorie() != null) {
+                    response.put("categorieId", p.getCategorie().getIdCategorie());
+                    response.put("categorieNom", p.getCategorie().getNomCategorie());
+                }
             }
 
             response.put("success", true);
