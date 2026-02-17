@@ -4,13 +4,11 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "commande_client")
@@ -21,50 +19,33 @@ public class CommandeClient {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer idCommandeClient;
 
-    @Column(name = "numero_commande", unique = true, nullable = false)
-    private String numeroCommande;
+    @Column(name = "reference_commande_client", nullable = false, unique = true)
+    private String referenceCommandeClient;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
-    private StatutCommande statut = StatutCommande.EN_ATTENTE;
+    private StatutCommande statut;
 
-    @CreationTimestamp
-    @Column(name = "date_creation", nullable = false)
-    private LocalDateTime dateCreation;
+    @Column(name = "date_commande", nullable = false)
+    private LocalDateTime dateCommande;
 
-    @Column(name = "sous_total", precision = 10, scale = 2)
+    @Column(name = "sous_total", nullable = false, precision = 19, scale = 2)
     private BigDecimal sousTotal;
 
-    @Column(name = "montant_remise", precision = 10, scale = 2)
-    private BigDecimal montantRemise = BigDecimal.ZERO;
+    @Column(name = "taux_remise", nullable = false, precision = 19, scale = 2)
+    private BigDecimal tauxRemise;
 
-    @Column(name = "taux_remise", precision = 5, scale = 2)
-    private BigDecimal tauxRemise = BigDecimal.ZERO;
-
-    @Column(name = "total", precision = 10, scale = 2, nullable = false)
+    @Column(name = "total", nullable = false, precision = 19, scale = 2)
     private BigDecimal total;
 
-    @ElementCollection
-    @CollectionTable(name = "commande_produits",
-            joinColumns = @JoinColumn(name = "commande_id"))
-    @MapKeyColumn(name = "produit_id")
-
-    @Column(name = "quantite")
-    private Map<Integer, Integer> produits = new HashMap<>();
-
-    @PrePersist
-    public void generateNumeroCommande() {
-        if (this.numeroCommande == null) {
-            this.numeroCommande = "CMD-" + LocalDateTime.now().getYear() + "-" +
-                    java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        }
-    }
+    @OneToMany(mappedBy = "commandeClient", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LigneCommandeClient> lignesCommande = new ArrayList<>();
 
     public enum StatutCommande {
         EN_ATTENTE("En attente"),
@@ -82,5 +63,14 @@ public class CommandeClient {
         }
     }
 
+    // Méthodes utilitaires pour gérer la relation bidirectionnelle
+    public void addLigneCommande(LigneCommandeClient ligne) {
+        lignesCommande.add(ligne);
+        ligne.setCommandeClient(this);
+    }
 
+    public void removeLigneCommande(LigneCommandeClient ligne) {
+        lignesCommande.remove(ligne);
+        ligne.setCommandeClient(null);
+    }
 }
