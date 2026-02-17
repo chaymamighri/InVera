@@ -3,11 +3,10 @@ package org.erp.invera.service;
 import org.erp.invera.model.User;
 import org.erp.invera.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -24,22 +23,35 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // Charger l'utilisateur depuis la DB par email
+
+        // 1️⃣ Chercher user par email
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found with email: " + email));
 
-        // Convertir le role en GrantedAuthority
-        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
+        // 2️⃣ Vérifier si le compte est activé
+        if (!user.isActive()) {
+            throw new DisabledException("Account is not activated. Please check your email.");
+        }
 
-        // Créer un UserDetails à partir de notre User
+        // 3️⃣ Vérifier si password existe
+        if (user.getPassword() == null) {
+            throw new DisabledException("Password not created yet.");
+        }
+
+        // 4️⃣ Convertir rôle en authority Spring Security
+        GrantedAuthority authority =
+                new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
+
+        // 5️⃣ Retourner UserDetails
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(user.getPassword())
-                .authorities(authority)
+                .authorities(Collections.singletonList(authority))
                 .accountExpired(false)
                 .accountLocked(false)
                 .credentialsExpired(false)
-                .disabled(!user.isActive())
+                .disabled(false) // on a déjà vérifié isActive
                 .build();
     }
 }

@@ -29,7 +29,7 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column
     private String password; // BCrypt hashed
 
     private String nom;
@@ -43,6 +43,14 @@ public class User implements UserDetails {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    // 🔥 CASCADE DELETE FOR PASSWORD RESET TOKENS
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<PasswordResetToken> passwordResetTokens;
 
     // Optional custom constructor
     public User(String username, String nom, String prenom,

@@ -87,15 +87,16 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login",
+                                "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/create-admin-temp").permitAll()
                         .requestMatchers("/api/auth/register",
-                                "/api/auth/activate/{email}",
+                                "/api/auth/activate/**",
                                 "/api/auth/filter",
                                 "/api/auth/all",
-                                "/api/auth/delete/{email}",
-                                "/api/auth/update/{email}").hasRole("ADMIN")
+                                "/api/auth/delete/**",
+                                "/api/auth/update/**").hasRole("ADMIN")
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasAnyRole("ADMIN","COMMERCIAL")
                         .requestMatchers("/api/stocks/**").hasAnyRole("ADMIN","RESPONSABLE_ACHAT")

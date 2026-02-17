@@ -50,7 +50,11 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         return ResponseEntity.ok(new JwtResponse(
-                jwt, user.getEmail(), user.getRole().name(), user.getNom(), user.getPrenom()
+                jwt,
+                user.getUsername(),
+                user.getRole().name(),
+                user.getNom(),
+                user.getPrenom()
         ));
     }
 
@@ -64,12 +68,19 @@ public class AuthController {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Email déjà utilisé"));
         }
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Username already exists");
+        }
+
 
         // 🚨 Prevent admin creation
         if (request.getRole().equalsIgnoreCase("ADMIN")) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Vous ne pouvez pas créer un autre ADMIN"));
         }
+
 
         User user = new User();
         user.setUsername(request.getUsername());
@@ -92,6 +103,41 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 new MessageResponse("Utilisateur créé. Email envoyé."));
+    }
+
+
+    // ===== CREATE-PASSWORD =====
+
+    @PostMapping("/create-password")
+    @Transactional
+    public ResponseEntity<?> createPassword(@Valid @RequestBody ResetPasswordRequest request) {
+
+        PasswordResetToken token =
+                passwordResetTokenRepository
+                        .findByTokenAndUserEmail(request.getCode(), request.getEmail())
+                        .orElseThrow(() ->
+                                new RuntimeException("Invalid activation token"));
+
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Token expired"));
+        }
+
+        User user = token.getUser();
+
+        if (user.getPassword() != null) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Password already created"));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setActive(true);
+
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(token);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Account activated successfully"));
     }
 
 
@@ -152,6 +198,26 @@ public class AuthController {
                                 .body(new MessageResponse("User not found")));
     }
 
+    // ===== UPDATE PROFILE (USER) =====
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setUsername(request.getUsername());
+        user.setNom(request.getNom());
+        user.setPrenom(request.getPrenom());
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Profile updated successfully"));
+    }
 
 
 
@@ -201,6 +267,34 @@ public class AuthController {
         return ResponseEntity.ok(new UserInfoResponse(user.getId(), user.getUsername(), user.getEmail(), user.getNom(), user.getPrenom(), user.getRole().name()));
     }
 
+
+    // ===== CHANGE PASSWORD (USER) =====
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 🔥 check old password
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Old password is incorrect"));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return ResponseEntity.ok(
+                new MessageResponse("Password updated successfully"));
+    }
+
+
+
+
     // ===== FORGOT PASSWORD =====
     @Transactional
     @PostMapping("/forgot-password")
@@ -229,8 +323,8 @@ public class AuthController {
     }
 
     // ===== RESET PASSWORD =====
-    @Transactional
     @PostMapping("/reset-password")
+    @Transactional
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
 
         PasswordResetToken resetToken =
@@ -246,13 +340,15 @@ public class AuthController {
 
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        user.setActive(true); // 🔥 IMPORTANT
 
+        userRepository.save(user);
         passwordResetTokenRepository.delete(resetToken);
 
         return ResponseEntity.ok(
-                new MessageResponse("Password reset successful"));
+                new MessageResponse("Password created successfully"));
     }
+
 
 
     // ===== CREATE TEMP ADMIN =====
