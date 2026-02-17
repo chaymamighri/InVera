@@ -40,16 +40,19 @@ const ClientTypeBadge = ({ type }) => {
 const StatusBadge = ({ statut }) => {
   const getStatusConfig = (statut) => {
     switch(statut) {
+      case 'CONFIRMEE':
       case 'Confirmé':
         return {
           color: 'bg-gradient-to-r from-green-100 to-green-50 text-green-800 border border-green-200',
           icon: <CheckCircleIcon className="h-5 w-5 mr-1.5" />
         };
+      case 'EN_ATTENTE':
       case 'En attente':
         return {
           color: 'bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 border border-yellow-200',
           icon: <ClockIcon className="h-5 w-5 mr-1.5" />
         };
+      case 'ANNULEE':
       case 'Refusé':
         return {
           color: 'bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200',
@@ -64,11 +67,14 @@ const StatusBadge = ({ statut }) => {
   };
 
   const config = getStatusConfig(statut);
+  const displayStatut = statut === 'EN_ATTENTE' ? 'En attente' : 
+                        statut === 'CONFIRMEE' ? 'Confirmé' : 
+                        statut === 'ANNULEE' ? 'Refusé' : statut;
 
   return (
     <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${config.color}`}>
       {config.icon}
-      {statut}
+      {displayStatut}
     </span>
   );
 };
@@ -90,6 +96,24 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
   );
 };
 
+// Fonction pour formater la date
+const formatDate = (dateString) => {
+  if (!dateString) return 'Non définie';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
 const OrderDetailsModal = ({
   show,
   onClose,
@@ -102,13 +126,13 @@ const OrderDetailsModal = ({
   console.log('🎯 OrderDetailsModal - Commande reçue:', {
     id: commande.id,
     numero: commande.numero,
+    dateCommande: commande.dateCommande,
     produitsCount: commande.produits?.length || 0,
     produits: commande.produits?.map(p => ({
       id: p.id,
       produitId: p.produitId,
       libelle: p.libelle,
       imageUrl: p.imageUrl,
-      categorie: p.categorie,
       prixUnitaire: p.prixUnitaire,
       prix: p.prix,
       quantite: p.quantite,
@@ -145,7 +169,7 @@ const OrderDetailsModal = ({
 
   // Calculer le pourcentage de remise
   const pourcentageRemise = toNumber(commande.sousTotal) > 0 
-    ? Math.round((toNumber(commande.remise) / toNumber(commande.sousTotal)) * 100)
+    ? Math.round((toNumber(commande.tauxRemise || commande.remise) / toNumber(commande.sousTotal)) * 100)
     : 0;
 
   // Extraire les informations client
@@ -200,18 +224,11 @@ const OrderDetailsModal = ({
                       <div className="text-xs text-gray-500 mb-1">Date de création</div>
                       <div className="font-medium text-gray-900 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-blue-500" />
-                        {commande.dateCreation}
+                        {formatDate(commande.dateCommande)}  {/* ✅ CORRIGÉ: dateCommande */}
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Livraison prévue</div>
-                      <div className="font-medium text-gray-900 flex items-center">
-                        <TruckIcon className="h-4 w-4 mr-2 text-green-500" />
-                        {commande.dateLivraisonPrevue}
-                      </div>
-                    </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Statut de la commande</div>
                       <div className="mt-1">
@@ -252,14 +269,14 @@ const OrderDetailsModal = ({
                     </div>
                   )}
 
-                  {/* Type de client */}
-                  {client.type && (
+                {/* Type de client */}
+                  {client.typeClient && (
                     <div className="mb-3">
                       <div className="text-xs text-gray-500 mb-2">Type de client</div>
-                      <ClientTypeBadge type={client.type} />
+                      <ClientTypeBadge type={client.typeClient} />
                     </div>
                   )}
-
+      
                   {/* Coordonnées */}
                   <div className="space-y-3">
                     <ClientInfoItem 
@@ -280,18 +297,6 @@ const OrderDetailsModal = ({
                       value={client.adresse}
                     />
                   </div>
-
-                  {/* Informations supplémentaires */}
-                  {(client.codePostal || client.ville || client.pays) && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <div className="text-xs text-gray-500 mb-2">Localisation</div>
-                      <div className="text-sm text-gray-700">
-                        {client.codePostal && <span>{client.codePostal} </span>}
-                        {client.ville && <span>{client.ville} </span>}
-                        {client.pays && <span>{client.pays}</span>}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="text-center py-4">
@@ -302,7 +307,7 @@ const OrderDetailsModal = ({
             </div>
           </div>
 
-          {/* Section 2 : Produits commandés - TABLEAU CORRIGÉ */}
+          {/* Section 2 : Produits commandés */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center">
@@ -361,7 +366,6 @@ const OrderDetailsModal = ({
                                         className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
                                         onError={(e) => {
                                           e.target.style.display = 'none';
-                                          console.log(`🖼️ Image non trouvée pour ${produit.libelle}`);
                                         }}
                                       />
                                     </div>
@@ -378,18 +382,16 @@ const OrderDetailsModal = ({
                                   </div>
                                 </div>
                               </td>
-                              
-                              {/* Catégorie */}
-                              <td className="px-4 py-3">
-                                {produit.categorie ? (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                    {produit.categorie}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
-                                )}
-                              </td>
-                              
+                          {/* Catégorie */}
+<td className="px-4 py-3">
+  {produit.categorie ? (
+    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+      {produit.categorie.nomCategorie || produit.categorie.nom || 'Catégorie'} 
+    </span>
+  ) : (
+    <span className="text-xs text-gray-400">—</span>
+  )}
+</td>
                               {/* Quantité */}
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
@@ -492,12 +494,12 @@ const OrderDetailsModal = ({
                         </tr>
                         
                         {/* Remise globale */}
-                        {toNumber(commande.tauxRemise) > 0 && (
+                        {toNumber(commande.tauxRemise || commande.remise) > 0 && (
                           <tr className="bg-green-50">
                             <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
                               <div className="text-sm font-medium flex items-center justify-end gap-1">
                                 <TagIcon className="h-3 w-3 text-green-600" />
-                                Remise globale ({toNumber(commande.tauxRemise).toFixed(1)}%)
+                                Remise globale ({toNumber(commande.tauxRemise || commande.remise).toFixed(1)}%)
                               </div>
                             </td>
                             <td className="px-4 py-2.5">
@@ -554,7 +556,7 @@ const OrderDetailsModal = ({
                   <span className="font-medium">{toNumber(commande.sousTotal).toFixed(3)} dt</span>
                 </div>
                 
-                {toNumber(commande.remise) > 0 && (
+                {toNumber(commande.tauxRemise || commande.remise) > 0 && (
                   <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
                     <span className="text-gray-600 flex items-center">
                       <TagIcon className="h-4 w-4 mr-2 text-green-600" />
@@ -568,9 +570,9 @@ const OrderDetailsModal = ({
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="font-semibold text-gray-800">Total commande</div>
-                      {client.type && (
+                      {client.typeClient && ( 
                         <div className="text-xs text-green-600 mt-1">
-                          Remise appliquée pour client {client.type}
+                          Remise appliquée pour client {client.typeClient}
                         </div>
                       )}
                     </div>

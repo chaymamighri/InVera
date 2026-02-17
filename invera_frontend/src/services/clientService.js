@@ -2,12 +2,12 @@
 import api from './api';
 import { authHeader } from './authHeader';
 
-// clientService.jsx - CORRIGÉ
+// clientService.jsx 
 const clientService = {
   // Récupérer tous les clients
   getAllClients: async (params = {}) => {
     try {
-      const response = await api.get('/clients/liste', { // ⬅️ Changé
+      const response = await api.get('/clients/liste', { 
         params,
         headers: authHeader(),
       });
@@ -21,7 +21,7 @@ const clientService = {
   // Créer un nouveau client
   createClient: async (clientData) => {
     try {
-      const response = await api.post('/clients/creer', clientData, { // ⬅️ Changé
+      const response = await api.post('/clients/creer', clientData, { 
         headers: authHeader(),
       });
       return response.data;

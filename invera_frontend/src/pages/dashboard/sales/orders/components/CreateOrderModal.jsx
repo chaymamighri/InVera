@@ -108,10 +108,15 @@ const CreateOrderModal = ({
   if (!show) return null;
 
   const clientSelectionne = clients.find(c => c.id === parseInt(selectedClient));
-  const produitsFiltres = produits.filter(p =>
-    p.libelle.toLowerCase().includes(searchProduit.toLowerCase()) ||
-    p.categorie.toLowerCase().includes(searchProduit.toLowerCase())
-  );
+  
+  // Filtrer les produits avec gestion de la catégorie
+  const produitsFiltres = produits.filter(p => {
+    const searchLower = searchProduit.toLowerCase();
+    const categorieNom = p.categorie?.nomCategorie || p.categorieNom || '';
+    return p.libelle.toLowerCase().includes(searchLower) ||
+           categorieNom.toLowerCase().includes(searchLower);
+  });
+  
   const clientsFiltres = clients.filter(c =>
     c.nom.toLowerCase().includes(searchClient.toLowerCase()) ||
     c.telephone?.includes(searchClient)
@@ -122,34 +127,32 @@ const CreateOrderModal = ({
   );
 
   const remisePourcentage = clientSelectionne ? 
-    (clientSelectionne.type === 'VIP' ? 0.15 :
-     clientSelectionne.type === 'FIDELE' ? 0.10 :
-     clientSelectionne.type === 'ENTREPRISE' ? 0.08 :
-     clientSelectionne.type === 'PROFESSIONNEL' ? 0.05 : 0) : 0;
+    (clientSelectionne.typeClient === 'VIP' ? 0.15 :      
+     clientSelectionne.typeClient === 'FIDELE' ? 0.10 :
+     clientSelectionne.typeClient === 'ENTREPRISE' ? 0.08 :
+     clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.05 : 0) : 0;
 
   const montantRemise = totalProduits * remisePourcentage;
   const totalFinal = totalProduits - montantRemise;
 
- const handleAddProduct = (produit) => {
-  const existing = selectedProducts.find(p => p.id === produit.id);
-  if (existing) {
-    onModifierQuantite(produit.id, existing.quantite + 1);
-  } else {
-    // VÉRIFIEZ QUE LE PRODUIT A UN ID
-    if (!produit.id) {
-      console.error('Produit ajouté sans ID:', produit);
-      alert('Erreur: le produit n\'a pas d\'ID');
-      return;
+  const handleAddProduct = (produit) => {
+    const existing = selectedProducts.find(p => p.id === produit.id);
+    if (existing) {
+      onModifierQuantite(produit.id, existing.quantite + 1);
+    } else {
+      if (!produit.id) {
+        console.error('Produit ajouté sans ID:', produit);
+        alert('Erreur: le produit n\'a pas d\'ID');
+        return;
+      }
+      
+      onSelectProduct({
+        ...produit,
+        quantite: 1,
+        prix: produit.prix || produit.prixVente || 0  
+      });
     }
-    
-    onSelectProduct({
-      ...produit,
-      quantite: 1,
-      // Assurez que le prix est bien présent
-      prix: produit.prix || produit.prixUnitaire || 0
-    });
-  }
-};
+  };
 
   const handleCreateOrder = () => {
     if (!selectedClient || selectedProducts.length === 0) {
@@ -157,7 +160,6 @@ const CreateOrderModal = ({
       return;
     }
     
-    // Vérifier les stocks
     const produitSansStock = selectedProducts.find(p => {
       const produitOriginal = produits.find(prod => prod.id === p.id);
       const stockDisponible = produitOriginal?.quantiteStock || 0;
@@ -190,9 +192,8 @@ const CreateOrderModal = ({
     }
   };
 
-  // Fonction pour gérer la sélection/désélection d'un client
   const handleClientClick = (clientId) => {
-    if (isCreating) return; // Empêcher le changement pendant la création
+    if (isCreating) return;
     
     if (selectedClient === clientId.toString()) {
       onSelectClient('');
@@ -304,7 +305,7 @@ const CreateOrderModal = ({
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <ClientBadge type={client.type} />
+                      <ClientBadge type={client.typeClient || client.type} />  
                       {isSelected && (
                         <div className="w-2 h-2 rounded-full bg-blue-600"></div>
                       )}
@@ -358,7 +359,7 @@ const CreateOrderModal = ({
               <div>
                 <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
                 <p className="text-blue-100 text-sm mt-1">
-                  Client : {clientSelectionne.nom} • {selectedProducts.length} produit{selectedProducts.length !== 1 ? 's' : ''}
+                  Client : {clientSelectionne?.nom} • {selectedProducts.length} produit{selectedProducts.length !== 1 ? 's' : ''}
                 </p>
               </div>
               <div className="flex items-center space-x-3">
@@ -431,13 +432,18 @@ const CreateOrderModal = ({
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
-                          <div className="text-xs text-gray-600">{produit.categorie}</div>
+                          {/* ✅ CORRIGÉ: Afficher le nom de la catégorie */}
+                          <div className="text-xs text-gray-600">
+                            {produit.categorie?.nomCategorie || produit.categorieNom || '—'}
+                          </div>
                           <div className={`text-xs mt-1 ${stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             Stock: {stock} {produit.uniteMesure}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-blue-600 text-sm">{toNumber(produit.prix).toFixed(2)} dt</div>
+                          <div className="font-semibold text-blue-600 text-sm">
+                            {toNumber(produit.prixVente || produit.prix).toFixed(2)} dt  {/* ✅ CORRIGÉ: prixVente */}
+                          </div>
                           <button
                             onClick={() => handleAddProduct(produit)}
                             disabled={stock <= 0 || isCreating}
@@ -505,18 +511,18 @@ const CreateOrderModal = ({
             <div className="w-80 border-l border-gray-200 p-6 overflow-y-auto bg-gray-50">
               <h3 className="font-medium text-gray-800 mb-3">Panier</h3>
               
-              {/* Client sélectionné avec option de désélection */}
+              {/* Client sélectionné */}
               <div className="bg-white p-3 rounded-lg border mb-4">
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center">
                     <UserCircleIcon className="h-4 w-4 text-gray-500 mr-2" />
                     <div>
-                      <div className="font-medium text-gray-900 text-sm">{clientSelectionne.nom}</div>
-                      <div className="text-xs text-gray-600">{clientSelectionne.telephone}</div>
+                      <div className="font-medium text-gray-900 text-sm">{clientSelectionne?.nom}</div>
+                      <div className="text-xs text-gray-600">{clientSelectionne?.telephone}</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <ClientBadge type={clientSelectionne.type} />
+                    <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
                     <button
                       onClick={() => handleClientClick(parseInt(selectedClient))}
                       className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
@@ -646,7 +652,7 @@ const CreateOrderModal = ({
             </div>
           </div>
 
-          {/* Client avec option de désélection */}
+          {/* Client */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium text-gray-800">Client</h4>
@@ -663,12 +669,12 @@ const CreateOrderModal = ({
                 <div className="flex items-center">
                   <UserCircleIcon className="h-4 w-4 text-gray-500 mr-2" />
                   <div>
-                    <div className="font-medium text-gray-900">{clientSelectionne.nom}</div>
-                    <div className="text-sm text-gray-600">{clientSelectionne.telephone}</div>
+                    <div className="font-medium text-gray-900">{clientSelectionne?.nom}</div>
+                    <div className="text-sm text-gray-600">{clientSelectionne?.telephone}</div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <ClientBadge type={clientSelectionne.type} />
+                  <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
                   <button
                     onClick={() => handleClientClick(parseInt(selectedClient))}
                     className="text-xs text-red-600 hover:text-red-700"

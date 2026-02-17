@@ -34,6 +34,24 @@ const OrderTable = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Fonction pour formater la date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date inconnue';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   // Fonction pour formater le montant
   const formatMontant = (montant) => {
     return toNumber(montant).toLocaleString('fr-TN', {
@@ -78,7 +96,7 @@ const OrderTable = ({
     }
   };
 
-  // Calculs de pagination (recalculés à chaque render)
+  // Calculs de pagination
   const totalPages = Math.max(1, Math.ceil(commandes.length / itemsPerPage));
   const startIndex = Math.min((currentPage - 1) * itemsPerPage, commandes.length);
   const endIndex = Math.min(startIndex + itemsPerPage, commandes.length);
@@ -95,7 +113,6 @@ const OrderTable = ({
     const newItemsPerPage = parseInt(e.target.value);
     setItemsPerPage(newItemsPerPage);
     
-    // Recalculer la page courante pour rester dans les limites
     const newTotalPages = Math.ceil(commandes.length / newItemsPerPage);
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages || 1);
@@ -173,34 +190,37 @@ const OrderTable = ({
                   )}
                 </div>
               </th>
+          
               <th 
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => onSort('client')}
+                onClick={() => onSort('clientNom')} 
               >
                 <div className="flex items-center">
                   <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
                   CLIENT
-                  {sortField === 'client' && (
+                  {sortField === 'clientNom' && (  
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
                       <ChevronDownIcon className="ml-1 h-3 w-3" />
                   )}
                 </div>
               </th>
+
               <th 
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => onSort('dateCreation')}
+                onClick={() => onSort('dateCommande')} 
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
                   DATE CRÉATION
-                  {sortField === 'dateCreation' && (
+                  {sortField === 'dateCommande' && ( 
                     sortDirection === 'desc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
                       <ChevronDownIcon className="ml-1 h-3 w-3" />
                   )}
                 </div>
               </th>
+              
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 PRODUITS
               </th>
@@ -219,9 +239,6 @@ const OrderTable = ({
             {currentCommandes.map((commande) => {
               const pourcentageRemise = calculerPourcentageRemise(commande.sousTotal, commande.remise);
               
-              // DEBUG: Vérifiez les données
-              console.log(`📊 Commande ${commande.id} - Produits:`, commande.produits);
-              
               return (
                 <tr key={commande.id} className="hover:bg-gray-50 transition-colors">
                   {/* N° Commande */}
@@ -232,7 +249,7 @@ const OrderTable = ({
                       </div>
                       <div className="flex items-center text-xs text-gray-500">
                         <CalendarIcon className="h-3 w-3 mr-1" />
-                        {commande.dateCreation}
+                        {formatDate(commande.dateCommande)}
                       </div>
                     </div>
                   </td>
@@ -242,13 +259,15 @@ const OrderTable = ({
                     <div className="space-y-1">
                       <div className="font-medium text-gray-900 text-sm flex items-center">
                         <UserCircleIcon className="h-3 w-3 text-gray-400 mr-1.5" />
-                        <span className="truncate max-w-[120px]">{commande.client?.nom || 'Client inconnu'}</span>
+                        <span className="truncate max-w-[120px]">
+                          {commande.client?.prenom} {commande.client?.nom || 'Client inconnu'}
+                        </span>
                       </div>
-                      {commande.client?.type && (
+                      {commande.client?.typeClient && (
                         <div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getClientTypeColor(commande.client.type)}`}>
-                            {getClientTypeIcon(commande.client.type)}
-                            {commande.client.type}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getClientTypeColor(commande.client.typeClient)}`}>
+                            {getClientTypeIcon(commande.client.typeClient)}
+                            {commande.client.typeClient}
                           </span>
                         </div>
                       )}
@@ -258,53 +277,48 @@ const OrderTable = ({
                   {/* Date de création */}
                   <td className="px-4 py-3">
                     <div className="text-sm text-gray-900">
-                      {commande.dateCreation}
+                      {formatDate(commande.dateCommande)}
                     </div>
                   </td>
 
-                 {/* Produits - CORRECTION */}
-<td className="px-4 py-3">
-  <div>
-    <div className="text-sm font-medium text-gray-900 flex items-center">
-      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-1.5">
-        {commande.produits?.length || 0}
-      </span>
-      produit{commande.produits?.length !== 1 ? 's' : ''}
-    </div>
-    
-    <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
-      {(() => {
-        if (!commande.produits || commande.produits.length === 0) {
-          return <span className="text-gray-400 italic">Aucun produit</span>;
-        }
-        
-        // On prend les 2 premiers produits valides
-        const produitsAAfficher = commande.produits
-          .filter(p => p && (p.libelle || p.id_produit))
-          .slice(0, 2);
-        
-        if (produitsAAfficher.length === 0) {
-          return `${commande.produits.length} produit(s)`;
-        }
+                  {/* Produits */}
+                  <td className="px-4 py-3">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 flex items-center">
+                        <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-1.5">
+                          {commande.produits?.length || 0}
+                        </span>
+                        produit{commande.produits?.length !== 1 ? 's' : ''}
+                      </div>
+                      
+                      <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
+                        {(() => {
+                          if (!commande.produits || commande.produits.length === 0) {
+                            return <span className="text-gray-400 italic">Aucun produit</span>;
+                          }
+                          
+                          const produitsAAfficher = commande.produits
+                            .filter(p => p && p.libelle)
+                            .slice(0, 2);
+                          
+                          if (produitsAAfficher.length === 0) {
+                            return `${commande.produits.length} produit(s)`;
+                          }
 
-        const affichage = produitsAAfficher.map(p => {
-          const libelle = p.libelle || `Produit ${p.id_produit || 'ID inconnu'}`;
-          const quantite = p.quantite ? `x${p.quantite}` : '';
-          return quantite ? `${libelle} (${quantite})` : libelle;
-        }).join(', ');
+                          const affichage = produitsAAfficher.map(p => {
+                            const quantite = p.quantite ? `x${p.quantite}` : '';
+                            return quantite ? `${p.libelle} (${quantite})` : p.libelle;
+                          }).join(', ');
 
-        // Ajouter "..." si plus de 2 produits
-        const totalValides = commande.produits.filter(p => p && (p.libelle || p.id_produit)).length;
-        if (totalValides > 2) {
-          return `${affichage} + ${totalValides - 2} autre(s)`;
-        }
+                          if (commande.produits.length > 2) {
+                            return `${affichage} + ${commande.produits.length - 2} autre(s)`;
+                          }
 
-        return affichage;
-      })()}
-    </div>
-  </div>
-</td>
-
+                          return affichage;
+                        })()}
+                      </div>
+                    </div>
+                  </td>
 
                   {/* Montant Final avec Remise */}
                   <td className="px-4 py-3">
@@ -439,7 +453,6 @@ const OrderTable = ({
 
               {/* Contrôles de pagination */}
               <div className="flex items-center space-x-2">
-                {/* Bouton précédent */}
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
@@ -453,7 +466,6 @@ const OrderTable = ({
                   <ChevronLeftIcon className="h-4 w-4" />
                 </button>
 
-                {/* Numéros de page */}
                 <div className="flex items-center space-x-1">
                   {getPageNumbers().map((page, index) => (
                     page === '...' ? (
@@ -478,7 +490,6 @@ const OrderTable = ({
                   ))}
                 </div>
 
-                {/* Bouton suivant */}
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
