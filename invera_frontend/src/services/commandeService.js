@@ -20,7 +20,7 @@ export const commandeService = {
       }
       return response.data;
     } catch (error) {
-      console.error('❌ Erreur getAllCommandes:', error);
+      console.error(' Erreur getAllCommandes:', error);
       throw error;
     }
   },
@@ -36,7 +36,7 @@ export const commandeService = {
       }
       return response.data;
     } catch (error) {
-      console.error('❌ Erreur getCommandesValidees:', error);
+      console.error(' Erreur getCommandesValidees:', error);
       throw error;
     }
   },
@@ -49,7 +49,7 @@ export const commandeService = {
       });
       return response.data;
     } catch (error) {
-      console.error('❌ Erreur createCommande:', error);
+      console.error(' Erreur createCommande:', error);
       throw error;
     }
   },
@@ -66,21 +66,19 @@ export const commandeService = {
       }
       return response.data;
     } catch (error) {
-      console.error(`❌ Erreur getCommandeById ${id}:`, error);
+      console.error(` Erreur getCommandeById ${id}:`, error);
       throw error;
     }
   },
 
-  // 🔥 CORRECTION: Vérifier le bon endpoint pour valider
   async validerCommande(commandeId) {
     try {
-      console.log(`✅ Tentative validation commande ${commandeId}`);
+      console.log(`Tentative validation commande ${commandeId}`);
       
-      // Essayer différents endpoints possibles
       const endpoints = [
-        `/commandes/${commandeId}/valider`,           // Format 1
-        `/api/commandes/${commandeId}/valider`,       // Format 2
-        `/commandes/valider/${commandeId}`            // Format 3
+        `/commandes/${commandeId}/valider`,
+        `/api/commandes/${commandeId}/valider`,
+        `/commandes/valider/${commandeId}`
       ];
       
       let lastError = null;
@@ -92,34 +90,30 @@ export const commandeService = {
             headers: authHeader() 
           });
           
-          console.log(`✅ Succès avec endpoint: ${endpoint}`);
+          console.log(` Succès avec endpoint: ${endpoint}`);
           return response.data;
         } catch (err) {
-          console.log(`❌ Échec endpoint ${endpoint}:`, err.response?.status);
+          console.log(` Échec endpoint ${endpoint}:`, err.response?.status);
           lastError = err;
-          // Continuer avec le prochain endpoint
         }
       }
       
-      // Si tous les endpoints échouent
       throw lastError || new Error('Aucun endpoint de validation trouvé');
       
     } catch (error) {
-      console.error('❌ Erreur validerCommande:', error);
+      console.error('Erreur validerCommande:', error);
       
-      // Message d'erreur plus explicite
       if (error.response?.status === 403) {
-        console.error('⛔ ACCÈS REFUSÉ: Votre rôle n\'a pas la permission de valider des commandes');
+        console.error(' ACCÈS REFUSÉ: Votre rôle n\'a pas la permission de valider des commandes');
       }
       
       throw error;
     }
   },
 
-  // 🔥 CORRECTION: Même chose pour rejeter
   async rejeterCommande(commandeId) {
     try {
-      console.log(`❌ Tentative rejet commande ${commandeId}`);
+      console.log(` Tentative rejet commande ${commandeId}`);
       
       const endpoints = [
         `/commandes/${commandeId}/rejeter`,
@@ -136,10 +130,10 @@ export const commandeService = {
             headers: authHeader() 
           });
           
-          console.log(`✅ Succès avec endpoint: ${endpoint}`);
+          console.log(`Succès avec endpoint: ${endpoint}`);
           return response.data;
         } catch (err) {
-          console.log(`❌ Échec endpoint ${endpoint}:`, err.response?.status);
+          console.log(` Échec endpoint ${endpoint}:`, err.response?.status);
           lastError = err;
         }
       }
@@ -147,11 +141,10 @@ export const commandeService = {
       throw lastError || new Error('Aucun endpoint de rejet trouvé');
       
     } catch (error) {
-      console.error('❌ Erreur rejeterCommande:', error);
+      console.error(' Erreur rejeterCommande:', error);
       throw error;
     }
   },
-
 
   /**
    * Générer une facture pour une commande validée
@@ -168,10 +161,20 @@ export const commandeService = {
     }
   },
 
-   // récuperation de facture
+  // Récupération de toutes les factures
   async getAllInvoices() {
     try {
       const response = await api.get('/factures/all');
+      console.log('📥 Réponse brute factures:', response.data);
+      
+      // Si la réponse est déjà un tableau
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      // Si la réponse est encapsulée
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
       return response.data;
     } catch (error) {
       console.error('❌ Erreur getAllInvoices:', error);
@@ -195,39 +198,164 @@ export const commandeService = {
     }
   },
   
-  /**
-   * Récupérer les détails d'une facture
-   * @param {number} factureId - ID de la facture
-   */
-  async getInvoiceDetails(factureId) {
+
+  // ✅ MÉTHODE CORRIGÉE: Marquer une facture comme payée
+  async marquerFacturePayee(factureId) {
     try {
-      const response = await api.get(`/factures/${factureId}`);
+      console.log(`📡 Marquage facture ${factureId} comme payée`);
+      
+      // Endpoint exact du backend
+      const response = await api.put(`/factures/${factureId}/payer`, {}, { 
+        headers: authHeader() 
+      });
+      
+      console.log(`✅ Succès: facture ${factureId} marquée comme payée`);
       return response.data;
+      
     } catch (error) {
-      console.error('❌ Erreur getInvoiceDetails:', error);
+      console.error('❌ Erreur marquerFacturePayee:', error);
       throw error;
     }
   },
- async getInvoiceByCommandeId(commandeId) {
+
+  // ✅ MÉTHODE UTILITAIRE: Changer le statut (appelle marquerFacturePayee)
+  async updateInvoiceStatus(invoiceId, newStatus) {
     try {
-      // Si vous avez un endpoint spécifique
-      const response = await api.get(`/factures/commande/${commandeId}`);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erreur getInvoiceByCommandeId:', error);
+      console.log(`📡 Mise à jour statut facture ${invoiceId} -> ${newStatus}`);
       
-      // Option de secours: chercher dans toutes les factures
-      try {
-        const allInvoices = await api.get('/factures');
-        const invoice = allInvoices.data.find(f => 
-          f.commande?.id === commandeId || 
-          f.commande?.idCommandeClient === commandeId
-        );
-        return invoice;
-      } catch (e) {
-        return null;
+      // Le backend a seulement "payer", pas de "NON_PAYE"
+      if (newStatus === 'PAYE') {
+        return await this.marquerFacturePayee(invoiceId);
+      } else {
+        // Pour "NON_PAYE", il faut une autre logique ou le faire côté frontend
+        console.log('⚠️ Le backend ne supporte que le passage à PAYÉ');
+        
+        // Option: faire une mise à jour locale uniquement
+        return { success: true, message: 'Mise à jour locale uniquement' };
       }
+      
+    } catch (error) {
+      console.error('❌ Erreur updateInvoiceStatus:', error);
+      throw error;
     }
   },
+// Dans commandeService.js
 
+async getInvoiceById(invoiceId) {
+  try {
+    const response = await api.get(`/factures/${invoiceId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur chargement facture:', error);
+    throw error;
+  }
+},
+
+async generateOrGetInvoice(commandeId) {
+  try {
+    // 1. Vérifier si une facture existe déjà
+    const existing = await this.checkExistingInvoice(commandeId);
+    
+    if (existing) {
+      console.log('📄 Facture existante trouvée:', existing);
+      
+      // ✅ Utilisez idFactureClient
+      const invoiceId = existing.idFactureClient;
+      console.log('🎯 ID facture:', invoiceId);
+      
+      if (invoiceId) {
+        // Récupérer les détails complets de la facture
+        const factureDetails = await this.getInvoiceById(invoiceId);
+        return { facture: factureDetails, existing: true };
+      } else {
+        // Fallback si l'ID n'est pas trouvé
+        return { facture: existing, existing: true };
+      }
+    }
+    
+    // 2. Sinon, générer une nouvelle facture
+    console.log(' Génération nouvelle facture');
+    const newInvoice = await this.generateInvoice(commandeId);
+    console.log('📦 Nouvelle facture générée:', newInvoice);
+    
+    //  Utilisez idFactureClient pour la nouvelle facture aussi
+    const invoiceId = newInvoice.idFactureClient;
+    
+    if (invoiceId) {
+      const factureDetails = await this.getInvoiceById(invoiceId);
+      return { facture: factureDetails, existing: false };
+    }
+    
+    return { facture: newInvoice, existing: false };
+    
+  } catch (error) {
+    console.error(' Erreur generateOrGetInvoice:', error);
+    throw error;
+  }
+},
+
+async checkExistingInvoice(commandeId) {
+  try {
+    const response = await api.get(`/factures/commande/${commandeId}`);
+    console.log('📦 Réponse checkExistingInvoice:', response.data);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
 };
+
+// Fonctions de transformation (optionnelles, si vous voulez formater les données)
+function transformInvoices(facturesData) {
+  if (!Array.isArray(facturesData)) return [];
+  return facturesData.map(facture => transformInvoice(facture));
+}
+
+function transformInvoice(facture) {
+  return {
+    id: facture.idFactureClient || facture.id,
+    reference: facture.referenceFactureClient,
+    dateFacture: facture.dateFacture,
+    montantTotal: facture.montantTotal || 0,
+    statut: facture.statut || 'NON_PAYE',
+    
+    client: facture.client ? {
+      id: facture.client.idClient || facture.client.id,
+      nom: facture.client.nom || '',
+      prenom: facture.client.prenom || '',
+      nomComplet: facture.client.nomComplet || 
+                  `${facture.client.prenom || ''} ${facture.client.nom || ''}`.trim() ||
+                  'Client',
+      entreprise: facture.client.entreprise || '',
+      typeClient: facture.client.typeClient || 'PARTICULIER',
+      telephone: facture.client.telephone || '',
+      email: facture.client.email || '',
+      adresse: facture.client.adresse || ''
+    } : null,
+    
+    commande: facture.commande ? {
+      id: facture.commande.idCommandeClient || facture.commande.id,
+      reference: facture.commande.referenceCommandeClient,
+      lignesCommande: transformLignesCommande(facture.commande.lignesCommande)
+    } : null
+  };
+}
+
+function transformLignesCommande(lignes) {
+  if (!Array.isArray(lignes)) return [];
+  
+  return lignes.map(ligne => ({
+    id: ligne.idLigneCommandeClient,
+    quantite: ligne.quantite,
+    prixUnitaire: ligne.prix_unitaire,
+    sousTotal: ligne.sous_total,
+    produit: ligne.produit ? {
+      id: ligne.produit.idProduit,
+      libelle: ligne.produit.libelle,
+      categorie: ligne.produit.categorie?.nomCategorie
+    } : null
+  }));
+}
