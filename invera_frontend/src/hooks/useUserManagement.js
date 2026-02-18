@@ -1,29 +1,53 @@
-// frontend/src/hooks/useUserManagement.js
+// src/hooks/useUserManagement.js
 import { useState, useCallback } from 'react';
 import { userService } from '../services/userService';
+
+const parseActive = (val) => {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val === 1;
+  if (typeof val === 'string') {
+    const v = val.trim().toLowerCase();
+    if (v === 'true' || v === 't' || v === '1' || v === 'yes') return true;
+    if (v === 'false' || v === 'f' || v === '0' || v === 'no') return false;
+  }
+  // IMPORTANT: if missing => false (because new users are false)
+  return false;
+};
 
 export const useUserManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  /**
-   * Récupère tous les utilisateurs depuis le backend.
-   * Transforme les données au format attendu par le composant.
-   */
   const getUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const users = await userService.getAllUsers();
-      // Transformation : backend renvoie { id, username, email, nom, prenom, role, active? }
-      // Si active n'est pas présent, on le définit par défaut à true (mais idéalement il est présent)
-      return users.map(u => ({
-        id: u.id,
-        name: `${u.nom} ${u.prenom}`.trim(),
-        email: u.email,
-        role: u.role === 'COMMERCIAL' ? 'sales' : (u.role === 'RESPONSABLE_ACHAT' ? 'procurement' : u.role.toLowerCase()),
-        active: u.active !== undefined ? u.active : true // si le backend ne renvoie pas active, mettre true par défaut
-      }));
+
+      return (users || []).map(u => {
+        // ✅ IMPORTANT: support different backend field names
+        const rawActive =
+          u.active !== undefined ? u.active :
+          u.isActive !== undefined ? u.isActive :
+          u.enabled !== undefined ? u.enabled :
+          u.status !== undefined ? u.status :
+          false;
+
+        return {
+          id: u.id,
+          name: `${u.nom} ${u.prenom}`.trim(),
+          email: u.email,
+          role:
+            u.role === 'COMMERCIAL'
+              ? 'sales'
+              : u.role === 'RESPONSABLE_ACHAT'
+              ? 'procurement'
+              : u.role === 'ADMIN'
+              ? 'admin'
+              : String(u.role || '').toLowerCase(),
+          active: parseActive(rawActive),
+        };
+      });
     } catch (err) {
       const message = typeof err === 'string' ? err : err.message || 'Erreur lors du chargement';
       setError(message);
@@ -33,26 +57,22 @@ export const useUserManagement = () => {
     }
   }, []);
 
-  /**
-   * Ajoute un nouvel utilisateur.
-   * @param {Object} user - { name, email, role } (role: 'sales' ou 'procurement')
-   */
   const addUser = useCallback(async (user) => {
     setLoading(true);
     setError(null);
     try {
-      // Séparer le nom complet en nom et prénom (simple)
       const nameParts = user.name.trim().split(' ');
       const prenom = nameParts.pop() || '';
       const nom = nameParts.join(' ') || prenom;
 
       const payload = {
-        username: user.email.split('@')[0], // génération simple, à ajuster si besoin
+        username: user.email.split('@')[0],
         email: user.email,
-        nom: nom,
-        prenom: prenom,
-        role: user.role === 'sales' ? 'COMMERCIAL' : 'RESPONSABLE_ACHAT'
+        nom,
+        prenom,
+        role: user.role === 'sales' ? 'COMMERCIAL' : user.role === 'procurement' ? 'RESPONSABLE_ACHAT' : 'COMMERCIAL',
       };
+
       await userService.createUser(payload);
     } catch (err) {
       const message = typeof err === 'string' ? err : err.message || "Erreur lors de l'ajout";
@@ -63,11 +83,6 @@ export const useUserManagement = () => {
     }
   }, []);
 
-  /**
-   * Met à jour un utilisateur existant.
-   * @param {number} id - ID utilisateur (non utilisé directement, on utilise l'email)
-   * @param {Object} updatedData - { id, name, email, role, active? }
-   */
   const updateUser = useCallback(async (id, updatedData) => {
     setLoading(true);
     setError(null);
@@ -79,10 +94,11 @@ export const useUserManagement = () => {
       const payload = {
         username: updatedData.email.split('@')[0],
         email: updatedData.email,
-        nom: nom,
-        prenom: prenom,
-        role: updatedData.role === 'sales' ? 'COMMERCIAL' : 'RESPONSABLE_ACHAT'
+        nom,
+        prenom,
+        role: updatedData.role === 'sales' ? 'COMMERCIAL' : updatedData.role === 'procurement' ? 'RESPONSABLE_ACHAT' : 'COMMERCIAL',
       };
+
       await userService.updateUser(updatedData.email, payload);
     } catch (err) {
       const message = typeof err === 'string' ? err : err.message || 'Erreur lors de la mise à jour';
@@ -93,11 +109,6 @@ export const useUserManagement = () => {
     }
   }, []);
 
-  /**
-   * Active ou désactive un utilisateur.
-   * @param {string} email
-   * @param {boolean} active
-   */
   const setUserActiveStatus = useCallback(async (email, active) => {
     setLoading(true);
     setError(null);
@@ -112,10 +123,6 @@ export const useUserManagement = () => {
     }
   }, []);
 
-  /**
-   * Supprime un utilisateur par email.
-   * @param {string} email
-   */
   const deleteUserByEmail = useCallback(async (email) => {
     setLoading(true);
     setError(null);

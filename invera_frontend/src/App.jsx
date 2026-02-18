@@ -1,4 +1,4 @@
-// App.jsx
+// src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -13,7 +13,7 @@ import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
 import DashboardContent from './pages/dashboard/sales/statistic/DashboardContent';
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
-import CreatePasswordPage from './pages/auth/CreatePasswordPage';
+import CreatePasswordPage from './pages/CreatePasswordPage';
 
 import LoginPage from './pages/auth/loginPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
@@ -21,8 +21,49 @@ import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 // Mapping des rôles entre API (backend) et frontend
 const ROLE_MAPPING = {
   'ADMIN': 'admin',
+  'ROLE_ADMIN': 'admin',
+
   'COMMERCIAL': 'sales',
-  'RESPONSABLE_ACHAT': 'procurement'
+  'ROLE_COMMERCIAL': 'sales',
+
+  'RESPONSABLE_ACHAT': 'procurement',
+  'ROLE_RESPONSABLE_ACHAT': 'procurement'
+};
+
+const normalizeBackendRole = (role) => {
+  if (!role) return null;
+  const normalized = String(role).trim().toUpperCase();
+  return ROLE_MAPPING[normalized] || normalized.toLowerCase();
+};
+
+// ✅ Try to infer role from JWT if localStorage role is missing
+const inferRoleFromToken = (token) => {
+  try {
+    const raw = String(token || '').trim();
+    const parts = raw.split('.');
+    if (parts.length !== 3) return null;
+
+    const payload = JSON.parse(atob(parts[1]));
+    const possible =
+      payload?.role ||
+      payload?.roles ||
+      payload?.authority ||
+      payload?.authorities ||
+      payload?.scope;
+
+    // authorities can be: ["ROLE_ADMIN"] or "ROLE_ADMIN"
+    if (Array.isArray(possible)) {
+      return possible[0] ? String(possible[0]) : null;
+    }
+    if (typeof possible === 'string') {
+      // sometimes scope contains: "ROLE_ADMIN ROLE_X"
+      const first = possible.split(' ').find(Boolean);
+      return first || possible;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 // Layout général pour les pages protégées
@@ -36,19 +77,29 @@ const Layout = ({ children, userRole }) => (
 // Layout pour les pages publiques
 const PublicLayout = ({ children }) => children;
 
-// Vérification d'authentification et rôle
+// ✅ Auth + role getter (NO MORE default admin)
 const getUserData = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
 
-  const originalRole = localStorage.getItem('userRole');
+  const storedRole = localStorage.getItem('userRole');
   const userName = localStorage.getItem('userName') || 'Utilisateur';
-  let frontendRole = 'admin';
-  if (originalRole) {
-    const normalizedRole = originalRole.trim().toUpperCase();
-    frontendRole = ROLE_MAPPING[normalizedRole] || normalizedRole.toLowerCase();
-  }
-  return { token, role: frontendRole, originalRole, name: userName };
+  const userEmail = localStorage.getItem('userEmail') || '';
+
+  // role fallback: infer from token if not stored
+  const inferred = storedRole || inferRoleFromToken(token);
+  const frontendRole = normalizeBackendRole(inferred);
+
+  // If we cannot determine role, treat as unauthenticated (prevents "default admin")
+  if (!frontendRole) return null;
+
+  return {
+    token,
+    role: frontendRole,          // admin | sales | procurement
+    originalRole: inferred,      // backend format
+    name: userName,
+    email: userEmail
+  };
 };
 
 // Redirection automatique selon rôle
@@ -117,11 +168,8 @@ function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
-
           <Route path="invoices" element={<InvoicingPage />} />
-        </Route>   
-        
-
+        </Route>
 
         {/* Pages partagées */}
         <Route path="/profile" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>} />

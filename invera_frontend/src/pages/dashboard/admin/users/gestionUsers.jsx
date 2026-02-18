@@ -1,4 +1,4 @@
-// frontend/src/pages/admin/users/gestionUsers.jsx
+// src/pages/admin/users/gestionUsers.jsx
 import React, { useState, useEffect } from 'react';
 import {
   MagnifyingGlassIcon,
@@ -10,7 +10,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
 
-// Composants réutilisables (Modal, InputField, SelectField, ToggleSwitch)
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
   return (
@@ -66,10 +65,16 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => (
   </button>
 );
 
+const roleLabel = (role) => {
+  if (role === 'sales') return 'Commercial';
+  if (role === 'procurement') return 'Achat';
+  if (role === 'admin') return 'Admin';
+  return role;
+};
+
 const GestionUsers = () => {
   const {
     loading,
-    error,
     getUsers,
     addUser,
     updateUser,
@@ -123,12 +128,13 @@ const GestionUsers = () => {
 
   const handleToggleStatus = async (user) => {
     try {
-      await setUserActiveStatus(user.email, !user.active);
-      // Mise à jour locale optimiste
-      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: !u.active } : u));
+      const newActive = !user.active;
+      await setUserActiveStatus(user.email, newActive);
+
+      // update local optimistically
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: newActive } : u));
     } catch (err) {
       alert(err.message);
-      // Re-fetch en cas d'erreur pour être sûr
       await fetchUsers();
     }
   };
@@ -144,10 +150,18 @@ const GestionUsers = () => {
     }
   };
 
+  // ✅ Filter improved (name/email/role label)
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const t = searchTerm.trim().toLowerCase();
+
+    const matchesSearch =
+      !t ||
+      user.name.toLowerCase().includes(t) ||
+      user.email.toLowerCase().includes(t) ||
+      roleLabel(user.role).toLowerCase().includes(t);
+
     const matchesRole = filterRole === 'all' || user.role === filterRole;
+
     return matchesSearch && matchesRole;
   });
 
@@ -195,6 +209,7 @@ const GestionUsers = () => {
             <option value="all">Tous</option>
             <option value="sales">Commercial</option>
             <option value="procurement">Achat</option>
+            <option value="admin">Admin</option>
           </select>
         </div>
 
@@ -229,14 +244,19 @@ const GestionUsers = () => {
                   </div>
                   {user.name}
                 </td>
+
                 <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
+
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.role === 'sales' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                    user.role === 'sales' ? 'bg-blue-100 text-blue-800'
+                    : user.role === 'procurement' ? 'bg-purple-100 text-purple-800'
+                    : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {user.role === 'sales' ? 'Commercial' : 'Achat'}
+                    {roleLabel(user.role)}
                   </span>
                 </td>
+
                 <td className="px-6 py-4">
                   <ToggleSwitch
                     checked={user.active}
@@ -244,6 +264,7 @@ const GestionUsers = () => {
                     disabled={loading}
                   />
                 </td>
+
                 <td className="px-6 py-4 flex items-center gap-2">
                   <button
                     onClick={() => { setEditingUser(user); setEditModalOpen(true); }}
@@ -289,7 +310,7 @@ const GestionUsers = () => {
             onChange={val => setNewUser({ ...newUser, role: val })}
             options={[
               { label: 'Commercial', value: 'sales' },
-              { label: 'Responsable Achat', value: 'procurement' }
+              { label: 'Responsable Achat', value: 'procurement' },
             ]}
           />
           <div className="flex gap-3 mt-4">
@@ -332,7 +353,8 @@ const GestionUsers = () => {
               onChange={val => setEditingUser({ ...editingUser, role: val })}
               options={[
                 { label: 'Commercial', value: 'sales' },
-                { label: 'Responsable Achat', value: 'procurement' }
+                { label: 'Responsable Achat', value: 'procurement' },
+                { label: 'Admin', value: 'admin' },
               ]}
             />
             <div className="flex gap-3 mt-4">
