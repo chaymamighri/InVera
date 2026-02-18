@@ -60,7 +60,7 @@ const SalesDashboard = () => {
     { id: 'orders', title: 'Commandes clients', icon: '📋', badge: null },
     { id: 'sales', title: 'Ventes', icon: '🛒' },
     { id: 'clients', title: 'Clients', icon: '👥' },
-    { id: 'invoicing', title: 'Facturation ', icon: '💰', badge: null }, 
+    { id: 'invoices', title: 'Facturation ', icon: '💰', badge: null }, 
     { id: 'reports', title: 'Rapports Ventes', icon: '📄' },
   ];
 

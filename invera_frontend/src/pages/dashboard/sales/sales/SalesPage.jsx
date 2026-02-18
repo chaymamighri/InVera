@@ -20,17 +20,17 @@ const SalesPage = () => {
   // ✅ Filtres - structure simplifiée
   const [filters, setFilters] = useState({
     searchTerm: '',
-    dateRange: { from: '' }, // ✅ Uniquement 'from' pour la date
+    dateRange: { from: '' }, 
     sortBy: 'date_creation',
     sortOrder: 'desc'
   });
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState({});
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedFacture, setSelectedFacture] = useState(null);
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
-
-  // ✅ Chargement des commandes
+  
+  // Dans SalesPage.jsx - transformation des commandes
   const loadCommandesValidees = useCallback(async () => {
     try {
       setLoading(true);
@@ -38,31 +38,75 @@ const SalesPage = () => {
       
       const commandesData = await commandeService.getCommandesValidees();
       
-      // Transformation des données
+      // Transformation des données - CORRIGÉE
       const commandesTransformees = commandesData.map(cmd => ({
-        id: cmd.id || cmd.idCommande,
-        numeroCommande: cmd.numeroCommande || cmd.reference || `CMD-${cmd.id || 'N/A'}`,
+        // ✅ Garder tous les identifiants
+        id: cmd.id || cmd.idCommandeClient || cmd.idCommande,
+        idCommandeClient: cmd.idCommandeClient,
+        idCommande: cmd.idCommande,
+        
+        // ✅ Référence commande - PRIORITAIRE
+        referenceCommandeClient: cmd.referenceCommandeClient,
+        numeroCommande: cmd.referenceCommandeClient || cmd.numeroCommande || cmd.reference || `CMD-${cmd.id || 'N/A'}`,
+        numero: cmd.referenceCommandeClient || cmd.numero || cmd.numeroCommande,
+        
+        // ✅ Dates
         dateCreation: cmd.dateCreation || cmd.dateCommande || cmd.createdAt,
+        dateCommande: cmd.dateCommande || cmd.dateCreation,
         dateValidation: cmd.dateValidation || cmd.dateConfirmation,
         dateLivraisonPrevue: cmd.dateLivraison || cmd.dateLivraisonPrevue,
+        
+        // ✅ Statut
         statut: cmd.statut || cmd.status,
+        
+        // ✅ Montants
         montantTotal: cmd.montantTotal || cmd.total || cmd.totalTTC || 0,
-        sousTotal: cmd.sousTotal || cmd.totalHT || cmd.total || 0,
-        remiseTotal: cmd.remise || cmd.discount || 0,
+        total: cmd.total || cmd.montantTotal || 0,
+        sousTotal: cmd.sousTotal || cmd.totalHT || 0,
+        remiseTotal: cmd.remise || cmd.tauxRemise || 0,
+        
+        // ✅ Autres infos
         modeLivraison: cmd.modeLivraison || 'Standard',
         modePaiement: cmd.modePaiement || 'Non spécifié',
         notes: cmd.notes || cmd.remarques || '',
+        
+        // ✅ Produits
         produits: cmd.produits || cmd.items || cmd.ligneCommandes || [],
-        client: cmd.client || {
+        
+        // ✅ Client - enrichi
+        client: cmd.client ? {
+          ...cmd.client,
+          id: cmd.client.id || cmd.client.idClient,
+          nom: cmd.client.nom || '',
+          prenom: cmd.client.prenom || '',
+          nomComplet: cmd.client.nomComplet || 
+                      `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() ||
+                      cmd.client.nom ||
+                      'Client',
+          entreprise: cmd.client.entreprise || cmd.client.societe || '',
+          typeClient: cmd.client.typeClient || cmd.client.type || 'STANDARD',
+          telephone: cmd.client.telephone || '',
+          email: cmd.client.email || '',
+          adresse: cmd.client.adresse || ''
+        } : {
           id: cmd.clientId,
-          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim(),
+          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || 'Client',
           entreprise: cmd.clientEntreprise || cmd.clientSociete || '',
-          type: cmd.clientType || 'STANDARD',
+          typeClient: cmd.clientType || 'STANDARD',
           telephone: cmd.clientTelephone || '',
           email: cmd.clientEmail || '',
           adresse: cmd.clientAdresse || ''
         }
       }));
+      
+      console.log('📦 Commandes transformées avec références:', 
+        commandesTransformees.map(c => ({
+          id: c.id,
+          referenceCommandeClient: c.referenceCommandeClient,
+          numero: c.numero,
+          numeroCommande: c.numeroCommande
+        }))
+      );
       
       setCommandes(commandesTransformees);
     } catch (err) {
@@ -222,55 +266,127 @@ const SalesPage = () => {
       setLoading(false);
     }
   };
+const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
+  // Récupérer la commande correspondante
+  const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+  
+  // Formater les données pour le modal
+  const factureData = {
+    id: invoiceData.idFactureClient || invoiceData.id,
+    invoiceNumber: invoiceData.referenceFactureClient || `FAC-${invoiceData.id}`,
+    date: invoiceData.dateFacture,
+    dueDate: new Date(new Date(invoiceData.dateFacture).setDate(new Date(invoiceData.dateFacture).getDate() + 30)).toISOString(),
+    
+    // Informations client
+    clientName: commande?.client?.nomComplet || 
+                (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
+    clientEmail: commande?.client?.email || invoiceData.client?.email || '',
+    clientPhone: commande?.client?.telephone || invoiceData.client?.telephone || '',
+    clientAddress: commande?.client?.adresse || invoiceData.client?.adresse || '',
+    clientType: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER',
+    
+    // Commande associée
+    commandeId: commandeId,
+    
+    // Articles
+    items: commande?.produits?.map(p => ({
+      productId: p.produitId,
+      productName: p.libelle || 'Produit',
+      quantity: p.quantite,
+      price: p.prixUnitaire,
+      discount: 0,
+      tax: 19,
+      total: p.sousTotal
+    })) || [],
+    
+    // Totaux
+    subtotal: commande?.sousTotal || invoiceData.montantTotal || 0,
+    discountTotal: (commande?.sousTotal || 0) - (commande?.total || 0),
+    tax: ((commande?.total || 0) - ((commande?.sousTotal || 0) - ((commande?.sousTotal || 0) - (commande?.total || 0)))) * 0.19,
+    total: invoiceData.montantTotal || commande?.total || 0,
+    
+    paymentMethod: commande?.modePaiement || 'Non spécifié',
+    notes: commande?.notes || '',
+    status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée'
+  };
+  
+  setSelectedFacture(factureData);
+  setIsInvoiceModalOpen(true);
+}, [commandes]);
 
-  // ✅ Génération de facture
-  const handleGenerateInvoice = async (commandeId) => {
-    try {
-      setInvoiceLoading(true);
-      const response = await commandeService.generateInvoice(commandeId);
+// ✅ Génération de facture - Version avec affichage des factures existantes
+const handleGenerateInvoice = useCallback(async (commandeId) => {
+  setInvoiceLoading(prev => ({ ...prev, [commandeId]: true }));
+  
+  try {
+    console.log('📄 Génération facture pour commande:', commandeId);
+    
+    // Essayer de générer une nouvelle facture
+    const response = await commandeService.generateInvoice(commandeId);
+    console.log('✅ Nouvelle facture générée:', response);
+    
+    if (response.success && response.data) {
+      displayInvoiceInModal(response.data, commandeId);
       
-      if (response?.data) {
-        // Téléchargement PDF
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `facture-${commandeId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+      // Optionnel: Télécharger automatiquement le PDF
+      await commandeService.downloadInvoicePDF(response.data.idFactureClient);
+    }
+    
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    
+    // Si l'erreur est "facture existe déjà", on récupère la facture existante
+    if (err.response?.data?.message?.includes('existe déjà')) {
+      console.log('📋 Facture existe déjà, récupération...');
+      
+      // Récupérer la facture existante
+      const existingInvoice = await commandeService.getInvoiceByCommandeId(commandeId);
+      
+      if (existingInvoice) {
+        console.log('✅ Facture existante récupérée:', existingInvoice);
         
-        // Prévisualisation
-        const commande = commandes.find(c => c.id === commandeId);
-        if (commande) {
-          const nouvelleFacture = {
-            id: Date.now(),
-            numeroFacture: `FAC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-            dateFacture: new Date().toISOString().split('T')[0],
-            commandeId: commande.id,
-            client: commande.client,
-            produits: commande.produits,
-            sousTotal: commande.sousTotal || 0,
-            remiseTotal: commande.remiseTotal || 0,
-            tva: ((commande.sousTotal || 0) - (commande.remiseTotal || 0)) * 0.19,
-            montantTotal: commande.montantTotal || commande.total || 0,
-            statut: 'à payer',
-            modePaiement: commande.modePaiement || 'Non spécifié'
-          };
-          
-          setSelectedFacture(nouvelleFacture);
-          setIsInvoiceModalOpen(true);
+        // Afficher la facture existante
+        if (existingInvoice.data) {
+          displayInvoiceInModal(existingInvoice.data, commandeId);
+        } else {
+          displayInvoiceInModal(existingInvoice, commandeId);
         }
         
-        return { success: true, message: 'Facture générée avec succès' };
+        // Optionnel: Télécharger le PDF de la facture existante
+        const factureId = existingInvoice.data?.idFactureClient || existingInvoice.id;
+        if (factureId) {
+          await commandeService.downloadInvoicePDF(factureId);
+        }
+        
+      } else {
+        alert('Une facture existe déjà mais impossible de la récupérer.');
       }
-    } catch (err) {
-      console.error('Erreur facture:', err);
-      setError('Erreur lors de la génération de la facture');
-      return { success: false, message: err.message };
-    } finally {
-      setInvoiceLoading(false);
+    } else {
+      setError('Erreur lors de la génération de la facture: ' + err.message);
+    }
+  } finally {
+    setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
+  }
+}, [commandes, displayInvoiceInModal]);
+
+  // Fonction pour télécharger le PDF
+  const handleDownloadPDF = async (factureId) => {
+    try {
+      const pdfResponse = await commandeService.downloadInvoicePDF(factureId);
+      
+      // Créer un blob et télécharger
+      const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `facture-${factureId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('❌ Erreur téléchargement PDF:', error);
     }
   };
 
@@ -291,7 +407,6 @@ const SalesPage = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                   Commandes Validées
                 </h1>
-             
               </div>
               <p className="text-gray-600 flex items-center gap-2">
                 <span>{filteredResult.length} commande{filteredResult.length !== 1 ? 's' : ''} affichée{filteredResult.length !== 1 ? 's' : ''}</span>
@@ -319,8 +434,6 @@ const SalesPage = () => {
             </div>
           )}
         </div>
-        
-        
       </div>
          
       {/* Filtres - avec totalFiltered */}
@@ -333,12 +446,13 @@ const SalesPage = () => {
       {/* Table des commandes */}
       <SalesTable 
         commandes={filteredResult}
-        loading={loading || invoiceLoading}
+        loading={loading}
+        invoiceLoading={invoiceLoading}
         onGenerateInvoice={handleGenerateInvoice}
         filters={filters} 
       />
 
-
+      {/* Modal de facture */}
       <InvoiceModal
         isOpen={isInvoiceModalOpen}
         onClose={() => {
