@@ -13,6 +13,7 @@ import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
 import DashboardContent from './pages/dashboard/sales/statistic/DashboardContent';
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
+import CreatePasswordPage from './pages/auth/CreatePasswordPage';
 
 import LoginPage from './pages/auth/loginPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
@@ -101,6 +102,7 @@ function App() {
 
         {/* Pages publiques */}
         <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
+        <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
         {/* Dashboard Admin */}
         <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -115,6 +117,7 @@ function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
+
           <Route path="invoices" element={<InvoicingPage />} />
         </Route>   
         
