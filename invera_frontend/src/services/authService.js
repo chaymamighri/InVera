@@ -99,6 +99,32 @@ export const authService = {
       throw new Error('Erreur de récupération de l\'utilisateur');
     }
   },
+  // frontend/src/services/authService.js
+// Ajouter cette méthode après resetPassword
+
+  // ===== CREATE PASSWORD (first time) =====
+  createPassword: async (code, email, newPassword) => {
+    try {
+      console.log('📤 Envoi create password - URL:', '/auth/create-password');
+      console.log('📤 Données envoyées:', { code, email, newPassword });
+      
+      const response = await api.post('/auth/create-password', {
+        code: code,
+        email: email,
+        newPassword: newPassword
+      });
+      
+      console.log('✅ Réponse reçue:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur complète:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
 
   // Mot de passe oublié
   
@@ -199,4 +225,7 @@ resetPassword: async (code, email, newPassword) => {
       throw error;
     }
   }
+
+
+  
 };

@@ -1,23 +1,23 @@
+// frontend/src/pages/admin/users/gestionUsers.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  MagnifyingGlassIcon, 
-  FunnelIcon, 
+import {
+  MagnifyingGlassIcon,
+  FunnelIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
 
-// Reusable Modal
+// Composants réutilisables (Modal, InputField, SelectField, ToggleSwitch)
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl relative">
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition"
         >
           <XCircleIcon className="w-6 h-6" />
@@ -28,7 +28,6 @@ const Modal = ({ open, onClose, children }) => {
   );
 };
 
-// Reusable Input
 const InputField = ({ label, value, onChange, placeholder, type = "text" }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -42,7 +41,6 @@ const InputField = ({ label, value, onChange, placeholder, type = "text" }) => (
   </div>
 );
 
-// Reusable Select
 const SelectField = ({ label, value, onChange, options }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -58,40 +56,53 @@ const SelectField = ({ label, value, onChange, options }) => (
   </div>
 );
 
-// Toggle Switch
-const ToggleSwitch = ({ checked, onChange }) => (
+const ToggleSwitch = ({ checked, onChange, disabled }) => (
   <button
     onClick={() => onChange(!checked)}
-    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? 'bg-green-500' : 'bg-gray-200'}`}
+    disabled={disabled}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? 'bg-green-500' : 'bg-gray-200'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
   >
     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
   </button>
 );
 
 const GestionUsers = () => {
-  const { getUsers, addUser, updateUser, toggleUserStatus, deleteUser } = useUserManagement();
+  const {
+    loading,
+    error,
+    getUsers,
+    addUser,
+    updateUser,
+    setUserActiveStatus,
+    deleteUserByEmail
+  } = useUserManagement();
 
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
-
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'sales' });
   const [editingUser, setEditingUser] = useState(null);
+  const [localError, setLocalError] = useState(null);
 
   useEffect(() => {
-    setUsers(getUsers());
+    fetchUsers();
   }, []);
 
-  const refreshUsers = () => setUsers(getUsers());
+  const fetchUsers = async () => {
+    try {
+      const data = await getUsers();
+      setUsers(data);
+    } catch (err) {
+      setLocalError(err.message);
+    }
+  };
 
-  // Add user
   const handleAddUser = async () => {
     try {
       await addUser(newUser);
-      refreshUsers();
+      await fetchUsers();
       setNewUser({ name: '', email: '', role: 'sales' });
       setAddModalOpen(false);
     } catch (err) {
@@ -99,23 +110,37 @@ const GestionUsers = () => {
     }
   };
 
-  // Edit user
   const handleEditUser = async () => {
     try {
       await updateUser(editingUser.id, editingUser);
+      await fetchUsers();
       setEditingUser(null);
       setEditModalOpen(false);
-      refreshUsers();
     } catch (err) {
       alert(err.message);
     }
   };
 
-  // Delete user
-  const handleDeleteUser = async (userId) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
-      await deleteUser(userId);
-      refreshUsers();
+  const handleToggleStatus = async (user) => {
+    try {
+      await setUserActiveStatus(user.email, !user.active);
+      // Mise à jour locale optimiste
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: !u.active } : u));
+    } catch (err) {
+      alert(err.message);
+      // Re-fetch en cas d'erreur pour être sûr
+      await fetchUsers();
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${user.name} ?`)) {
+      try {
+        await deleteUserByEmail(user.email);
+        await fetchUsers();
+      } catch (err) {
+        alert(err.message);
+      }
     }
   };
 
@@ -125,6 +150,10 @@ const GestionUsers = () => {
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     return matchesSearch && matchesRole;
   });
+
+  if (loading && users.length === 0) {
+    return <div className="flex justify-center items-center h-64">Chargement...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -143,7 +172,7 @@ const GestionUsers = () => {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Filtres */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[200px]">
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -172,7 +201,14 @@ const GestionUsers = () => {
         <div className="text-sm text-gray-500">{filteredUsers.length} utilisateur(s)</div>
       </div>
 
-      {/* Users Table */}
+      {/* Erreur éventuelle */}
+      {localError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {localError}
+        </div>
+      )}
+
+      {/* Tableau des utilisateurs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full min-w-[600px]">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -204,19 +240,22 @@ const GestionUsers = () => {
                 <td className="px-6 py-4">
                   <ToggleSwitch
                     checked={user.active}
-                    onChange={async () => { await toggleUserStatus(user.id); refreshUsers(); }}
+                    onChange={() => handleToggleStatus(user)}
+                    disabled={loading}
                   />
                 </td>
                 <td className="px-6 py-4 flex items-center gap-2">
                   <button
                     onClick={() => { setEditingUser(user); setEditModalOpen(true); }}
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                    disabled={loading}
                   >
                     <PencilIcon className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => handleDeleteUser(user)}
                     className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+                    disabled={loading}
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -227,31 +266,89 @@ const GestionUsers = () => {
         </table>
       </div>
 
-      {/* Add User Modal */}
+      {/* Modale d'ajout */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)}>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Nouveau Utilisateur</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Nouvel Utilisateur</h2>
         <div className="space-y-4">
-          <InputField label="Nom" value={newUser.name} onChange={val => setNewUser({ ...newUser, name: val })} placeholder="Nom complet" />
-          <InputField label="Email" type="email" value={newUser.email} onChange={val => setNewUser({ ...newUser, email: val })} placeholder="email@example.com" />
-          <SelectField label="Rôle" value={newUser.role} onChange={val => setNewUser({ ...newUser, role: val })} options={[{label:'Commercial',value:'sales'},{label:'Achat',value:'procurement'}]} />
+          <InputField
+            label="Nom complet"
+            value={newUser.name}
+            onChange={val => setNewUser({ ...newUser, name: val })}
+            placeholder="Jean Dupont"
+          />
+          <InputField
+            label="Email"
+            type="email"
+            value={newUser.email}
+            onChange={val => setNewUser({ ...newUser, email: val })}
+            placeholder="email@example.com"
+          />
+          <SelectField
+            label="Rôle"
+            value={newUser.role}
+            onChange={val => setNewUser({ ...newUser, role: val })}
+            options={[
+              { label: 'Commercial', value: 'sales' },
+              { label: 'Responsable Achat', value: 'procurement' }
+            ]}
+          />
           <div className="flex gap-3 mt-4">
-            <button onClick={handleAddUser} className="flex-1 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Ajouter</button>
-            <button onClick={() => setAddModalOpen(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Annuler</button>
+            <button
+              onClick={handleAddUser}
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50"
+            >
+              Ajouter
+            </button>
+            <button
+              onClick={() => setAddModalOpen(false)}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              Annuler
+            </button>
           </div>
         </div>
       </Modal>
 
-      {/* Edit User Modal */}
+      {/* Modale d'édition */}
       <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Modifier Utilisateur</h2>
         {editingUser && (
           <div className="space-y-4">
-            <InputField label="Nom" value={editingUser.name} onChange={val => setEditingUser({ ...editingUser, name: val })} />
-            <InputField label="Email" type="email" value={editingUser.email} onChange={val => setEditingUser({ ...editingUser, email: val })} />
-            <SelectField label="Rôle" value={editingUser.role} onChange={val => setEditingUser({ ...editingUser, role: val })} options={[{label:'Commercial',value:'sales'},{label:'Achat',value:'procurement'}]} />
+            <InputField
+              label="Nom complet"
+              value={editingUser.name}
+              onChange={val => setEditingUser({ ...editingUser, name: val })}
+            />
+            <InputField
+              label="Email"
+              type="email"
+              value={editingUser.email}
+              onChange={val => setEditingUser({ ...editingUser, email: val })}
+            />
+            <SelectField
+              label="Rôle"
+              value={editingUser.role}
+              onChange={val => setEditingUser({ ...editingUser, role: val })}
+              options={[
+                { label: 'Commercial', value: 'sales' },
+                { label: 'Responsable Achat', value: 'procurement' }
+              ]}
+            />
             <div className="flex gap-3 mt-4">
-              <button onClick={handleEditUser} className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">Sauvegarder</button>
-              <button onClick={() => setEditModalOpen(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Annuler</button>
+              <button
+                onClick={handleEditUser}
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+              >
+                Sauvegarder
+              </button>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Annuler
+              </button>
             </div>
           </div>
         )}
