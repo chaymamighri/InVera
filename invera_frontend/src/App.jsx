@@ -16,6 +16,7 @@ import SalesPage from './pages/dashboard/sales/sales/SalesPage';
 import CreatePasswordPage from './pages/auth/CreatePasswordPage';
 
 import LoginPage from './pages/auth/loginPage';
+import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 
 // Mapping des rôles entre API (backend) et frontend
 const ROLE_MAPPING = {
@@ -116,8 +117,10 @@ function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
-          
+
+          <Route path="invoices" element={<InvoicingPage />} />
         </Route>   
+        
 
 
         {/* Pages partagées */}

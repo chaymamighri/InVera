@@ -10,25 +10,69 @@ const useSales = () => {
     const fetchSales = async () => {
       try {
         setLoading(true);
-        // Données statiques de démo
+        // Données statiques de démo avec la bonne structure
         const demoData = [
           {
             id: 1,
-            invoiceNumber: 'INV-2024-001',
-            clientName: 'Mohamed Ali',
-            clientEmail: 'mohamed.ali@example.com',
-            clientType: 'VIP',
-            date: '2024-01-15',
-            items: [
-              { productName: 'Ordinateur Portable', quantity: 1, price: 3500, discount: 5, tax: 19 }
+            idCommandeClient: 1,
+            referenceCommandeClient: 'CMD-2024-01-15-001',
+            numero: 'CMD-2024-01-15-001',
+            client: {
+              id: 1,
+              nom: 'Mohamed Ali',
+              prenom: '',
+              typeClient: 'VIP',
+              email: 'mohamed.ali@example.com',
+              telephone: '12345678'
+            },
+            dateCommande: '2024-01-15T10:30:00',
+            dateCreation: '2024-01-15',
+            produits: [
+              { 
+                id: 1, 
+                libelle: 'Ordinateur Portable', 
+                quantite: 1, 
+                prixUnitaire: 3500,
+                sousTotal: 3500
+              }
             ],
-            subtotal: 3325,
-            tax: 631.75,
-            total: 3956.75,
-            paymentMethod: 'carte bancaire',
-            status: 'payée'
+            sousTotal: 3500,
+            tauxRemise: 5,
+            total: 3325,
+            montantTotal: 3325,
+            statut: 'CONFIRMEE'
           },
-          // ... plus de données
+          {
+            id: 2,
+            idCommandeClient: 2,
+            referenceCommandeClient: 'CMD-2024-01-14-002',
+            numero: 'CMD-2024-01-14-002',
+            client: {
+              id: 2,
+              nom: 'Fatima Ben Salah',
+              prenom: '',
+              typeClient: 'ENTREPRISE',
+              entreprise: 'Ben Salah Trading',
+              email: 'contact@bensalah.com',
+              telephone: '98765432'
+            },
+            dateCommande: '2024-01-14T14:20:00',
+            dateCreation: '2024-01-14',
+            produits: [
+              { 
+                id: 2, 
+                libelle: 'Écran 24 pouces', 
+                quantite: 3, 
+                prixUnitaire: 1200,
+                sousTotal: 3600
+              }
+            ],
+            sousTotal: 3600,
+            tauxRemise: 0,
+            total: 3600,
+            montantTotal: 3600,
+            statut: 'CONFIRMEE'
+          }
         ];
         
         // Simuler un délai d'API
@@ -46,11 +90,19 @@ const useSales = () => {
 
   const createSale = async (saleData) => {
     try {
-      // Simuler création API
+      const newId = sales.length + 1;
+      const today = new Date().toISOString().split('T')[0];
+      const reference = `CMD-${today}-${String(newId).padStart(3, '0')}`;
+      
       const newSale = {
         ...saleData,
-        id: sales.length + 1,
-        invoiceNumber: `INV-${new Date().getFullYear()}-${String(sales.length + 1).padStart(3, '0')}`
+        id: newId,
+        idCommandeClient: newId,
+        referenceCommandeClient: reference,
+        numero: reference,
+        dateCommande: new Date().toISOString(),
+        dateCreation: today,
+        statut: 'CONFIRMEE'
       };
       
       setSales(prev => [newSale, ...prev]);
@@ -62,7 +114,7 @@ const useSales = () => {
   };
 
   const deleteSale = async (id) => {
-    setSales(prev => prev.filter(sale => sale.id !== id));
+    setSales(prev => prev.filter(sale => sale.id !== id && sale.idCommandeClient !== id));
   };
 
   return {

@@ -33,32 +33,53 @@ const useOrders = () => {
     }
   }, []);
 
-  // ✅ CORRIGÉ - getProduitsAvecDetails
+  // ✅ getProduitsAvecDetails avec catégorie
   const getProduitsAvecDetails = useCallback((lignesCommande, produitsData) => {
-    console.log('🔍 getProduitsAvecDetails appelée');
+    console.log('🔍 getProduitsAvecDetails - Reçu:', {
+      lignesCommande,
+      produitsData,
+      produitsDataLength: produitsData?.length,
+      produitsDataIsArray: Array.isArray(produitsData)
+    });
     
-    if (!Array.isArray(lignesCommande)) {
-      return [];
-    }
+    if (!Array.isArray(lignesCommande)) return [];
     
     return lignesCommande.map(ligne => {
-      const produit = ligne.produit || {};
+      const produitId = ligne.produit?.idProduit || ligne.produitId;
+      
+      console.log(`📦 Recherche produit ID ${produitId} dans produitsData:`, {
+        produitId,
+        produitsDisponibles: produitsData?.map(p => ({ id: p.idProduit, libelle: p.libelle }))
+      });
+      
+      // Chercher dans produitsData
+      const produitInfo = Array.isArray(produitsData) 
+        ? produitsData.find(p => p.idProduit === produitId)
+        : null;
+      
+      console.log(`✅ Produit trouvé:`, produitInfo);
       
       return {
         id: ligne.idLigneCommandeClient,
         ligneId: ligne.idLigneCommandeClient,
-        produitId: produit.idProduit || ligne.produitId,
-        libelle: produit.libelle || ligne.libelle || 'Produit',
+        produitId: produitId,
+        libelle: produitInfo?.libelle || ligne.libelle || 'Produit sans nom',
         prixUnitaire: toNumber(ligne.prixUnitaire || 0),
         quantite: toNumber(ligne.quantite || 1),
         sousTotal: toNumber(ligne.sousTotal || 0),
-        imageUrl: produit.imageUrl || ligne.imageUrl,
-        uniteMesure: produit.uniteMesure || ligne.uniteMesure || 'unité'
+        imageUrl: produitInfo?.imageUrl || ligne.imageUrl,
+        uniteMesure: produitInfo?.uniteMesure || ligne.uniteMesure || 'unité',
+        
+        // ✅ AJOUT: Catégorie du produit
+        categorie: produitInfo?.categorie || ligne.produit?.categorie,
+        categorieNom: produitInfo?.categorie?.nomCategorie || 
+                      ligne.produit?.categorie?.nomCategorie || 
+                      null
       };
     });
   }, [toNumber]);
 
-  // ✅ CORRIGÉ - transformCommandes
+  // ✅ transformCommandes avec catégorie
   const transformCommandes = useCallback((commandesData, produitsData) => {
     if (!Array.isArray(commandesData)) {
       return [];
@@ -70,9 +91,21 @@ const useOrders = () => {
       // ✅ Récupérer les lignes de commande
       const lignes = commande.lignesCommande || [];
       
+      // ✅ Enrichir les lignes avec les infos produit complètes
+      const lignesEnrichies = lignes.map(l => {
+        const produitId = l.produit?.idProduit || l.produitId;
+        const produitComplet = produitsData.find(p => p.idProduit === produitId);
+        
+        return {
+          ...l,
+          // Ajouter la catégorie au niveau de la ligne
+          categorie: produitComplet?.categorie || l.produit?.categorie
+        };
+      });
+      
       return {
         idCommandeClient: commande.idCommandeClient,
-        id: commande.idCommandeClient, // Pour compatibilité
+        id: commande.idCommandeClient,
         referenceCommandeClient: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
         numero: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
         
@@ -84,27 +117,30 @@ const useOrders = () => {
           typeClient: commande.client.typeClient || 'PARTICULIER',
           telephone: commande.client.telephone || '',
           email: commande.client.email || '',
-          adresse: commande.client.adresse || ''
+          adresse: commande.client.adresse || '',
+          nomComplet: `${commande.client.prenom || ''} ${commande.client.nom || ''}`.trim()
         } : null,
         
         dateCommande: commande.dateCommande,
         
-        lignesCommande: lignes.map(l => ({
+        lignesCommande: lignesEnrichies.map(l => ({
           idLigneCommandeClient: l.idLigneCommandeClient,
           produit: l.produit ? {
             idProduit: l.produit.idProduit,
             libelle: l.produit.libelle,
             imageUrl: l.produit.imageUrl,
             uniteMesure: l.produit.uniteMesure,
-            prixVente: l.produit.prixVente
+            prixVente: l.produit.prixVente,
+            categorie: l.produit.categorie
           } : null,
           quantite: l.quantite,
           prixUnitaire: l.prixUnitaire,
-          sousTotal: l.sousTotal
+          sousTotal: l.sousTotal,
+          categorie: l.categorie
         })),
         
-        // ✅ Version simplifiée pour l'affichage
-        produits: getProduitsAvecDetails(lignes, produitsData),
+        // ✅ Version simplifiée pour l'affichage avec catégorie
+        produits: getProduitsAvecDetails(lignesEnrichies, produitsData),
         
         sousTotal: toNumber(commande.sousTotal || 0),
         tauxRemise: toNumber(commande.tauxRemise || 0),
@@ -116,7 +152,7 @@ const useOrders = () => {
     }).filter(Boolean);
   }, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
 
-  // ✅ transformClients
+  // ✅ transformClients (inchangé)
   const transformClients = useCallback((clientsData) => {
     if (!Array.isArray(clientsData)) {
       if (clientsData && clientsData.clients && Array.isArray(clientsData.clients)) {
@@ -139,11 +175,13 @@ const useOrders = () => {
     }));
   }, []);
 
-  // ✅ transformProduits
+  // ✅ transformProduits avec catégorie complète
   const transformProduits = useCallback((produitsData) => {
     if (!Array.isArray(produitsData)) {
       if (produitsData && produitsData.produits && Array.isArray(produitsData.produits)) {
         produitsData = produitsData.produits;
+      } else if (produitsData && produitsData.data && Array.isArray(produitsData.data)) {
+        produitsData = produitsData.data;
       } else {
         return [];
       }
@@ -160,14 +198,47 @@ const useOrders = () => {
       uniteMesure: produit.uniteMesure || 'unité',
       status: produit.status || 'EN_STOCK',
       imageUrl: produit.imageUrl || '',
+      remiseTemporaire: toNumber(produit.remiseTemporaire || 0),
+      
+      // ✅ CATÉGORIE - Structure complète
       categorie: produit.categorie ? {
         idCategorie: produit.categorie.idCategorie,
-        nomCategorie: produit.categorie.nomCategorie
-      } : null
-    }));
+        nomCategorie: produit.categorie.nomCategorie,
+        description: produit.categorie.description || '',
+        code: produit.categorie.code || ''
+      } : null,
+      
+      // ✅ Champ simplifié pour l'affichage direct
+      categorieNom: produit.categorie?.nomCategorie || null,
+      
+      // ✅ Prix après remise
+      prixEffectif: toNumber(produit.prixVente || 0) * (1 - (toNumber(produit.remiseTemporaire || 0) / 100)),
+      
+      // ✅ Indicateur de stock
+      stockStatus: (() => {
+        const stock = toNumber(produit.quantiteStock || 0);
+        const seuil = toNumber(produit.seuilMinimum || 5);
+        if (stock <= 0) return 'RUPTURE';
+        if (stock <= seuil) return 'FAIBLE';
+        if (stock <= seuil * 2) return 'MOYEN';
+        return 'ELEVE';
+      })(),
+      
+      // ✅ Libellé formaté
+      libelleComplet: `${produit.libelle || 'Produit sans nom'} ${produit.uniteMesure ? '(' + produit.uniteMesure + ')' : ''}`,
+      
+      // ✅ Prix formaté
+      prixVenteFormate: new Intl.NumberFormat('fr-FR', { 
+        style: 'currency', 
+        currency: 'XOF',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(toNumber(produit.prixVente || 0)),
+      
+    })).filter(Boolean);
   }, [toNumber]);
 
-  // ✅ chargerDonnees
+  // ✅ chargerDonnees (amélioré)
   const chargerDonnees = useCallback(async () => {
     try {
       setLoading(true);
@@ -179,11 +250,34 @@ const useOrders = () => {
         productService.getAllProducts()
       ]);
 
-      let commandesData = [];
-      let clientsData = [];
+      // 1️⃣ TRAITER LES PRODUITS EN PREMIER
       let produitsData = [];
+      if (produitsResult.status === 'fulfilled') {
+        const data = produitsResult.value;
+        console.log('📦 Produits bruts:', data);
+        
+        if (data && data.success && data.data) {
+          produitsData = data.data;
+        } else if (data && data.success && data.produits) {
+          produitsData = data.produits;
+        } else if (Array.isArray(data)) {
+          produitsData = data;
+        }
+      }
+      
+      // Transformer les produits IMMÉDIATEMENT
+      const produitsTransformes = transformProduits(produitsData);
+      console.log('✅ Produits transformés avec catégories:', 
+        produitsTransformes.map(p => ({
+          id: p.idProduit,
+          libelle: p.libelle,
+          categorie: p.categorie
+        }))
+      );
+      setProduits(produitsTransformes);
 
-      // Commandes
+      // 2️⃣ TRAITER LES COMMANDES AVEC LES PRODUITS DISPONIBLES
+      let commandesData = [];
       if (commandesResult.status === 'fulfilled') {
         const data = commandesResult.value;
         console.log('📦 Commandes brutes:', data);
@@ -197,7 +291,21 @@ const useOrders = () => {
         }
       }
 
-      // Clients
+      // Transformer les commandes AVEC les produits déjà transformés
+      const commandesTransformees = transformCommandes(commandesData, produitsTransformes);
+      console.log(' Commandes transformées avec produits:', 
+        commandesTransformees.map(c => ({
+          id: c.id,
+          produits: c.produits?.map(p => ({
+            libelle: p.libelle,
+            categorie: p.categorie
+          }))
+        }))
+      );
+      setCommandes(commandesTransformees);
+
+      //  TRAITER LES CLIENTS
+      let clientsData = [];
       if (clientsResult.status === 'fulfilled') {
         const data = clientsResult.value;
         console.log('👥 Clients bruts:', data);
@@ -208,35 +316,19 @@ const useOrders = () => {
           clientsData = data;
         }
       }
-
-      // Produits
-      if (produitsResult.status === 'fulfilled') {
-        const data = produitsResult.value;
-        console.log('📦 Produits bruts:', data);
-        
-        if (data && data.success && data.produits) {
-          produitsData = data.produits;
-        } else if (Array.isArray(data)) {
-          produitsData = data;
-        }
-      }
-
-      const commandesTransformees = transformCommandes(commandesData, produitsData);
-      console.log('✅ Commandes transformées:', commandesTransformees);
       
-      setCommandes(commandesTransformees);
-      setClients(transformClients(clientsData));
-      setProduits(transformProduits(produitsData));
+      const clientsTransformes = transformClients(clientsData);
+      setClients(clientsTransformes);
       
     } catch (err) {
-      console.error('❌ Erreur chargerDonnees:', err);
+      console.error(' Erreur chargerDonnees:', err);
       setError('Erreur système lors du chargement des données.');
     } finally {
       setLoading(false);
     }
   }, [transformCommandes, transformClients, transformProduits]);
 
-  // ✅ Gestion des produits sélectionnés
+  //  Gestion des produits sélectionnés
   const handleSelectProduct = useCallback((product) => {
     if (!product || !product.idProduit) return;
     
@@ -337,7 +429,7 @@ const useOrders = () => {
 
   return {
     commandes,
-    setCommandes, // Important pour OrdersPage.jsx
+    setCommandes, 
     clients,
     produits,
     loading,

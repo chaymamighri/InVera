@@ -150,5 +150,84 @@ export const commandeService = {
       console.error('❌ Erreur rejeterCommande:', error);
       throw error;
     }
-  }
+  },
+
+
+  /**
+   * Générer une facture pour une commande validée
+   * @param {number} commandeId - ID de la commande
+   */
+  async generateInvoice(commandeId) {
+    try {
+      const response = await api.post(`/factures/generer/${commandeId}`);
+      console.log('📥 Réponse génération facture:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur generateInvoice:', error);
+      throw error.response?.data || error;
+    }
+  },
+
+   // récuperation de facture
+  async getAllInvoices() {
+    try {
+      const response = await api.get('/factures/all');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getAllInvoices:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Télécharger une facture au format PDF
+   * @param {number} factureId - ID de la facture
+   */
+  async downloadInvoicePDF(factureId) {
+    try {
+      const response = await api.get(`/factures/telecharger/${factureId}`, {
+        responseType: 'blob'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Erreur downloadInvoicePDF:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Récupérer les détails d'une facture
+   * @param {number} factureId - ID de la facture
+   */
+  async getInvoiceDetails(factureId) {
+    try {
+      const response = await api.get(`/factures/${factureId}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getInvoiceDetails:', error);
+      throw error;
+    }
+  },
+ async getInvoiceByCommandeId(commandeId) {
+    try {
+      // Si vous avez un endpoint spécifique
+      const response = await api.get(`/factures/commande/${commandeId}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getInvoiceByCommandeId:', error);
+      
+      // Option de secours: chercher dans toutes les factures
+      try {
+        const allInvoices = await api.get('/factures');
+        const invoice = allInvoices.data.find(f => 
+          f.commande?.id === commandeId || 
+          f.commande?.idCommandeClient === commandeId
+        );
+        return invoice;
+      } catch (e) {
+        return null;
+      }
+    }
+  },
+
 };
