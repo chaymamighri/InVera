@@ -66,6 +66,46 @@ public class ClientController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteClient(@PathVariable Integer id) {
+        System.out.println("=== REQUÊTE DE SUPPRESSION ===");
+        System.out.println("ID client à supprimer: " + id);
+
+        try {
+            clientService.deleteClient(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Client supprimé avec succès");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            System.err.println(" Client non trouvé: " + e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (IllegalStateException e) {
+            System.err.println("Conflit: " + e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la suppression: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur lors de la suppression: " + e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 
     @PostMapping("/update/{id}")
     public ResponseEntity<Map<String, Object>> updateClient(
@@ -90,7 +130,7 @@ public class ClientController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("❌ Erreur: " + e.getMessage());
+            System.err.println("Erreur: " + e.getMessage());
             e.printStackTrace();
 
             Map<String, Object> errorResponse = new HashMap<>();
