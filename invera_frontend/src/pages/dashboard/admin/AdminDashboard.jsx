@@ -77,25 +77,7 @@ const AdminDashboard = () => {
           ))}
         </nav>
 
-        {/* User info */}
-        <div className="p-4 border-t">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white font-bold">
-              {admin?.name?.charAt(0) || 'A'}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">
-                {admin?.name || 'Admin'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {admin?.email || 'admin@imbusflow.com'}
-              </p>
-            </div>
-            <button onClick={logout}>
-              <ArrowRightOnRectangleIcon className="w-5 h-5 text-gray-500" />
-            </button>
-          </div>
-        </div>
+        
       </aside>
 
       {/* ================= Main ================= */}

@@ -13,6 +13,22 @@ const clearSession = () => {
   );
 };
 
+const redirectToLoginOnce = (message) => {
+  // show on login page too
+  if (message) sessionStorage.setItem('authError', message);
+
+  // avoid redirect loop
+  if (window.location.pathname === '/login') return;
+
+  // prevent multiple triggers
+  if (window.__redirectingToLogin) return;
+  window.__redirectingToLogin = true;
+
+  setTimeout(() => {
+    window.location.href = '/login';
+  }, 300);
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -39,14 +55,15 @@ api.interceptors.response.use(
     if (status === 401) {
       clearSession();
       toast.error('Session expirée. Veuillez vous reconnecter.');
-      setTimeout(() => (window.location.href = '/login'), 400);
+      redirectToLoginOnce('Session expirée. Veuillez vous reconnecter.');
     }
 
     if (status === 403) {
-      // ✅ typical for "account deactivated"
+      // typical for "account deactivated"
       clearSession();
-      toast.error(typeof msg === 'string' ? msg : 'Accès refusé. Compte désactivé.');
-      setTimeout(() => (window.location.href = '/login'), 500);
+      const text = typeof msg === 'string' ? msg : 'Accès refusé. Compte désactivé.';
+      toast.error(text);
+      redirectToLoginOnce(text);
     }
 
     return Promise.reject(error);

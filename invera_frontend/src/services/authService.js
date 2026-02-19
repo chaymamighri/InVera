@@ -11,11 +11,12 @@ export const authService = {
     });
 
     const data = response.data;
-
     if (!data.token) throw new Error('Aucun token reçu du serveur');
 
     const cleanedToken = String(data.token || '').replace(/^"|"$/g, '').trim();
-    const normalizedToken = cleanedToken.startsWith('Bearer ') ? cleanedToken.slice(7) : cleanedToken;
+    const normalizedToken = cleanedToken.startsWith('Bearer ')
+      ? cleanedToken.slice(7)
+      : cleanedToken;
 
     localStorage.setItem('token', normalizedToken);
 
@@ -65,13 +66,13 @@ export const authService = {
     const response = await api.get(`${API_URL}/me`);
     const data = response.data;
 
-    // ✅ If user is inactive => force logout
-    if (data.active === false) {
+    // If backend provides active, enforce it
+    if (data?.active === false) {
       await authService.logout();
       throw new Error("Compte désactivé. Contactez l'administrateur.");
     }
 
-    return {
+    const result = {
       success: true,
       data: {
         id: data.id,
@@ -84,6 +85,13 @@ export const authService = {
         active: data.active
       }
     };
+
+    // ✅ Keep localStorage fresh
+    if (result?.data?.role) localStorage.setItem('userRole', result.data.role);
+    if (result?.data?.name) localStorage.setItem('userName', result.data.name);
+    if (result?.data?.email) localStorage.setItem('userEmail', result.data.email);
+
+    return result;
   },
 
   createPassword: async (code, email, newPassword) => {
@@ -96,7 +104,6 @@ export const authService = {
   },
 
   forgotPassword: async (email) => {
-    // backend will now return 403 if inactive
     await api.post(
       `/auth/forgot-password?email=${encodeURIComponent(email)}`,
       {},
@@ -137,7 +144,7 @@ export const authService = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         ...options.headers,
       },
     });
