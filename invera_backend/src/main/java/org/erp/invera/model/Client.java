@@ -35,9 +35,6 @@ public class Client {
     @Column(name = "type_client", nullable = false)
     private TypeClient typeClient;
 
-    @Column(name = "remise_standard", nullable = true)
-    private Double remiseStandard;
-
     @Column(name = "remise_client_fidele", nullable = true)
     private Double remiseClientFidele;
 

@@ -52,7 +52,6 @@ public class ClientService {
         client.setEmail(clientDTO.getEmail());
 
         // Initialiser les remises à null (nullable)
-        client.setRemiseStandard(null);
         client.setRemiseClientFidele(null);
         client.setRemiseClientVIP(null);
         client.setRemiseClientProfessionnelle(null);
@@ -166,7 +165,6 @@ public class ClientService {
                                          Double remiseProfessionnelle) {
         Client client = getClientById(clientId);
 
-        client.setRemiseStandard(remiseStandard);
         client.setRemiseClientFidele(remiseFidele);
         client.setRemiseClientVIP(remiseVIP);
         client.setRemiseClientProfessionnelle(remiseProfessionnelle);
@@ -186,26 +184,45 @@ public class ClientService {
     /**
      * Mettre à jour un client complet
      */
-    public ClientDTO updateClient(Integer id, Client clientDetails) {
-        Client client = getClientById(id);
+    public Client updateClient(Integer id, NouveauClientDTO clientDTO) {
+        // Vérifier si le client existe
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Client non trouvé avec l'ID: " + id));
 
-        client.setNom(clientDetails.getNom());
-        client.setPrenom(clientDetails.getPrenom());
-        client.setTelephone(clientDetails.getTelephone());
-        client.setAdresse(clientDetails.getAdresse());
-        client.setEmail(clientDetails.getEmail());
-        client.setTypeClient(clientDetails.getTypeClient());
+        System.out.println("Mise à jour du client: " + client.getNom());
 
-        // Mise à jour des remises
-        client.setRemiseStandard(clientDetails.getRemiseStandard());
-        client.setRemiseClientFidele(clientDetails.getRemiseClientFidele());
-        client.setRemiseClientVIP(clientDetails.getRemiseClientVIP());
-        client.setRemiseClientProfessionnelle(clientDetails.getRemiseClientProfessionnelle());
+        // Vérifier si le nouveau téléphone est déjà utilisé par un autre client
+        if (!client.getTelephone().equals(clientDTO.getTelephone()) &&
+                clientRepository.existsByTelephone(clientDTO.getTelephone())) {
+            throw new RuntimeException("Un autre client avec ce numéro de téléphone existe déjà");
+        }
 
-        Client updatedClient = clientRepository.save(client);
-        return ClientDTO.fromEntity(updatedClient);
+        // Vérifier si le nouvel email est déjà utilisé par un autre client
+        if (clientDTO.getEmail() != null && !clientDTO.getEmail().isEmpty() &&
+                !client.getEmail().equals(clientDTO.getEmail()) &&
+                clientRepository.existsByEmail(clientDTO.getEmail())) {
+            throw new RuntimeException("Un autre client avec cet email existe déjà");
+        }
+
+        // Mise à jour des champs avec les données du DTO
+        client.setNom(clientDTO.getNom());
+        client.setPrenom(clientDTO.getPrenom());
+        client.setEmail(clientDTO.getEmail());
+        client.setTelephone(clientDTO.getTelephone());
+        client.setAdresse(clientDTO.getAdresse());
+
+        // Conversion et mise à jour du type de client
+        if (clientDTO.getType() != null) {
+            Client.TypeClient nouveauType = Client.TypeClient.valueOf(clientDTO.getType().toUpperCase());
+            client.setTypeClient(nouveauType);
+        }
+
+        // Sauvegarde
+        Client savedClient = clientRepository.save(client);
+        System.out.println("✅ Client mis à jour avec succès: " + savedClient.getIdClient());
+
+        return savedClient;
     }
-
     /**
      * Calculer la remise selon le type de client (valeur par défaut si non personnalisée)
      */
@@ -241,14 +258,14 @@ public class ClientService {
             case FIDELE:
                 return client.getRemiseClientFidele() != null ?
                         client.getRemiseClientFidele() : calculerRemiseParType(Client.TypeClient.FIDELE);
-            case PARTICULIER:
             case ENTREPRISE:
+                return client.getRemiseClientProfessionnelle() != null ?
+                        client.getRemiseClientProfessionnelle() : calculerRemiseParType(Client.TypeClient.ENTREPRISE);
+            case PARTICULIER:
             default:
-                return client.getRemiseStandard() != null ?
-                        client.getRemiseStandard() : calculerRemiseParType(client.getTypeClient());
+                return 0.0;
         }
     }
-
     /**
      * Supprimer un client
      */

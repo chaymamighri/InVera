@@ -1,6 +1,8 @@
 package org.erp.invera.service;
 
 import jakarta.mail.internet.MimeMessage;
+import org.erp.invera.model.User;
+import org.erp.invera.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -16,6 +18,9 @@ public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public void sendResetPasswordEmail(String email, String code) {
         try {
@@ -79,33 +84,71 @@ public class EmailService {
                     new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("Activate Your Account - Invera ERP");
+            helper.setSubject("🔑 Bienvenue sur Invera ERP - Activez votre compte");
+
+            // Récupérer les informations du NOUVEL UTILISATEUR
+            User newUser = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String newUserNomComplet = newUser.getPrenom() + " " + newUser.getNom();
 
             String htmlContent = """
-                <h2>Welcome to Invera ERP</h2>
-                <p>An administrator created an account for you.</p>
-                <p>Click the button below to create your password:</p>
-
-                <a href="%s"
-                   style="padding:10px 20px;
-                          background-color:#1976d2;
-                          color:white;
-                          text-decoration:none;
-                          border-radius:5px;">
-                    Create Password
-                </a>
-
-                <p>This link expires in 24 hours.</p>
-                """.formatted(link);
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1>Invera ERP</h1>
+                        </div>
+                    
+                        <div style="padding: 20px; border: 1px solid #e0e0e0; border-top: none;">
+                            <h2 style="color: #1976d2;">Bonjour %s,</h2>
+                    
+                            <p>L'administrateur de la plateforme Invera a créé votre compte.</p>
+                    
+                            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Email :</strong> %s</p>
+                                <p style="margin: 5px 0;"><strong>Nom :</strong> %s</p>
+                                <p style="margin: 5px 0;"><strong>Prénom :</strong> %s</p>
+                            </div>
+                    
+                            <p>Pour finaliser votre inscription et créer votre mot de passe, cliquez sur le bouton ci-dessous :</p>
+                    
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="%s" 
+                                   style="background-color: #1976d2; 
+                                          color: white; 
+                                          padding: 12px 30px; 
+                                          text-decoration: none; 
+                                          border-radius: 5px;
+                                          font-weight: bold;">
+                                    🔐 Créer mon mot de passe
+                                </a>
+                            </div>
+                    
+                            <p style="color: #666; font-size: 14px;">
+                                ⏰ Ce lien expirera dans <strong>24 heures</strong>.
+                            </p>
+                    
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                    
+                            <p style="color: #999; font-size: 12px; text-align: center;">
+                                &copy; 2026 Invera ERP. Tous droits réservés.
+                            </p>
+                        </div>
+                    </div>
+                    """.formatted(
+                    newUserNomComplet,
+                    email,
+                    newUser.getNom(),
+                    newUser.getPrenom(),
+                    link
+            );
 
             helper.setText(htmlContent, true);
-
             mailSender.send(message);
 
         } catch (Exception e) {
-            throw new RuntimeException("Error sending activation email");
+            throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
         }
-    }
 
+    }
 }
 
