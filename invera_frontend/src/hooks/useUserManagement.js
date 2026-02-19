@@ -1,5 +1,6 @@
 // src/hooks/useUserManagement.js
 import { useState, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { userService } from '../services/userService';
 
 const parseActive = (val) => {
@@ -10,7 +11,6 @@ const parseActive = (val) => {
     if (v === 'true' || v === 't' || v === '1' || v === 'yes') return true;
     if (v === 'false' || v === 'f' || v === '0' || v === 'no') return false;
   }
-  // IMPORTANT: if missing => false (because new users are false)
   return false;
 };
 
@@ -24,8 +24,7 @@ export const useUserManagement = () => {
     try {
       const users = await userService.getAllUsers();
 
-      return (users || []).map(u => {
-        // ✅ IMPORTANT: support different backend field names
+      return (users || []).map((u) => {
         const rawActive =
           u.active !== undefined ? u.active :
           u.isActive !== undefined ? u.isActive :
@@ -38,13 +37,10 @@ export const useUserManagement = () => {
           name: `${u.nom} ${u.prenom}`.trim(),
           email: u.email,
           role:
-            u.role === 'COMMERCIAL'
-              ? 'sales'
-              : u.role === 'RESPONSABLE_ACHAT'
-              ? 'procurement'
-              : u.role === 'ADMIN'
-              ? 'admin'
-              : String(u.role || '').toLowerCase(),
+            u.role === 'COMMERCIAL' ? 'sales' :
+            u.role === 'RESPONSABLE_ACHAT' ? 'procurement' :
+            u.role === 'ADMIN' ? 'admin' :
+            String(u.role || '').toLowerCase(),
           active: parseActive(rawActive),
         };
       });
@@ -70,14 +66,19 @@ export const useUserManagement = () => {
         email: user.email,
         nom,
         prenom,
-        role: user.role === 'sales' ? 'COMMERCIAL' : user.role === 'procurement' ? 'RESPONSABLE_ACHAT' : 'COMMERCIAL',
+        role:
+          user.role === 'sales' ? 'COMMERCIAL' :
+          user.role === 'procurement' ? 'RESPONSABLE_ACHAT' :
+          'COMMERCIAL',
       };
 
       await userService.createUser(payload);
+      toast.success('Utilisateur créé. Email de création envoyé.');
     } catch (err) {
-      const message = typeof err === 'string' ? err : err.message || "Erreur lors de l'ajout";
-      setError(message);
-      throw new Error(message);
+      const msg = err?.message || err?.toString?.() || "Erreur lors de l'ajout";
+      toast.error(msg);
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
@@ -96,14 +97,19 @@ export const useUserManagement = () => {
         email: updatedData.email,
         nom,
         prenom,
-        role: updatedData.role === 'sales' ? 'COMMERCIAL' : updatedData.role === 'procurement' ? 'RESPONSABLE_ACHAT' : 'COMMERCIAL',
+        role:
+          updatedData.role === 'sales' ? 'COMMERCIAL' :
+          updatedData.role === 'procurement' ? 'RESPONSABLE_ACHAT' :
+          'COMMERCIAL',
       };
 
       await userService.updateUser(updatedData.email, payload);
+      toast.success('Utilisateur mis à jour.');
     } catch (err) {
-      const message = typeof err === 'string' ? err : err.message || 'Erreur lors de la mise à jour';
-      setError(message);
-      throw new Error(message);
+      const msg = err?.message || err?.toString?.() || 'Erreur lors de la mise à jour';
+      toast.error(msg);
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
@@ -114,10 +120,12 @@ export const useUserManagement = () => {
     setError(null);
     try {
       await userService.setUserActiveStatus(email, active);
+      toast.success(active ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
     } catch (err) {
-      const message = typeof err === 'string' ? err : err.message || 'Erreur lors du changement de statut';
-      setError(message);
-      throw new Error(message);
+      const msg = err?.message || err?.toString?.() || 'Erreur lors du changement de statut';
+      toast.error(msg);
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
@@ -128,10 +136,12 @@ export const useUserManagement = () => {
     setError(null);
     try {
       await userService.deleteUser(email);
+      toast.success('Utilisateur supprimé.');
     } catch (err) {
-      const message = typeof err === 'string' ? err : err.message || 'Erreur lors de la suppression';
-      setError(message);
-      throw new Error(message);
+      const msg = err?.message || err?.toString?.() || 'Erreur lors de la suppression';
+      toast.error(msg);
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }

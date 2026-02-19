@@ -1,6 +1,7 @@
 // src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
 import SalesDashboard from './pages/dashboard/sales/SalesDashboard';
@@ -18,14 +19,11 @@ import CreatePasswordPage from './pages/CreatePasswordPage';
 import LoginPage from './pages/auth/loginPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 
-// Mapping des rôles entre API (backend) et frontend
 const ROLE_MAPPING = {
   'ADMIN': 'admin',
   'ROLE_ADMIN': 'admin',
-
   'COMMERCIAL': 'sales',
   'ROLE_COMMERCIAL': 'sales',
-
   'RESPONSABLE_ACHAT': 'procurement',
   'ROLE_RESPONSABLE_ACHAT': 'procurement'
 };
@@ -36,7 +34,6 @@ const normalizeBackendRole = (role) => {
   return ROLE_MAPPING[normalized] || normalized.toLowerCase();
 };
 
-// ✅ Try to infer role from JWT if localStorage role is missing
 const inferRoleFromToken = (token) => {
   try {
     const raw = String(token || '').trim();
@@ -51,22 +48,14 @@ const inferRoleFromToken = (token) => {
       payload?.authorities ||
       payload?.scope;
 
-    // authorities can be: ["ROLE_ADMIN"] or "ROLE_ADMIN"
-    if (Array.isArray(possible)) {
-      return possible[0] ? String(possible[0]) : null;
-    }
-    if (typeof possible === 'string') {
-      // sometimes scope contains: "ROLE_ADMIN ROLE_X"
-      const first = possible.split(' ').find(Boolean);
-      return first || possible;
-    }
+    if (Array.isArray(possible)) return possible[0] ? String(possible[0]) : null;
+    if (typeof possible === 'string') return possible.split(' ').find(Boolean) || possible;
     return null;
   } catch {
     return null;
   }
 };
 
-// Layout général pour les pages protégées
 const Layout = ({ children, userRole }) => (
   <div className="min-h-screen flex flex-col">
     <Header userRole={userRole} />
@@ -74,10 +63,8 @@ const Layout = ({ children, userRole }) => (
   </div>
 );
 
-// Layout pour les pages publiques
 const PublicLayout = ({ children }) => children;
 
-// ✅ Auth + role getter (NO MORE default admin)
 const getUserData = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
@@ -86,23 +73,20 @@ const getUserData = () => {
   const userName = localStorage.getItem('userName') || 'Utilisateur';
   const userEmail = localStorage.getItem('userEmail') || '';
 
-  // role fallback: infer from token if not stored
   const inferred = storedRole || inferRoleFromToken(token);
   const frontendRole = normalizeBackendRole(inferred);
 
-  // If we cannot determine role, treat as unauthenticated (prevents "default admin")
   if (!frontendRole) return null;
 
   return {
     token,
-    role: frontendRole,          // admin | sales | procurement
-    originalRole: inferred,      // backend format
+    role: frontendRole,
+    originalRole: inferred,
     name: userName,
     email: userEmail
   };
 };
 
-// Redirection automatique selon rôle
 const DashboardRedirect = () => {
   const userData = getUserData();
   if (!userData) return <Navigate to="/login" />;
@@ -115,7 +99,6 @@ const DashboardRedirect = () => {
   }
 };
 
-// Route protégée avec contrôle de rôle
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userData = getUserData();
   if (!userData) return <Navigate to="/login" />;
@@ -125,7 +108,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
-// Page d'erreur 403
 const UnauthorizedPage = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
@@ -149,19 +131,23 @@ const UnauthorizedPage = () => (
 function App() {
   return (
     <Router>
-      <Routes>
+      {/* ✅ Professional toasts */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          style: { borderRadius: '12px' }
+        }}
+      />
 
-        {/* Pages publiques */}
+      <Routes>
         <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
         <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
-        {/* Dashboard Admin */}
         <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
 
-        {/* Dashboard Procurement */}
         <Route path="/dashboard/procurement" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>} />
 
-        {/* Dashboard Sales */}
         <Route path="/dashboard/sales" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardContent />} />
@@ -171,20 +157,14 @@ function App() {
           <Route path="invoices" element={<InvoicingPage />} />
         </Route>
 
-        {/* Pages partagées */}
         <Route path="/profile" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><SettingsPage /></ProtectedRoute>} />
 
-        {/* Redirection selon rôle */}
         <Route path="/dashboard" element={<DashboardRedirect />} />
-
-        {/* Page 403 */}
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-        {/* Redirection racine */}
         <Route path="/" element={getUserData() ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
 
-        {/* Page 404 */}
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="text-center">

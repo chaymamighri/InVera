@@ -1,5 +1,6 @@
 // src/pages/admin/users/gestionUsers.jsx
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -24,6 +25,30 @@ const Modal = ({ open, onClose, children }) => {
         {children}
       </div>
     </div>
+  );
+};
+
+const ConfirmModal = ({ open, onCancel, onConfirm, title, message, confirmText = "Confirmer" }) => {
+  if (!open) return null;
+  return (
+    <Modal open={open} onClose={onCancel}>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+      <p className="text-sm text-gray-600 mb-6">{message}</p>
+      <div className="flex gap-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={onConfirm}
+          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          {confirmText}
+        </button>
+      </div>
+    </Modal>
   );
 };
 
@@ -91,38 +116,48 @@ const GestionUsers = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [localError, setLocalError] = useState(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+
+  useEffect(() => { fetchUsers(); }, []);
 
   const fetchUsers = async () => {
     try {
       const data = await getUsers();
       setUsers(data);
+      setLocalError(null);
     } catch (err) {
       setLocalError(err.message);
     }
   };
 
   const handleAddUser = async () => {
+    if (!newUser.name.trim() || !newUser.email.trim()) {
+      toast.error("Veuillez remplir le nom et l'email.");
+      return;
+    }
     try {
       await addUser(newUser);
       await fetchUsers();
       setNewUser({ name: '', email: '', role: 'sales' });
       setAddModalOpen(false);
-    } catch (err) {
-      alert(err.message);
+    } catch {
+      // toast handled in hook
     }
   };
 
   const handleEditUser = async () => {
+    if (!editingUser?.name?.trim() || !editingUser?.email?.trim()) {
+      toast.error("Nom et email requis.");
+      return;
+    }
     try {
       await updateUser(editingUser.id, editingUser);
       await fetchUsers();
       setEditingUser(null);
       setEditModalOpen(false);
-    } catch (err) {
-      alert(err.message);
+    } catch {
+      // toast handled
     }
   };
 
@@ -131,26 +166,28 @@ const GestionUsers = () => {
       const newActive = !user.active;
       await setUserActiveStatus(user.email, newActive);
 
-      // update local optimistically
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: newActive } : u));
-    } catch (err) {
-      alert(err.message);
+    } catch {
       await fetchUsers();
     }
   };
 
-  const handleDeleteUser = async (user) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${user.name} ?`)) {
-      try {
-        await deleteUserByEmail(user.email);
-        await fetchUsers();
-      } catch (err) {
-        alert(err.message);
-      }
+  const askDeleteUser = (user) => {
+    setPendingDelete(user);
+    setConfirmOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!pendingDelete) return;
+    try {
+      await deleteUserByEmail(pendingDelete.email);
+      await fetchUsers();
+    } finally {
+      setConfirmOpen(false);
+      setPendingDelete(null);
     }
   };
 
-  // ✅ Filter improved (name/email/role label)
   const filteredUsers = users.filter(user => {
     const t = searchTerm.trim().toLowerCase();
 
@@ -171,7 +208,15 @@ const GestionUsers = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <ConfirmModal
+        open={confirmOpen}
+        onCancel={() => { setConfirmOpen(false); setPendingDelete(null); }}
+        onConfirm={confirmDeleteUser}
+        title="Supprimer utilisateur"
+        message={pendingDelete ? `Voulez-vous vraiment supprimer ${pendingDelete.name} ? Cette action est irréversible.` : ''}
+        confirmText="Supprimer"
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
@@ -186,7 +231,6 @@ const GestionUsers = () => {
         </button>
       </div>
 
-      {/* Filtres */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[200px]">
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -216,14 +260,12 @@ const GestionUsers = () => {
         <div className="text-sm text-gray-500">{filteredUsers.length} utilisateur(s)</div>
       </div>
 
-      {/* Erreur éventuelle */}
       {localError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {localError}
         </div>
       )}
 
-      {/* Tableau des utilisateurs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full min-w-[600px]">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -235,6 +277,7 @@ const GestionUsers = () => {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-gray-200">
             {filteredUsers.map(user => (
               <tr key={user.id} className="hover:bg-gray-50 transition">
@@ -274,7 +317,7 @@ const GestionUsers = () => {
                     <PencilIcon className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => handleDeleteUser(user)}
+                    onClick={() => askDeleteUser(user)}
                     className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
                     disabled={loading}
                   >
@@ -284,10 +327,10 @@ const GestionUsers = () => {
               </tr>
             ))}
           </tbody>
+
         </table>
       </div>
 
-      {/* Modale d'ajout */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Nouvel Utilisateur</h2>
         <div className="space-y-4">
@@ -331,7 +374,6 @@ const GestionUsers = () => {
         </div>
       </Modal>
 
-      {/* Modale d'édition */}
       <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Modifier Utilisateur</h2>
         {editingUser && (
@@ -354,7 +396,6 @@ const GestionUsers = () => {
               options={[
                 { label: 'Commercial', value: 'sales' },
                 { label: 'Responsable Achat', value: 'procurement' },
-                { label: 'Admin', value: 'admin' },
               ]}
             />
             <div className="flex gap-3 mt-4">

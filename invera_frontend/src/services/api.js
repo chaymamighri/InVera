@@ -1,12 +1,17 @@
 // src/services/api.js
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const api = axios.create({
   baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
+
+const clearSession = () => {
+  ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((k) =>
+    localStorage.removeItem(k)
+  );
+};
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -25,16 +30,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    const msg =
+      error?.response?.data?.message ||
+      error?.response?.data ||
+      error?.message ||
+      'Erreur serveur';
 
-    // ✅ logout on 401 OR 403 (deactivated user => 403)
-    if (status === 401 || status === 403) {
-      ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((k) =>
-        localStorage.removeItem(k)
-      );
-      // redirect (hard)
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+    if (status === 401) {
+      clearSession();
+      toast.error('Session expirée. Veuillez vous reconnecter.');
+      setTimeout(() => (window.location.href = '/login'), 400);
+    }
+
+    if (status === 403) {
+      // ✅ typical for "account deactivated"
+      clearSession();
+      toast.error(typeof msg === 'string' ? msg : 'Accès refusé. Compte désactivé.');
+      setTimeout(() => (window.location.href = '/login'), 500);
     }
 
     return Promise.reject(error);
