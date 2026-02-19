@@ -22,12 +22,12 @@ import ClientManagePage from './pages/dashboard/sales/clients/ClientPageManage';
 import ReportVentePage from './pages/dashboard/sales/reports/ReportVentePage';
 
 const ROLE_MAPPING = {
-  'ADMIN': 'admin',
-  'ROLE_ADMIN': 'admin',
-  'COMMERCIAL': 'sales',
-  'ROLE_COMMERCIAL': 'sales',
-  'RESPONSABLE_ACHAT': 'procurement',
-  'ROLE_RESPONSABLE_ACHAT': 'procurement'
+  ADMIN: 'admin',
+  ROLE_ADMIN: 'admin',
+  COMMERCIAL: 'sales',
+  ROLE_COMMERCIAL: 'sales',
+  RESPONSABLE_ACHAT: 'procurement',
+  ROLE_RESPONSABLE_ACHAT: 'procurement'
 };
 
 const normalizeBackendRole = (role) => {
@@ -58,15 +58,6 @@ const inferRoleFromToken = (token) => {
   }
 };
 
-const Layout = ({ children, userRole }) => (
-  <div className="min-h-screen flex flex-col">
-    <Header userRole={userRole} />
-    <main className="flex-grow bg-gray-50">{children}</main>
-  </div>
-);
-
-const PublicLayout = ({ children }) => children;
-
 const getUserData = () => {
   const token = localStorage.getItem('token');
   if (!token) return null;
@@ -89,23 +80,36 @@ const getUserData = () => {
   };
 };
 
+const Layout = ({ children, userRole }) => (
+  <div className="min-h-screen flex flex-col">
+    <Header userRole={userRole} />
+    <main className="flex-grow bg-gray-50">{children}</main>
+  </div>
+);
+
+const PublicLayout = ({ children }) => children;
+
 const DashboardRedirect = () => {
   const userData = getUserData();
-  if (!userData) return <Navigate to="/login" />;
+  if (!userData) return <Navigate to="/login" replace />;
 
   switch (userData.role) {
-    case 'admin': return <Navigate to="/dashboard/admin" />;
-    case 'sales': return <Navigate to="/dashboard/sales/dashboard" />;
-    case 'procurement': return <Navigate to="/dashboard/procurement" />;
-    default: return <Navigate to="/login" />;
+    case 'admin':
+      return <Navigate to="/dashboard/admin" replace />;
+    case 'sales':
+      return <Navigate to="/dashboard/sales/dashboard" replace />;
+    case 'procurement':
+      return <Navigate to="/dashboard/procurement" replace />;
+    default:
+      return <Navigate to="/login" replace />;
   }
 };
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const userData = getUserData();
-  if (!userData) return <Navigate to="/login" />;
+  if (!userData) return <Navigate to="/login" replace />;
 
-  if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" />;
+  if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
 
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
@@ -119,10 +123,16 @@ const UnauthorizedPage = () => (
         Vous n'avez pas les permissions nécessaires pour accéder à cette page.
       </p>
       <div className="mt-6 space-x-4">
-        <button onClick={() => window.history.back()} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+        <button
+          onClick={() => window.history.back()}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+        >
           Retour
         </button>
-        <button onClick={() => window.location.href = '/login'} className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700">
+        <button
+          onClick={() => (window.location.href = '/login')}
+          className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+        >
           Se connecter
         </button>
       </div>
@@ -133,7 +143,6 @@ const UnauthorizedPage = () => (
 function App() {
   return (
     <Router>
-      {/* ✅ Professional toasts */}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -143,14 +152,28 @@ function App() {
       />
 
       <Routes>
+        {/* ✅ ALWAYS LAND ON LOGIN */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Public */}
         <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
         <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
-        <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+        {/* Dashboards */}
+        <Route
+          path="/dashboard/admin"
+          element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>}
+        />
 
-        <Route path="/dashboard/procurement" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>} />
+        <Route
+          path="/dashboard/procurement"
+          element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>}
+        />
 
-        <Route path="/dashboard/sales" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}>
+        <Route
+          path="/dashboard/sales"
+          element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}
+        >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardContent />} />
           <Route path="products" element={<ProductsPage />} />
@@ -161,25 +184,38 @@ function App() {
          <Route path="reports" element={<ReportVentePage />} />
         </Route>
 
-        <Route path="/profile" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><SettingsPage /></ProtectedRoute>} />
+        {/* Shared */}
+        <Route
+          path="/profile"
+          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>}
+        />
+        <Route
+          path="/settings"
+          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><SettingsPage /></ProtectedRoute>}
+        />
 
+        {/* Redirect helper */}
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-        <Route path="/" element={getUserData() ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-
-        <Route path="*" element={
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-700">404</h1>
-              <h2 className="text-2xl font-semibold mt-4">Page non trouvée</h2>
-              <button onClick={() => window.location.href = '/'} className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
-                Retour à l'accueil
-              </button>
+        {/* 404 */}
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-700">404</h1>
+                <h2 className="text-2xl font-semibold mt-4">Page non trouvée</h2>
+                <button
+                  onClick={() => (window.location.href = '/login')}
+                  className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Aller à la connexion
+                </button>
+              </div>
             </div>
-          </div>
-        }/>
+          }
+        />
       </Routes>
     </Router>
   );
