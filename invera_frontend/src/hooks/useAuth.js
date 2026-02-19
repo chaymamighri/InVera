@@ -10,27 +10,28 @@ export const useAuth = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          const result = await authService.getCurrentUser();
-          if (result.success) {
-            setUser(result.data);
+      if (!authService.isAuthenticated()) return;
 
-            localStorage.setItem('userRole', result.data.role);
-            localStorage.setItem('userName', result.data.name);
-            localStorage.setItem('userEmail', result.data.email);
-          }
-        } catch (e) {
-          await authService.logout();
-          navigate('/login');
+      try {
+        const result = await authService.getCurrentUser();
+        if (result.success) {
+          setUser(result.data);
+
+          localStorage.setItem('userRole', result.data.role);
+          localStorage.setItem('userName', result.data.name);
+          localStorage.setItem('userEmail', result.data.email);
         }
+      } catch {
+        await authService.logout();
+        // keep it simple
+        navigate('/login');
       }
     };
 
     initializeAuth();
   }, [navigate]);
 
-  // ✅ Poll to auto logout quickly if admin deactivates user
+  // ✅ Poll to auto logout if admin deactivates user
   useEffect(() => {
     if (!authService.isAuthenticated()) return;
 
@@ -42,9 +43,9 @@ export const useAuth = () => {
           navigate('/login');
         }
       } catch {
-        // if 401/403 happens, interceptor will redirect anyway
+        // 401/403 handled by interceptor
       }
-    }, 20000); // 20 seconds
+    }, 20000);
 
     return () => clearInterval(interval);
   }, [navigate]);
@@ -77,15 +78,11 @@ export const useAuth = () => {
           default:
             dashboardPath = '/dashboard';
         }
-        localStorage.setItem('userDashboard', dashboardPath);
 
+        localStorage.setItem('userDashboard', dashboardPath);
         setUser(result.data.user);
 
-        return {
-          success: true,
-          data: result.data,
-          dashboard: dashboardPath
-        };
+        return { success: true, data: result.data, dashboard: dashboardPath };
       }
 
       throw new Error('Erreur de connexion');
@@ -129,17 +126,13 @@ export const useAuth = () => {
     return user?.role || localStorage.getItem('userRole');
   }, [user]);
 
-  const isAuthenticated = useCallback(() => {
-    return authService.isAuthenticated();
-  }, []);
+  const isAuthenticated = useCallback(() => authService.isAuthenticated(), []);
 
   const forgotPassword = async (email) => {
     setLoading(true);
     setError(null);
-
     try {
-      const result = await authService.forgotPassword(email);
-      return result;
+      return await authService.forgotPassword(email);
     } catch (err) {
       setError(err.message);
       throw err;
@@ -151,10 +144,8 @@ export const useAuth = () => {
   const resetPassword = async (code, email, newPassword) => {
     setLoading(true);
     setError(null);
-
     try {
-      const result = await authService.resetPassword(code, email, newPassword);
-      return result;
+      return await authService.resetPassword(code, email, newPassword);
     } catch (err) {
       setError(err.message);
       throw err;
@@ -165,9 +156,7 @@ export const useAuth = () => {
 
   const getSavedEmail = () => {
     const rememberMe = localStorage.getItem('rememberMe');
-    if (rememberMe === 'true') {
-      return localStorage.getItem('savedEmail') || '';
-    }
+    if (rememberMe === 'true') return localStorage.getItem('savedEmail') || '';
     return '';
   };
 
