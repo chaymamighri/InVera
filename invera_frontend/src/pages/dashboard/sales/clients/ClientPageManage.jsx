@@ -2,16 +2,19 @@ import React, { useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import ClientFormModal from './components/ClientFormModal';
 import UpdateClientModal from './components/UpdateClientModal';
-import ClientDetailsModal from './components/ClientDetailsModal'; // ← AJOUTER CET IMPORT
+import ClientDetailsModal from './components/ClientDetailsModal';
 import ClientFilters from './components/ClientFilters';
 import ClientStats from './components/ClientStats';
+import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import useClients from '../../../../hooks/useClient';
 
 const ClientManagePage = () => {
   const [openModal, setOpenModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
-  const [openDetailsModal, setOpenDetailsModal] = useState(false); // ← AJOUTER CET ÉTAT
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [clientToDelete, setClientToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: '' });
   
   // État pour le tri
@@ -29,6 +32,7 @@ const ClientManagePage = () => {
     fetchClients, 
     createClient,
     updateClient,
+    deleteClient,
     checkTelephone,
     getRemiseForType,
     clientTypes 
@@ -81,9 +85,35 @@ const ClientManagePage = () => {
     setOpenUpdateModal(true);
   };
 
-  const handleViewDetails = (client) => { // ← AJOUTER CETTE FONCTION
+  const handleViewDetails = (client) => {
     setSelectedClient(client);
     setOpenDetailsModal(true);
+  };
+
+  // Fonctions pour la suppression
+  const handleDeleteClick = (client) => {
+    setClientToDelete(client);
+    setOpenDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!clientToDelete) return;
+    
+    try {
+      await deleteClient(clientToDelete.idClient);
+      toast.success('Client supprimé avec succès');
+      fetchClients();
+    } catch (error) {
+      toast.error(error.message || 'Erreur lors de la suppression');
+    } finally {
+      setOpenDeleteModal(false);
+      setClientToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setOpenDeleteModal(false);
+    setClientToDelete(null);
   };
 
   const handleModalClose = () => {
@@ -96,7 +126,7 @@ const ClientManagePage = () => {
     setSelectedClient(null);
   };
 
-  const handleDetailsModalClose = () => { // ← AJOUTER CETTE FONCTION
+  const handleDetailsModalClose = () => {
     setOpenDetailsModal(false);
     setSelectedClient(null);
   };
@@ -247,13 +277,22 @@ const ClientManagePage = () => {
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleViewDetails(client)} // ← AJOUTER L'ONCLICK
+                          onClick={() => handleViewDetails(client)}
                           className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Voir détails"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(client)}
+                          className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
@@ -265,7 +304,7 @@ const ClientManagePage = () => {
           </table>
         </div>
 
-         {/* Pagination */}
+        {/* Pagination */}
         {!loading && sortedClients?.length > 0 && (
           <div className="px-6 py-5 border-t border-gray-200 bg-gray-50">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -401,6 +440,14 @@ const ClientManagePage = () => {
         open={openDetailsModal}
         onClose={handleDetailsModalClose}
         client={selectedClient}
+      />
+
+      {/* Modal de confirmation de suppression */}
+      <ConfirmDeleteModal
+        isOpen={openDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
       />
     </div>
   );

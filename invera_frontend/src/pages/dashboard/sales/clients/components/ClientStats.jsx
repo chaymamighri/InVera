@@ -25,7 +25,7 @@ const ClientStats = ({ clients }) => {
   );
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <StatCard
         title="Total"
         value={stats.total}
@@ -60,6 +60,13 @@ const ClientStats = ({ clients }) => {
         icon="⭐"
         bgColor="bg-rose-50"
         textColor="text-rose-600"
+      />
+      <StatCard
+        title="Fidèles"
+        value={stats.fidele}
+        icon="🔁"
+        bgColor="bg-emerald-50"
+        textColor="text-emerald-600"
       />
     </div>
   );

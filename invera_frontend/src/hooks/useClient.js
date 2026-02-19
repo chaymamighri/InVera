@@ -103,7 +103,7 @@ const useClients = (filters = {}) => {
       const response = await clientService.updateClient(id, clientData);
       if (response?.success) {
         toast.success(response.message || 'Client modifié avec succès');
-        await fetchClients(); // ✅ fetchClients recalcule les stats automatiquement
+        await fetchClients(); 
         return response;
       }
     } catch (err) {
@@ -143,7 +143,7 @@ const useClients = (filters = {}) => {
       const response = await clientService.deleteClient?.(id);
       if (response?.success) {
         toast.success('Client supprimé avec succès');
-        await fetchClients(); // ✅ fetchClients recalcule les stats automatiquement
+        await fetchClients(); 
       }
     } catch (err) {
       toast.error('Erreur lors de la suppression');
@@ -151,13 +151,13 @@ const useClients = (filters = {}) => {
     }
   };
 
-  // Chargement initial - PLUS DE fetchStats
+  // Chargement initial
   useEffect(() => {
     fetchClients();
     fetchClientTypes();
-  }, [fetchClients, fetchClientTypes]); // ✅ fetchStats supprimé des dépendances
+  }, [fetchClients, fetchClientTypes]); 
 
-  // ✅ Optionnel: Recalculer les stats quand clients change (sécurité)
+  // Optionnel: Recalculer les stats quand clients change
   useEffect(() => {
     if (clients.length > 0) {
       calculateLocalStats(clients);
@@ -170,13 +170,12 @@ const useClients = (filters = {}) => {
     loading,
     error,
     clientTypes,
-    stats,           // ✅ Stats calculées localement
+    stats,           
     pagination,
     
     // Actions
     fetchClients,
     fetchClientTypes,
-    // fetchStats,    // ✅ SUPPRIMÉ - plus exposé
     createClient,
     updateClient,
     deleteClient,
