@@ -8,8 +8,11 @@ import { commandeService } from '../../../../services/commandeService';
 import InvoiceModal from './components/invoiceModal'; 
 import FacturesFilters from './components/FacturesFilters';
 import FacturesTable from './components/FacturesTable';
+import InvoiceTemplate from './components/InvoiceTemplate';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import html2pdf from 'html2pdf.js';
+
 
 const InvoicingPage = () => {
   const [factures, setFactures] = useState([]);
@@ -251,70 +254,124 @@ const InvoicingPage = () => {
     setUpdateTrigger(prev => prev + 1);
   };
 
-/// ✅ VERSION CORRIGÉE avec logs et meilleure gestion
+    // download pdf
+
+
+// Version avec html2pdf utilisant le template existant
 const handleDownloadInvoice = async (factureId, e) => {
   e?.stopPropagation();
   setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
   
   try {
-    console.log('📥 Téléchargement facture ID:', factureId);
+    console.log('📥 Téléchargement facture avec html2pdf:', factureId);
     
-    // 1. Appel API
-    const response = await commandeService.downloadInvoicePDF(factureId);
+    // 1. Récupérer les détails complets de la facture
+    let factureComplete = factures.find(f => f.id === factureId);
     
-    // 2. LOGS pour déboguer
-    console.log('📦 Réponse reçue:', response);
-    console.log('📦 Headers:', response.headers);
-    console.log('📦 Type contenu:', response.headers['content-type']);
-    console.log('📦 Taille données:', response.data?.size || response.data?.length);
-    
-    // 3. Vérifier que les données existent
-    if (!response.data) {
-      throw new Error('Aucune donnée reçue');
+    // 2. Récupérer les articles de la facture
+    let items = [];
+    try {
+      if (factureComplete?.commande?.id) {
+        const commandeDetails = await commandeService.getCommandeById(factureComplete.commande.id);
+        if (commandeDetails && commandeDetails.lignesCommande) {
+          items = commandeDetails.lignesCommande.map(ligne => {
+            const prixUnitaire = ligne.prix_unitaire || 
+                                ligne.prixUnitaire || 
+                                ligne.prix_vente ||
+                                ligne.produit?.prix_vente ||
+                                ligne.produit?.prix ||
+                                0;
+            
+            const totalLigne = ligne.sous_total || 
+                              ligne.sousTotal || 
+                              ligne.total ||
+                              (ligne.quantite * prixUnitaire) || 
+                              0;
+            
+            return {
+              description: ligne.produit?.libelle || 
+                          ligne.produitLibelle || 
+                          ligne.libelle ||
+                          'Produit',
+              quantity: ligne.quantite || 0,
+              unitPrice: prixUnitaire,
+              total: totalLigne
+            };
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Erreur chargement articles:', err);
     }
     
-    // 4. Créer le blob avec le bon type
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    console.log('📦 Blob créé, taille:', blob.size);
+    // 3. Calculer les totaux
+    const sousTotal = items.reduce((acc, item) => acc + (item.total || 0), 0);
+    const tva = sousTotal * 0.19;
+    const totalTTC = sousTotal + tva;
     
-    // 5. Vérifier que le blob n'est pas vide
-    if (blob.size === 0) {
-      throw new Error('Fichier PDF vide');
-    }
+    const totaux = { sousTotal, tva, totalTTC };
     
-    // 6. Créer l'URL et télécharger
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `facture-${factureId}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 4. Fonctions de formatage (celles déjà définies dans le composant)
+    const formatDate = (dateString) => {
+      if (!dateString) return '-';
+      try {
+        return new Date(dateString).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    const formatMontant = (montant) => {
+      if (montant === undefined || montant === null) return '0,000 DT';
+      return new Intl.NumberFormat('fr-TN', {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3
+      }).format(montant) + ' DT';
+    };
     
-    // 7. Nettoyer
+    // 5. Créer un élément div temporaire avec le template
+    const element = document.createElement('div');
+    element.innerHTML = InvoiceTemplate({ 
+      facture: factureComplete, 
+      items, 
+      totaux, 
+      formatDate, 
+      formatMontant 
+    });
+    
+    document.body.appendChild(element);
+    
+    // 6. Options pour html2pdf
+    const opt = {
+      margin:        [0.5, 0.5, 0.5, 0.5],
+      filename:     `facture_${factureComplete.reference || factureComplete.id}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, letterRendering: true },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    
+    // 7. Générer et télécharger le PDF
+    await html2pdf().from(element).set(opt).save();
+    console.log('✅ PDF généré avec succès');
+    
+    // 8. Nettoyer
     setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 100);
-    
-    console.log('✅ Téléchargement réussi');
+      document.body.removeChild(element);
+    }, 1000);
     
   } catch (error) {
-    console.error('❌ Erreur téléchargement:', error);
-    
-    // Messages d'erreur plus explicites
-    if (error.response?.status === 404) {
-      alert('Facture non trouvée');
-    } else if (error.response?.status === 403) {
-      alert('Vous n\'avez pas la permission de télécharger cette facture');
-    } else if (error.message === 'Fichier PDF vide') {
-      alert('Le fichier PDF est vide');
-    } else {
-      alert('Erreur lors du téléchargement: ' + error.message);
-    }
+    console.error('❌ Erreur génération PDF:', error);
+    alert('Erreur lors de la génération du PDF');
   } finally {
     setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
   }
 };
+
+
   const handleSendEmail = async (facture, e) => {
     e?.stopPropagation();
     
