@@ -1,3 +1,4 @@
+// src/main/java/org/erp/invera/controller/AuthController.java
 package org.erp.invera.controller;
 
 import jakarta.validation.Valid;
@@ -41,22 +42,20 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
 
-        // 1) Load user first to check active before authenticating (optional but clearer messages)
+        // ✅ Check active BEFORE authenticating (better UX)
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // ✅ If admin deactivated the user => block login
         if (!user.isActive()) {
             return ResponseEntity.status(403)
-                    .body(new MessageResponse("Compte désactivé. Contactez l'administrateur."));
+                    .body(new MessageResponse("Votre compte est désactivé. Contactez l’administrateur."));
         }
 
-        // 2) Authenticate normally
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtTokenPro.generateToken(authentication);
 
         return ResponseEntity.ok(new JwtResponse(
@@ -78,7 +77,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse("Email déjà utilisé"));
         }
         if (userRepository.existsByUsername(request.getUsername())) {
-            return ResponseEntity.badRequest().body("Username already exists");
+            return ResponseEntity.badRequest().body(new MessageResponse("Username déjà utilisé"));
         }
 
         // 🚨 Prevent admin creation
@@ -92,10 +91,7 @@ public class AuthController {
         user.setEmail(request.getEmail());
         user.setNom(request.getNom());
         user.setPrenom(request.getPrenom());
-
-        // ✅ safer
-        user.setRole(Role.valueOf(request.getRole().toUpperCase()));
-
+        user.setRole(Role.valueOf(request.getRole()));
         user.setActive(false);
         user.setPassword(null);
 
@@ -194,49 +190,19 @@ public class AuthController {
                                         @RequestBody RegisterRequest request) {
 
         if (request.getRole().equalsIgnoreCase("ADMIN")) {
-            return ResponseEntity.badRequest()
-                    .body(new MessageResponse("Modification vers ADMIN interdite"));
+            return ResponseEntity.badRequest().body(new MessageResponse("Modification vers ADMIN interdite"));
         }
 
         return userRepository.findByEmail(email)
                 .map(user -> {
-
                     user.setUsername(request.getUsername());
                     user.setNom(request.getNom());
                     user.setPrenom(request.getPrenom());
-                    user.setRole(Role.valueOf(request.getRole().toUpperCase()));
-
+                    user.setRole(Role.valueOf(request.getRole()));
                     userRepository.save(user);
-
                     return ResponseEntity.ok(new MessageResponse("Utilisateur mis à jour"));
                 })
                 .orElseGet(() -> ResponseEntity.badRequest().body(new MessageResponse("User not found")));
-    }
-
-    // ===== UPDATE PROFILE (USER) =====
-    @PutMapping("/update-profile")
-    public ResponseEntity<?> updateProfile(
-            @Valid @RequestBody UpdateProfileRequest request,
-            Authentication authentication) {
-
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // ✅ if user got deactivated while logged in => deny
-        if (!user.isActive()) {
-            return ResponseEntity.status(403)
-                    .body(new MessageResponse("Compte désactivé. Contactez l'administrateur."));
-        }
-
-        user.setUsername(request.getUsername());
-        user.setNom(request.getNom());
-        user.setPrenom(request.getPrenom());
-
-        userRepository.save(user);
-
-        return ResponseEntity.ok(new MessageResponse("Profile updated successfully"));
     }
 
     // ===== DELETE USER =====
@@ -269,6 +235,7 @@ public class AuthController {
                         u.isActive()
                 ))
                 .collect(Collectors.toList());
+
         return ResponseEntity.ok(users);
     }
 
@@ -279,14 +246,10 @@ public class AuthController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Optional: avoid deactivating yourself (recommended)
-        // if (user.getEmail().equalsIgnoreCase(SecurityContextHolder.getContext().getAuthentication().getName())) {
-        //     return ResponseEntity.badRequest().body(new MessageResponse("Vous ne pouvez pas désactiver votre propre compte"));
-        // }
-
         user.setActive(active);
         userRepository.save(user);
 
+        // ✅ Note: logout immédiat = côté client (interceptor) dès prochaine requête
         return ResponseEntity.ok(new MessageResponse(active ? "Utilisateur activé" : "Utilisateur désactivé"));
     }
 
@@ -294,6 +257,7 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         String email = authentication.getName();
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -308,33 +272,6 @@ public class AuthController {
         ));
     }
 
-    // ===== CHANGE PASSWORD (USER) =====
-    @PutMapping("/change-password")
-    public ResponseEntity<?> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request,
-            Authentication authentication) {
-
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // ✅ deny if inactive
-        if (!user.isActive()) {
-            return ResponseEntity.status(403)
-                    .body(new MessageResponse("Compte désactivé. Contactez l'administrateur."));
-        }
-
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Old password is incorrect"));
-        }
-
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
-
-        return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
-    }
-
     // ===== FORGOT PASSWORD =====
     @Transactional
     @PostMapping("/forgot-password")
@@ -342,11 +279,9 @@ public class AuthController {
 
         userRepository.findByEmail(email).ifPresent(user -> {
 
-            // ✅ BLOCK sending email for inactive users
+            // ✅ NEW: do not send reset email if user is deactivated
             if (!user.isActive()) {
-                // We can either: return 403 OR silently do nothing.
-                // You asked "mail can't be sent", so we hard-block with 403.
-                throw new RuntimeException("Compte désactivé. Contactez l'administrateur.");
+                return; // silent (avoid leaking status)
             }
 
             passwordResetTokenRepository.deleteByUserEmail(email);
@@ -360,6 +295,7 @@ public class AuthController {
             CompletableFuture.runAsync(() -> emailService.sendResetPasswordEmail(email, resetToken.getToken()));
         });
 
+        // ✅ always same response (security)
         return ResponseEntity.ok(new MessageResponse("If the email exists, a reset code was sent"));
     }
 
@@ -368,9 +304,10 @@ public class AuthController {
     @Transactional
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
 
-        PasswordResetToken resetToken = passwordResetTokenRepository
-                .findByTokenAndUserEmail(request.getCode(), request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid code"));
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByTokenAndUserEmail(request.getCode(), request.getEmail())
+                        .orElseThrow(() -> new RuntimeException("Invalid code"));
 
         if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Code expired"));
@@ -378,10 +315,10 @@ public class AuthController {
 
         User user = resetToken.getUser();
 
-        // ✅ BLOCK reset if inactive
+        // ✅ If admin deactivated him, block reset here too
         if (!user.isActive()) {
             return ResponseEntity.status(403)
-                    .body(new MessageResponse("Compte désactivé. Contactez l'administrateur."));
+                    .body(new MessageResponse("Compte désactivé. Contactez l’administrateur."));
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
