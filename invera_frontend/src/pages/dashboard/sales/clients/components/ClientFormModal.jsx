@@ -30,7 +30,6 @@ const ClientFormModal = ({
     const labels = {
       'PARTICULIER': 'Particulier',
       'ENTREPRISE': 'Entreprise',
-   
     };
     return labels[type] || type;
   };
@@ -82,7 +81,6 @@ const ClientFormModal = ({
     fetchRemise();
   }, [formData.typeClient, getRemiseForType]);
 
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -91,7 +89,7 @@ const ClientFormModal = ({
       setRemiseInfo(null);
     }
     
-    if (name === 'telephone' && value.length >= 10 && checkTelephone) {
+    if (name === 'telephone' && value.length >= 8 && checkTelephone) {
       verifyTelephone(value);
     }
   };
@@ -199,7 +197,7 @@ const ClientFormModal = ({
                     value={formData.nom}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Dupont"
+                    placeholder="Ben Ali"
                   />
                 </div>
 
@@ -211,7 +209,7 @@ const ClientFormModal = ({
                     value={formData.prenom}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Jean"
+                    placeholder="Mohamed"
                   />
                 </div>
               </div>
@@ -231,7 +229,7 @@ const ClientFormModal = ({
                     value={formData.email}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="jean.dupont@email.com"
+                    placeholder="mohamed.benali@email.tn"
                   />
                 </div>
 
@@ -245,7 +243,7 @@ const ClientFormModal = ({
                     value={formData.telephone}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="01 23 45 67 89"
+                    placeholder="98 765 432"
                   />
                   {telephoneError && (
                     <p className="text-xs text-red-500 mt-1">{telephoneError}</p>
@@ -267,7 +265,7 @@ const ClientFormModal = ({
                   onChange={handleChange}
                   rows="2"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="15 rue de la République, 75001 Paris"
+                  placeholder="15 Avenue Habib Bourguiba, Tunis 1000"
                 />
               </div>
             </div>
@@ -285,13 +283,13 @@ const ClientFormModal = ({
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
                 >
-                   {clientTypes
-    ?.filter(type => type === 'PARTICULIER' || type === 'ENTREPRISE')
-    .map((type) => (
-      <option key={type} value={type}>
-        {getTypeClientLabel(type)}
-      </option>
-                  ))}
+                  {clientTypes
+                    ?.filter(type => type === 'PARTICULIER' || type === 'ENTREPRISE')
+                    .map((type) => (
+                      <option key={type} value={type}>
+                        {getTypeClientLabel(type)}
+                      </option>
+                    ))}
                 </select>
 
                 {remiseInfo && remiseInfo.remise > 0 && (
