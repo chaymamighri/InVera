@@ -8,15 +8,79 @@ import {
   QrCodeIcon,
   BanknotesIcon,
   CreditCardIcon,
-  BuildingLibraryIcon
+  BuildingLibraryIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
-
-// src/pages/dashboard/sales/sales/components/InvoiceModal.jsx
+import { format, parseISO } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 const InvoiceModal = ({ isOpen, onClose, facture }) => {
   const [paymentStatus, setPaymentStatus] = useState(facture?.status || 'en_attente');
   
   if (!isOpen || !facture) return null;
+
+  // ✅ Fonction formatDate définie
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString);
+      return format(date, 'dd MMMM yyyy', { locale: fr });
+    } catch (error) {
+      console.error('Erreur formatage date:', error);
+      return dateString;
+    }
+  };
+
+  // ✅ Fonction pour les badges de statut
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'payée':
+        return 'bg-green-100 text-green-800';
+      case 'en_attente':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'partiellement':
+        return 'bg-blue-100 text-blue-800';
+      case 'annulée':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // ✅ Fonction pour les icônes de paiement
+  const getPaymentMethodIcon = (method) => {
+    switch (method?.toLowerCase()) {
+      case 'carte':
+      case 'carte bancaire':
+        return <CreditCardIcon className="h-4 w-4 mr-1" />;
+      case 'espèces':
+      case 'especes':
+        return <BanknotesIcon className="h-4 w-4 mr-1" />;
+      case 'virement':
+        return <BuildingLibraryIcon className="h-4 w-4 mr-1" />;
+      default:
+        return <QrCodeIcon className="h-4 w-4 mr-1" />;
+    }
+  };
+
+  // ✅ Handlers pour les actions
+  const handleEmailInvoice = (facture) => {
+    console.log('📧 Envoi email pour facture:', facture.invoiceNumber);
+    // Implémentez votre logique d'envoi d'email ici
+    alert('Fonction d\'envoi d\'email à implémenter');
+  };
+
+  const handleDownloadPDF = (factureId) => {
+    console.log('📥 Téléchargement PDF facture:', factureId);
+    // Implémentez votre logique de téléchargement ici
+    alert('Fonction de téléchargement PDF à implémenter');
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   // Calculer les totaux si nécessaire
   const calculateTotals = () => {
@@ -262,4 +326,5 @@ const InvoiceModal = ({ isOpen, onClose, facture }) => {
     </div>
   );
 };
-export default InvoiceModal; 
+
+export default InvoiceModal;

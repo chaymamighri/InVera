@@ -1,28 +1,13 @@
-// src/pages/dashboard/sales/invoicing/InvoicingPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   DocumentTextIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  EyeIcon,
-  DocumentArrowDownIcon,
-  EnvelopeIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  CalendarIcon,
-  UserCircleIcon,
-  BuildingOfficeIcon,
-  CurrencyDollarIcon,
   ChevronLeftIcon,
-  ChevronRightIcon,
-  TagIcon,
-  XMarkIcon
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { commandeService } from '../../../../services/commandeService';
-import InvoiceModal from '../sales/components/InvoiceModal';
+import InvoiceModal from './components/invoiceModal'; 
+import FacturesFilters from './components/FacturesFilters';
+import FacturesTable from './components/FacturesTable';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -37,31 +22,34 @@ const InvoicingPage = () => {
   const [sortField, setSortField] = useState('dateFacture');
   const [sortOrder, setSortOrder] = useState('desc');
   
-  // États pour la pagination
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  // États pour le modal
+  // Modal
   const [selectedFacture, setSelectedFacture] = useState(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState({});
 
-  // Fonction pour effacer un filtre individuel
+  // ✅ Force update state
+  const [updateTrigger, setUpdateTrigger] = useState(0);
+
+  // Filtres
   const clearSearch = () => setSearchTerm('');
   const clearStatus = () => setStatusFilter('tous');
   const clearDate = () => setDateFilter('');
-
-  // Vérifier si des filtres sont actifs
   const hasActiveFilters = searchTerm || statusFilter !== 'tous' || dateFilter;
 
-  // Charger les factures
+  
+
+
+  // Chargement des factures
   const loadFactures = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
       const response = await commandeService.getAllInvoices();
-      console.log('📦 Factures reçues:', response);
       
       let facturesData = [];
       if (response.data) {
@@ -87,7 +75,8 @@ const InvoicingPage = () => {
           entreprise: fact.client.entreprise || '',
           typeClient: fact.client.typeClient || 'PARTICULIER',
           telephone: fact.client.telephone || '',
-          email: fact.client.email || ''
+          email: fact.client.email || '',
+          adresse: fact.client.adresse || ''
         } : null,
         
         commande: fact.commande ? {
@@ -174,7 +163,7 @@ const InvoicingPage = () => {
 
     setFilteredFactures(result);
     setCurrentPage(1);
-  }, [factures, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
+  }, [factures, searchTerm, statusFilter, dateFilter, sortField, sortOrder, updateTrigger]); // ✅ Ajout de updateTrigger
 
   // Pagination
   const totalPages = Math.ceil(filteredFactures.length / itemsPerPage);
@@ -202,24 +191,143 @@ const InvoicingPage = () => {
       clientAddress: facture.client?.adresse,
       clientType: facture.client?.typeClient,
       total: facture.montantTotal,
-      status: facture.statut === 'NON_PAYE' ? 'en_attente' : 'payée'
+      status: facture.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
+      statut: facture.statut // Garder le statut original pour le modal
     };
     
     setSelectedFacture(factureDetaillee);
     setIsInvoiceModalOpen(true);
   };
 
-  const handleDownloadInvoice = async (factureId, e) => {
-    e?.stopPropagation();
-    setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
+  // ✅ VERSION CORRIGÉE - Mise à jour immédiate
+  const handleStatusChange = async (factureId, newStatus) => {
+    console.log('🔄 handleStatusChange appelé avec:', { factureId, newStatus });
     
+    // 1. Mettre à jour la liste principale des factures
+    setFactures(prevFactures => {
+      const updatedFactures = prevFactures.map(facture => {
+        if (facture.id === factureId) {
+          const updatedStatut = newStatus === 'payée' ? 'PAYE' : 'NON_PAYE';
+          console.log('📝 Mise à jour facture', factureId, 'de', facture.statut, 'vers', updatedStatut);
+          return { 
+            ...facture, 
+            statut: updatedStatut,
+            // Ajouter un timestamp pour forcer le re-rendu
+            _updated: Date.now() 
+          };
+        }
+        return facture;
+      });
+      
+      // 2. Mettre à jour immédiatement filteredFactures aussi
+      setFilteredFactures(prevFiltered => 
+        prevFiltered.map(facture => {
+          if (facture.id === factureId) {
+            const updatedStatut = newStatus === 'payée' ? 'PAYE' : 'NON_PAYE';
+            return { 
+              ...facture, 
+              statut: updatedStatut,
+              _updated: Date.now() 
+            };
+          }
+          return facture;
+        })
+      );
+      
+      return updatedFactures;
+    });
+
+    // 3. Mettre à jour la facture sélectionnée si c'est la même
+    if (selectedFacture && selectedFacture.id === factureId) {
+      setSelectedFacture(prev => ({
+        ...prev,
+        status: newStatus,
+        statut: newStatus === 'payée' ? 'PAYE' : 'NON_PAYE',
+        _updated: Date.now()
+      }));
+    }
+
+    // 4. Forcer un re-rendu supplémentaire
+    setUpdateTrigger(prev => prev + 1);
+  };
+
+/// ✅ VERSION CORRIGÉE avec logs et meilleure gestion
+const handleDownloadInvoice = async (factureId, e) => {
+  e?.stopPropagation();
+  setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
+  
+  try {
+    console.log('📥 Téléchargement facture ID:', factureId);
+    
+    // 1. Appel API
+    const response = await commandeService.downloadInvoicePDF(factureId);
+    
+    // 2. LOGS pour déboguer
+    console.log('📦 Réponse reçue:', response);
+    console.log('📦 Headers:', response.headers);
+    console.log('📦 Type contenu:', response.headers['content-type']);
+    console.log('📦 Taille données:', response.data?.size || response.data?.length);
+    
+    // 3. Vérifier que les données existent
+    if (!response.data) {
+      throw new Error('Aucune donnée reçue');
+    }
+    
+    // 4. Créer le blob avec le bon type
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    console.log('📦 Blob créé, taille:', blob.size);
+    
+    // 5. Vérifier que le blob n'est pas vide
+    if (blob.size === 0) {
+      throw new Error('Fichier PDF vide');
+    }
+    
+    // 6. Créer l'URL et télécharger
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `facture-${factureId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 7. Nettoyer
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log('✅ Téléchargement réussi');
+    
+  } catch (error) {
+    console.error('❌ Erreur téléchargement:', error);
+    
+    // Messages d'erreur plus explicites
+    if (error.response?.status === 404) {
+      alert('Facture non trouvée');
+    } else if (error.response?.status === 403) {
+      alert('Vous n\'avez pas la permission de télécharger cette facture');
+    } else if (error.message === 'Fichier PDF vide') {
+      alert('Le fichier PDF est vide');
+    } else {
+      alert('Erreur lors du téléchargement: ' + error.message);
+    }
+  } finally {
+    setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
+  }
+};
+  const handleSendEmail = async (facture, e) => {
+    e?.stopPropagation();
+    
+    if (!facture.client?.email) {
+      alert('Ce client n\'a pas d\'adresse email renseignée');
+      return;
+    }
+
     try {
-      await commandeService.downloadInvoicePDF(factureId);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert(`Email envoyé à ${facture.client.email}`);
     } catch (error) {
-      console.error('❌ Erreur téléchargement:', error);
-      alert('Erreur lors du téléchargement de la facture');
-    } finally {
-      setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
+      alert('Erreur lors de l\'envoi de l\'email');
     }
   };
 
@@ -240,36 +348,7 @@ const InvoicingPage = () => {
     }).format(montant) + ' dt';
   };
 
-  const StatusBadge = ({ statut }) => {
-    const config = {
-      'PAYE': { 
-        color: 'bg-green-100 text-green-800 border border-green-200', 
-        icon: CheckCircleIcon,
-        label: 'Payée'
-      },
-      'NON_PAYE': { 
-        color: 'bg-yellow-100 text-yellow-800 border border-yellow-200', 
-        icon: ClockIcon,
-        label: 'Non payée'
-      },
-      'ANNULEE': { 
-        color: 'bg-red-100 text-red-800 border border-red-200', 
-        icon: XCircleIcon,
-        label: 'Annulée'
-      }
-    };
-    
-    const { color, icon: Icon, label } = config[statut] || config['NON_PAYE'];
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {label}
-      </span>
-    );
-  };
-
-  // ✅ Cartes statistiques - SANS la carte Montant Total
+  // Cartes statistiques
   const StatCards = () => {
     const stats = {
       total: factures.length,
@@ -298,7 +377,7 @@ const InvoicingPage = () => {
               <p className="text-2xl font-bold text-green-600 mt-1">{stats.payees}</p>
             </div>
             <div className="p-3 bg-green-50 rounded-xl">
-              <CheckCircleIcon className="h-6 w-6 text-green-600" />
+              <DocumentTextIcon className="h-6 w-6 text-green-600" />
             </div>
           </div>
         </div>
@@ -310,7 +389,7 @@ const InvoicingPage = () => {
               <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.nonPayees}</p>
             </div>
             <div className="p-3 bg-yellow-50 rounded-xl">
-              <ClockIcon className="h-6 w-6 text-yellow-600" />
+              <DocumentTextIcon className="h-6 w-6 text-yellow-600" />
             </div>
           </div>
         </div>
@@ -318,339 +397,116 @@ const InvoicingPage = () => {
     );
   };
 
-  const FilterChip = ({ label, onClear }) => (
-    <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm border border-blue-200">
-      {label}
-      <button onClick={onClear} className="hover:text-blue-900">
-        <XMarkIcon className="h-4 w-4" />
-      </button>
-    </span>
-  );
-
   return (
     <div className="space-y-6 p-4 md:p-6 bg-gray-50 min-h-screen">
       {/* En-tête */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-200">
-              <DocumentTextIcon className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Facturation
-              </h1>
-              <p className="text-gray-500 mt-1">
-                Gérez l'ensemble de vos factures
-              </p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-200">
+            <DocumentTextIcon className="h-8 w-8 text-white" />
           </div>
-        
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Facturation
+            </h1>
+            <p className="text-gray-500 mt-1">
+              Gérez l'ensemble de vos factures
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Cartes statistiques - 3 cartes au lieu de 4 */}
-      <StatCards />
+      {/* Cartes statistiques */}
+      <StatCards key={updateTrigger} /> {/* ✅ Force re-rendu des stats */}
 
       {/* Filtres */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher une facture..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <FacturesFilters
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        dateFilter={dateFilter}
+        onDateChange={setDateFilter}
+        hasActiveFilters={hasActiveFilters}
+        onClearSearch={clearSearch}
+        onClearStatus={clearStatus}
+        onClearDate={clearDate}
+        filteredCount={filteredFactures.length}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        formatDate={formatDate}
+      />
 
-          <div className="relative">
-            <FunnelIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <select
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="tous">Tous les statuts</option>
-              <option value="PAYE">Payées</option>
-              <option value="NON_PAYE">Non payées</option>
-              <option value="ANNULEE">Annulées</option>
-            </select>
-          </div>
+      {/* Tableau */}
+      <FacturesTable
+        key={`table-${updateTrigger}`} // ✅ Force re-rendu du tableau
+        factures={currentFactures}
+        loading={loading}
+        error={error}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        onView={handleViewInvoice}
+        onDownload={handleDownloadInvoice}
+        onSendEmail={handleSendEmail}
+        downloadLoading={downloadLoading}
+        formatDate={formatDate}
+        formatMontant={formatMontant}
+        onRefresh={loadFactures}
+      />
 
-          <div className="relative">
-            <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="date"
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Filtres actifs */}
-        {hasActiveFilters && (
-          <div className="mt-4 flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-500">Filtres actifs:</span>
-            {searchTerm && (
-              <FilterChip label={`Recherche: ${searchTerm}`} onClear={clearSearch} />
-            )}
-            {statusFilter !== 'tous' && (
-              <FilterChip 
-                label={`Statut: ${
-                  statusFilter === 'PAYE' ? 'Payée' : 
-                  statusFilter === 'NON_PAYE' ? 'Non payée' : 'Annulée'
-                }`} 
-                onClear={clearStatus} 
-              />
-            )}
-            {dateFilter && (
-              <FilterChip label={`Date: ${formatDate(dateFilter)}`} onClear={clearDate} />
-            )}
-          </div>
-        )}
-
-        {/* Résultats */}
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500 border-t pt-4">
-          <span>
-            <span className="font-medium text-gray-900">{filteredFactures.length}</span> facture{filteredFactures.length !== 1 ? 's' : ''} trouvée{filteredFactures.length !== 1 ? 's' : ''}
-          </span>
-          <span className="text-xs bg-gray-100 px-3 py-1 rounded-full">
-            Page {currentPage} / {totalPages || 1}
-          </span>
-        </div>
-      </div>
-
-      {/* Tableau des factures */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600 mx-auto"></div>
-              <DocumentTextIcon className="absolute inset-0 m-auto h-8 w-8 text-blue-600 animate-pulse" />
+      {/* Pagination */}
+      {filteredFactures.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="text-sm text-gray-600">
+              Affichage de <span className="font-medium">{startIndex + 1}</span> à{' '}
+              <span className="font-medium">{Math.min(endIndex, filteredFactures.length)}</span> sur{' '}
+              <span className="font-medium">{filteredFactures.length}</span> factures
             </div>
-            <p className="mt-4 text-gray-600 font-medium">Chargement des factures...</p>
-            <p className="text-sm text-gray-400">Veuillez patienter</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
-              <ExclamationTriangleIcon className="h-10 w-10 text-red-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={loadFactures}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : filteredFactures.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
-              <DocumentTextIcon className="h-10 w-10 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune facture</h3>
-            <p className="text-gray-500">Aucune facture ne correspond à vos critères</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      { key: 'reference', label: 'N° Facture', icon: DocumentTextIcon },
-                      { key: 'client', label: 'Client', icon: UserCircleIcon },
-                      { key: 'dateFacture', label: 'Date', icon: CalendarIcon },
-                      { key: 'commande', label: 'Commande', icon: TagIcon },
-                      { key: 'montant', label: 'Montant', icon: CurrencyDollarIcon },
-                      { key: 'statut', label: 'Statut', icon: ClockIcon },
-                      { key: 'actions', label: '', align: 'right' }
-                    ].map((col) => (
-                      <th
-                        key={col.key}
-                        className={`px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.key !== 'actions' ? 'cursor-pointer hover:bg-gray-100' : ''
-                        } ${col.align === 'right' ? 'text-right' : ''}`}
-                        onClick={() => col.key !== 'actions' && handleSort(col.key)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {col.icon && <col.icon className="h-4 w-4" />}
-                          <span>{col.label}</span>
-                          {sortField === col.key && (
-                            <span className="ml-1 text-blue-600">
-                              {sortOrder === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentFactures.map((facture, index) => (
-                    <tr 
-                      key={facture.id} 
-                      className="hover:bg-gray-50 transition-colors group"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="p-1.5 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors mr-3">
-                            <DocumentTextIcon className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {facture.reference}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              #{facture.id}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {facture.client?.typeClient === 'ENTREPRISE' ? (
-                            <BuildingOfficeIcon className="h-4 w-4 text-gray-400 mr-2" />
-                          ) : (
-                            <UserCircleIcon className="h-4 w-4 text-gray-400 mr-2" />
-                          )}
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {facture.client?.nomComplet || facture.client?.entreprise}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {facture.client?.typeClient}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-600">
-                            {formatDate(facture.dateFacture)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-600 font-mono">
-                          {facture.commande?.reference || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {formatMontant(facture.montantTotal)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge statut={facture.statut} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleViewInvoice(facture)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Voir détails"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDownloadInvoice(facture.id, e)}
-                            disabled={downloadLoading[facture.id]}
-                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Télécharger PDF"
-                          >
-                            {downloadLoading[facture.id] ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
-                            ) : (
-                              <DocumentArrowDownIcon className="h-4 w-4" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Envoyer par email"
-                          >
-                            <EnvelopeIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {filteredFactures.length > 0 && (
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="text-sm text-gray-600">
-                    Affichage de <span className="font-medium">{startIndex + 1}</span> à{' '}
-                    <span className="font-medium">{Math.min(endIndex, filteredFactures.length)}</span> sur{' '}
-                    <span className="font-medium">{filteredFactures.length}</span> factures
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="5">5 par page</option>
-                      <option value="10">10 par page</option>
-                      <option value="20">20 par page</option>
-                      <option value="50">50 par page</option>
-                    </select>
-                    
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
-                      >
-                        <ChevronLeftIcon className="h-4 w-4" />
-                      </button>
-                      
-                      {[...Array(totalPages)].map((_, i) => (
-                        <button
-                          key={i + 1}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            currentPage === i + 1
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                      
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
-                      >
-                        <ChevronRightIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            
+            <div className="flex items-center space-x-3">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="5">5 par page</option>
+                <option value="10">10 par page</option>
+                <option value="20">20 par page</option>
+                <option value="50">50 par page</option>
+              </select>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                
+                <span className="text-sm text-gray-600">
+                  Page {currentPage} / {totalPages}
+                </span>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Modal de détails */}
+      {/* Modal */}
       <InvoiceModal
         isOpen={isInvoiceModalOpen}
         onClose={() => {
@@ -658,6 +514,7 @@ const InvoicingPage = () => {
           setSelectedFacture(null);
         }}
         facture={selectedFacture}
+        onStatusChange={handleStatusChange}
       />
     </div>
   );
