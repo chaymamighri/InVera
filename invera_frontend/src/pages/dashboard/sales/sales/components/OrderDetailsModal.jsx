@@ -1,5 +1,5 @@
 // src/pages/dashboard/sales/sales/components/OrderDetailsModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   XMarkIcon,
   DocumentTextIcon,
@@ -12,13 +12,14 @@ import {
 } from '@heroicons/react/24/outline';
 
 const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+
   if (!isOpen || !commande) return null;
 
   // Données client
   const client = commande.client || {};
   const produits = commande.produits || [];
   const total = parseFloat(commande.montantTotal || commande.total || 0);
-  const [isGenerating, setIsGenerating] = React.useState(false);
 
   // Vérifier si le client a des coordonnées
   const hasContact = client.telephone || client.email || client.adresse;
@@ -28,8 +29,14 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
     
     try {
       setIsGenerating(true);
+      
+      // Appeler la fonction du parent pour générer la facture
+      // Cette fonction doit ouvrir automatiquement InvoiceModal avec la facture générée
       await onGenerateInvoice(commande.id);
+      
+      // Fermer cette modale après génération
       onClose();
+      
     } catch (error) {
       console.error('Erreur génération facture:', error);
     } finally {
@@ -182,7 +189,7 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
           </div>
         </div>
 
-        {/* Actions - FIXES en bas avec BONS ESPACEMENTS */}
+        {/* Actions - FIXES en bas */}
         <div className="flex-shrink-0 px-6 py-4 bg-white border-t border-gray-200">
           <div className="flex items-center gap-3">
             {/* Bouton Retour */}
@@ -195,7 +202,7 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
               Retour
             </button>
 
-            {/* Bouton Facture avec SPINNER */}
+            {/* Bouton Facture - OUVRE L'AUTRE MODALE */}
             {onGenerateInvoice && (
               <button
                 onClick={handleGenerateInvoice}
@@ -204,7 +211,6 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
               >
                 {isGenerating ? (
                   <>
-                    {/* Spinner animé */}
                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
