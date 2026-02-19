@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/images/logo.png';
 
 const LoginPage = () => {
-  const { login, loading, isAuthenticated } = useAuth();
+  const { login, loading } = useAuth();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
 
@@ -18,37 +18,24 @@ const LoginPage = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (isAuthenticated()) {
-      const userRole = localStorage.getItem('userRole');
-      let dashboardPath = '/dashboard';
-
-      if (userRole === 'ADMIN') dashboardPath = '/dashboard/admin';
-      else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
-      else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
-
-      navigate(dashboardPath);
-    }
-  }, [navigate, isAuthenticated]);
-
   const handleSubmit = async (credentials) => {
     setLoginError(null);
 
     try {
       const result = await login(credentials);
+
       if (result?.success) {
         const userRole = localStorage.getItem('userRole');
-        let dashboardPath = '/dashboard';
 
+        let dashboardPath = '/dashboard';
         if (userRole === 'ADMIN') dashboardPath = '/dashboard/admin';
         else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
         else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
 
-        navigate(dashboardPath);
+        navigate(dashboardPath, { replace: true });
       }
     } catch (err) {
       const backendMessage = err?.response?.data?.message;
-
       setLoginError(
         backendMessage ||
           err.message ||
