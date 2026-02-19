@@ -12,6 +12,6 @@ public class NouveauClientDTO {
     private String prenom;
     private String telephone;
     private String adresse;
-    private String type; // "PARTICULIER", "VIP", etc.
+    private String type;
     private String email;
 }

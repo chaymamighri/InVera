@@ -67,6 +67,39 @@ public class ClientController {
         }
     }
 
+    @PostMapping("/update/{id}")
+    public ResponseEntity<Map<String, Object>> updateClient(
+            @PathVariable Integer id,
+            @RequestBody NouveauClientDTO clientDTO) {
+
+        System.out.println("=== REQUÊTE DE MISE À JOUR ===");
+        System.out.println("ID client: " + id);
+        System.out.println("Données reçues: " + clientDTO);
+
+        try {
+            // Le service utilise NouveauClientDTO pour la mise à jour
+            Client client = clientService.updateClient(id, clientDTO);
+
+            // Mais on retourne ClientDTO en sortie (plus complet)
+            ClientDTO clientResponse = ClientDTO.fromEntity(client);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Client modifié avec succès");
+            response.put("client", clientResponse);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("❌ Erreur: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
     @GetMapping("/rechercher")
     public ResponseEntity<Map<String, Object>> searchClients(
             @RequestParam(required = false) String q) {
@@ -150,4 +183,5 @@ public class ClientController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+
 }
