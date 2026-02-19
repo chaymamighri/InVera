@@ -61,7 +61,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col md:flex-row">
-      <div className="md:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6 md:p-12 flex flex-col">
+      <div className="md:w-1/2 bg-gradient-to-br from-blue-500 to-blue-800 text-white p-6 md:p-12 flex flex-col">
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
           <div className="mb-8">
             <div className="flex flex-col items-center">
@@ -87,7 +87,8 @@ const LoginPage = () => {
               </div>
             </div>
           </div>
-
+          
+          {/* Titre principal */}
           <div className="mb-10">
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center leading-tight">
               Connectez-vous à votre espace de gestion
@@ -95,6 +96,42 @@ const LoginPage = () => {
             <p className="text-blue-200 text-center text-lg">
               Accédez aux modules ventes, achats, stocks et facturation
             </p>
+          </div>
+          
+          {/* Points clés */}
+          <div className="space-y-4 mb-8 md:mb-12">
+            {[
+              { 
+                title: 'Gestion financière en temps réel', 
+                desc: 'Suivez vos finances avec précision',
+                icon: '💰'
+              },
+              { 
+                title: 'Analytique avancée', 
+                desc: 'Tableaux de bord prédictifs',
+                icon: '📊'
+              },
+              { 
+                title: 'Sécurité maximale', 
+                desc: 'Données chiffrées, authentification MFA',
+                icon: '🔒'
+              },
+              { 
+                title: 'Mobile & Accessible', 
+                desc: 'Accès 24/7 depuis n\'importe quel appareil',
+                icon: '📱'
+              },
+            ].map((feature, index) => (
+              <div key={index} className="flex items-start space-x-4 p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 backdrop-blur-sm border border-white/10">
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-green-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md text-lg">
+                  {feature.icon}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg mb-1">{feature.title}</h3>
+                  <p className="text-blue-200/80 text-sm">{feature.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="mt-auto pt-6 border-t border-white/10">
