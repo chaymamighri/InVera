@@ -125,17 +125,17 @@ const useClients = (filters = {}) => {
   };
 
   // Récupérer la remise par type
-  const getRemiseForType = async (typeClient) => {
-    try {
-      console.log(`🔍 Récupération remise pour ${typeClient} via clientService`);
-      const response = await clientService.getRemiseByType(typeClient);
-      console.log('✅ Réponse remise:', response);
-      return response;
-    } catch (error) {
-      console.error(`❌ Erreur récupération remise ${typeClient}:`, error);
-      throw error;
-    }
-  };
+const getRemiseForType = async (typeClient) => {
+  try {
+    console.log(`🔍 Récupération remise pour ${typeClient} via clientService`);
+    const response = await clientService.getRemiseByType(typeClient);
+    console.log('✅ Réponse remise:', response);
+    return response; // ← retourne {success: true, type: "ENTREPRISE", remise: 8}
+  } catch (error) {
+    console.error(`❌ Erreur récupération remise ${typeClient}:`, error);
+    throw error;
+  }
+};
 
   // Supprimer un client
   const deleteClient = async (id) => {
