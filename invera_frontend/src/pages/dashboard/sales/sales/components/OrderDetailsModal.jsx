@@ -8,20 +8,25 @@ import {
   MapPinIcon,
   BuildingOfficeIcon,
   ArrowLeftIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 
-const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => {
+const OrderDetailsModal = ({ 
+  commande, 
+  isOpen, 
+  onClose, 
+  onGenerateInvoice,
+  onViewInvoice,
+  hasInvoice = false // Nouvelle prop pour savoir si une facture existe
+}) => {
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!isOpen || !commande) return null;
 
-  // Données client
   const client = commande.client || {};
   const produits = commande.produits || [];
   const total = parseFloat(commande.montantTotal || commande.total || 0);
-
-  // Vérifier si le client a des coordonnées
   const hasContact = client.telephone || client.email || client.adresse;
 
   const handleGenerateInvoice = async () => {
@@ -29,14 +34,8 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
     
     try {
       setIsGenerating(true);
-      
-      // Appeler la fonction du parent pour générer la facture
-      // Cette fonction doit ouvrir automatiquement InvoiceModal avec la facture générée
       await onGenerateInvoice(commande.id);
-      
-      // Fermer cette modale après génération
       onClose();
-      
     } catch (error) {
       console.error('Erreur génération facture:', error);
     } finally {
@@ -44,61 +43,71 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
     }
   };
 
+  const handleViewInvoice = () => {
+    if (onViewInvoice) {
+      onViewInvoice(commande.id);
+      onClose(); // Optionnel: fermer cette modale après avoir ouvert la facture
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
         
-        {/* Header avec badge de validation - FIXE */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex-shrink-0">
+        {/* Header avec badge de statut facture */}
+        <div className={`px-6 py-4 flex-shrink-0 ${
+          hasInvoice 
+            ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
+            : 'bg-gradient-to-r from-green-600 to-emerald-600'
+        }`}>
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-full">
-                <CheckCircleIcon className="h-6 w-6 text-white" />
+                {hasInvoice ? (
+                  <DocumentTextIcon className="h-6 w-6 text-white" />
+                ) : (
+                  <CheckCircleIcon className="h-6 w-6 text-white" />
+                )}
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  Commande {commande.numeroCommande || `#${commande.id}`}
+                  Commande {commande.referenceCommandeClient || commande.numeroCommande || `#${commande.id}`}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs bg-white/30 text-white px-2.5 py-1 rounded-full">
-                    ✓ Validée
+                    Validée
                   </span>
-                  <span className="text-xs text-white/80">
-                    Prête pour facturation
-                  </span>
+                  {hasInvoice && (
+                    <span className="text-xs bg-blue-500/30 text-white px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <DocumentTextIcon className="h-3 w-3" />
+                      Facturée
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg text-white/80 hover:text-white transition-colors flex-shrink-0"
-              title="Fermer"
-            >
+            <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg text-white">
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Contenu - SCROLLABLE */}
+        {/* Contenu */}
         <div className="p-6 overflow-y-auto flex-1">
           
-          {/* Client - Informations complètes */}
+          {/* Client */}
           <div className="mb-6 pb-4 border-b border-gray-200">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-              INFORMATIONS CLIENT
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase mb-3">CLIENT</p>
             
-            <div className="mb-3">
-              <p className="font-medium text-gray-900 text-base">
-                {client.nomComplet || client.nom || 'Client'}
+            <p className="font-medium text-gray-900">
+              {client.nomComplet || client.nom || 'Client'}
+            </p>
+            {client.entreprise && (
+              <p className="text-sm text-gray-600 flex items-center mt-1">
+                <BuildingOfficeIcon className="h-4 w-4 mr-1.5 text-gray-400" />
+                {client.entreprise}
               </p>
-              {client.entreprise && (
-                <p className="text-sm text-gray-600 flex items-center mt-1">
-                  <BuildingOfficeIcon className="h-4 w-4 mr-1.5 text-gray-400" />
-                  {client.entreprise}
-                </p>
-              )}
-            </div>
+            )}
 
             {hasContact && (
               <div className="space-y-2 mt-3 bg-gray-50 p-3 rounded-lg">
@@ -109,7 +118,7 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
                   </p>
                 )}
                 {client.email && (
-                  <p className="text-sm text-gray-700 flex items-center truncate">
+                  <p className="text-sm text-gray-700 flex items-center">
                     <EnvelopeIcon className="h-4 w-4 mr-2 text-gray-500" />
                     {client.email}
                   </p>
@@ -117,24 +126,16 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
                 {client.adresse && (
                   <p className="text-sm text-gray-700 flex items-start">
                     <MapPinIcon className="h-4 w-4 mr-2 text-gray-500 flex-shrink-0 mt-0.5" />
-                    <span className="break-words">{client.adresse}</span>
+                    <span>{client.adresse}</span>
                   </p>
                 )}
-              </div>
-            )}
-
-            {client.type && (
-              <div className="mt-3">
-                <span className="text-xs px-2.5 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-200">
-                  {client.type}
-                </span>
               </div>
             )}
           </div>
 
           {/* Produits */}
           <div className="mb-6">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+            <p className="text-xs font-medium text-gray-500 uppercase mb-3">
               ARTICLES ({produits.length})
             </p>
             
@@ -145,21 +146,16 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
                   const prix = parseFloat(p.prixUnitaire || p.prix || 0);
                   
                   return (
-                    <div key={p.id || idx} className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0">
-                      <div className="flex-1 pr-4">
+                    <div key={p.id || idx} className="flex justify-between items-start py-2 border-b border-gray-100">
+                      <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
                           {p.nom || p.libelle || `Produit ${idx + 1}`}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-gray-500">
                           {quantite} × {prix.toFixed(2)} dt
                         </p>
-                        {p.reference && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Réf: {p.reference}
-                          </p>
-                        )}
                       </div>
-                      <p className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                      <p className="text-sm font-medium text-gray-900">
                         {(quantite * prix).toFixed(2)} dt
                       </p>
                     </div>
@@ -167,54 +163,63 @@ const OrderDetailsModal = ({ commande, isOpen, onClose, onGenerateInvoice }) => 
                 })}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 italic">Aucun article dans cette commande</p>
+              <p className="text-sm text-gray-500 italic">Aucun article</p>
             )}
           </div>
 
           {/* Total */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+          <div className={`p-4 rounded-lg border ${
+            hasInvoice 
+              ? 'bg-blue-50 border-blue-200' 
+              : 'bg-green-50 border-green-200'
+          }`}>
             <div className="flex justify-between items-center">
-              <div>
-                <span className="text-sm font-medium text-gray-700">Total TTC</span>
-                <p className="text-xs text-gray-500 mt-0.5">Toutes taxes comprises</p>
-              </div>
-              <span className="text-2xl font-bold text-green-700">
+              <span className="text-sm font-medium text-gray-700">Total Commande</span>
+              <span className={`text-2xl font-bold ${
+                hasInvoice ? 'text-blue-700' : 'text-green-700'
+              }`}>
                 {total.toFixed(2)} dt
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-green-200 text-xs text-green-600">
-              <CheckCircleIcon className="h-3.5 w-3.5" />
-              <span>Commande validée - Prête pour facturation</span>
-            </div>
+            {hasInvoice && (
+              <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                <DocumentTextIcon className="h-3 w-3" />
+                Une facture a déjà été générée pour cette commande
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Actions - FIXES en bas */}
+        {/* Actions */}
         <div className="flex-shrink-0 px-6 py-4 bg-white border-t border-gray-200">
           <div className="flex items-center gap-3">
-            {/* Bouton Retour */}
             <button
               onClick={onClose}
-              disabled={isGenerating}
-              className="px-5 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
+              className="px-5 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
             >
               <ArrowLeftIcon className="h-4 w-4" />
               Retour
             </button>
 
-            {/* Bouton Facture - OUVRE L'AUTRE MODALE */}
-            {onGenerateInvoice && (
+            {hasInvoice ? (
+              // Si facture existe → Bouton CONSULTER
+              <button
+                onClick={handleViewInvoice}
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center gap-2 text-sm font-medium shadow-sm"
+              >
+                <EyeIcon className="h-5 w-5" />
+                Consulter la facture
+              </button>
+            ) : (
+              // Si pas de facture → Bouton GÉNÉRER
               <button
                 onClick={handleGenerateInvoice}
                 disabled={isGenerating}
-                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center gap-2 text-sm font-medium shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-70"
               >
                 {isGenerating ? (
                   <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                     <span>Génération...</span>
                   </>
                 ) : (
