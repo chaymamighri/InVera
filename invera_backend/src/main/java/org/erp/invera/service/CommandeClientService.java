@@ -193,21 +193,4 @@ public class CommandeClientService {
         }
     }
 
-    // Méthode pour obtenir la remise par type de client
-    public Double getRemiseForClientType(String typeClient) {
-        if (typeClient == null) return 0.0;
-
-        switch (typeClient.toUpperCase()) {
-            case "VIP":
-                return 15.0;
-            case "ENTREPRISE":
-                return 10.0;
-            case "PROFESSIONNEL":
-                return 8.0;
-            case "FIDELE":
-                return 5.0;
-            default:
-                return 0.0;
-        }
-    }
 }

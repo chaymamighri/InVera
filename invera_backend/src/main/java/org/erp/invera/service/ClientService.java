@@ -159,7 +159,6 @@ public class ClientService {
      * Mettre à jour les remises d'un client
      */
     public ClientDTO updateClientRemises(Integer clientId,
-                                         Double remiseStandard,
                                          Double remiseFidele,
                                          Double remiseVIP,
                                          Double remiseProfessionnelle) {
@@ -223,49 +222,69 @@ public class ClientService {
 
         return savedClient;
     }
+
     /**
-     * Calculer la remise selon le type de client (valeur par défaut si non personnalisée)
+     * ✅ NOUVELLE MÉTHODE: Obtenir la remise par type de client (UNIQUEMENT depuis la base)
+     * Retourne null si aucune remise n'est configurée en base
      */
-    public Double calculerRemiseParType(Client.TypeClient type) {
-        switch (type) {
-            case VIP:
-                return 10.0;
-            case ENTREPRISE:
-                return 8.0;
-            case PROFESSIONNEL:
-                return 5.0;
-            case FIDELE:
-                return 3.0;
-            case PARTICULIER:
-            default:
-                return 0.0;
+    public Double getRemiseForClientType(String typeClient) {
+        if (typeClient == null) return null;
+
+        try {
+            Client.TypeClient type = Client.TypeClient.valueOf(typeClient.toUpperCase());
+
+            switch (type) {
+                case VIP:
+                    return clientRepository.findAverageRemiseVIP();
+
+                case FIDELE:
+                    return clientRepository.findAverageRemiseFidele();
+
+                case PROFESSIONNEL:
+                    return clientRepository.findAverageRemiseProfessionnelle();
+
+                case ENTREPRISE:
+                    // Pour ENTREPRISE, pas de colonne dédiée, retourner null
+                    return null;
+
+                case PARTICULIER:
+                default:
+                    return null; // Les particuliers n'ont pas de remise par défaut
+            }
+        } catch (IllegalArgumentException e) {
+            return null;
         }
     }
 
     /**
-     * Obtenir la remise effective d'un client (personnalisée si définie, sinon par défaut)
+     * ✅ Méthode utilitaire pour vérifier si un type a des remises configurées
+     */
+    public boolean hasRemiseConfigured(String typeClient) {
+        Double remise = getRemiseForClientType(typeClient);
+        return remise != null && remise > 0;
+    }
+
+    /**
+     * Obtenir la remise effective d'un client (priorité à la valeur personnalisée)
      */
     public Double getRemiseEffective(Client client) {
-        if (client == null) return 0.0;
+        if (client == null) return null;
 
         switch (client.getTypeClient()) {
             case VIP:
-                return client.getRemiseClientVIP() != null ?
-                        client.getRemiseClientVIP() : calculerRemiseParType(Client.TypeClient.VIP);
+                return client.getRemiseClientVIP();
             case PROFESSIONNEL:
-                return client.getRemiseClientProfessionnelle() != null ?
-                        client.getRemiseClientProfessionnelle() : calculerRemiseParType(Client.TypeClient.PROFESSIONNEL);
+                return client.getRemiseClientProfessionnelle();
             case FIDELE:
-                return client.getRemiseClientFidele() != null ?
-                        client.getRemiseClientFidele() : calculerRemiseParType(Client.TypeClient.FIDELE);
+                return client.getRemiseClientFidele();
             case ENTREPRISE:
-                return client.getRemiseClientProfessionnelle() != null ?
-                        client.getRemiseClientProfessionnelle() : calculerRemiseParType(Client.TypeClient.ENTREPRISE);
+                return client.getRemiseClientProfessionnelle(); // Ou null selon votre logique
             case PARTICULIER:
             default:
-                return 0.0;
+                return null;
         }
     }
+
     /**
      * Supprimer un client
      */

@@ -66,6 +66,7 @@ public class ClientController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteClient(@PathVariable Integer id) {
         System.out.println("=== REQUÊTE DE SUPPRESSION ===");
@@ -207,13 +208,19 @@ public class ClientController {
     public ResponseEntity<Map<String, Object>> getRemiseForType(
             @PathVariable String typeClient) {
         try {
-            Double remise = clientService.calculerRemiseParType(
-                    Client.TypeClient.valueOf(typeClient.toUpperCase()));
+            // ✅ Utiliser la nouvelle méthode qui retourne NULL si pas de remise en base
+            Double remise = clientService.getRemiseForClientType(typeClient);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("type", typeClient);
-            response.put("remise", remise);
+
+            // ✅ Si remise est null, on ne met pas la clé ou on met null
+            if (remise != null) {
+                response.put("remise", remise);
+            } else {
+                response.put("remise", null);
+            }
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -223,5 +230,4 @@ public class ClientController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
-
 }

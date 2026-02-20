@@ -346,7 +346,7 @@ public class CommandeClientController {
             @PathVariable String typeClient) {
 
         try {
-            Double remise = commandeService.getRemiseForClientType(typeClient);
+            Double remise = clientService.getRemiseForClientType(typeClient);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -390,4 +390,50 @@ public class CommandeClientController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+
+    // recupére les commandes d'un client
+    @GetMapping("/client/{clientId}")
+    public ResponseEntity<Map<String, Object>> getCommandesByClient(@PathVariable Integer clientId) {
+        try {
+            System.out.println("📡 Récupération des commandes pour le client: " + clientId);
+
+            // Récupérer les commandes du client avec leurs détails
+            List<CommandeClient> commandes = commandeClientRepository.findByClientIdWithDetails(clientId);
+
+            // Transformer chaque commande en DTO avec les détails
+            List<CommandeResponseDTO> commandesDTO = commandes.stream()
+                    .map(commande -> CommandeResponseDTO.fromEntity(
+                            commande,
+                            clientService,
+                            produitService
+                    ))
+                    .collect(Collectors.toList());
+
+            // Trier par date (plus récent d'abord)
+            commandesDTO.sort((a, b) -> {
+                if (a.getDateCommande() == null) return 1;
+                if (b.getDateCommande() == null) return -1;
+                return b.getDateCommande().compareTo(a.getDateCommande());
+            });
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("commandes", commandesDTO);
+            response.put("count", commandesDTO.size());
+            response.put("message", "Commandes récupérées avec succès");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            System.err.println("❌ Erreur récupération commandes client " + clientId + ": " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur lors de la récupération des commandes: " + e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
 }
