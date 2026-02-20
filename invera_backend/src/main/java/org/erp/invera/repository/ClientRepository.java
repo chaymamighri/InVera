@@ -16,20 +16,25 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
     // RECHERCHES PAR CHAMPS
     // ========================
 
-    // Trouver par téléphone
-    Optional<Client> findByTelephone(String telephone);
-
     // Vérifier l'existence par téléphone
     boolean existsByTelephone(String telephone);
-
-    // Vérifier si téléphone existe (sauf pour un client donné)
-    boolean existsByTelephoneAndIdClientNot(String telephone, Integer idClient);
 
     // Rechercher par email
     Optional<Client> findByEmail(String email);
 
     // Vérifier l'existence par email
     boolean existsByEmail(String email);
+
+
+    // ClientRepository.java
+    @Query("SELECT AVG(c.remiseClientVIP) FROM Client c WHERE c.typeClient = 'VIP'")
+    Double findAverageRemiseVIP();
+
+    @Query("SELECT AVG(c.remiseClientFidele) FROM Client c WHERE c.typeClient = 'FIDELE'")
+    Double findAverageRemiseFidele();
+
+    @Query("SELECT AVG(c.remiseClientProfessionnelle) FROM Client c WHERE c.typeClient = 'PROFESSIONNEL'")
+    Double findAverageRemiseProfessionnelle();
 
     // ========================
     // RECHERCHES AVANCÉES
