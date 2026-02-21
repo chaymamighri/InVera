@@ -1,4 +1,3 @@
-// src/main/java/org/erp/invera/controller/AuthController.java
 package org.erp.invera.controller;
 
 import jakarta.validation.Valid;
@@ -6,8 +5,10 @@ import org.erp.invera.dto.*;
 import org.erp.invera.model.Role;
 import org.erp.invera.model.User;
 import org.erp.invera.model.PasswordResetToken;
+import org.erp.invera.model.Notification; // ✅ NEW
 import org.erp.invera.repository.UserRepository;
 import org.erp.invera.repository.PasswordResetTokenRepository;
+import org.erp.invera.repository.NotificationRepository; // ✅ NEW
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,11 +39,12 @@ public class AuthController {
     @Autowired private PasswordResetTokenRepository passwordResetTokenRepository;
     @Autowired private EmailService emailService;
 
+    @Autowired private NotificationRepository notificationRepository; // ✅ NEW
+
     // ===== LOGIN =====
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
 
-        // ✅ Check active BEFORE authenticating (better UX)
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -80,7 +82,6 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse("Username déjà utilisé"));
         }
 
-        // 🚨 Prevent admin creation
         if (request.getRole().equalsIgnoreCase("ADMIN")) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Vous ne pouvez pas créer un autre ADMIN"));
@@ -132,7 +133,62 @@ public class AuthController {
         userRepository.save(user);
         passwordResetTokenRepository.delete(token);
 
+        // ✅ NEW: notify admin in-app
+        String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
+        String msg = "✅ Mot de passe créé (activation) par: " + fullName + " (" + user.getEmail() + ")";
+        notificationRepository.save(new Notification("PASSWORD_CREATED", msg, user.getEmail(), fullName));
+
         return ResponseEntity.ok(new MessageResponse("Account activated successfully"));
+    }
+
+    // ===== CHANGE PASSWORD (NEW) =====
+    @PutMapping("/change-password")
+    @Transactional
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request,
+                                            Authentication authentication) {
+
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isActive()) {
+            return ResponseEntity.status(403)
+                    .body(new MessageResponse("Compte désactivé. Contactez l’administrateur."));
+        }
+
+        if (user.getPassword() == null) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Aucun mot de passe n'est défini pour ce compte"));
+        }
+
+        // ✅ verify current password
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Mot de passe actuel incorrect"));
+        }
+
+        // ✅ basic check (optional)
+        if (request.getNewPassword() == null || request.getNewPassword().trim().length() < 8) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Le mot de passe doit contenir au moins 8 caractères"));
+        }
+
+        // ✅ prevent same password (optional)
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Le nouveau mot de passe doit être différent de l'ancien"));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // ✅ NEW: notify admin in-app
+        String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
+        String msg = "🔐 Mot de passe modifié par: " + fullName + " (" + user.getEmail() + ")";
+        notificationRepository.save(new Notification("PASSWORD_CHANGED", msg, user.getEmail(), fullName));
+
+        return ResponseEntity.ok(new MessageResponse("Mot de passe modifié avec succès"));
     }
 
     // ===== FILTER USERS =====
@@ -249,7 +305,6 @@ public class AuthController {
         user.setActive(active);
         userRepository.save(user);
 
-        // ✅ Note: logout immédiat = côté client (interceptor) dès prochaine requête
         return ResponseEntity.ok(new MessageResponse(active ? "Utilisateur activé" : "Utilisateur désactivé"));
     }
 
@@ -279,9 +334,8 @@ public class AuthController {
 
         userRepository.findByEmail(email).ifPresent(user -> {
 
-            // ✅ NEW: do not send reset email if user is deactivated
             if (!user.isActive()) {
-                return; // silent (avoid leaking status)
+                return;
             }
 
             passwordResetTokenRepository.deleteByUserEmail(email);
@@ -295,7 +349,6 @@ public class AuthController {
             CompletableFuture.runAsync(() -> emailService.sendResetPasswordEmail(email, resetToken.getToken()));
         });
 
-        // ✅ always same response (security)
         return ResponseEntity.ok(new MessageResponse("If the email exists, a reset code was sent"));
     }
 
@@ -315,7 +368,6 @@ public class AuthController {
 
         User user = resetToken.getUser();
 
-        // ✅ If admin deactivated him, block reset here too
         if (!user.isActive()) {
             return ResponseEntity.status(403)
                     .body(new MessageResponse("Compte désactivé. Contactez l’administrateur."));
@@ -326,6 +378,11 @@ public class AuthController {
 
         userRepository.save(user);
         passwordResetTokenRepository.delete(resetToken);
+
+        // ✅ OPTIONAL (recommended): notify admin for reset too
+        String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
+        String msg = "♻️ Mot de passe réinitialisé par code pour: " + fullName + " (" + user.getEmail() + ")";
+        notificationRepository.save(new Notification("PASSWORD_RESET", msg, user.getEmail(), fullName));
 
         return ResponseEntity.ok(new MessageResponse("Password created successfully"));
     }
