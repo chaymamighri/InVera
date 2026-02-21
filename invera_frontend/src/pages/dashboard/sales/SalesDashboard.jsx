@@ -95,25 +95,43 @@ const SalesDashboard = () => {
     
     return currentItem?.title || 'Tableau de Bord Commercial';
   };
+// Description dynamique
+const getPageDescription = () => {
+  const currentPath = location.pathname;
+  
+  // Page d'accueil
+  if (currentPath === '/dashboard/sales' || currentPath === '/dashboard/sales/') {
+    return 'Statistiques et indicateurs de performance';
+  }
+  
+  // Vérifier d'abord les chemins spécifiques (plus longs)
+  if (currentPath.includes('/products')) {
+    return 'Consultez le catalogue et créez des commandes clients';
+  }
+  
+  if (currentPath.includes('/orders')) {
+    return 'Consultez et gérez toutes les commandes clients';
+  }
 
-  // Description dynamique - CORRIGÉE
-  const getPageDescription = () => {
-    const currentPath = location.pathname;
-    
-    if (currentPath === '/dashboard/sales' || currentPath === '/dashboard/sales/') {
-      return 'Statistiques et indicateurs de performance';
-    }
-    
-    if (currentPath.includes('/products')) {
-      return 'Consultez le catalogue et créez des commandes clients';
-    }
-    
-    if (currentPath.includes('/orders')) {
-      return 'Consultez et gérez toutes les commandes clients';
-    }
-    
-    return 'Gestion commerciale et suivi des opérations';
-  };
+  if (currentPath.includes('/clients')) {
+    return 'Gérez tous les clients et leurs informations';
+  }
+
+  if (currentPath.includes('/invoices')) {
+    return 'Consultez et exportez les factures clients.';
+  }
+
+  // Vérifier /sales en dernier car c'est le plus générique
+  if (currentPath.includes('/sales')) {
+    return 'Gérez les commandes validées et lancez leur facturation';
+  }
+
+  if (currentPath.includes('/reports')) {
+  return 'Consultez le rapport détaillé des ventes.';
+  }
+
+  return 'Gestion commerciale et suivi des opérations';
+};
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">

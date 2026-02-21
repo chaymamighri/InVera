@@ -18,6 +18,8 @@ import CreatePasswordPage from './pages/CreatePasswordPage';
 
 import LoginPage from './pages/auth/loginPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
+import ClientManagePage from './pages/dashboard/sales/clients/ClientPageManage';
+import ReportVentePage from './pages/dashboard/sales/reports/ReportVentePage';
 
 const ROLE_MAPPING = {
   ADMIN: 'admin',
@@ -178,6 +180,8 @@ function App() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
           <Route path="invoices" element={<InvoicingPage />} />
+          <Route path="clients" element={<ClientManagePage />} />
+         <Route path="reports" element={<ReportVentePage />} />
         </Route>
 
         {/* Shared */}

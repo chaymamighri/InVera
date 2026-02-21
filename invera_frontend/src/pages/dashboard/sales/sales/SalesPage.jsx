@@ -9,7 +9,7 @@ import {
 
 import SalesFilters from './components/SalesFilter'; 
 import SalesTable from './components/SalesTable'; 
-import InvoiceModal from './components/InvoiceModal'; 
+import InvoiceModal from '../invoicing/components/invoiceModal'; 
 import { commandeService } from '../../../../services/commandeService'; 
 
 const SalesPage = () => {
@@ -17,7 +17,7 @@ const SalesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // ✅ État pour suivre les factures existantes
+  //  État pour suivre les factures existantes
   const [invoiceStatus, setInvoiceStatus] = useState({});
   
   // Filtres
@@ -33,7 +33,7 @@ const SalesPage = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedFacture, setSelectedFacture] = useState(null);
   
-  // ✅ Fonction pour vérifier l'état des factures pour toutes les commandes
+  // Fonction pour vérifier l'état des factures pour toutes les commandes
   const checkInvoicesStatus = useCallback(async (commandesList) => {
     const status = {};
     
@@ -255,9 +255,11 @@ const SalesPage = () => {
     return result;
   }, [commandes, filters]);
 
-  // ✅ FONCTION: Afficher la facture dans le modal
+  // ✅ FONCTION CORRIGÉE: Afficher la facture dans le modal
   const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
     const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+    
+    console.log('📄 Données facture reçues:', invoiceData);
     
     // Gestion sécurisée de la date d'échéance
     let dueDate = null;
@@ -274,41 +276,77 @@ const SalesPage = () => {
       }
     }
     
+    // ✅ Construction robuste de l'objet facture
     const factureData = {
-      id: invoiceData.idFactureClient || invoiceData.id,
-      invoiceNumber: invoiceData.referenceFactureClient || `FAC-${invoiceData.id}`,
+      // ID avec fallbacks multiples
+      id: invoiceData.idFactureClient || 
+          invoiceData.id || 
+          invoiceData.factureId || 
+          `FAC-${commandeId}`,
+      
+      // Références
+      referenceFactureClient: invoiceData.referenceFactureClient || 
+                              invoiceData.reference || 
+                              `FAC-${commandeId}`,
+      reference: invoiceData.referenceFactureClient || 
+                 invoiceData.reference || 
+                 `FAC-${commandeId}`,
+      invoiceNumber: invoiceData.referenceFactureClient || 
+                     invoiceData.reference || 
+                     `FAC-${commandeId}`,
+      
+      // Dates
+      dateFacture: invoiceData.dateFacture,
       date: invoiceData.dateFacture,
       dueDate: dueDate,
       
-      clientName: commande?.client?.nomComplet || 
-                  (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
-      clientEmail: commande?.client?.email || invoiceData.client?.email || '',
-      clientPhone: commande?.client?.telephone || invoiceData.client?.telephone || '',
-      clientAddress: commande?.client?.adresse || invoiceData.client?.adresse || '',
-      clientType: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER',
+      // Client - structure complète attendue par le modal
+      client: {
+        nomComplet: commande?.client?.nomComplet || 
+                    (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
+        email: commande?.client?.email || invoiceData.client?.email || '',
+        telephone: commande?.client?.telephone || invoiceData.client?.telephone || '',
+        adresse: commande?.client?.adresse || invoiceData.client?.adresse || '',
+        typeClient: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER'
+      },
       
-      commandeId: commandeId,
+      // Commande associée
+      commande: commande ? {
+        id: commande.id,
+        reference: commande.referenceCommandeClient || commande.numeroCommande,
+        lignesCommande: commande.produits?.map(p => ({
+          produit: {
+            libelle: p.libelle || 'Produit'
+          },
+          quantite: p.quantite,
+          prix_unitaire: p.prixUnitaire,
+          total: p.sousTotal || (p.quantite * p.prixUnitaire)
+        })) || []
+      } : null,
       
-      items: commande?.produits?.map(p => ({
-        productId: p.produitId,
-        productName: p.libelle || 'Produit',
-        quantity: p.quantite,
-        price: p.prixUnitaire,
-        discount: 0,
-        tax: 19,
-        total: p.sousTotal
-      })) || [],
-      
-      subtotal: commande?.sousTotal || invoiceData.montantTotal || 0,
-      discountTotal: (commande?.sousTotal || 0) - (commande?.total || 0),
-      tax: ((commande?.total || 0) - ((commande?.sousTotal || 0) - ((commande?.sousTotal || 0) - (commande?.total || 0)))) * 0.19,
+      // Montants
+      montantTotal: invoiceData.montantTotal || commande?.montantTotal || 0,
       total: invoiceData.montantTotal || commande?.total || 0,
       
-      paymentMethod: commande?.modePaiement || 'Non spécifié',
-      notes: commande?.notes || '',
+      // Items formatés pour le template
+      items: commande?.produits?.map(p => ({
+        description: p.libelle || 'Produit',
+        quantity: p.quantite,
+        unitPrice: p.prixUnitaire,
+        total: p.sousTotal || (p.quantite * p.prixUnitaire)
+      })) || [],
+      
+      // Statut
+      statut: invoiceData.statut || 'NON_PAYE',
       status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
-      statut: invoiceData.statut || 'NON_PAYE'
+      
+      // Métadonnées
+      commandeId: commandeId,
+      paymentMethod: commande?.modePaiement || 'Non spécifié',
+      notes: commande?.notes || ''
     };
+    
+    console.log('✅ Facture préparée pour le modal:', factureData);
     
     setSelectedFacture(factureData);
     setIsInvoiceModalOpen(true);
@@ -320,27 +358,67 @@ const SalesPage = () => {
     }));
   }, [commandes]);
 
-  // ✅ FONCTION: Générer la facture
+  // ✅ FONCTION CORRIGÉE: Générer la facture
   const handleGenerateInvoice = async (commandeId) => {
     setInvoiceLoading(prev => ({ ...prev, [commandeId]: true }));
     
     try {
       console.log('📄 Génération facture pour commande:', commandeId);
       const result = await commandeService.generateOrGetInvoice(commandeId);
-      console.log('✅ Résultat:', result);
+      console.log('✅ Résultat API:', result);
       
       if (result && result.facture) {
-        displayInvoiceInModal(result.facture, commandeId);
+        // Récupérer la commande pour avoir les articles
+        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+        
+        // Enrichir les données avec les articles de la commande
+        const factureComplete = {
+          ...result.facture,
+          items: commande?.produits || []
+        };
+        
+        displayInvoiceInModal(factureComplete, commandeId);
       }
       
       return result;
     } catch (error) {
       console.error('❌ Erreur génération facture:', error);
+      alert('Erreur lors de la génération de la facture');
       throw error;
     } finally {
       setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
     }
   };
+
+  // src/pages/dashboard/sales/SalesPage.jsx
+
+// ✅ AJOUTER CETTE FONCTION pour consulter une facture existante
+const handleViewInvoice = useCallback(async (commandeId) => {
+  try {
+    console.log('📄 Consultation facture pour commande:', commandeId);
+    
+    // Récupérer la facture existante
+    const result = await commandeService.generateOrGetInvoice(commandeId);
+    console.log('✅ Facture existante récupérée:', result);
+    
+    if (result && result.facture) {
+      // Récupérer la commande pour avoir les articles
+      const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+      
+      // Enrichir les données avec les articles de la commande
+      const factureComplete = {
+        ...result.facture,
+        items: commande?.produits || []
+      };
+      
+      // Ouvrir le modal avec la facture existante
+      displayInvoiceInModal(factureComplete, commandeId);
+    }
+  } catch (error) {
+    console.error('❌ Erreur consultation facture:', error);
+    alert('Erreur lors de la consultation de la facture');
+  }
+}, [commandes, displayInvoiceInModal]);
 
   // Fonction pour télécharger le PDF
   const handleDownloadPDF = async (factureId) => {
@@ -420,20 +498,59 @@ const SalesPage = () => {
         commandes={filteredResult}
         loading={loading}
         invoiceLoading={invoiceLoading}
-        invoiceStatus={invoiceStatus}  // ✅ Passage de l'état au tableau
+        invoiceStatus={invoiceStatus}
         onGenerateInvoice={handleGenerateInvoice}
+        onViewInvoice={handleViewInvoice}
         filters={filters} 
       />
 
       {/* Modal de facture */}
-      <InvoiceModal
-        isOpen={isInvoiceModalOpen}
-        onClose={() => {
-          setIsInvoiceModalOpen(false);
-          setSelectedFacture(null);
-        }}
-        facture={selectedFacture}
-      />
+<InvoiceModal
+  isOpen={isInvoiceModalOpen}
+  onClose={() => {
+    setIsInvoiceModalOpen(false);
+    setSelectedFacture(null);
+  }}
+  facture={selectedFacture}
+  onStatusChange={async (factureId, newStatus) => {
+    console.log('Statut changé pour facture:', factureId, newStatus);
+    
+    // ✅ Utiliser factureId (qui est passé en paramètre)
+    // Pour trouver la commande associée, on a besoin de selectedFacture AVANT le changement
+    const commandeId = selectedFacture?.commandeId;
+    
+    if (commandeId) {
+      console.log(`🔄 Mise à jour invoiceStatus pour commande ${commandeId}`);
+      
+      // 1. Mettre à jour la facture sélectionnée
+      setSelectedFacture(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          statut: newStatus === 'payée' ? 'PAYE' : 'NON_PAYE',
+          status: newStatus
+        };
+      });
+      
+      // 2. Mettre à jour invoiceStatus
+      setInvoiceStatus(prev => ({
+        ...prev,
+        [commandeId]: true
+      }));
+      
+      // 3. Mettre à jour la commande dans la liste
+      setCommandes(prev => 
+        prev.map(cmd => 
+          cmd.id === commandeId 
+            ? { ...cmd, facturePayee: newStatus === 'payée' }
+            : cmd
+        )
+      );
+    } else {
+      console.error('❌ Impossible de trouver commandeId pour facture', factureId);
+    }
+  }}
+/>
 
       {/* Styles pour animations */}
       <style >{`

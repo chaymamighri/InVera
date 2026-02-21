@@ -60,34 +60,32 @@ const clientService = {
   },
 
 
-  // Mettre à jour un client
-  updateClient: async (id, clientData) => {
-    try {
-      const response = await api.put(`/clients/${id}`, clientData, {
-        headers: authHeader(),
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour du client ${id}:`, error);
-      throw error;
-    }
-  },
+updateClient: async (id, clientData) => {
+  try {
+    // Utiliser POST au lieu de PUT pour tester
+    const response = await api.post(`/clients/update/${id}`, clientData, { 
+      headers: authHeader(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors de la mise à jour du client ${id}:`, error);
+    throw error;
+  }
+},
 
+  // Supprimer un client
+deleteClient: async (id) => {
+  try {
+    const response = await api.delete(`/clients/${id}`, {
+      headers: authHeader(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors de la suppression du client ${id}:`, error);
+    throw error;
+  }
+},
 
-
-  // Obtenir les statistiques clients
-  getClientStats: async () => {
-    try {
-      const response = await api.get('/clients/stats', {
-        headers: authHeader(),
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques clients:', error);
-      throw error;
-    }
-  },
-  
 // Récupérer les types de client depuis la base (ENUM backend)
   getClientTypes: async () => {
     try {
@@ -109,8 +107,21 @@ const clientService = {
       console.error(`Erreur lors de la récupération de la remise pour ${typeClient}:`, error);
       throw error;
     }
-  }
+  },
 
+// Vérifier si un téléphone existe
+checkTelephone: async (telephone) => {
+  try {
+    const response = await api.get('/clients/verifier-telephone', {
+      params: { telephone },
+      headers: authHeader(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la vérification du téléphone:', error);
+    throw error;
+  }
+}
 };
 
 export default clientService;

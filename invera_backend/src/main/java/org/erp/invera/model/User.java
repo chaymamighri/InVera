@@ -30,7 +30,7 @@ public class User implements UserDetails {
     private String email;
 
     @Column
-    private String password; // BCrypt hashed
+    private String password;
 
     private String nom;
     private String prenom;

@@ -14,8 +14,6 @@ import {
   ClockIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
-import html2pdf from 'html2pdf.js';
-import InvoiceTemplate from './InvoiceTemplate'; 
 
 const StatusBadge = ({ statut }) => {
   const config = {
@@ -45,89 +43,6 @@ const StatusBadge = ({ statut }) => {
     </span>
   );
 };
-
-
-const handleDownloadInvoice = async (factureId, e) => {
-  e?.stopPropagation();
-  setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
-  
-  try {
-    console.log('📥 Génération PDF pour facture ID:', factureId);
-    
-    // 1. Récupérer les détails de la facture
-    const facture = selectedFacture || factures.find(f => f.id === factureId);
-    
-    if (!facture) {
-      throw new Error('Facture non trouvée');
-    }
-    
-    // 2. Préparer les données pour le template
-    const items = facture.commande?.lignesCommande?.map(ligne => ({
-      description: ligne.produit?.libelle || 'Produit',
-      quantity: ligne.quantite || 0,
-      unitPrice: ligne.prix_unitaire || 0,
-      total: ligne.sous_total || 0
-    })) || [];
-
-    const totaux = {
-      sousTotal: facture.montantTotal || 0,
-      tva: (facture.montantTotal || 0) * 0.19,
-      totalTTC: (facture.montantTotal || 0) * 1.19
-    };
-
-    // 3. Générer le HTML à partir du template
-    const htmlContent = InvoiceTemplate({
-      facture: facture,
-      items: items,
-      totaux: totaux,
-      formatDate: (date) => {
-        if (!date) return '-';
-        return new Date(date).toLocaleDateString('fr-FR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-      },
-      formatMontant: (montant) => {
-        if (!montant) return '0,000 DT';
-        return new Intl.NumberFormat('fr-TN', {
-          minimumFractionDigits: 3,
-          maximumFractionDigits: 3
-        }).format(montant) + ' DT';
-      }
-    });
-
-    // 4. Créer un élément temporaire
-    const element = document.createElement('div');
-    element.innerHTML = htmlContent;
-    document.body.appendChild(element);
-
-    // 5. Options pour le PDF
-    const opt = {
-      margin:        [0.5, 0.5, 0.5, 0.5], // [top, right, bottom, left] en inches
-      filename:     `facture-${facture.reference || factureId}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, letterRendering: true, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-
-    // 6. Générer et télécharger le PDF
-    await html2pdf().from(element).set(opt).save();
-
-    // 7. Nettoyer
-    document.body.removeChild(element);
-    
-    console.log('✅ PDF généré avec succès');
-    
-  } catch (error) {
-    console.error('❌ Erreur génération PDF:', error);
-    alert('Erreur lors de la génération du PDF: ' + error.message);
-  } finally {
-    setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
-  }
-};
-
-
 
 const FacturesTable = ({
   factures,
@@ -176,7 +91,7 @@ const FacturesTable = ({
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={onRefresh}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
           >
             Réessayer
           </button>
@@ -212,7 +127,7 @@ const FacturesTable = ({
                 { key: 'commande', label: 'Commande', icon: TagIcon },
                 { key: 'montant', label: 'Montant', icon: CurrencyDollarIcon },
                 { key: 'statut', label: 'Statut' },
-                { key: 'actions', label: '', align: 'right' }
+                { key: 'actions', label: 'Action', align: 'right' }
               ].map((col) => (
                 <th
                   key={col.key}
@@ -222,7 +137,7 @@ const FacturesTable = ({
                   onClick={() => col.key !== 'actions' && onSort(col.key)}
                 >
                   <div className="flex items-center gap-2">
-                    {col.icon && <col.icon className="h-4 w-4" />}
+                    {col.icon && <col.icon className="h-4 w-4 text-gray-500" />}
                     <span>{col.label}</span>
                     <SortIcon field={col.key} />
                   </div>
@@ -297,15 +212,18 @@ const FacturesTable = ({
                         e.stopPropagation();
                         onView(facture);
                       }}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
                       title="Voir détails"
                     >
                       <EyeIcon className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={(e) => onDownload(facture.id, e)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload(facture, e);
+                      }}
                       disabled={downloadLoading?.[facture.id]}
-                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Télécharger PDF"
                     >
                       {downloadLoading?.[facture.id] ? (
@@ -315,8 +233,11 @@ const FacturesTable = ({
                       )}
                     </button>
                     <button
-                      onClick={(e) => onSendEmail(facture, e)}
-                      className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSendEmail(facture, e);
+                      }}
+                      className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
                       title="Envoyer par email"
                     >
                       <EnvelopeIcon className="h-4 w-4" />
