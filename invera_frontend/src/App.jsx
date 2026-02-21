@@ -12,7 +12,7 @@ import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashb
 import Header from './components/Header';
 import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
-import DashboardContent from './pages/dashboard/sales/statistic/DashboardContent';
+import DashboardPage from './pages/dashboard/sales/statistic/DashboardPage';
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
 import CreatePasswordPage from './pages/CreatePasswordPage';
 
@@ -175,7 +175,7 @@ function App() {
           element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardContent />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="sales" element={<SalesPage />} />
