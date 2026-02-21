@@ -95,13 +95,20 @@ const SalesDashboard = () => {
     
     return currentItem?.title || 'Tableau de Bord Commercial';
   };
+
 // Description dynamique
 const getPageDescription = () => {
   const currentPath = location.pathname;
   
-  // Page d'accueil
-  if (currentPath === '/dashboard/sales' || currentPath === '/dashboard/sales/') {
+  // Page d'accueil du dashboard commercial
+  if (currentPath === '/dashboard/sales' || 
+      currentPath === '/dashboard/sales/' || 
+      currentPath === '/dashboard/sales/dashboard') {  // ← AJOUTE CETTE LIGNE
     return 'Statistiques et indicateurs de performance';
+  }
+  
+   if (currentPath.includes('/reports')) {
+    return 'Consultez le rapport détaillé des ventes.';
   }
   
   // Vérifier d'abord les chemins spécifiques (plus longs)
@@ -124,10 +131,6 @@ const getPageDescription = () => {
   // Vérifier /sales en dernier car c'est le plus générique
   if (currentPath.includes('/sales')) {
     return 'Gérez les commandes validées et lancez leur facturation';
-  }
-
-  if (currentPath.includes('/reports')) {
-  return 'Consultez le rapport détaillé des ventes.';
   }
 
   return 'Gestion commerciale et suivi des opérations';
