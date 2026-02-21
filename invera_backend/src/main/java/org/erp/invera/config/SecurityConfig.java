@@ -2,12 +2,10 @@ package org.erp.invera.config;
 
 import org.erp.invera.security.JwtAuthenticationFilter;
 import org.erp.invera.service.CustomUserDetailsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,7 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -42,19 +39,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    /* @Bean
-      public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    } */
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -87,17 +71,29 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // public
                         .requestMatchers("/api/auth/login",
                                 "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/create-admin-temp").permitAll()
+
+                        // authenticated user endpoints (profile)
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
+
+                        // admin notifications
+                        .requestMatchers("/api/notifications/**").hasRole("ADMIN")
+
+                        // admin only
                         .requestMatchers("/api/auth/register",
                                 "/api/auth/activate/**",
                                 "/api/auth/filter",
                                 "/api/auth/all",
                                 "/api/auth/delete/**",
                                 "/api/auth/update/**").hasRole("ADMIN")
+
+                        // roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
@@ -106,7 +102,6 @@ public class SecurityConfig {
 
                         .anyRequest().authenticated()
                 )
-                //.authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
