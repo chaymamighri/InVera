@@ -5,12 +5,12 @@ import org.erp.invera.dto.FactureDTO;
 import org.erp.invera.model.FactureClient;
 import org.erp.invera.service.FactureService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -149,20 +149,6 @@ public class FactureClientController {
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
-        }
-    }
-
-    /**
-     *  Télécharger une facture au format PDF
-     */
-    @GetMapping("/telecharger/{factureId}")
-    public ResponseEntity<byte[]> telechargerFacturePDF(@PathVariable Integer factureId) {
-        try {
-            // Cette méthode nécessite PdfGenerationService
-            // À implémenter si vous avez le service PDF
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
         }
     }
 

@@ -67,6 +67,80 @@ public class ClientController {
         }
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteClient(@PathVariable Integer id) {
+        System.out.println("=== REQUÊTE DE SUPPRESSION ===");
+        System.out.println("ID client à supprimer: " + id);
+
+        try {
+            clientService.deleteClient(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Client supprimé avec succès");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            System.err.println(" Client non trouvé: " + e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (IllegalStateException e) {
+            System.err.println("Conflit: " + e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la suppression: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur lors de la suppression: " + e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/update/{id}")
+    public ResponseEntity<Map<String, Object>> updateClient(
+            @PathVariable Integer id,
+            @RequestBody NouveauClientDTO clientDTO) {
+
+        System.out.println("=== REQUÊTE DE MISE À JOUR ===");
+        System.out.println("ID client: " + id);
+        System.out.println("Données reçues: " + clientDTO);
+
+        try {
+            // Le service utilise NouveauClientDTO pour la mise à jour
+            Client client = clientService.updateClient(id, clientDTO);
+
+            // Mais on retourne ClientDTO en sortie (plus complet)
+            ClientDTO clientResponse = ClientDTO.fromEntity(client);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Client modifié avec succès");
+            response.put("client", clientResponse);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Erreur: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
     @GetMapping("/rechercher")
     public ResponseEntity<Map<String, Object>> searchClients(
             @RequestParam(required = false) String q) {
@@ -134,13 +208,19 @@ public class ClientController {
     public ResponseEntity<Map<String, Object>> getRemiseForType(
             @PathVariable String typeClient) {
         try {
-            Double remise = clientService.calculerRemiseParType(
-                    Client.TypeClient.valueOf(typeClient.toUpperCase()));
+            // ✅ Utiliser la nouvelle méthode qui retourne NULL si pas de remise en base
+            Double remise = clientService.getRemiseForClientType(typeClient);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("type", typeClient);
-            response.put("remise", remise);
+
+            // ✅ Si remise est null, on ne met pas la clé ou on met null
+            if (remise != null) {
+                response.put("remise", remise);
+            } else {
+                response.put("remise", null);
+            }
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

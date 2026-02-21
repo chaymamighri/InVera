@@ -9,15 +9,13 @@ import org.erp.invera.model.Client;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientDTO {
-    private Integer idClient;           // Changé de id à idClient
+    private Integer idClient;
     private String nom;
     private String prenom;
     private String telephone;
     private String adresse;
-    private String typeClient;           // Changé de type à typeClient
+    private String typeClient;
     private String email;
-
-    // Attributs de remise ajoutés
     private Double remiseStandard;
     private Double remiseClientFidele;
     private Double remiseClientVIP;
@@ -43,7 +41,6 @@ public class ClientDTO {
         }
 
         // Attributs de remise
-        dto.setRemiseStandard(client.getRemiseStandard());
         dto.setRemiseClientFidele(client.getRemiseClientFidele());
         dto.setRemiseClientVIP(client.getRemiseClientVIP());
         dto.setRemiseClientProfessionnelle(client.getRemiseClientProfessionnelle());

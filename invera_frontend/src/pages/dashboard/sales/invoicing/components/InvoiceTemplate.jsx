@@ -1,86 +1,327 @@
 // src/components/InvoiceTemplate.jsx
-
 import { logoBase64 } from '../../../../../assets/logoBase64';
 
 const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) => {
+  const isPaye = facture.statut === 'PAYE';
+  
   return `
     <html>
       <head>
         <title>Facture ${facture.referenceFactureClient || facture.reference}</title>
         <style>
-          body { font-family: 'Arial', sans-serif; margin: 0; padding: 20px; background: #f9fafb; }
-          .invoice-container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
           
-          /* STYLE POUR LE HEADER AVEC LOGO ET INFOS À CÔTÉ */
-          .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 40px; 
-            padding-bottom: 20px; 
-            border-bottom: 2px solid #e5e7eb; 
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
           }
           
-          /* CONTENEUR POUR LOGO + INFOS (HORIZONTAL) */
+          body { 
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #f5f7fa; 
+            padding: 20px;
+            line-height: 1.5;
+            color: #1e293b;
+          }
+          
+          .invoice-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 30px -10px rgba(0, 20, 40, 0.15);
+            overflow: hidden;
+          }
+          
+          /* Header style modal */
+          .header {
+            padding: 24px 28px;
+            background: white;
+            border-bottom: 1px solid #eef2f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+          
           .left-section {
             display: flex;
             align-items: center;
             gap: 20px;
           }
           
-          /* STYLE DU LOGO */
           .logo {
-            width: 70px;
-            height: 70px;
+            width: 60px;
+            height: 60px;
             object-fit: contain;
           }
           
-          /* STYLE DES INFORMATIONS À CÔTÉ DU LOGO */
           .company-details {
-            font-size: 12px;
-            color: #4b5563;
-            line-height: 1.6;
-            border-left: 2px solid #e5e7eb;
-            padding-left: 20px;
+            border-left: 1px solid #e2e8f0;
+            padding-left: 16px;
           }
           
           .company-details p {
             margin: 3px 0;
+            font-size: 11px;
+            color: #475569;
             display: flex;
             align-items: center;
             gap: 8px;
+            font-weight: 400;
           }
           
           .company-details i {
-            color: #10b981;
-            width: 16px;
+            color: #64748b;
+            width: 14px;
             font-style: normal;
+            font-size: 12px;
+            opacity: 0.7;
           }
           
-          .invoice-info { text-align: right; }
-          .invoice-title { font-size: 32px; font-weight: bold; color: #111827; margin: 0; }
-          .invoice-ref { color: #6b7280; font-size: 14px; }
-          .status-badge { display: inline-block; padding: 6px 16px; border-radius: 9999px; font-size: 14px; font-weight: 600; margin-top: 10px; background: ${facture.statut === 'PAYE' ? '#10b981' : '#f59e0b'}; color: white; }
-          .info-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
-          .info-box { background: #f9fafb; padding: 20px; border-radius: 8px; }
-          .info-box h3 { margin: 0 0 15px 0; color: #374151; font-size: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
-          .info-row { margin-bottom: 8px; }
-          .info-label { color: #6b7280; font-size: 13px; }
-          .info-value { color: #111827; font-weight: 500; }
-          table { width: 100%; border-collapse: collapse; margin: 30px 0; }
-          th { background: #f3f4f6; color: #374151; font-weight: 600; font-size: 13px; padding: 12px; text-align: left; }
-          td { padding: 12px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }
-          .total-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb; }
-          .total-row { display: flex; justify-content: flex-end; gap: 20px; margin-bottom: 10px; }
-          .total-label { font-weight: 500; color: #6b7280; }
-          .total-value { font-weight: 600; color: #111827; min-width: 120px; text-align: right; }
-          .grand-total { font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #e5e7eb; padding-top: 15px; margin-top: 15px; }
-          .footer { margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+          .invoice-info {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+          }
+          
+          .invoice-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+          }
+          
+          .invoice-ref {
+            color: #64748b;
+            font-size: 13px;
+            margin: 4px 0 12px 0;
+            font-weight: 400;
+          }
+          
+          /* Badge de statut style modal */
+          .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            background: ${isPaye ? '#ecfdf5' : '#fffbeb'};
+            color: ${isPaye ? '#047857' : '#b45309'};
+            border: 1px solid ${isPaye ? '#a7f3d0' : '#fde68a'};
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+          }
+          
+          .status-badge i {
+            margin-right: 6px;
+            font-style: normal;
+            font-size: 14px;
+          }
+          
+          /* Grille info style modal */
+          .info-grid {
+            padding: 20px 28px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+          }
+          
+          .info-card {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 18px;
+            border: 1px solid #edf2f7;
+          }
+          
+          .info-card h3 {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #64748b;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          
+          .info-card h3 i {
+            color: #475569;
+            font-style: normal;
+            font-size: 14px;
+          }
+          
+          .info-row {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: baseline;
+          }
+          
+          .info-label {
+            font-size: 11px;
+            color: #64748b;
+            width: 80px;
+            flex-shrink: 0;
+          }
+          
+          .info-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1e293b;
+          }
+          
+          .montant-highlight {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #dce3ec;
+          }
+          
+          .montant-highlight .info-label {
+            color: #475569;
+            font-weight: 500;
+          }
+          
+          .montant-highlight .info-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2563eb;
+          }
+          
+          /* Articles */
+          .articles-section {
+            padding: 10px 28px 5px 28px;
+          }
+          
+          .articles-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+          }
+          
+          .articles-header i {
+            font-style: normal;
+            color: #2563eb;
+            font-size: 16px;
+          }
+          
+          .articles-header h3 {
+            font-size: 12px;
+            font-weight: 500;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #edf2f7;
+          }
+          
+          th {
+            background: #f8fafc;
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #64748b;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          
+          td {
+            padding: 10px;
+            font-size: 12px;
+            color: #334155;
+            border-bottom: 1px solid #edf2f7;
+          }
+          
+          tr:last-child td {
+            border-bottom: none;
+          }
+          
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .font-mono { font-family: 'SF Mono', monospace; font-weight: 400; }
+          
+          /* Totaux */
+          .totaux-section {
+            padding: 15px 28px 25px 28px;
+          }
+          
+          .totaux-container {
+            max-width: 300px;
+            margin-left: auto;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 16px 18px;
+            border: 1px solid #edf2f7;
+          }
+          
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+          }
+          
+          .total-label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 400;
+          }
+          
+          .total-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #334155;
+            font-family: monospace;
+          }
+          
+          .grand-total-row {
+            margin-top: 6px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+          }
+          
+          .grand-total-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+          }
+          
+          .grand-total-value {
+            font-size: 17px;
+            font-weight: 700;
+            color: #2563eb;
+          }
+          
+          /* Footer */
+          .footer {
+            padding: 16px 28px;
+            text-align: center;
+            border-top: 1px solid #eef2f6;
+            background: #fafcff;
+          }
+          
+          .footer p {
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 400;
+          }
         </style>
       </head>
       <body>
         <div class="invoice-container">
-          <!-- HEADER AVEC LOGO ET INFORMATIONS À CÔTÉ -->
+          
+          <!-- HEADER AVEC STATUT BIEN VISIBLE -->
           <div class="header">
             <div class="left-section">
               <img src="${logoBase64}" alt="InVera" class="logo" />
@@ -93,101 +334,132 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             </div>
             <div class="invoice-info">
               <div class="invoice-title">FACTURE</div>
-              <div class="invoice-ref">N° ${facture.referenceFactureClient || facture.reference}</div>
-              <div class="status-badge">${facture.statut === 'PAYE' ? 'PAYÉE' : 'NON PAYÉE'}</div>
+              <div class="invoice-ref">${facture.referenceFactureClient || facture.reference}</div>
+              <!-- BADGE STATUT STYLE MODAL -->
+              <div class="status-badge">
+                <i>${isPaye ? '✓' : '○'}</i>
+                ${isPaye ? 'Payée' : 'En attente de paiement'}
+              </div>
             </div>
           </div>
 
           <!-- INFORMATIONS CLIENT ET FACTURE -->
-          <div class="info-section">
-            <div class="info-box">
-              <h3>FACTURER À</h3>
+          <div class="info-grid">
+            <!-- Client -->
+            <div class="info-card">
+              <h3><i>👤</i> CLIENT</h3>
               <div class="info-row">
-                <span class="info-label">Client :</span>
+                <span class="info-label">Nom</span>
                 <span class="info-value">${facture.client?.nomComplet || facture.client?.nom || 'N/A'}</span>
               </div>
+              
               ${facture.client?.typeClient ? `
               <div class="info-row">
-                <span class="info-label">Type :</span>
+                <span class="info-label">Type</span>
                 <span class="info-value">${facture.client.typeClient}</span>
               </div>` : ''}
+              
               ${facture.client?.email ? `
               <div class="info-row">
-                <span class="info-label">Email :</span>
+                <span class="info-label">Email</span>
                 <span class="info-value">${facture.client.email}</span>
               </div>` : ''}
+              
               ${facture.client?.telephone ? `
               <div class="info-row">
-                <span class="info-label">Tél :</span>
+                <span class="info-label">Tél</span>
                 <span class="info-value">${facture.client.telephone}</span>
               </div>` : ''}
+              
               ${facture.client?.adresse ? `
               <div class="info-row">
-                <span class="info-label">Adresse :</span>
+                <span class="info-label">Adresse</span>
                 <span class="info-value">${facture.client.adresse}</span>
               </div>` : ''}
             </div>
 
-            <div class="info-box">
-              <h3>DÉTAILS FACTURE</h3>
+            <!-- Détails facture -->
+            <div class="info-card">
+              <h3><i>📄</i> FACTURE</h3>
               <div class="info-row">
-                <span class="info-label">Date d'émission :</span>
+                <span class="info-label">Date</span>
                 <span class="info-value">${formatDate(facture.dateFacture)}</span>
               </div>
+              
+              <div class="info-row">
+                <span class="info-label">N°</span>
+                <span class="info-value">${facture.referenceFactureClient || facture.reference}</span>
+              </div>
+              
               ${facture.commande?.reference ? `
               <div class="info-row">
-                <span class="info-label">Commande :</span>
+                <span class="info-label">Commande</span>
                 <span class="info-value">${facture.commande.reference}</span>
               </div>` : ''}
-              <div class="info-row">
-                <span class="info-label">Échéance :</span>
-                <span class="info-value">${formatDate(facture.dateFacture)}</span>
+              
+              <div class="montant-highlight">
+                <span class="info-label">Total TTC</span>
+                <span class="info-value">${formatMontant(facture.montantTotal)}</span>
               </div>
             </div>
           </div>
 
-          <!-- TABLEAU DES ARTICLES -->
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Quantité</th>
-                <th>Prix unitaire (DT)</th>
-                <th>Total (DT)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
+          <!-- ARTICLES -->
+          <div class="articles-section">
+            <div class="articles-header">
+              <i>📋</i>
+              <h3>ARTICLES</h3>
+            </div>
+            
+            <table>
+              <thead>
                 <tr>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatMontant(item.unitPrice)}</td>
-                  <td>${formatMontant(item.total)}</td>
+                  <th>Description</th>
+                  <th class="text-center">Qté</th>
+                  <th class="text-right">Prix unitaire</th>
+                  <th class="text-right">Total</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${items.length > 0 ? items.map(item => `
+                  <tr>
+                    <td>${item.description}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-right font-mono">${formatMontant(item.unitPrice)}</td>
+                    <td class="text-right font-mono">${formatMontant(item.total)}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="4" class="text-center" style="padding: 30px; color: #94a3b8;">
+                      Aucun article
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
 
           <!-- TOTAUX -->
-          <div class="total-section">
-            <div class="total-row">
-              <span class="total-label">Sous-total :</span>
-              <span class="total-value">${formatMontant(totaux.sousTotal)}</span>
-            </div>
-            <div class="total-row">
-              <span class="total-label">TVA (19%) :</span>
-              <span class="total-value">${formatMontant(totaux.tva)}</span>
-            </div>
-            <div class="total-row grand-total">
-              <span class="total-label">Total TTC :</span>
-              <span class="total-value">${formatMontant(totaux.totalTTC)}</span>
+          <div class="totaux-section">
+            <div class="totaux-container">
+              <div class="total-row">
+                <span class="total-label">Sous-total</span>
+                <span class="total-value">${formatMontant(totaux.sousTotal)}</span>
+              </div>
+              <div class="total-row">
+                <span class="total-label">TVA 19%</span>
+                <span class="total-value">${formatMontant(totaux.tva)}</span>
+              </div>
+              <div class="total-row grand-total-row">
+                <span class="total-label grand-total-label">Total TTC</span>
+                <span class="total-value grand-total-value">${formatMontant(totaux.totalTTC)}</span>
+              </div>
             </div>
           </div>
 
           <!-- PIED DE PAGE -->
           <div class="footer">
-            <p>Merci de votre confiance !</p>
-            <p>Cette facture est générée automatiquement par le système InVera.</p>
+            <p>Merci de votre confiance • Facture générée par InVera</p>
           </div>
         </div>
       </body>

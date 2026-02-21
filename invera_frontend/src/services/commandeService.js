@@ -198,27 +198,43 @@ export const commandeService = {
     }
   },
   
-
-  // ✅ MÉTHODE CORRIGÉE: Marquer une facture comme payée
-  async marquerFacturePayee(factureId) {
-    try {
-      console.log(`📡 Marquage facture ${factureId} comme payée`);
-      
-      // Endpoint exact du backend
-      const response = await api.put(`/factures/${factureId}/payer`, {}, { 
-        headers: authHeader() 
-      });
-      
-      console.log(`✅ Succès: facture ${factureId} marquée comme payée`);
-      return response.data;
-      
-    } catch (error) {
-      console.error('❌ Erreur marquerFacturePayee:', error);
-      throw error;
+//  Marquer une facture comme payée
+async marquerFacturePayee(factureId) {
+  try {
+    // Extraire l'ID numérique si nécessaire
+    let numericId = factureId;
+    
+    // Si c'est une chaîne comme "FAC-4" ou "FAC-123"
+    if (typeof factureId === 'string' && factureId.includes('FAC-')) {
+      const match = factureId.match(/FAC-(\d+)/);
+      if (match && match[1]) {
+        numericId = parseInt(match[1], 10);
+        console.log(`🔢 Conversion: ${factureId} -> ${numericId}`);
+      }
     }
-  },
+    
+    // Si c'est une chaîne qui ne contient que des chiffres
+    if (typeof factureId === 'string' && /^\d+$/.test(factureId)) {
+      numericId = parseInt(factureId, 10);
+    }
+    
+    console.log(`📡 Marquage facture ${numericId} comme payée`);
+    
+    // Endpoint exact du backend avec l'ID numérique
+    const response = await api.put(`/factures/${numericId}/payer`, {}, { 
+      headers: authHeader() 
+    });
+    
+    console.log(` Succès: facture ${numericId} marquée comme payée`);
+    return response.data;
+    
+  } catch (error) {
+    console.error(' Erreur marquerFacturePayee:', error);
+    throw error;
+  }
+},
 
-  // ✅ MÉTHODE UTILITAIRE: Changer le statut (appelle marquerFacturePayee)
+  //Changer le statut (appelle marquerFacturePayee)
   async updateInvoiceStatus(invoiceId, newStatus) {
     try {
       console.log(`📡 Mise à jour statut facture ${invoiceId} -> ${newStatus}`);
@@ -228,14 +244,14 @@ export const commandeService = {
         return await this.marquerFacturePayee(invoiceId);
       } else {
         // Pour "NON_PAYE", il faut une autre logique ou le faire côté frontend
-        console.log('⚠️ Le backend ne supporte que le passage à PAYÉ');
+        console.log('Le backend ne supporte que le passage à PAYÉ');
         
         // Option: faire une mise à jour locale uniquement
         return { success: true, message: 'Mise à jour locale uniquement' };
       }
       
     } catch (error) {
-      console.error('❌ Erreur updateInvoiceStatus:', error);
+      console.error(' Erreur updateInvoiceStatus:', error);
       throw error;
     }
   },
@@ -251,6 +267,34 @@ async getInvoiceById(invoiceId) {
   }
 },
 
+// recupere les commande d'une client
+
+async getCommandesByClientId(clientId) {
+    try {
+        console.log(`📡 Récupération des commandes pour le client ${clientId}`);
+        
+        // Endpoint que vous avez créé dans le controller
+        const response = await api.get(`/commandes/client/${clientId}`, {
+            headers: authHeader()
+        });
+        
+        console.log('✅ Réponse API:', response.data);
+        
+        // La réponse a la structure: { success: true, commandes: [...], count: X }
+        return response.data;
+        
+    } catch (error) {
+        console.error(`❌ Erreur récupération commandes client ${clientId}:`, error);
+        
+        // En cas d'erreur 404 (pas de commandes), retourner un tableau vide
+        if (error.response?.status === 404) {
+            return { success: true, commandes: [], count: 0 };
+        }
+        
+        throw error;
+    }
+},
+
 async generateOrGetInvoice(commandeId) {
   try {
     // 1. Vérifier si une facture existe déjà
@@ -258,55 +302,89 @@ async generateOrGetInvoice(commandeId) {
     
     if (existing) {
       console.log('📄 Facture existante trouvée:', existing);
-      
-      // ✅ Utilisez idFactureClient
       const invoiceId = existing.idFactureClient;
-      console.log('🎯 ID facture:', invoiceId);
+      console.log('🎯 ID facture existante:', invoiceId);
       
       if (invoiceId) {
-        // Récupérer les détails complets de la facture
         const factureDetails = await this.getInvoiceById(invoiceId);
         return { facture: factureDetails, existing: true };
-      } else {
-        // Fallback si l'ID n'est pas trouvé
-        return { facture: existing, existing: true };
       }
+      return { facture: existing, existing: true };
     }
     
-    // 2. Sinon, générer une nouvelle facture
-    console.log(' Génération nouvelle facture');
+    // 2. Générer une nouvelle facture
+    console.log('🆕 Génération nouvelle facture');
     const newInvoice = await this.generateInvoice(commandeId);
-    console.log('📦 Nouvelle facture générée:', newInvoice);
+    console.log('📦 Nouvelle facture générée (brute):', newInvoice);
     
-    //  Utilisez idFactureClient pour la nouvelle facture aussi
-    const invoiceId = newInvoice.idFactureClient;
+    // ✅ Attendre un court instant pour que le backend finalise
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    if (invoiceId) {
-      const factureDetails = await this.getInvoiceById(invoiceId);
-      return { facture: factureDetails, existing: false };
+    // ✅ Récupérer la facture complète en utilisant l'ID de la commande
+    // Parce que newInvoice n'a peut-être pas encore l'idFactureClient
+    const factureComplete = await this.checkExistingInvoice(commandeId);
+    
+    if (factureComplete) {
+      console.log('✅ Facture complète récupérée:', factureComplete);
+      return { facture: factureComplete, existing: false };
     }
     
+    // Fallback: retourner la nouvelle facture même si incomplète
     return { facture: newInvoice, existing: false };
     
   } catch (error) {
-    console.error(' Erreur generateOrGetInvoice:', error);
+    console.error('❌ Erreur generateOrGetInvoice:', error);
     throw error;
   }
 },
 
+
+ // Dans commandeService.js - Corriger la fonction checkExistingInvoice
+
 async checkExistingInvoice(commandeId) {
   try {
+    console.log(`📡 Vérification facture pour commande ${commandeId}`);
     const response = await api.get(`/factures/commande/${commandeId}`);
     console.log('📦 Réponse checkExistingInvoice:', response.data);
+    
+    // Si on arrive ici, c'est qu'une facture existe
     return response.data;
+    
   } catch (error) {
+    // Si c'est une 404, c'est normal (pas de facture)
     if (error.response?.status === 404) {
-      return null;
+      console.log(`ℹ️ Pas de facture pour la commande ${commandeId}`);
+      return null; // Retourner null pour indiquer "pas de facture"
     }
-    throw error;
+    
+    // Pour les autres erreurs, logger et retourner null aussi
+    console.error(`❌ Erreur checkExistingInvoice pour commande ${commandeId}:`, error);
+    return null;
   }
-}
+},
+
+// ✅ CORRIGER aussi checkInvoiceExistsForCommande
+async checkInvoiceExistsForCommande(commandeId) {
+  try {
+    console.log(`📡 Vérification existence facture pour commande ${commandeId}`);
+    
+    // Utiliser checkExistingInvoice qui gère déjà les erreurs
+    const existingInvoice = await this.checkExistingInvoice(commandeId);
+    
+    // Si existingInvoice est null ou undefined, pas de facture
+    const exists = !!existingInvoice;
+    console.log(`📊 Résultat: ${exists ? 'Facture existe' : 'Pas de facture'}`);
+    
+    return { exists };
+    
+  } catch (error) {
+    console.error(`❌ Erreur vérification facture pour commande ${commandeId}:`, error);
+    return { exists: false };
+  }
+},
 };
+
+
 
 // Fonctions de transformation (optionnelles, si vous voulez formater les données)
 function transformInvoices(facturesData) {
