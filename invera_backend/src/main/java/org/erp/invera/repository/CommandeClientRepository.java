@@ -1,5 +1,6 @@
 package org.erp.invera.repository;
 
+import org.erp.invera.dto.DashboardDTO;
 import org.erp.invera.model.CommandeClient;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -59,85 +60,95 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
             @Param("statut") CommandeClient.StatutCommande statut,
             @Param("clientId") Integer clientId);
 
-    // ========================
-    // RECHERCHES SIMPLES
-    // ========================
+    // Dans CommandeClientRepository.java - Modifie ces signatures
+    @Query("SELECT COALESCE(SUM(c.total), 0) FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin")
+    BigDecimal sumTotalByPeriode(@Param("debut") LocalDateTime debut,
+                                 @Param("fin") LocalDateTime fin);
 
-    List<CommandeClient> findByClientIdClientOrderByDateCommandeDesc(Integer clientId);
+    @Query("SELECT COUNT(c) FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin")
+    long countByPeriode(@Param("debut") LocalDateTime debut,
+                        @Param("fin") LocalDateTime fin);
 
-    List<CommandeClient> findByStatutOrderByDateCommandeDesc(CommandeClient.StatutCommande statut);
+    @Query("SELECT CASE WHEN COUNT(c) > 0 THEN " +
+            "CAST(COUNT(CASE WHEN c.statut = 'CONFIRMEE' THEN 1 END) AS double) / COUNT(c) * 100 " +
+            "ELSE 0 END FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin")
+    BigDecimal tauxTransformation(@Param("debut") LocalDateTime debut,
+                                  @Param("fin") LocalDateTime fin);
 
-    List<CommandeClient> findByDateCommandeBetween(LocalDateTime debut, LocalDateTime fin);
-
-    Optional<CommandeClient> findByReferenceCommandeClient(String reference);
-
-    // ========================
-    // RECHERCHES AVANCÉES
-    // ========================
-
-    List<CommandeClient> findByTotalGreaterThanEqual(BigDecimal montant);
-
-    List<CommandeClient> findByClientIdClientAndStatutOrderByDateCommandeDesc(
-            Integer clientId, CommandeClient.StatutCommande statut);
-
-    // ========================
-    // STATISTIQUES
-    // ========================
-
-    Long countByClientIdClient(Integer clientId);
-
-    Long countByStatut(CommandeClient.StatutCommande statut);
-
-    @Query("SELECT SUM(c.total) FROM CommandeClient c WHERE c.statut = :statut")
-    BigDecimal sumTotalByStatut(@Param("statut") CommandeClient.StatutCommande statut);
-
-    @Query("SELECT SUM(c.total) FROM CommandeClient c WHERE c.client.idClient = :clientId")
-    BigDecimal sumTotalByClientId(@Param("clientId") Integer clientId);
+    @Query("SELECT COALESCE(SUM(c.total), 0) FROM CommandeClient c " +
+            "WHERE DATE(c.dateCommande) = :date")
+    BigDecimal sumTotalByDate(@Param("date") LocalDate date);
 
     // ========================
-    // RECHERCHES PAR PÉRIODE (SANS FONCTIONS SQL)
+    // TOP PRODUITS - AVEC LES BONS NOMS D'ATTRIBUTS
     // ========================
 
-    // Trouver les commandes du jour - en utilisant between
-    default List<CommandeClient> findTodayCommandes() {
-        LocalDateTime debut = LocalDate.now().atStartOfDay();
-        LocalDateTime fin = debut.plusDays(1).minusNanos(1);
-        return findByDateCommandeBetween(debut, fin);
-    }
+    @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$ProduitVente(" +
+            "p.idProduit, " +
+            "p.libelle, " +
+            "SUM(l.quantite), " +
+            "SUM(l.sousTotal), " +
+            "p.imageUrl) " +
+            "FROM LigneCommandeClient l " +
+            "JOIN l.commandeClient c " +  // ← correction: commandeClient au lieu de commande
+            "JOIN l.produit p " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "AND c.statut = 'CONFIRMEE' " +
+            "GROUP BY p.idProduit, p.libelle, p.imageUrl " +
+            "ORDER BY SUM(l.quantite) DESC " +
+            "LIMIT :limit")
+    List<DashboardDTO.ProduitVente> topProduits(@Param("debut") LocalDateTime debut,
+                                                @Param("fin") LocalDateTime fin,
+                                                @Param("limit") int limit);
 
-    // Trouver les commandes d'une date spécifique
-    default List<CommandeClient> findByDate(LocalDate date) {
-        LocalDateTime debut = date.atStartOfDay();
-        LocalDateTime fin = debut.plusDays(1).minusNanos(1);
-        return findByDateCommandeBetween(debut, fin);
-    }
+    // ========================
+    // RÉPARTITION PAR STATUT
+    // ========================
 
-    // Trouver les commandes entre deux dates
-    default List<CommandeClient> findByDateBetween(LocalDate debut, LocalDate fin) {
-        LocalDateTime debutDateTime = debut.atStartOfDay();
-        LocalDateTime finDateTime = fin.atStartOfDay().plusDays(1).minusNanos(1);
-        return findByDateCommandeBetween(debutDateTime, finDateTime);
-    }
+    // Dans CommandeClientRepository.java
+    @Query("SELECT c.statut, COUNT(c), COALESCE(SUM(c.total), 0) " +
+            "FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "GROUP BY c.statut")
+    List<Object[]> getStatusRepartition(@Param("debut") LocalDateTime debut,
+                                        @Param("fin") LocalDateTime fin);
 
-    // Trouver les commandes du mois courant
-    default List<CommandeClient> findThisMonthCommandes() {
-        LocalDate now = LocalDate.now();
-        LocalDate debutMois = now.withDayOfMonth(1);
-        LocalDate finMois = now.withDayOfMonth(now.lengthOfMonth());
-        return findByDateBetween(debutMois, finMois);
-    }
+    @Query("SELECT DATE(c.dateCommande), COUNT(c), COALESCE(SUM(c.total), 0) " +
+            "FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "GROUP BY DATE(c.dateCommande) " +
+            "ORDER BY DATE(c.dateCommande)")
+    List<Object[]> getDailyOrdersStats(@Param("debut") LocalDateTime debut,
+                                       @Param("fin") LocalDateTime fin);
 
-    // Trouver les commandes par mois et année
-    default List<CommandeClient> findByMoisAndAnnee(int mois, int annee) {
-        LocalDate debutMois = LocalDate.of(annee, mois, 1);
-        LocalDate finMois = debutMois.withDayOfMonth(debutMois.lengthOfMonth());
-        return findByDateBetween(debutMois, finMois);
-    }
+    // Dans le backend - UNIQUEMENT les clients avec commandes
+    @Query("SELECT cl.typeClient, " +
+            "COUNT(DISTINCT cl.idClient), " +
+            "COALESCE(SUM(c.total), 0) " +
+            "FROM CommandeClient c " +
+            "JOIN c.client cl " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "GROUP BY cl.typeClient")
+    List<Object[]> getSalesByClientType(@Param("debut") LocalDateTime debut,
+                                        @Param("fin") LocalDateTime fin);
 
-    // Compter les commandes par mois - requête native SQL
-    @Query(value = "SELECT YEAR(date_commande) as annee, MONTH(date_commande) as mois, COUNT(*) as total " +
-            "FROM commande_client " +
-            "GROUP BY YEAR(date_commande), MONTH(date_commande) " +
-            "ORDER BY annee DESC, mois DESC", nativeQuery = true)
-    List<Object[]> countCommandesByMonth();
+   /* @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$StatutData(" +
+            "c.statut, " +                          // String
+            "COUNT(c), " +                           // Long
+            "COALESCE(SUM(c.total), 0), " +          // BigDecimal
+            "0.0, " +                                // double
+            "CASE c.statut " +                       // String
+            "   WHEN 'EN_ATTENTE' THEN '#F59E0B' " +
+            "   WHEN 'CONFIRMEE' THEN '#10B981' " +
+            "   WHEN 'ANNULEE' THEN '#EF4444' " +
+            "   ELSE '#6B7280' END) " +
+            "FROM CommandeClient c " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "GROUP BY c.statut")
+    List<DashboardDTO.StatutData> repartitionStatuts(@Param("debut") LocalDateTime debut,
+                                                     @Param("fin") LocalDateTime fin);
+*/
 }

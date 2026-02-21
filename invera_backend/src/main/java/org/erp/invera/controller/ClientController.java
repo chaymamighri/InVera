@@ -208,14 +208,14 @@ public class ClientController {
     public ResponseEntity<Map<String, Object>> getRemiseForType(
             @PathVariable String typeClient) {
         try {
-            // ✅ Utiliser la nouvelle méthode qui retourne NULL si pas de remise en base
+
             Double remise = clientService.getRemiseForClientType(typeClient);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("type", typeClient);
 
-            // ✅ Si remise est null, on ne met pas la clé ou on met null
+
             if (remise != null) {
                 response.put("remise", remise);
             } else {

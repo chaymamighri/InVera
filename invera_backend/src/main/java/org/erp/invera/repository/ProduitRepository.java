@@ -1,5 +1,6 @@
 package org.erp.invera.repository;
 
+import org.erp.invera.dto.DashboardDTO;
 import org.erp.invera.model.Categorie;
 import org.erp.invera.model.Produit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -40,24 +41,33 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
     List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorie(
             String libelle, Produit.StockStatus status, Integer categorieId);
 
-    // Recherche par catégorie avec le nom de la catégorie
-    @Query("SELECT p FROM Produit p WHERE p.categorie.nomCategorie = :nomCategorie")
-    List<Produit> findByCategorieNom(@Param("nomCategorie") String nomCategorie);
 
-    // Recherche par fourchette de prix
-    List<Produit> findByPrixVenteBetween(Double prixMin, Double prixMax);
-
-    // Recherche des produits avec stock faible (quantité < seuil)
-    @Query("SELECT p FROM Produit p WHERE p.quantiteStock < p.seuilMinimum")
+    @Query("SELECT p FROM Produit p " +
+            "WHERE p.quantiteStock <= p.seuilMinimum AND p.quantiteStock > 0 " +
+            "ORDER BY p.quantiteStock ASC")
     List<Produit> findLowStockProducts();
 
-    // Recherche des produits en rupture de stock
-    @Query("SELECT p FROM Produit p WHERE p.quantiteStock = 0 OR p.quantiteStock IS NULL")
+    @Query("SELECT p FROM Produit p " +
+            "WHERE p.quantiteStock <= 0")
     List<Produit> findOutOfStockProducts();
 
-    // Compter les produits par catégorie
-    Long countByCategorieIdCategorie(Integer categorieId);
 
     // Vérifier si un produit existe avec un certain libellé dans une catégorie
-    boolean existsByLibelleAndCategorieIdCategorie(String libelle, Integer categorieId);
+    /*boolean existsByLibelleAndCategorieIdCategorie(String libelle, Integer categorieId);
+    @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$Alerte(" +
+            "p.idProduit, p.libelle, " +
+            "CONCAT('Stock: ', p.quantiteStock, ' ', p.uniteMesure), 'STOCK_FAIBLE', " +
+            "'Réapprovisionner', NULL, NULL) " +
+            "FROM Produit p " +
+            "WHERE p.quantiteStock <= p.seuilMinimum AND p.quantiteStock > 0 " +
+            "ORDER BY p.quantiteStock ASC LIMIT :limit")
+    List<DashboardDTO.Alerte> stocksFaibles(@Param("limit") int limit);
+
+    @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$Alerte(" +
+            "p.idProduit, p.libelle, 'Rupture de stock', 'RUPTURE', " +
+            "'Commander', NULL, NULL) " +
+            "FROM Produit p " +
+            "WHERE p.quantiteStock <= 0 LIMIT :limit")
+    List<DashboardDTO.Alerte> produitsRupture(@Param("limit") int limit);*/
+
 }
