@@ -425,7 +425,7 @@ public class CommandeClientController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println("❌ Erreur récupération commandes client " + clientId + ": " + e.getMessage());
+            System.err.println(" Erreur récupération commandes client " + clientId + ": " + e.getMessage());
             e.printStackTrace();
 
             Map<String, Object> errorResponse = new HashMap<>();
