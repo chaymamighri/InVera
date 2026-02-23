@@ -13,6 +13,7 @@ import 'jspdf-autotable';
 const ReportsPage = () => {
   const location = useLocation();
 
+  // ✅ Filtres généraux pour tous les rapports
   const [filters, setFilters] = useState({
     period: 'month',
     startDate: null,
@@ -41,136 +42,131 @@ const ReportsPage = () => {
     loadPreview();
   }, []);
 
-  //  Fonction pour rafraîchir TOUS les rapports
+  // ✅ Fonction pour rafraîchir TOUS les rapports
   const refreshAllReports = () => {
     console.log('🔄 Rafraîchissement de tous les rapports...');
     loadPreview(); // Rafraîchir les stats de la page d'accueil
     // Le rafraîchissement des onglets se fera via le contexte
   };
 
-  // EXPORT GLOBAL PDF UNIQUE
-
-const exportGlobalPDF = async () => {
-  try {
-    setLoading(true);
-    
-    const [salesData, invoicesData, clientsData] = await Promise.all([
-      reportService.getSalesReport(filters),
-      reportService.getInvoicesReport(filters),
-      reportService.getClientsReport(filters)
-    ]);
-
-    const doc = new jsPDF();
-    
-  // Page 1: Synthèse globale
-doc.setFontSize(22);
-doc.setTextColor(33, 33, 33);
-doc.text('RAPPORT GLOBAL', 14, 22);
-
-doc.setFontSize(11);
-doc.setTextColor(100, 100, 100);
-doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')}`, 14, 32);
-doc.text(`Période: ${filters.period}`, 14, 38);
-
-// Résumé global
-doc.setFontSize(16);
-doc.setTextColor(0, 0, 0);
-doc.text('SYNTHÈSE', 14, 48);
-
-doc.setFontSize(12);
-doc.setTextColor(80, 80, 80);
-
-let y = 58;
-
-// ✅ Version avec crochets - SIMPLE ET EFFICACE
-doc.text(`[VENTES]`, 20, y); y += 6;
-doc.text(`   CA Total: ${salesData?.summary?.totalCA || 0} DT`, 25, y); y += 6;
-doc.text(`   Commandes: ${salesData?.summary?.totalCommandes || 0}`, 25, y); y += 6;
-doc.text(`   Panier moyen: ${salesData?.summary?.panierMoyen || 0} DT`, 25, y); y += 8;
-
-doc.text(`[FACTURES]`, 20, y); y += 6;
-doc.text(`   Total: ${invoicesData?.summary?.totalFactures || 0}`, 25, y); y += 6;
-doc.text(`   Payées: ${invoicesData?.summary?.payees || 0}`, 25, y); y += 6;
-doc.text(`   Impayées: ${invoicesData?.summary?.impayees || 0}`, 25, y); y += 6;
-doc.text(`   Taux recouvrement: ${invoicesData?.summary?.tauxRecouvrement || 0}%`, 25, y); y += 8;
-
-doc.text(`[CLIENTS]`, 20, y); y += 6;
-doc.text(`   Total: ${clientsData?.summary?.totalClients || 0}`, 25, y); y += 6;
-doc.text(`   Nouveaux: ${clientsData?.summary?.nouveauxClients || 0}`, 25, y); y += 6;
-doc.text(`   Actifs: ${clientsData?.summary?.clientsActifs || 0}`, 25, y); y += 6;
-doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
-    
-    // Page 2: Détail des ventes
-    if (salesData?.ventes?.length > 0) {
-      doc.addPage();
-      doc.setFontSize(18);
-      doc.text('DÉTAIL DES VENTES', 14, 22);
+  // ✅ EXPORT GLOBAL PDF UNIQUE
+  const exportGlobalPDF = async () => {
+    try {
+      setLoading(true);
       
-      // ✅ CORRECTION: autoTable(doc, options)
-      autoTable(doc, {
-        startY: 30,
-        head: [['Date', 'Client', 'Montant', 'Statut']],
-        body: salesData.ventes.map(v => [
-          v.date,
-          v.client,
-          `${v.montant} DT`,
-          v.statut
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] }
-      });
-    }
-    
-    // Page 3: Détail des factures
-    if (invoicesData?.factures?.length > 0) {
-      doc.addPage();
-      doc.setFontSize(18);
-      doc.text('DÉTAIL DES FACTURES', 14, 22);
+      const [salesData, invoicesData, clientsData] = await Promise.all([
+        reportService.getSalesReport(filters),
+        reportService.getInvoicesReport(filters),
+        reportService.getClientsReport(filters)
+      ]);
+
+      const doc = new jsPDF();
       
-      // ✅ CORRECTION
-      autoTable(doc, {
-        startY: 30,
-        head: [['N° Facture', 'Client', 'Date', 'Montant', 'Statut']],
-        body: invoicesData.factures.map(f => [
-          f.numero,
-          f.client,
-          f.date,
-          `${f.montant} DT`,
-          f.statut
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [46, 204, 113] }
-      });
-    }
-    
-    // Page 4: Top clients
-    if (clientsData?.topClients?.length > 0) {
-      doc.addPage();
-      doc.setFontSize(18);
-      doc.text('TOP 10 CLIENTS', 14, 22);
+      // Page 1: Synthèse globale
+      doc.setFontSize(22);
+      doc.setTextColor(33, 33, 33);
+      doc.text('RAPPORT GLOBAL', 14, 22);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')}`, 14, 32);
+      doc.text(`Période: ${filters.period}`, 14, 38);
+
+      // Résumé global
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text('SYNTHÈSE', 14, 48);
+
+      doc.setFontSize(12);
+      doc.setTextColor(80, 80, 80);
+
+      let y = 58;
+
+      doc.text(`[VENTES]`, 20, y); y += 6;
+      doc.text(`   CA Total: ${salesData?.summary?.totalCA || 0} DT`, 25, y); y += 6;
+      doc.text(`   Commandes: ${salesData?.summary?.totalCommandes || 0}`, 25, y); y += 6;
+      doc.text(`   Panier moyen: ${salesData?.summary?.panierMoyen || 0} DT`, 25, y); y += 8;
+
+      doc.text(`[FACTURES]`, 20, y); y += 6;
+      doc.text(`   Total: ${invoicesData?.summary?.totalFactures || 0}`, 25, y); y += 6;
+      doc.text(`   Payées: ${invoicesData?.summary?.payees || 0}`, 25, y); y += 6;
+      doc.text(`   Impayées: ${invoicesData?.summary?.impayees || 0}`, 25, y); y += 6;
+      doc.text(`   Taux recouvrement: ${invoicesData?.summary?.tauxRecouvrement || 0}%`, 25, y); y += 8;
+
+      doc.text(`[CLIENTS]`, 20, y); y += 6;
+      doc.text(`   Total: ${clientsData?.summary?.totalClients || 0}`, 25, y); y += 6;
+      doc.text(`   Nouveaux: ${clientsData?.summary?.nouveauxClients || 0}`, 25, y); y += 6;
+      doc.text(`   Actifs: ${clientsData?.summary?.clientsActifs || 0}`, 25, y); y += 6;
+      doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
       
-      // ✅ CORRECTION
-      autoTable(doc, {
-        startY: 30,
-        head: [['Client', 'Type', 'Commandes', 'CA']],
-        body: clientsData.topClients.map(c => [
-          c.nom,
-          c.type,
-          c.commandes,
-          `${c.ca} DT`
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [155, 89, 182] }
-      });
+      // Page 2: Détail des ventes
+      if (salesData?.ventes?.length > 0) {
+        doc.addPage();
+        doc.setFontSize(18);
+        doc.text('DÉTAIL DES VENTES', 14, 22);
+        
+        autoTable(doc, {
+          startY: 30,
+          head: [['Date', 'Client', 'Montant', 'Statut']],
+          body: salesData.ventes.map(v => [
+            v.date,
+            v.client,
+            `${v.montant} DT`,
+            v.statut
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [41, 128, 185] }
+        });
+      }
+      
+      // Page 3: Détail des factures
+      if (invoicesData?.factures?.length > 0) {
+        doc.addPage();
+        doc.setFontSize(18);
+        doc.text('DÉTAIL DES FACTURES', 14, 22);
+        
+        autoTable(doc, {
+          startY: 30,
+          head: [['N° Facture', 'Client', 'Date', 'Montant', 'Statut']],
+          body: invoicesData.factures.map(f => [
+            f.numero,
+            f.client,
+            f.date,
+            `${f.montant} DT`,
+            f.statut
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [46, 204, 113] }
+        });
+      }
+      
+      // Page 4: Top clients
+      if (clientsData?.topClients?.length > 0) {
+        doc.addPage();
+        doc.setFontSize(18);
+        doc.text('TOP 10 CLIENTS', 14, 22);
+        
+        autoTable(doc, {
+          startY: 30,
+          head: [['Client', 'Type', 'Commandes', 'CA']],
+          body: clientsData.topClients.map(c => [
+            c.nom,
+            c.type,
+            c.commandes,
+            `${c.ca} DT`
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [155, 89, 182] }
+        });
+      }
+      
+      doc.save(`rapport_complet_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Erreur export global PDF:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    doc.save(`rapport_complet_${new Date().toISOString().split('T')[0]}.pdf`);
-  } catch (error) {
-    console.error('Erreur export global PDF:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // ✅ EXPORT GLOBAL EXCEL UNIQUE
   const exportGlobalExcel = async () => {
@@ -185,9 +181,7 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
 
       const wb = XLSX.utils.book_new();
       
-      // ============================================
       // FEUILLE 1: SYNTHÈSE GLOBALE
-      // ============================================
       const summaryData = [
         ['📊 RAPPORT GLOBAL', ''],
         ['Date génération', new Date().toLocaleDateString('fr-FR')],
@@ -217,9 +211,7 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
       wsSummary['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 10 }];
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Synthèse');
 
-      // ============================================
       // FEUILLE 2: VENTES - DÉTAIL
-      // ============================================
       if (salesData?.ventes?.length > 0) {
         const ventesData = salesData.ventes.map(v => ({
           'Date': v.date,
@@ -238,9 +230,7 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
         XLSX.utils.book_append_sheet(wb, wsSales, 'Ventes');
       }
 
-      // ============================================
       // FEUILLE 3: FACTURES - DÉTAIL
-      // ============================================
       if (invoicesData?.factures?.length > 0) {
         const facturesData = invoicesData.factures.map(f => ({
           'N° Facture': f.numero,
@@ -258,9 +248,7 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
         XLSX.utils.book_append_sheet(wb, wsInvoices, 'Factures');
       }
 
-      // ============================================
       // FEUILLE 4: CLIENTS - TOP 10
-      // ============================================
       if (clientsData?.topClients?.length > 0) {
         const topClientsData = clientsData.topClients.map((c, i) => ({
           'Rang': i + 1,
@@ -279,9 +267,7 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
         XLSX.utils.book_append_sheet(wb, wsTop, 'Top Clients');
       }
 
-      // ============================================
       // FEUILLE 5: CLIENTS - RÉPARTITION
-      // ============================================
       if (clientsData?.repartitionParType) {
         const repartitionData = Object.entries(clientsData.repartitionParType).map(([type, stats]) => ({
           'Type': type,
@@ -431,13 +417,25 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
         </div>
       </div>
 
-      {/* Filtres - uniquement sur home */}
+      {/* ✅ FILTRES SPÉCIFIQUES - adaptés à la section active */}
+      {activeSection !== 'home' && (
+        <ReportFilters
+          filters={filters}
+          setFilters={setFilters}
+          onRefresh={refreshAllReports}
+          loading={loading}
+          reportType={activeSection}
+        />
+      )}
+
+      {/* Filtres - uniquement sur home (global) */}
       {activeSection === 'home' && (
         <ReportFilters
           filters={filters}
           setFilters={setFilters}
           onRefresh={refreshAllReports}
           loading={loading}
+          reportType="global" 
         />
       )}
 
@@ -491,8 +489,8 @@ doc.text(`   CA total: ${clientsData?.summary?.caTotal || 0} DT`, 25, y);
         </>
       )}
 
-      {/* Contenu des routes enfants */}
-      <Outlet context={{ filters }} />
+      {/* ✅ Contenu des routes enfants avec les filtres */}
+      <Outlet context={{ filters, activeSection }} />
 
       {/* Indicateur de chargement */}
       {loading && (
