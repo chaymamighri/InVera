@@ -141,32 +141,22 @@ const ReportFilters = ({
           ))}
         </select>
 
-        {/* Boutons d'action */}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Bouton filtres avancés - seulement si nécessaire */}
-          {(showClientFilter() || showStatusFilter()) && (
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`px-4 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
-                ${showAdvanced ? 'bg-blue-50 border-blue-300 text-blue-600' : 'hover:bg-gray-50'}`}
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {reportType === 'clients' ? 'Filtres clients' : 'Filtres avancés'}
-              </span>
-            </button>
-          )}
-
+        {/* ✅ Bouton filtres avancés à côté du sélecteur (à gauche) */}
+        {(showClientFilter() || showStatusFilter()) && (
           <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
-                     flex items-center gap-2 disabled:opacity-50 text-sm"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={`px-4 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
+              ${showAdvanced ? 'bg-blue-50 border-blue-300 text-blue-600' : 'hover:bg-gray-50'}`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Actualiser</span>
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {reportType === 'clients' ? 'Filtres clients' : 'Filtres avancés'}
+            </span>
           </button>
+        )}
 
+        {/* Boutons d'action à droite */}
+        <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={resetFilters}
             className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
