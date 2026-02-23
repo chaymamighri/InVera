@@ -71,31 +71,39 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // public
-                        .requestMatchers("/api/auth/login",
+
+                        // ✅ Public
+                        .requestMatchers(
+                                "/api/auth/login",
                                 "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/create-admin-temp").permitAll()
+                                "/api/auth/create-admin-temp"
+                        ).permitAll()
 
-                        // authenticated user endpoints (profile)
+                        // ✅ Authenticated user endpoints (profile)
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
 
-                        // admin notifications
+                        // ✅ Admin notifications
                         .requestMatchers("/api/notifications/**").hasRole("ADMIN")
 
-                        // admin only
-                        .requestMatchers("/api/auth/register",
+                        // ✅ Admin only
+                        .requestMatchers(
+                                "/api/auth/register",
                                 "/api/auth/activate/**",
                                 "/api/auth/filter",
                                 "/api/auth/all",
                                 "/api/auth/delete/**",
-                                "/api/auth/update/**").hasRole("ADMIN")
+                                "/api/auth/update/**"
+                        ).hasRole("ADMIN")
 
-                        // roles
+                        // ✅ Roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
-                        .requestMatchers("/api/clients/**").hasRole("COMMERCIAL")
+
+                        // ✅ FIX HERE: clients should be accessible by ADMIN too
+                        .requestMatchers("/api/clients/**").hasAnyRole("ADMIN", "COMMERCIAL")
+
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
