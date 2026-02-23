@@ -94,12 +94,14 @@ public class SecurityConfig {
                                 "/api/auth/delete/**",
                                 "/api/auth/update/**").hasRole("ADMIN")
 
+
                         // roles
                         .requestMatchers("/api/commandes/**").hasAuthority("ROLE_COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
+                        .requestMatchers("/api/dashboard/**").hasRole( "COMMERCIAL")
+                        .requestMatchers("/api/reports/**").hasAnyRole("ADMIN", "COMMERCIAL")
 
                         .anyRequest().authenticated()
                 )

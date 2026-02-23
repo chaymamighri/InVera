@@ -14,12 +14,27 @@ import lombok.NoArgsConstructor;
 public class JwtResponse {
     private String token;
     private String type = "Bearer";
+    private Long id;           // ← AJOUTER
+    private String email;         // ← AJOUTER
     private String role;
     private String nom;
     private String prenom;
 
     /**
-     * Constructeur pratique sans le type (utilise "Bearer" par défaut)
+     * Constructeur avec toutes les informations
+     */
+    public JwtResponse(String token, Long id, String email, String role, String nom, String prenom) {
+        this.token = token;
+        this.type = "Bearer";
+        this.id = id;
+        this.email = email;
+        this.role = role;
+        this.nom = nom;
+        this.prenom = prenom;
+    }
+
+    /**
+     * Constructeur sans ID et email (pour compatibilité)
      */
     public JwtResponse(String token, String role, String nom, String prenom) {
         this.token = token;

@@ -1,13 +1,10 @@
 package org.erp.invera.security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.erp.invera.model.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -23,57 +20,143 @@ public class JwtTokenProvider {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration:86400000}") // default 1 day
+    @Value("${app.jwt.expiration:86400000}")
     private long jwtExpirationMs;
 
     private SecretKey getKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Authentication authentication) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-
-        // Vérifier si c'est notre objet User personnalisé
+    // ✅ GÉNÉRATION DU TOKEN à partir de l'objet User directement
+    public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
 
-        if (userPrincipal instanceof User) {
-            User user = (User) userPrincipal;
-            claims.put("role", user.getRole());
-            claims.put("userId", user.getId());
-            claims.put("nom", user.getNom());
-            claims.put("prenom", user.getPrenom());
-            claims.put("email", user.getEmail());
-        } else {
-            // Fallback pour les autres UserDetails
-            String role = userPrincipal.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .findFirst()
-                    .orElse("ROLE_USER");
-            claims.put("role", role);
-            claims.put("email", userPrincipal.getUsername());
-        }
+        // Ajouter TOUTES les informations nécessaires
+        claims.put("userId", user.getId());
+        claims.put("email", user.getEmail());
+        claims.put("nom", user.getNom());
+        claims.put("prenom", user.getPrenom());
+        claims.put("role", "ROLE_" + user.getRole().name());
 
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(userPrincipal.getUsername())
+                .setSubject(user.getEmail())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
-    // Nouvelle méthode pour récupérer toutes les infos du token
-    public Map<String, Object> getUserInfoFromToken(String token) {
-        return Jwts.parserBuilder()
+    // ✅ GÉNÉRATION À PARTIR DE L'AUTHENTIFICATION (pour compatibilité)
+    public String generateToken(Authentication authentication) {
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+        // Il faudrait récupérer l'utilisateur complet depuis la DB
+        // Ou utiliser une autre approche
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", userDetails.getUsername());
+
+        // Extraire le rôle
+        String role = userDetails.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority())
+                .orElse("ROLE_USER");
+        claims.put("role", role);
+
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    // ✅ EXTRAIRE L'ID
+    public Integer getUserIdFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+
+        return claims.get("userId", Integer.class);
     }
 
+    // ✅ EXTRAIRE L'EMAIL
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.get("email", String.class);
+    }
+
+    // ✅ EXTRAIRE LE NOM
+    public String getNomFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.get("nom", String.class);
+    }
+
+    // ✅ EXTRAIRE LE PRÉNOM
+    public String getPrenomFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.get("prenom", String.class);
+    }
+
+    // ✅ EXTRAIRE LE RÔLE
+    public String getRoleFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        String role = claims.get("role", String.class);
+        // Retirer le préfixe "ROLE_" si présent
+        if (role != null && role.startsWith("ROLE_")) {
+            return role.substring(5);
+        }
+        return role;
+    }
+
+    // ✅ MÉTHODE UNIQUE POUR TOUTES LES INFOS
+    public Map<String, Object> getUserInfoFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("userId", claims.get("userId"));
+        userInfo.put("email", claims.get("email"));
+        userInfo.put("nom", claims.get("nom"));
+        userInfo.put("prenom", claims.get("prenom"));
+        userInfo.put("role", claims.get("role"));
+
+        return userInfo;
+    }
+
+    // ✅ VALIDATION DU TOKEN
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()

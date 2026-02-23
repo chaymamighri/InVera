@@ -29,31 +29,45 @@ public interface FactureClientRepository extends JpaRepository<FactureClient, In
     //  Par client
     List<FactureClient> findByClientIdClient(Integer clientId);
 
+
     //  Par statut
     List<FactureClient> findByStatut(FactureClient.StatutFacture statut);
     @Query("SELECT COALESCE(SUM(f.montantTotal), 0) FROM FactureClient f WHERE f.statut = :statut")
     BigDecimal sumMontantByStatut(@Param("statut") FactureClient.StatutFacture statut);
 
+
     @Query("SELECT COUNT(f) FROM FactureClient f WHERE f.statut = :statut")
     long countByStatut(@Param("statut") FactureClient.StatutFacture statut);
 
-    //  CORRECTION: Utiliser LocalDateTime au lieu de LocalDate
+
     @Query("SELECT COUNT(f) FROM FactureClient f " +
             "WHERE f.statut = 'NON_PAYE' AND f.dateFacture < :date")
     long countEnRetard(@Param("date") LocalDateTime date);  // ← Changé en LocalDateTime
-
-    // CORRECTION: Ajouter une méthode avec LocalDate si nécessaire
     default long countEnRetard(LocalDate date) {
         return countEnRetard(date.atStartOfDay());  // Convertit LocalDate en LocalDateTime
     }
 
     @Query("SELECT COALESCE(SUM(f.montantTotal), 0) FROM FactureClient f " +
             "WHERE f.statut = 'NON_PAYE' AND f.dateFacture < :date")
-    BigDecimal sumMontantEnRetard(@Param("date") LocalDateTime date);  // ← Changé en LocalDateTime
-
-    // Méthode utilitaire
+    BigDecimal sumMontantEnRetard(@Param("date") LocalDateTime date);
     default BigDecimal sumMontantEnRetard(LocalDate date) {
         return sumMontantEnRetard(date.atStartOfDay());
     }
 
+
+    @Query("SELECT f FROM FactureClient f " +
+            "LEFT JOIN FETCH f.client " +
+            "LEFT JOIN FETCH f.commande " +
+            "WHERE f.dateFacture BETWEEN :debut AND :fin " +
+            "ORDER BY f.dateFacture DESC")
+    List<FactureClient> findByDateFactureBetweenWithDetails(
+            @Param("debut") LocalDateTime debut,
+            @Param("fin") LocalDateTime fin
+    );
+
+    @Query("SELECT f FROM FactureClient f WHERE f.dateFacture BETWEEN :debut AND :fin")
+    List<FactureClient> findByDateFactureBetween(
+            @Param("debut") LocalDateTime debut,
+            @Param("fin") LocalDateTime fin
+    );
 }
