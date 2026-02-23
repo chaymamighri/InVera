@@ -135,20 +135,20 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
     List<Object[]> getSalesByClientType(@Param("debut") LocalDateTime debut,
                                         @Param("fin") LocalDateTime fin);
 
-   /* @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$StatutData(" +
-            "c.statut, " +                          // String
-            "COUNT(c), " +                           // Long
-            "COALESCE(SUM(c.total), 0), " +          // BigDecimal
-            "0.0, " +                                // double
-            "CASE c.statut " +                       // String
-            "   WHEN 'EN_ATTENTE' THEN '#F59E0B' " +
-            "   WHEN 'CONFIRMEE' THEN '#10B981' " +
-            "   WHEN 'ANNULEE' THEN '#EF4444' " +
-            "   ELSE '#6B7280' END) " +
-            "FROM CommandeClient c " +
+
+    @Query("SELECT DISTINCT c FROM CommandeClient c " +
+            "LEFT JOIN FETCH c.client " +
+            "LEFT JOIN FETCH c.lignesCommande " +
             "WHERE c.dateCommande BETWEEN :debut AND :fin " +
-            "GROUP BY c.statut")
-    List<DashboardDTO.StatutData> repartitionStatuts(@Param("debut") LocalDateTime debut,
-                                                     @Param("fin") LocalDateTime fin);
-*/
+            "ORDER BY c.dateCommande DESC")
+    List<CommandeClient> findByDateCommandeBetweenWithDetails(
+            @Param("debut") LocalDateTime debut,
+            @Param("fin") LocalDateTime fin
+    );
+
+    @Query("SELECT c FROM CommandeClient c WHERE c.dateCommande BETWEEN :debut AND :fin")
+    List<CommandeClient> findByDateCommandeBetween(
+            @Param("debut") LocalDateTime debut,
+            @Param("fin") LocalDateTime fin
+    );
 }

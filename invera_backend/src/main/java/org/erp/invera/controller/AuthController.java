@@ -58,16 +58,20 @@ public class AuthController {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtTokenPro.generateToken(authentication);
 
+        // ✅ Générer le token avec l'utilisateur
+        String jwt = jwtTokenPro.generateToken(user);
+
+        // ✅ Utiliser le constructeur avec toutes les infos
         return ResponseEntity.ok(new JwtResponse(
                 jwt,
-                user.getRole().name(),
-                user.getNom(),
-                user.getPrenom()
+                user.getId(),              // Integer
+                user.getEmail(),            // String
+                user.getRole().name(),      // String
+                user.getNom(),              // String
+                user.getPrenom()            // String
         ));
     }
-
     // ===== REGISTER =====
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register")
