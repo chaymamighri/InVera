@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -94,14 +93,12 @@ public class SecurityConfig {
                                 "/api/auth/delete/**",
                                 "/api/auth/update/**").hasRole("ADMIN")
 
-
                         // roles
-                        .requestMatchers("/api/commandes/**").hasAuthority("ROLE_COMMERCIAL")
+                        .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasRole( "COMMERCIAL")
-                        .requestMatchers("/api/reports/**").hasAnyRole("ADMIN", "COMMERCIAL")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
 
                         .anyRequest().authenticated()
                 )
