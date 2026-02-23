@@ -62,7 +62,6 @@ public class AuthController {
 
         return ResponseEntity.ok(new JwtResponse(
                 jwt,
-                user.getUsername(),
                 user.getRole().name(),
                 user.getNom(),
                 user.getPrenom()
@@ -78,7 +77,7 @@ public class AuthController {
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Email déjà utilisé"));
         }
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByNom(request.getNom())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Username déjà utilisé"));
         }
 
@@ -88,7 +87,6 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setNom(request.getNom());
         user.setPrenom(request.getPrenom());
@@ -227,7 +225,6 @@ public class AuthController {
         List<UserInfoResponse> response = users.stream()
                 .map(u -> new UserInfoResponse(
                         u.getId(),
-                        u.getUsername(),
                         u.getEmail(),
                         u.getNom(),
                         u.getPrenom(),
@@ -251,7 +248,6 @@ public class AuthController {
 
         return userRepository.findByEmail(email)
                 .map(user -> {
-                    user.setUsername(request.getUsername());
                     user.setNom(request.getNom());
                     user.setPrenom(request.getPrenom());
                     user.setRole(Role.valueOf(request.getRole()));
@@ -283,7 +279,6 @@ public class AuthController {
         List<UserInfoResponse> users = userRepository.findAll().stream()
                 .map(u -> new UserInfoResponse(
                         u.getId(),
-                        u.getUsername(),
                         u.getEmail(),
                         u.getNom(),
                         u.getPrenom(),
@@ -318,7 +313,6 @@ public class AuthController {
 
         return ResponseEntity.ok(new UserInfoResponse(
                 user.getId(),
-                user.getUsername(),
                 user.getEmail(),
                 user.getNom(),
                 user.getPrenom(),
@@ -395,7 +389,7 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername("hamdi");
+        user.setNom("hamdi");
         user.setEmail("hamdi@example.com");
         user.setPassword(passwordEncoder.encode("hamdi123!"));
         user.setNom("hamdi");

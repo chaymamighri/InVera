@@ -6,12 +6,18 @@ import org.erp.invera.dto.ProduitCommandeDetailDTO;
 import org.erp.invera.dto.ProduitCommandeRequestDTO;
 import org.erp.invera.model.CommandeClient;
 import org.erp.invera.model.Produit;
+import org.erp.invera.model.User;
 import org.erp.invera.repository.CommandeClientRepository;
+import org.erp.invera.repository.ProduitRepository;
+import org.erp.invera.repository.UserRepository;
 import org.erp.invera.service.CommandeClientService;
 import org.erp.invera.service.ClientService;
 import org.erp.invera.service.ProduitService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -29,15 +35,18 @@ public class CommandeClientController {
     private final CommandeClientRepository commandeClientRepository;
     private final ClientService clientService;
     private final ProduitService produitService;
+    private final UserRepository userRepository;
 
     public CommandeClientController(CommandeClientService commandeService,
                                     CommandeClientRepository commandeClientRepository,
                                     ClientService clientService,
-                                    ProduitService produitService) {
+                                    ProduitService produitService,
+                                    UserRepository userRepository) {
         this.commandeService = commandeService;
         this.commandeClientRepository = commandeClientRepository;
         this.clientService = clientService;
         this.produitService = produitService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/getAllCommandes")
@@ -218,7 +227,50 @@ public class CommandeClientController {
             response.put("referenceCommande", commande.getReferenceCommandeClient());
             response.put("total", commande.getTotal());
 
+            // ✅ Charger l'utilisateur depuis la base pour avoir nom/prénom
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) {
+                String email = auth.getName();
+                System.out.println("🔍 Recherche de l'utilisateur avec email: " + email);
+
+                userRepository.findByEmail(email).ifPresentOrElse(
+                        user -> {
+                            Map<String, Object> userInfo = new HashMap<>();
+                            userInfo.put("id", user.getId());
+                            userInfo.put("email", user.getEmail());
+                            userInfo.put("nom", user.getNom());
+                            userInfo.put("prenom", user.getPrenom());
+                            userInfo.put("role", user.getRole() != null ? user.getRole().name() : null);
+
+                            String nomComplet = "";
+                            if (user.getPrenom() != null) nomComplet += user.getPrenom() + " ";
+                            if (user.getNom() != null) nomComplet += user.getNom();
+                            if (nomComplet.trim().isEmpty()) nomComplet = user.getEmail();
+
+                            userInfo.put("nomComplet", nomComplet.trim());
+                            response.put("creePar", userInfo);
+
+                            System.out.println("✅ Utilisateur trouvé: " + nomComplet);
+                        },
+                        () -> {
+                            // Fallback si l'utilisateur n'est pas trouvé
+                            Map<String, Object> userInfo = new HashMap<>();
+                            userInfo.put("email", email);
+                            userInfo.put("nomComplet", email);
+                            response.put("creePar", userInfo);
+                            System.out.println("⚠️ Utilisateur non trouvé avec email: " + email);
+                        }
+                );
+            } else {
+                // Fallback si pas d'authentification
+                Map<String, Object> userInfo = new HashMap<>();
+                userInfo.put("nomComplet", "Inconnu");
+                response.put("creePar", userInfo);
+                System.out.println("⚠️ Aucune authentification trouvée");
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
         } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);

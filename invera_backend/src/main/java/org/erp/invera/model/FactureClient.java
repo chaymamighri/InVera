@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +16,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class FactureClient {
 
     public enum StatutFacture {
@@ -44,6 +48,16 @@ public class FactureClient {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatutFacture statut;
+
+    // --- Nouveaux champs d'audit ---
+    @CreatedBy
+    @JoinColumn(name = "created_by", nullable = true,  updatable = false)
+    private String createdBy;
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = true,  updatable = false)
+    private LocalDateTime createdAt;
+    // ------------------------------
 }
 
 

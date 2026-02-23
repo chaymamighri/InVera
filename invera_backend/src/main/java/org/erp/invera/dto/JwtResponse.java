@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 public class JwtResponse {
     private String token;
     private String type = "Bearer";
-    private String username;
     private String role;
     private String nom;
     private String prenom;
@@ -22,10 +21,9 @@ public class JwtResponse {
     /**
      * Constructeur pratique sans le type (utilise "Bearer" par défaut)
      */
-    public JwtResponse(String token, String username, String role, String nom, String prenom) {
+    public JwtResponse(String token, String role, String nom, String prenom) {
         this.token = token;
         this.type = "Bearer";
-        this.username = username;
         this.role = role;
         this.nom = nom;
         this.prenom = prenom;
