@@ -179,3 +179,5 @@ export const useAuth = () => {
     fetchWithAuth
   };
 };
+
+export default useAuth;

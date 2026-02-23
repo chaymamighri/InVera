@@ -19,7 +19,10 @@ import CreatePasswordPage from './pages/CreatePasswordPage';
 import LoginPage from './pages/auth/loginPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 import ClientManagePage from './pages/dashboard/sales/clients/ClientPageManage';
-import ReportVentePage from './pages/dashboard/sales/reports/ReportVentePage';
+import SalesTab from './pages/dashboard/sales/reports/tabs/SalesTab';
+import InvoicesTab from './pages/dashboard/sales/reports/tabs/InvoicesTab';
+import ClientsTab from './pages/dashboard/sales/reports/tabs/ClientsTab';
+import ReportsPage from './pages/dashboard/sales/reports/ReportsPage';
 
 const ROLE_MAPPING = {
   ADMIN: 'admin',
@@ -181,8 +184,15 @@ function App() {
           <Route path="sales" element={<SalesPage />} />
           <Route path="invoices" element={<InvoicingPage />} />
           <Route path="clients" element={<ClientManagePage />} />
-         <Route path="reports" element={<ReportVentePage />} />
-        </Route>
+
+           {/* ✅ Routes pour les rapports - bien indentées */}
+          <Route path="reports" element={<ReportsPage />}>
+          <Route index element={<Navigate to="sales" replace />} />
+          <Route path="sales" element={<SalesTab />} />
+          <Route path="invoices" element={<InvoicesTab />} />
+          <Route path="clients" element={<ClientsTab />} />
+          </Route>
+          </Route>
 
         {/* Shared */}
         <Route

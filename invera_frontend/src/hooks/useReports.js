@@ -1,35 +1,61 @@
-import { useState } from "react";
+// src/hooks/useReports.js - Version simple
+import { useState, useCallback } from 'react';
+import api from '../services/api'; // Votre api.js inclut déjà authHeader
 
 export const useReports = () => {
-  const STORAGE_KEY = "reports-storage";
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
 
-  const initReports = () => {
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          salesReports: [],
-          purchaseReports: [],
-        })
-      );
+  /**
+   * Récupérer un rapport
+   */
+  const fetchReport = useCallback(async (type, filters = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Construire les paramètres
+      const params = new URLSearchParams();
+      if (filters.period) params.append('period', filters.period);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.clientType && filters.clientType !== 'all') 
+        params.append('clientType', filters.clientType);
+      if (filters.status && filters.status !== 'all') 
+        params.append('status', filters.status);
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      
+      // Votre api.js va automatiquement utiliser authHeader()
+      const response = await api.get(`/api/reports/${type}${queryString}`);
+      
+      setData(response.data);
+      return response.data;
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Erreur de chargement';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const getReports = () => {
-    initReports();
-    return JSON.parse(localStorage.getItem(STORAGE_KEY));
-  };
-
-  const addReport = (type, report) => {
-    // type = "sales" ou "purchase"
-    const reports = getReports();
-    if (type === "sales") {
-      reports.salesReports.push({ id: Date.now(), ...report });
-    } else if (type === "purchase") {
-      reports.purchaseReports.push({ id: Date.now(), ...report });
+  /**
+   * Rafraîchir les données
+   */
+  const refresh = useCallback(() => {
+    if (data) {
+      fetchReport(type, filters);
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
-  };
+  }, [fetchReport, type, filters]);
 
-  return { getReports, addReport };
+  return {
+    loading,
+    error,
+    data,
+    fetchReport,
+    refresh,
+    setData
+  };
 };
