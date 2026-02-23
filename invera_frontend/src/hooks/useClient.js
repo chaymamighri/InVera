@@ -21,7 +21,7 @@ const useClients = (filters = {}) => {
     total: 0
   });
 
-  // ✅ Fonction pour calculer les stats localement
+  // Calculate stats locally
   const calculateLocalStats = useCallback((clientsList) => {
     const newStats = {
       total: clientsList?.length || 0,
@@ -35,7 +35,7 @@ const useClients = (filters = {}) => {
     return newStats;
   }, []);
 
-  // Charger tous les clients
+  // Fetch clients
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
@@ -53,7 +53,6 @@ const useClients = (filters = {}) => {
       
       if (response?.success) {
         setClients(response.clients || []);
-        // ✅ Calculer les stats localement
         calculateLocalStats(response.clients || []);
         if (response.total) {
           setPagination(prev => ({ ...prev, total: response.total }));
@@ -68,7 +67,7 @@ const useClients = (filters = {}) => {
     }
   }, [filters?.search, pagination.page, pagination.pageSize, calculateLocalStats]);
 
-  // Charger les types de clients
+  // Fetch client types
   const fetchClientTypes = useCallback(async () => {
     try {
       const response = await clientService.getClientTypes();
@@ -80,8 +79,7 @@ const useClients = (filters = {}) => {
     }
   }, []);
 
-
-  // Créer un nouveau client
+  // Create client
   const createClient = async (clientData) => {
     try {
       const response = await clientService.createClient(clientData);
@@ -97,7 +95,7 @@ const useClients = (filters = {}) => {
     }
   };
 
-  // Mettre à jour un client
+  // Update client
   const updateClient = async (id, clientData) => {
     try {
       const response = await clientService.updateClient(id, clientData);
@@ -113,7 +111,7 @@ const useClients = (filters = {}) => {
     }
   };
 
-  // Vérifier si un téléphone existe
+  // Check telephone
   const checkTelephone = async (telephone) => {
     try {
       const response = await clientService.checkTelephone?.(telephone);
@@ -124,20 +122,32 @@ const useClients = (filters = {}) => {
     }
   };
 
-  // Récupérer la remise par type
-const getRemiseForType = async (typeClient) => {
-  try {
-    console.log(`🔍 Récupération remise pour ${typeClient} via clientService`);
-    const response = await clientService.getRemiseByType(typeClient);
-    console.log('✅ Réponse remise:', response);
-    return response; // ← retourne {success: true, type: "ENTREPRISE", remise: 8}
-  } catch (error) {
-    console.error(`❌ Erreur récupération remise ${typeClient}:`, error);
-    throw error;
-  }
-};
+  // Get discount for a type
+  const getRemiseForType = async (typeClient) => {
+    try {
+      const response = await clientService.getRemiseByType(typeClient);
+      return response;
+    } catch (error) {
+      console.error(`Erreur récupération remise ${typeClient}:`, error);
+      throw error;
+    }
+  };
 
-  // Supprimer un client
+  // Update type discount (admin only)
+  const updateTypeDiscount = async (type, discount) => {
+    try {
+      const response = await clientService.updateTypeDiscount(type, discount);
+      if (response?.success) {
+        toast.success(`Remise pour ${type} mise à jour`);
+        return response;
+      }
+    } catch (err) {
+      toast.error('Erreur lors de la mise à jour de la remise');
+      throw err;
+    }
+  };
+
+  // Delete client
   const deleteClient = async (id) => {
     try {
       const response = await clientService.deleteClient?.(id);
@@ -151,13 +161,13 @@ const getRemiseForType = async (typeClient) => {
     }
   };
 
-  // Chargement initial
+  // Initial loads
   useEffect(() => {
     fetchClients();
     fetchClientTypes();
   }, [fetchClients, fetchClientTypes]); 
 
-  // Optionnel: Recalculer les stats quand clients change
+  // Recalculate stats when clients change
   useEffect(() => {
     if (clients.length > 0) {
       calculateLocalStats(clients);
@@ -165,15 +175,12 @@ const getRemiseForType = async (typeClient) => {
   }, [clients, calculateLocalStats]);
 
   return {
-    // Données
     clients,
     loading,
     error,
     clientTypes,
-    stats,           
+    stats,
     pagination,
-    
-    // Actions
     fetchClients,
     fetchClientTypes,
     createClient,
@@ -181,8 +188,7 @@ const getRemiseForType = async (typeClient) => {
     deleteClient,
     checkTelephone,
     getRemiseForType,
-    
-    // Pagination
+    updateTypeDiscount,
     setPagination
   };
 };
