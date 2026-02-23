@@ -4,12 +4,18 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "produit")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Produit {
 
     @Id
@@ -47,6 +53,16 @@ public class Produit {
 
     @Column(name = "remise_temporaire")
     private Double remiseTemporaire;
+
+    // --- Nouveaux champs d'audit ---
+    @CreatedBy
+    @JoinColumn(name = "created_by", nullable = true,  updatable = false)
+    private String createdBy;
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = true,  updatable = false)
+    private LocalDateTime createdAt;
+    // ------------------------------
 
     public enum StockStatus {
         EN_STOCK,

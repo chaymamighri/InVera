@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "client")
@@ -43,6 +46,15 @@ public class Client {
 
     @Column(name = "remise_client_professionnelle", nullable = true)
     private Double remiseClientProfessionnelle;
+
+    // --- Nouveaux champs d'audit ---
+    @CreatedBy
+    @JoinColumn(name = "created_by", nullable = true,  updatable = false)
+    private String createdBy;
+
+    @Column(name = "created_at", nullable = true, updatable = false )
+    private LocalDateTime createdAt;
+    // ------------------------------
 
     public enum TypeClient {
         PARTICULIER("Particulier"),

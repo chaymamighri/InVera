@@ -24,8 +24,6 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;
-
     @Column(unique = true, nullable = false)
     private String email;
 
@@ -53,9 +51,8 @@ public class User implements UserDetails {
     private List<PasswordResetToken> passwordResetTokens;
 
     // Optional custom constructor
-    public User(String username, String nom, String prenom,
+    public User( String nom, String prenom,
                 String email, String password, Role role) {
-        this.username = username;
         this.nom = nom;
         this.prenom = prenom;
         this.email = email;

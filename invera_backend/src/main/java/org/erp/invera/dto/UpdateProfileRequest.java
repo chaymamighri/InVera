@@ -4,8 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 
 public class UpdateProfileRequest {
 
-    @NotBlank
-    private String username;
 
     @NotBlank
     private String nom;
@@ -15,13 +13,6 @@ public class UpdateProfileRequest {
 
     // getters & setters
 
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
 
     public String getNom() {
         return nom;
