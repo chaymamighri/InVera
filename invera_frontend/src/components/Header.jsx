@@ -239,7 +239,7 @@ const Header = ({ sidebarCollapsed = false }) => {
 
   return (
     <header
-      className={`${leftOffsetClass} bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg relative z-40 transition-all duration-300`}
+      className={`${leftOffsetClass} bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg relative z-40 transition-all duration-300`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">

@@ -98,12 +98,48 @@ const CreateOrderModal = ({
   onCreateCommande,
   toNumber,
   isCreating = false,
-  onOrderCreated
 }) => {
   const [searchProduit, setSearchProduit] = useState('');
   const [searchClient, setSearchClient] = useState('');
   const [notes, setNotes] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
+
+  // ✅ Styles pour les toasts
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slide-in {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slide-out {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+      
+      .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   if (!show) return null;
 
@@ -135,6 +171,52 @@ const CreateOrderModal = ({
   const montantRemise = totalProduits * remisePourcentage;
   const totalFinal = totalProduits - montantRemise;
 
+  // Fonction utilitaire pour afficher les toasts
+  const showToast = (message, type = 'error', duration = 3000) => {
+    const colors = {
+      success: 'bg-green-500',
+      error: 'bg-red-500',
+      warning: 'bg-yellow-500',
+      info: 'bg-blue-500'
+    };
+
+    const icons = {
+      success: `
+        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      `,
+      error: `
+        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      `,
+      warning: `
+        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+      `,
+      info: `
+        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      `
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center animate-slide-in`;
+    toast.innerHTML = `
+      ${icons[type]}
+      <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.animation = 'slide-out 0.3s ease-out';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  };
+
   const handleAddProduct = (produit) => {
     const existing = selectedProducts.find(p => p.id === produit.id);
     if (existing) {
@@ -142,7 +224,7 @@ const CreateOrderModal = ({
     } else {
       if (!produit.id) {
         console.error('Produit ajouté sans ID:', produit);
-        alert('Erreur: le produit n\'a pas d\'ID');
+        showToast('Erreur: le produit n\'a pas d\'ID', 'error');
         return;
       }
       
@@ -156,7 +238,7 @@ const CreateOrderModal = ({
 
   const handleCreateOrder = () => {
     if (!selectedClient || selectedProducts.length === 0) {
-      alert('Veuillez sélectionner un client et ajouter des produits');
+      showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
       return;
     }
     
@@ -167,16 +249,58 @@ const CreateOrderModal = ({
     });
 
     if (produitSansStock) {
-      alert(`Quantité insuffisante pour "${produitSansStock.libelle}". Stock disponible: ${produitSansStock.quantiteStock}`);
+      showToast(
+        `Stock insuffisant pour "${produitSansStock.libelle}". Disponible: ${produitSansStock.quantiteStock}`,
+        'error',
+        4000
+      );
       return;
     }
 
     onCreateCommande(selectedClient, notes);
+    
+    // Toast de succès (sera affiché après la création réussie)
+    showToast('Commande créée avec succès !', 'success', 3000);
   };
 
   const handleClearCart = () => {
-    if (confirm('Voulez-vous vider tous les produits du panier ?')) {
-      selectedProducts.forEach(p => onSupprimerProduit(p.id));
+    // Toast de confirmation personnalisé
+    const confirmToast = document.createElement('div');
+    confirmToast.className = 'fixed top-4 right-4 bg-yellow-500 text-white px-4 py-3 rounded-lg shadow-lg z-[100] animate-slide-in';
+    confirmToast.innerHTML = `
+      <div class="flex items-center mb-3">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <span class="font-medium">Vider le panier ?</span>
+      </div>
+      <div class="flex justify-end space-x-2">
+        <button class="px-3 py-1.5 bg-white text-yellow-600 rounded hover:bg-gray-100 text-sm font-medium transition-colors" id="cancelClear">Annuler</button>
+        <button class="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium transition-colors" id="confirmClear">Confirmer</button>
+      </div>
+    `;
+    document.body.appendChild(confirmToast);
+
+    // Gestionnaire pour annuler
+    const cancelBtn = document.getElementById('cancelClear');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        confirmToast.style.animation = 'slide-out 0.3s ease-out';
+        setTimeout(() => confirmToast.remove(), 300);
+      });
+    }
+
+    // Gestionnaire pour confirmer
+    const confirmBtn = document.getElementById('confirmClear');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        selectedProducts.forEach(p => onSupprimerProduit(p.id));
+        confirmToast.style.animation = 'slide-out 0.3s ease-out';
+        setTimeout(() => confirmToast.remove(), 300);
+
+        // Toast de succès
+        showToast('Panier vidé avec succès', 'success', 2000);
+      });
     }
   };
 
@@ -210,6 +334,7 @@ const CreateOrderModal = ({
     }
   }, [clientSelectionne, selectedProducts.length]);
 
+  
   // Étape 1 : Sélection du client
   if (currentStep === 1) {
     return (
