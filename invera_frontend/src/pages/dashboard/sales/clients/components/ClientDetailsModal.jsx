@@ -48,7 +48,6 @@ const ClientDetailsModal = ({ open, onClose, client }) => {
       console.log('📡 Chargement commandes pour client:', clientId);
       const response = await commandeService.getCommandesByClientId(clientId);
       
-      // La réponse contient { success: true, commandes: [...] }
       const orders = response.commandes || [];
       setClientOrders(orders);
       
@@ -236,34 +235,7 @@ const ClientDetailsModal = ({ open, onClose, client }) => {
                           </div>
                         </div>
                         
-                        {/* ✅ Aperçu des produits - Version corrigée */}
-                        {order.lignesCommande?.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <p className="text-xs text-gray-500 mb-2">Produits :</p>
-                            <div className="flex flex-wrap gap-2">
-                              {order.lignesCommande.slice(0, 3).map((ligne, idx) => {
-                                // Récupérer le libellé du produit depuis la structure backend
-                                const productName = ligne.produit?.libelle || 
-                                                   ligne.produit?.nom || 
-                                                   'Produit';
-                                
-                                const quantity = ligne.quantite || 0;
-                                
-                                return (
-                                  <span key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                                    {productName}
-                                    {quantity > 1 && ` (x${quantity})`}
-                                  </span>
-                                );
-                              })}
-                              {order.lignesCommande.length > 3 && (
-                                <span className="text-xs text-gray-500">
-                                  +{order.lignesCommande.length - 3} autres
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        {/* ✅ Section produits SUPPRIMÉE - on garde seulement le nombre */}
                       </div>
                     ))}
                   </div>

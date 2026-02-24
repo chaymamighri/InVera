@@ -1,29 +1,97 @@
 // src/pages/dashboard/sales/reports/ReportsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useLocation, Outlet, NavLink } from 'react-router-dom';
-import { FileText, Receipt, Users, BarChart3, Download, RefreshCw } from 'lucide-react';
+import { FileText, Receipt, Users, BarChart3, Download } from 'lucide-react';
 import ReportCard from './components/ReportCard';
-import ReportFilters from './components/ReportFilters';
 import reportService from '../../../../services/ReportService';
 import * as XLSX from 'xlsx';
 import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Créer un contexte pour partager la fonction de rafraîchissement
+export const RefreshContext = React.createContext();
+
 const ReportsPage = () => {
   const location = useLocation();
 
-  // ✅ Filtres généraux pour tous les rapports
-  const [filters, setFilters] = useState({
+// src/pages/dashboard/sales/reports/ReportsPage.jsx
+
+// ✅ Fonction pour récupérer l'utilisateur connecté
+const getCurrentUser = () => {
+  try {
+    // 1. Essayer de récupérer depuis 'userName' (directement disponible)
+    const userName = localStorage.getItem('userName');
+    if (userName) {
+      console.log('✅ Utilisateur trouvé via userName:', userName);
+      return userName;
+    }
+    
+    // 2. Essayer de récupérer depuis 'userEmail' (fallback)
+    const userEmail = localStorage.getItem('userEmail');
+    if (userEmail) {
+      console.log('✅ Utilisateur trouvé via userEmail:', userEmail);
+      return userEmail;
+    }
+    
+    // 3. Essayer de décoder le token JWT
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Décoder la partie payload du JWT (deuxième partie)
+        const base64Url = token.split('.')[1];
+        if (base64Url) {
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const decoded = JSON.parse(jsonPayload);
+          console.log('✅ Token décodé:', decoded);
+          
+          // Retourner le nom depuis le token (nom + prénom)
+          if (decoded.nom && decoded.prenom) {
+            return `${decoded.prenom} ${decoded.nom}`;
+          }
+          if (decoded.nom) return decoded.nom;
+          if (decoded.sub) return decoded.sub;
+        }
+      } catch (e) {
+        console.log('⚠️ Erreur décodage token:', e);
+      }
+    }
+    
+    // 4. Essayer de récupérer depuis 'users-management' (si besoin)
+    const usersStr = localStorage.getItem('users-management');
+    if (usersStr) {
+      try {
+        const users = JSON.parse(usersStr);
+        // Chercher l'utilisateur connecté (si vous avez son ID ailleurs)
+        // Cette partie dépend de comment vous identifiez l'utilisateur courant
+      } catch (e) {}
+    }
+    
+    // 5. Valeur par défaut
+    console.log('⚠️ Aucun utilisateur trouvé, utilisation de la valeur par défaut');
+    return 'Chayma Mighri'; // Vous pouvez mettre le nom par défaut que vous voulez
+    
+  } catch (error) {
+    console.error('❌ Erreur dans getCurrentUser:', error);
+    return 'Utilisateur';
+  }
+};
+
+  // ✅ Filtres de date seulement (pour l'export global)
+  const [dateFilters] = useState({
     period: 'month',
     startDate: null,
-    endDate: null,
-    clientType: 'all',
-    status: 'all'
+    endDate: null
   });
 
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
+  
+  // ✅ État pour forcer le rechargement des données enfants
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Charger aperçu
   const loadPreview = async () => {
@@ -42,25 +110,20 @@ const ReportsPage = () => {
     loadPreview();
   }, []);
 
-  // ✅ Fonction pour rafraîchir TOUS les rapports
-  const refreshAllReports = () => {
-    console.log('🔄 Rafraîchissement de tous les rapports...');
-    loadPreview(); // Rafraîchir les stats de la page d'accueil
-    // Le rafraîchissement des onglets se fera via le contexte
-  };
-
   // ✅ EXPORT GLOBAL PDF UNIQUE
   const exportGlobalPDF = async () => {
     try {
       setLoading(true);
       
       const [salesData, invoicesData, clientsData] = await Promise.all([
-        reportService.getSalesReport(filters),
-        reportService.getInvoicesReport(filters),
-        reportService.getClientsReport(filters)
+        reportService.getSalesReport(dateFilters),
+        reportService.getInvoicesReport(dateFilters),
+        reportService.getClientsReport(dateFilters)
       ]);
 
       const doc = new jsPDF();
+      const currentUser = getCurrentUser();
+      const today = new Date().toLocaleDateString('fr-FR');
       
       // Page 1: Synthèse globale
       doc.setFontSize(22);
@@ -69,18 +132,19 @@ const ReportsPage = () => {
 
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')}`, 14, 32);
-      doc.text(`Période: ${filters.period}`, 14, 38);
+      doc.text(`Généré le: ${today}`, 14, 32);
+      doc.text(`Généré par: ${currentUser}`, 14, 38);
+      doc.text(`Période: ${dateFilters.period}`, 14, 44);
 
       // Résumé global
       doc.setFontSize(16);
       doc.setTextColor(0, 0, 0);
-      doc.text('SYNTHÈSE', 14, 48);
+      doc.text('SYNTHÈSE', 14, 54);
 
       doc.setFontSize(12);
       doc.setTextColor(80, 80, 80);
 
-      let y = 58;
+      let y = 64;
 
       doc.text(`[VENTES]`, 20, y); y += 6;
       doc.text(`   CA Total: ${salesData?.summary?.totalCA || 0} DT`, 25, y); y += 6;
@@ -117,6 +181,10 @@ const ReportsPage = () => {
           theme: 'striped',
           headStyles: { fillColor: [41, 128, 185] }
         });
+        
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Rapport généré par ${currentUser} le ${today}`, 14, doc.internal.pageSize.height - 10);
       }
       
       // Page 3: Détail des factures
@@ -138,6 +206,10 @@ const ReportsPage = () => {
           theme: 'striped',
           headStyles: { fillColor: [46, 204, 113] }
         });
+        
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Rapport généré par ${currentUser} le ${today}`, 14, doc.internal.pageSize.height - 10);
       }
       
       // Page 4: Top clients
@@ -158,6 +230,10 @@ const ReportsPage = () => {
           theme: 'striped',
           headStyles: { fillColor: [155, 89, 182] }
         });
+        
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Rapport généré par ${currentUser} le ${today}`, 14, doc.internal.pageSize.height - 10);
       }
       
       doc.save(`rapport_complet_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -174,18 +250,21 @@ const ReportsPage = () => {
       setLoading(true);
       
       const [salesData, invoicesData, clientsData] = await Promise.all([
-        reportService.getSalesReport(filters),
-        reportService.getInvoicesReport(filters),
-        reportService.getClientsReport(filters)
+        reportService.getSalesReport(dateFilters),
+        reportService.getInvoicesReport(dateFilters),
+        reportService.getClientsReport(dateFilters)
       ]);
 
       const wb = XLSX.utils.book_new();
+      const currentUser = getCurrentUser();
+      const today = new Date().toLocaleDateString('fr-FR');
       
       // FEUILLE 1: SYNTHÈSE GLOBALE
       const summaryData = [
         ['📊 RAPPORT GLOBAL', ''],
-        ['Date génération', new Date().toLocaleDateString('fr-FR')],
-        ['Période', filters.period],
+        ['Date génération', today],
+        ['Généré par', currentUser],
+        ['Période', dateFilters.period],
         ['', ''],
         ['📈 VENTES', ''],
         ['CA Total', salesData?.summary?.totalCA || 0, 'DT'],
@@ -346,7 +425,7 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* ✅ Navigation avec boutons d'export global ET bouton refresh général */}
+      {/* ✅ Navigation avec boutons d'export */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between">
           {/* Navigation à gauche */}
@@ -370,23 +449,8 @@ const ReportsPage = () => {
             })}
           </nav>
 
-          {/* ✅ Boutons d'action dans la barre de navigation */}
+          {/* ✅ Boutons d'export */}
           <div className="flex items-center gap-2">
-            {/* Bouton Refresh général */}
-            <button
-              onClick={refreshAllReports}
-              disabled={loading}
-              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2 text-sm disabled:opacity-50 border"
-              title="Rafraîchir tous les rapports"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden md:inline">Rafraîchir</span>
-            </button>
-
-            {/* Séparateur vertical */}
-            <div className="w-px h-6 bg-gray-300 mx-1"></div>
-
-            {/* Boutons d'export global */}
             <button
               onClick={exportGlobalPDF}
               disabled={loading}
@@ -417,29 +481,7 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* ✅ FILTRES SPÉCIFIQUES - adaptés à la section active */}
-      {activeSection !== 'home' && (
-        <ReportFilters
-          filters={filters}
-          setFilters={setFilters}
-          onRefresh={refreshAllReports}
-          loading={loading}
-          reportType={activeSection}
-        />
-      )}
-
-      {/* Filtres - uniquement sur home (global) */}
-      {activeSection === 'home' && (
-        <ReportFilters
-          filters={filters}
-          setFilters={setFilters}
-          onRefresh={refreshAllReports}
-          loading={loading}
-          reportType="global" 
-        />
-      )}
-
-      {/* Cartes - uniquement sur home */}
+      {/* ✅ Cartes - uniquement sur home */}
       {activeSection === 'home' && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -489,8 +531,8 @@ const ReportsPage = () => {
         </>
       )}
 
-      {/* ✅ Contenu des routes enfants avec les filtres */}
-      <Outlet context={{ filters, activeSection }} />
+      {/* ✅ Contenu des routes enfants */}
+      <Outlet context={{ refreshTrigger }} />
 
       {/* Indicateur de chargement */}
       {loading && (

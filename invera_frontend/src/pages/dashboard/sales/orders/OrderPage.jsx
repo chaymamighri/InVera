@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import OrderFilters from './components/OrderFilters';
 import OrderTable from './components/OrderTable';
+import toast from 'react-hot-toast';
 import CreateOrderModal from './components/CreateOrderModal';
 import OrderDetailsModal from './components/OrderDetailsModal';
 import { 
@@ -215,7 +216,6 @@ const handleSort = useCallback((field) => {
   }, [setSelectedProducts]);
 
 // Fonction pour créer la commande - CORRIGÉE
-// Fonction pour créer la commande - CORRIGÉE (uniquement la partie référence)
 const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
   console.log('🔴 handleCreerCommandeAPI DÉBUT');
 
@@ -385,7 +385,7 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
       
       await handleValiderCommande(commandeId);
       
-      alert('✅ Commande validée avec succès !');
+       toast.success('Commande créée avec succès !');
       await chargerDonnees();
     } catch (error) {
       console.error('Erreur lors de la validation:', error);

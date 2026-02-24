@@ -1,131 +1,185 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom'; // ✅ IMPORTANT
-import api from '../../../../../services/api';
+// src/pages/dashboard/sales/reports/tabs/SalesTab.jsx
+import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { RefreshCw, Filter, Calendar, X } from 'lucide-react';
+import { useReports } from '../../../../../hooks/useReports';
 
 const SalesTab = () => {
-  // ✅ Récupérer les filtres depuis le contexte (pas des props)
-  const { filters } = useOutletContext();
+  //  Récupérer seulement le refreshTrigger depuis le contexte
+  const { refreshTrigger } = useOutletContext();
   
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  
-  // ✅ Ref pour éviter les appels multiples
-  const prevFiltersRef = useRef(null);
+  // État pour TOUS les filtres
+  const [filters, setFilters] = useState({
+    // Filtres de date
+    period: 'month',
+    startDate: null,
+    endDate: null,
+    clientType: undefined,
+    status: undefined
+  });
 
-  // ✅ Fonction de nettoyage des filtres
-  const cleanFilters = useCallback((filtersToClean) => {
-    if (!filtersToClean || typeof filtersToClean !== 'object') {
-      return {};
-    }
-    
-    const cleaned = {};
-    
-    Object.entries(filtersToClean).forEach(([key, value]) => {
-      if (value !== null && 
-          value !== undefined && 
-          value !== '' && 
-          value !== 'null' && 
-          value !== 'all') {
-        cleaned[key] = value;
-      }
-    });
-    
-    return cleaned;
-  }, []);
+  const [showCustom, setShowCustom] = useState(false);
+  const [showSpecificFilters, setShowSpecificFilters] = useState(false);
+  const [localDates, setLocalDates] = useState({
+    startDate: '',
+    endDate: ''
+  });
 
-  // ✅ Vérifier si les filtres ont changé
-  const haveFiltersChanged = useCallback((newFilters) => {
-    const newClean = cleanFilters(newFilters);
-    const prevClean = cleanFilters(prevFiltersRef.current);
-    
-    return JSON.stringify(newClean) !== JSON.stringify(prevClean);
-  }, [cleanFilters]);
+  //  Périodes prédéfinies
+  const periods = [
+    { id: 'today', label: "Aujourd'hui" },
+    { id: 'week', label: 'Cette semaine' },
+    { id: 'month', label: 'Ce mois' },
+    { id: 'year', label: 'Cette année' },
+  ];
 
-  // ✅ Charger les données
-  const fetchData = useCallback(async () => {
-    // Vérifier le token
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Vous devez être connecté pour voir ce rapport');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const cleanFilterParams = cleanFilters(filters);
-      
-      // Mettre à jour la ref des filtres
-      prevFiltersRef.current = filters;
-      
-      const params = new URLSearchParams();
-      Object.entries(cleanFilterParams).forEach(([key, value]) => {
-        params.append(key, value);
-      });
-      
-      const queryString = params.toString();
-      const url = `/reports/sales${queryString ? `?${queryString}` : ''}`;
-      
-      console.log('📡 SalesTab - URL:', url);
-      console.log('📡 SalesTab - Paramètres:', cleanFilterParams);
-      
-      const response = await api.get(url);
-      console.log('✅ SalesTab - Données reçues:', response.data);
-      setData(response.data);
-    } catch (error) {
-      console.error('❌ SalesTab - Erreur:', error);
-      
-      if (error.response?.status === 403) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      } else if (error.response?.status === 401) {
-        setError('Non authentifié. Veuillez vous connecter.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      } else {
-        setError(error.response?.data?.message || 'Erreur de chargement des données');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, cleanFilters]);
+  // Types de clients (avec undefined pour "tous")
+  const clientTypes = [
+    { id: undefined, label: 'Tous les clients' },
+    { id: 'VIP', label: 'VIP' },
+    { id: 'PROFESSIONNEL', label: 'Professionnel' },
+    { id: 'ENTREPRISE', label: 'Entreprise' },
+    { id: 'FIDELE', label: 'Fidèle' },
+    { id: 'PARTICULIER', label: 'Particulier' }
+  ];
 
-  // ✅ useEffect pour charger les données quand les filtres changent
+  // Statuts des ventes (avec undefined pour "tous")
+  const statusOptions = [
+    { id: undefined, label: 'Tous les statuts' },
+    { id: 'CONFIRMEE', label: 'Confirmée' },
+    { id: 'EN_ATTENTE', label: 'En attente' },
+    { id: 'ANNULEE', label: 'Annulée' },
+  ];
+
+  //  Fonction pour normaliser les statuts (comme dans InvoicesTab)
+  const getStatutInfo = (statut) => {
+    const statutMap = {
+      // Confirmée
+      'CONFIRMEE': { class: 'bg-green-100 text-green-700', label: 'Confirmée' },
+      'Confirmée': { class: 'bg-green-100 text-green-700', label: 'Confirmée' },
+      'Confirmé': { class: 'bg-green-100 text-green-700', label: 'Confirmée' },
+      
+      // En attente
+      'EN_ATTENTE': { class: 'bg-yellow-100 text-yellow-700', label: 'En attente' },
+      'En attente': { class: 'bg-yellow-100 text-yellow-700', label: 'En attente' },
+      
+      // Annulée
+      'ANNULEE': { class: 'bg-gray-100 text-gray-700', label: 'Annulée' },
+      'Annulée': { class: 'bg-gray-100 text-gray-700', label: 'Annulée' },
+      'Annulé': { class: 'bg-gray-100 text-gray-700', label: 'Annulée' },
+      
+      // Livrée (optionnel)
+      'LIVREE': { class: 'bg-blue-100 text-blue-700', label: 'Livrée' },
+      'Livrée': { class: 'bg-blue-100 text-blue-700', label: 'Livrée' }
+    };
+    
+    return statutMap[statut] || { class: 'bg-gray-100 text-gray-700', label: statut || 'Inconnu' };
+  };
+
+  // Utiliser le hook useReports avec tous les filtres
+  const { 
+    loading, 
+    error, 
+    data, 
+    refresh,
+    setFilters: updateReportsFilters
+  } = useReports('sales', filters);
+
+  // Effet pour le refreshTrigger (bouton rafraîchir global)
   useEffect(() => {
-    console.log('📥 SalesTab - Filters reçus:', filters);
-    
-    if (haveFiltersChanged(filters)) {
-      console.log('🔄 SalesTab - Filtres modifiés, chargement...');
-      fetchData();
-    } else {
-      console.log('⏭️ SalesTab - Filtres identiques, pas de rechargement');
+    if (refreshTrigger > 0) {
+      console.log('🔄 SalesTab - Rafraîchissement global');
+      refresh();
     }
-  }, [filters, fetchData, haveFiltersChanged]);
+  }, [refreshTrigger, refresh]);
+
+  // Effet pour la période personnalisée
+  useEffect(() => {
+    if (filters.period === 'custom') {
+      setShowCustom(true);
+    } else {
+      setShowCustom(false);
+    }
+  }, [filters.period]);
+
+  // Gestionnaire de changement de période
+  const handlePeriodChange = (periodId) => {
+    const newFilters = {
+      ...filters,
+      period: periodId,
+      ...(periodId !== 'custom' && { startDate: null, endDate: null })
+    };
+    setFilters(newFilters);
+    updateReportsFilters(newFilters);
+  };
+
+  // Appliquer la période personnalisée
+  const handleApplyCustom = () => {
+    if (localDates.startDate && localDates.endDate) {
+      const newFilters = {
+        ...filters,
+        period: 'custom',
+        startDate: localDates.startDate,
+        endDate: localDates.endDate
+      };
+      setFilters(newFilters);
+      updateReportsFilters(newFilters);
+      setShowCustom(false);
+    }
+  };
+
+  // Gestionnaire pour les filtres spécifiques
+  const handleSpecificFilterChange = (key, value) => {
+    const newFilters = {
+      ...filters,
+      [key]: value
+    };
+    setFilters(newFilters);
+    updateReportsFilters(newFilters);
+  };
+
+  // Réinitialiser TOUS les filtres
+  const resetAllFilters = () => {
+    const defaultFilters = {
+      period: 'month',
+      startDate: null,
+      endDate: null,
+      clientType: undefined,
+      status: undefined
+    };
+    
+    setFilters(defaultFilters);
+    updateReportsFilters(defaultFilters);
+    setLocalDates({ startDate: '', endDate: '' });
+    setShowCustom(false);
+    
+    console.log(' Filtres réinitialisés');
+  };
+
+  //  Rafraîchissement manuel
+  const handleManualRefresh = () => {
+    refresh();
+  };
 
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <p className="text-red-600 font-medium">{error}</p>
         <button 
-          onClick={() => window.location.href = '/login'}
+          onClick={refresh}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
         >
-          Se connecter
+          Réessayer
         </button>
       </div>
     );
   }
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="text-center py-10">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-        <p className="mt-2 text-gray-600">Chargement du rapport...</p>
+        <p className="mt-2 text-gray-600">Chargement du rapport des ventes...</p>
       </div>
     );
   }
@@ -140,16 +194,150 @@ const SalesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* En-tête simplifié - sans boutons */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold">Détail des ventes</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {data.ventes?.length || 0} ventes trouvées
-        </p>
+      {/*  En-tête avec bouton Actualiser */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-semibold">Détail des ventes</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {data.ventes?.length || 0} ventes trouvées
+          </p>
+        </div>
+       
+      </div>
+
+      {/*  SECTION FILTRES */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        {/* Filtres de date - Barre principale */}
+        <div className="p-4 flex flex-wrap items-center gap-4 border-b border-gray-200">
+          {/* Sélecteur de période */}
+          <select
+            value={filters.period}
+            onChange={(e) => handlePeriodChange(e.target.value)}
+            className="px-4 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500"
+          >
+            {periods.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+
+          {/* Bouton Filtres spécifiques */}
+          <button
+            onClick={() => setShowSpecificFilters(!showSpecificFilters)}
+            className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
+              ${showSpecificFilters ? 'bg-blue-50 border-blue-300 text-blue-600' : 'hover:bg-gray-50'}`}
+          >
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">Filtres avancés</span>
+          </button>
+
+          {/* Bouton Réinitialiser tout */}
+          <button
+            onClick={resetAllFilters}
+            className="px-4 py-2 border rounded-lg text-sm hover:bg-blue-100 bg-blue-50 text-blue-700 border-blue-200 ml-auto"
+          >
+            Réinitialiser
+          </button>
+        </div>
+
+        {/* Période personnalisée */}
+        {showCustom && (
+          <div className="p-4 border-b bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                Période personnalisée
+              </h4>
+              <button
+                onClick={() => setShowCustom(false)}
+                className="p-1 hover:bg-gray-200 rounded-full"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date de début</label>
+                <input
+                  type="date"
+                  value={localDates.startDate}
+                  onChange={(e) => setLocalDates({ ...localDates, startDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date de fin</label>
+                <input
+                  type="date"
+                  value={localDates.endDate}
+                  onChange={(e) => setLocalDates({ ...localDates, endDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={handleApplyCustom}
+                disabled={!localDates.startDate || !localDates.endDate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
+              >
+                Appliquer
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* FILTRES SPÉCIFIQUES */}
+        {showSpecificFilters && (
+          <div className="p-4 bg-gray-50">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Filtres avancés</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Type de client */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Type de client</label>
+                <select
+                  value={filters.clientType ?? 'all'}
+                  onChange={(e) => {
+                    const value = e.target.value === 'all' ? undefined : e.target.value;
+                    handleSpecificFilterChange('clientType', value);
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                >
+                  {clientTypes.map(type => (
+                    <option key={type.id || 'all'} value={type.id ?? 'all'}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Statut commande */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Statut commande</label>
+                <select
+                  value={filters.status ?? 'all'}
+                  onChange={(e) => {
+                    const value = e.target.value === 'all' ? undefined : e.target.value;
+                    handleSpecificFilterChange('status', value);
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                >
+                  {statusOptions.map(option => (
+                    <option key={option.id || 'all'} value={option.id ?? 'all'}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cartes résumé */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-blue-50 p-6 rounded-xl">
           <p className="text-sm text-blue-600">CA Total</p>
           <p className="text-2xl font-bold">{data.summary?.totalCA || 0} DT</p>
@@ -174,45 +362,54 @@ const SalesTab = () => {
           <h3 className="font-semibold">Liste des ventes</h3>
         </div>
         
-        {data.ventes?.length > 0 ? (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Référence</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Montant</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Statut</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Produits</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.ventes.map((vente, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm">{vente.date}</td>
-                  <td className="px-6 py-4 text-sm font-mono">{vente.reference}</td>
-                  <td className="px-6 py-4 text-sm">{vente.client}</td>
-                  <td className="px-6 py-4 text-sm font-medium">{vente.montant} DT</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      vente.statut === 'Confirmée' ? 'bg-green-100 text-green-700' :
-                      vente.statut === 'En attente' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {vente.statut}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">{vente.nbProduits || 0}</td>
+        <div className="overflow-x-auto">
+          {data.ventes?.length > 0 ? (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produits</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            Aucune vente trouvée pour cette période
-          </div>
-        )}
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data.ventes.map((vente, i) => {
+                  const statutInfo = getStatutInfo(vente.statut);
+                  return (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-600">{vente.date}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-gray-800">{vente.reference}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{vente.client}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-800">{vente.montant} DT</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statutInfo.class}`}>
+                          {statutInfo.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{vente.nbProduits || 0}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Aucune vente trouvée pour cette période
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Indicateur de chargement */}
+      {loading && data && (
+        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-3 flex items-center gap-2 border border-gray-200">
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+          <span className="text-sm text-gray-600">Mise à jour...</span>
+        </div>
+      )}
     </div>
   );
 };

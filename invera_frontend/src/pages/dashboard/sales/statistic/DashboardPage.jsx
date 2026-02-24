@@ -30,20 +30,26 @@ const DashboardPage = () => {
   // ============================================
   // 🧪 TESTS DE VÉRIFICATION DES DONNÉES BACKEND
   // ============================================
-  useEffect(() => {
-    if (data) {
-      console.log('=================================');
-      console.log('📦 DONNÉES REÇUES DU BACKEND');
-      console.log('=================================');
-      console.log('✅ statusRepartition:', data.statusRepartition);
-      console.log('✅ ordersEvolution:', data.ordersEvolution);
-      console.log('✅ clientTypeRepartition:', data.clientTypeRepartition);
-      console.log('✅ kpi:', data.kpi);
-      console.log('✅ charts:', data.charts);
-      console.log('=================================');
-      console.log('👥 ClientTypeRepartition brute:', data?.clientTypeRepartition);
-    }
-  }, [data]);
+useEffect(() => {
+  if (data) {
+    console.log('=================================');
+    console.log('📊 STRUCTURE COMPLÈTE DE data.kpi:');
+    console.log('=================================');
+    console.log('kpi:', data.kpi);
+    console.log('Clés disponibles:', Object.keys(data.kpi || {}));
+    console.log('=================================');
+    console.log('vérification champs semaine:');
+    console.log('- commandesSemaine:', data.kpi?.commandesSemaine);
+    console.log('- caSemaine:', data.kpi?.caSemaine);
+    console.log('- variationSemaine:', data.kpi?.variationSemaine);
+    console.log('=================================');
+    console.log('vérification champs année:');
+    console.log('- commandesAnnee:', data.kpi?.commandesAnnee);
+    console.log('- caAnnee:', data.kpi?.caAnnee);
+    console.log('- variationAnnee:', data.kpi?.variationAnnee);
+    console.log('=================================');
+  }
+}, [data]);
 
   // ============================================
   // 📊 PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
@@ -107,6 +113,46 @@ const DashboardPage = () => {
   }
 
   const { kpi, charts } = data;
+
+
+  // Fonction pour obtenir le libellé de la période
+const getPeriodLabel = (period) => {
+  const labels = {
+    'today': "aujourd'hui",
+    'week': "cette semaine",
+    'month': "ce mois",
+    'quarter': "ce trimestre",
+    'year': "cette année",
+    'custom': "personnalisée"
+  };
+  return labels[period] || "période";
+};
+
+// Fonction pour obtenir le libellé de la période précédente
+const getPreviousPeriodLabel = (period) => {
+  const labels = {
+    'today': "hier",
+    'week': "semaine dernière",
+    'month': "mois dernier",
+    'quarter': "trimestre dernier",
+    'year': "année dernière",
+    'custom': "période précédente"
+  };
+  return labels[period] || "période précédente";
+};
+
+// Fonction pour calculer le ratio de projection
+const getProjectionRatio = (period) => {
+  const ratios = {
+    'today': "x365",
+    'week': "x52",
+    'month': "x12",
+    'quarter': "x4",
+    'year': "x1",
+    'custom': "projeté"
+  };
+  return ratios[period] || "";
+};
 
   return (
     <motion.div 
@@ -350,77 +396,170 @@ const DashboardPage = () => {
         </motion.div>
       </section>
 
-      {/* ===== SECTION 4: RÉSUMÉS ET COMPARATIFS ===== */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-          <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
-          Résumés périodiques
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white"
-          >
-            <p className="text-blue-100 text-sm flex items-center">
-              <span className="mr-2">📊</span>
-              Commandes cette semaine
-            </p>
-            <p className="text-3xl font-bold mt-2">{kpi.commandesSemaine || 0}</p>
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-blue-100 text-xs">
-                vs semaine dernière
-              </p>
-              <span className={`text-sm font-semibold ${
-                kpi.variationSemaine > 0 ? 'text-green-300' : 'text-red-300'
-              }`}>
-                {kpi.variationSemaine > 0 ? '+' : ''}{kpi.variationSemaine?.toFixed(1)}%
-              </span>
-            </div>
-          </motion.div>
+   {/* ===== SECTION 4: RÉSUMÉS ET COMPARATIFS ===== */}
+<section>
+  
+  <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+    <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
+    Résumés {getPeriodLabel(selectedPeriod)}
+  </h2>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white"
+    >
+      <p className="text-blue-100 text-sm flex items-center">
+        <span className="mr-2">📊</span>
+        Commandes {getPeriodLabel(selectedPeriod).toLowerCase()}
+      </p>
+      <p className="text-3xl font-bold mt-2">
+        {(() => {
+          switch(selectedPeriod) {
+            case 'today': return kpi.commandesJour || 0;
+            case 'week': return kpi.commandesSemaine || 0;
+            case 'month': return kpi.commandesMois || 0;
+            case 'quarter': return kpi.commandesTrimestre || 0;
+            case 'year': return kpi.commandesAnnee || 0;
+            default: return kpi.commandesMois || 0;
+          }
+        })()}
+      </p>
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-blue-100 text-xs">
+          vs {getPreviousPeriodLabel(selectedPeriod)}
+        </p>
+        <span className={`text-sm font-semibold ${
+          (() => {
+            const variation = (() => {
+              switch(selectedPeriod) {
+                case 'today': return kpi.variationJour;
+                case 'week': return kpi.variationSemaine;
+                case 'month': return kpi.variationMois;
+                case 'quarter': return kpi.variationTrimestre;
+                case 'year': return kpi.variationAnnee;
+                default: return 0;
+              }
+            })();
+            return variation > 0 ? 'text-green-300' : 'text-red-300';
+          })()
+        }`}>
+          {(() => {
+            const variation = (() => {
+              switch(selectedPeriod) {
+                case 'today': return kpi.variationJour;
+                case 'week': return kpi.variationSemaine;
+                case 'month': return kpi.variationMois;
+                case 'quarter': return kpi.variationTrimestre;
+                case 'year': return kpi.variationAnnee;
+                default: return 0;
+              }
+            })();
+            return (variation > 0 ? '+' : '') + (variation?.toFixed(1) || '0') + '%';
+          })()}
+        </span>
+      </div>
+    </motion.div>
 
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white"
-          >
-            <p className="text-green-100 text-sm flex items-center">
-              <span className="mr-2">💰</span>
-              CA cette semaine
-            </p>
-            <p className="text-3xl font-bold mt-2">{formatCurrency(kpi.caSemaine)}</p>
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-green-100 text-xs">
-                vs semaine dernière
-              </p>
-              <span className={`text-sm font-semibold ${
-                kpi.variationSemaine > 0 ? 'text-green-300' : 'text-red-300'
-              }`}>
-                {kpi.variationSemaine > 0 ? '+' : ''}{kpi.variationSemaine?.toFixed(1)}%
-              </span>
-            </div>
-          </motion.div>
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white"
+    >
+      <p className="text-green-100 text-sm flex items-center">
+        <span className="mr-2">💰</span>
+        CA {getPeriodLabel(selectedPeriod).toLowerCase()}
+      </p>
+      <p className="text-3xl font-bold mt-2">
+        {formatCurrency((() => {
+          switch(selectedPeriod) {
+            case 'today': return kpi.caJour;
+            case 'week': return kpi.caSemaine;
+            case 'month': return kpi.caMois;
+            case 'quarter': return kpi.caTrimestre;
+            case 'year': return kpi.caAnnee;
+            default: return kpi.caMois;
+          }
+        })())}
+      </p>
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-green-100 text-xs">
+          vs {getPreviousPeriodLabel(selectedPeriod)}
+        </p>
+        <span className={`text-sm font-semibold ${
+          (() => {
+            const variation = (() => {
+              switch(selectedPeriod) {
+                case 'today': return kpi.variationJour;
+                case 'week': return kpi.variationSemaine;
+                case 'month': return kpi.variationMois;
+                case 'quarter': return kpi.variationTrimestre;
+                case 'year': return kpi.variationAnnee;
+                default: return 0;
+              }
+            })();
+            return variation > 0 ? 'text-green-300' : 'text-red-300';
+          })()
+        }`}>
+          {(() => {
+            const variation = (() => {
+              switch(selectedPeriod) {
+                case 'today': return kpi.variationJour;
+                case 'week': return kpi.variationSemaine;
+                case 'month': return kpi.variationMois;
+                case 'quarter': return kpi.variationTrimestre;
+                case 'year': return kpi.variationAnnee;
+                default: return 0;
+              }
+            })();
+            return (variation > 0 ? '+' : '') + (variation?.toFixed(1) || '0') + '%';
+          })()}
+        </span>
+      </div>
+    </motion.div>
 
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white"
-          >
-            <p className="text-purple-100 text-sm flex items-center">
-              <span className="mr-2">📈</span>
-              CA ce mois
-            </p>
-            <p className="text-3xl font-bold mt-2">{formatCurrency(kpi.caMois)}</p>
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-purple-100 text-xs">
-                vs mois dernier
-              </p>
-              <span className={`text-sm font-semibold ${
-                kpi.variationMois > 0 ? 'text-green-300' : 'text-red-300'
-              }`}>
-                {kpi.variationMois > 0 ? '+' : ''}{kpi.variationMois?.toFixed(1)}%
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white"
+    >
+      <p className="text-purple-100 text-sm flex items-center">
+        <span className="mr-2">📈</span>
+        Projection annuelle
+      </p>
+      <p className="text-3xl font-bold mt-2">
+        {formatCurrency((() => {
+          const ca = (() => {
+            switch(selectedPeriod) {
+              case 'today': return kpi.caJour;
+              case 'week': return kpi.caSemaine;
+              case 'month': return kpi.caMois;
+              case 'quarter': return kpi.caTrimestre;
+              case 'year': return kpi.caAnnee;
+              default: return kpi.caMois;
+            }
+          })();
+          
+          const multipliers = {
+            'today': 365,
+            'week': 52,
+            'month': 12,
+            'quarter': 4,
+            'year': 1,
+            'custom': 12
+          };
+          
+          return (ca || 0) * (multipliers[selectedPeriod] || 12);
+        })())}
+      </p>
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-purple-100 text-xs">
+          basé sur {getPeriodLabel(selectedPeriod).toLowerCase()}
+        </p>
+        <span className="text-sm text-purple-300">
+          {getProjectionRatio(selectedPeriod)}
+        </span>
+      </div>
+    </motion.div>
+  </div>
+</section>
 
   
       {/* ===== FOOTER ===== */}
