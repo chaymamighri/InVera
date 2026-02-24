@@ -4,9 +4,12 @@ import org.erp.invera.dto.ClientDTO;
 import org.erp.invera.dto.NouveauClientDTO;
 import org.erp.invera.model.Client;
 import org.erp.invera.repository.ClientRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,9 +59,23 @@ public class ClientService {
         client.setRemiseClientVIP(null);
         client.setRemiseClientProfessionnelle(null);
 
+        // ✅ AJOUTER CES LIGNES POUR LES CHAMPS D'AUDIT
+        client.setCreatedAt(LocalDateTime.now());  // Date et heure actuelles
+
+        // Récupérer l'utilisateur connecté (si vous avez Spring Security)
+        String currentUser = "SYSTEM"; // valeur par défaut
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated()) {
+                currentUser = auth.getName();
+            }
+        } catch (Exception e) {
+            // Pas de contexte de sécurité, on garde "SYSTEM"
+        }
+        client.setCreatedBy(currentUser);
+
         return clientRepository.save(client);
     }
-
     /**
      * Créer un client à partir de l'entité
      */

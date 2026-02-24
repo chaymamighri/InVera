@@ -158,8 +158,6 @@ public class ReportService {
     }
 
     // ============== RAPPORT DES CLIENTS ==============
-// ============== RAPPORT DES CLIENTS (VERSION CORRIGÉE) ==============
-
     public Map<String, Object> generateClientsReport(
             String period,
             LocalDate startDate,
@@ -168,44 +166,50 @@ public class ReportService {
 
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
-        List<Client> clients = clientRepository.findAll();
+        // ✅ Récupérer TOUS les clients
+        List<Client> allClients = clientRepository.findAll();
 
-        // Filtrer par type de client si nécessaire (clientType est un String)
-        if (!"all".equals(clientType) && clientType != null && !clientType.isEmpty()) {
-            clients = clients.stream()
-                    .filter(c -> {
-                        // Comparer le String clientType avec la valeur de l'enum convertie en String
-                        if (c.getTypeClient() == null) return false;
-                        return clientType.equals(c.getTypeClient().name()); // .name() convertit l'enum en String
-                    })
+        // ✅ Filtrer les clients par date de création pour la période
+        List<Client> clientsInPeriod = allClients.stream()
+                .filter(client -> client.getCreatedAt() != null)
+                .filter(client -> {
+                    LocalDate creationDate = client.getCreatedAt().toLocalDate();
+                    return !creationDate.isBefore(dateRange.getStartDate())
+                            && !creationDate.isAfter(dateRange.getEndDate());
+                })
+                .collect(Collectors.toList());
+
+        // ✅ Appliquer le filtre de type client si nécessaire
+        List<Client> finalClients = clientsInPeriod;
+        if (clientType != null && !"all".equals(clientType) && !clientType.isEmpty()) {
+            finalClients = finalClients.stream()
+                    .filter(c -> c.getTypeClient() != null)
+                    .filter(c -> clientType.equals(c.getTypeClient().name()))
                     .collect(Collectors.toList());
         }
 
         Map<String, Object> report = new HashMap<>();
 
-        // ===== RÉSUMÉ =====
+        // ===== RÉSUMÉ AVEC FILTRES DE DATE =====
         Map<String, Object> summary = new HashMap<>();
-        summary.put("totalClients", clients.size());
 
-        // Nouveaux clients dans la période
-        long nouveauxClients = clients.stream()
-                .filter(c -> c.getCreatedAt() != null)
-                .filter(c -> !c.getCreatedAt().toLocalDate().isBefore(dateRange.getStartDate()))
-                .count();
-        summary.put("nouveauxClients", nouveauxClients);
+        // ✅ Total clients DANS LA PÉRIODE (clients créés pendant la période)
+        summary.put("totalClients", finalClients.size());
 
-        // Clients actifs (ont passé commande dans la période)
+        // ✅ Nouveaux clients = mêmes que totalClients pour la période
+        summary.put("nouveauxClients", finalClients.size());
+
+        // ✅ Clients actifs (ont passé commande dans la période)
         List<CommandeClient> commandesPeriode = commandeRepository.findByDateCommandeBetween(
                 dateRange.getStartDateTime(),
                 dateRange.getEndDateTime()
         );
-
         Set<Integer> clientsActifsIds = commandesPeriode.stream()
                 .map(c -> c.getClient().getIdClient())
                 .collect(Collectors.toSet());
         summary.put("clientsActifs", clientsActifsIds.size());
 
-        // CA total
+        // ✅ CA total de la période
         BigDecimal caTotal = commandesPeriode.stream()
                 .map(CommandeClient::getTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -213,20 +217,18 @@ public class ReportService {
 
         report.put("summary", summary);
 
-        // ===== TOP CLIENTS =====
+        // ===== TOP CLIENTS (basé sur les commandes de la période) =====
         Map<Integer, ClientStats> statsByClient = new HashMap<>();
-
         commandesPeriode.forEach(commande -> {
             Client client = commande.getClient();
             if (client != null) {
                 String nomClient = (client.getNom() != null ? client.getNom() : "") + " " +
                         (client.getPrenom() != null ? client.getPrenom() : "");
-                String typeClient = client.getTypeClient() != null ?
-                        client.getTypeClient().name() : "NON_DEFINI"; // .name() pour String
+                String type = client.getTypeClient() != null ?
+                        client.getTypeClient().name() : "NON_DEFINI";
 
                 ClientStats stats = statsByClient.getOrDefault(client.getIdClient(),
-                        new ClientStats(nomClient.trim(), typeClient));
-
+                        new ClientStats(nomClient.trim(), type));
                 stats.addCommande(commande.getTotal());
                 statsByClient.put(client.getIdClient(), stats);
             }
@@ -239,21 +241,19 @@ public class ReportService {
                 .collect(Collectors.toList());
         report.put("topClients", topClients);
 
-        // ===== RÉPARTITION PAR TYPE DE CLIENT (CORRIGÉ) =====
+        // ===== RÉPARTITION PAR TYPE DE CLIENT =====
         Map<String, Object> repartition = new HashMap<>();
         Map<String, List<Client>> byType = new HashMap<>();
 
-        // Grouper les clients par type (en convertissant l'enum en String)
-        for (Client client : clients) {
+        // Utiliser finalClients (filtrés par période et type)
+        for (Client client : finalClients) {
             String type = "NON_DEFINI";
             if (client.getTypeClient() != null) {
-                type = client.getTypeClient().name(); // Conversion enum → String
+                type = client.getTypeClient().name();
             }
-
             byType.computeIfAbsent(type, k -> new ArrayList<>()).add(client);
         }
 
-        // Calculer les stats pour chaque type
         for (Map.Entry<String, List<Client>> entry : byType.entrySet()) {
             String type = entry.getKey();
             List<Client> clientList = entry.getValue();
@@ -261,24 +261,16 @@ public class ReportService {
             Map<String, Object> typeStats = new HashMap<>();
             typeStats.put("nombre", clientList.size());
 
-            // CA pour ce type
             BigDecimal ca = commandesPeriode.stream()
-                    .filter(c -> c.getClient() != null)
-                    .filter(c -> {
-                        if (c.getClient().getTypeClient() == null) return false;
-                        return type.equals(c.getClient().getTypeClient().name());
-                    })
+                    .filter(c -> c.getClient() != null && c.getClient().getTypeClient() != null)
+                    .filter(c -> type.equals(c.getClient().getTypeClient().name()))
                     .map(CommandeClient::getTotal)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             typeStats.put("ca", ca);
 
-            // Panier moyen pour ce type
             long commandesType = commandesPeriode.stream()
-                    .filter(c -> c.getClient() != null)
-                    .filter(c -> {
-                        if (c.getClient().getTypeClient() == null) return false;
-                        return type.equals(c.getClient().getTypeClient().name());
-                    })
+                    .filter(c -> c.getClient() != null && c.getClient().getTypeClient() != null)
+                    .filter(c -> type.equals(c.getClient().getTypeClient().name()))
                     .count();
 
             BigDecimal panierMoyen = commandesType > 0 ?
@@ -291,13 +283,17 @@ public class ReportService {
 
         report.put("repartitionParType", repartition);
 
+        // ✅ Ajouter une option pour voir TOUS les clients (hors période)
+        Map<String, Object> globalSummary = new HashMap<>();
+        globalSummary.put("totalTousClients", allClients.size());
+        report.put("global", globalSummary);
+
         report.put("period", period);
         report.put("startDate", dateRange.getStartDate().toString());
         report.put("endDate", dateRange.getEndDate().toString());
 
         return report;
     }
-
     // ============== CLASSES INTERNES ==============
 
     private static class ClientStats {
