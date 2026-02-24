@@ -28,40 +28,61 @@ public class DashboardDTO {
     @Data
     @NoArgsConstructor
     public static class KPI {
+        // CA (toujours BigDecimal)
         private BigDecimal caJour;
         private BigDecimal caHier;
         private BigDecimal caSemaine;
         private BigDecimal caMois;
+        private BigDecimal caAnnee;
+
+        // Variations (toujours BigDecimal)
         private BigDecimal variationJour;
         private BigDecimal variationSemaine;
         private BigDecimal variationMois;
-        private long commandesJour;
-        private long commandesHier;
-        private long commandesSemaine;
-        private long commandesMois;
+        private BigDecimal variationAnnee;
+
+        // Commandes (toujours Long pour éviter les problèmes de null)
+        private Long commandesJour;
+        private Long commandesHier;
+        private Long commandesSemaine;
+        private Long commandesMois;
+        private Long commandesAnnee;
+
+        // Autres métriques
         private BigDecimal panierMoyen;
         private BigDecimal tauxTransformation;
         private BigDecimal creancesTotal;
-        private long creancesNombre;
-        private long facturesEnRetard;
+        private Long creancesNombre;      // ✅ Changé de long à Long
+        private Long facturesEnRetard;    // ✅ Changé de long à Long
 
-        // Constructeur pour JPQL (gardé manuellement car Lombok ne génère pas les conversions Long→long)
-        public KPI(BigDecimal caJour, BigDecimal caHier, BigDecimal caSemaine, BigDecimal caMois,
-                   BigDecimal variationJour, BigDecimal variationSemaine, BigDecimal variationMois,
-                   long commandesJour, long commandesHier, long commandesSemaine, long commandesMois,
-                   BigDecimal panierMoyen, BigDecimal tauxTransformation,
-                   BigDecimal creancesTotal, long creancesNombre, long facturesEnRetard) {
+        // Constructeur avec TOUS les champs en types objet
+        public KPI(
+                BigDecimal caJour, BigDecimal caHier,
+                BigDecimal caSemaine, BigDecimal caMois, BigDecimal caAnnee,
+                BigDecimal variationJour, BigDecimal variationSemaine,
+                BigDecimal variationMois, BigDecimal variationAnnee,
+                Long commandesJour, Long commandesHier,
+                Long commandesSemaine, Long commandesMois, Long commandesAnnee,
+                BigDecimal panierMoyen, BigDecimal tauxTransformation,
+                BigDecimal creancesTotal, Long creancesNombre, Long facturesEnRetard
+        ) {
             this.caJour = caJour;
             this.caHier = caHier;
             this.caSemaine = caSemaine;
             this.caMois = caMois;
+            this.caAnnee = caAnnee;
+
             this.variationJour = variationJour;
             this.variationSemaine = variationSemaine;
             this.variationMois = variationMois;
+            this.variationAnnee = variationAnnee;
+
             this.commandesJour = commandesJour;
             this.commandesHier = commandesHier;
             this.commandesSemaine = commandesSemaine;
             this.commandesMois = commandesMois;
+            this.commandesAnnee = commandesAnnee;
+
             this.panierMoyen = panierMoyen;
             this.tauxTransformation = tauxTransformation;
             this.creancesTotal = creancesTotal;

@@ -238,52 +238,98 @@ public class DashboardService {
         LocalDateTime finCompareDateTime = p.getFinCompare() != null ?
                 p.getFinCompare().atTime(23, 59, 59) : null;
 
-        // CA
+        // ===== CA et Commandes pour la période actuelle =====
         BigDecimal caActuel = commandeRepo.sumTotalByPeriode(debutDateTime, finDateTime);
+        long cmdActuel = commandeRepo.countByPeriode(debutDateTime, finDateTime);
+
+        // ===== Période précédente pour comparaison =====
         BigDecimal caPrecedent = (debutCompareDateTime != null && finCompareDateTime != null) ?
                 commandeRepo.sumTotalByPeriode(debutCompareDateTime, finCompareDateTime) : BigDecimal.ZERO;
-
-        // Commandes
-        long cmdActuel = commandeRepo.countByPeriode(debutDateTime, finDateTime);
         long cmdPrecedent = (debutCompareDateTime != null && finCompareDateTime != null) ?
                 commandeRepo.countByPeriode(debutCompareDateTime, finCompareDateTime) : 0L;
 
-        // Panier moyen
+        // ===== Calculs pour la semaine =====
+        LocalDateTime debutSemaine = p.getDebut().with(DayOfWeek.MONDAY).atStartOfDay();
+        LocalDateTime finSemaine = p.getFin().with(DayOfWeek.SUNDAY).atTime(23, 59, 59);
+
+        BigDecimal caSemaine = commandeRepo.sumTotalByPeriode(debutSemaine, finSemaine);
+        long commandesSemaine = commandeRepo.countByPeriode(debutSemaine, finSemaine);
+
+        // Semaine dernière pour comparaison
+        LocalDateTime debutSemaineDerniere = debutSemaine.minusWeeks(1);
+        LocalDateTime finSemaineDerniere = finSemaine.minusWeeks(1);
+        BigDecimal caSemaineDerniere = commandeRepo.sumTotalByPeriode(debutSemaineDerniere, finSemaineDerniere);
+        BigDecimal variationSemaine = calculerVariation(caSemaine, caSemaineDerniere);
+
+        // ===== Calculs pour le mois =====
+        LocalDateTime debutMois = p.getDebut().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime finMois = p.getFin().withDayOfMonth(p.getFin().lengthOfMonth()).atTime(23, 59, 59);
+
+        BigDecimal caMois = commandeRepo.sumTotalByPeriode(debutMois, finMois);
+        long commandesMois = commandeRepo.countByPeriode(debutMois, finMois);
+
+        // Mois dernier pour comparaison
+        LocalDateTime debutMoisDernier = debutMois.minusMonths(1);
+        LocalDateTime finMoisDernier = finMois.minusMonths(1);
+        BigDecimal caMoisDernier = commandeRepo.sumTotalByPeriode(debutMoisDernier, finMoisDernier);
+        BigDecimal variationMois = calculerVariation(caMois, caMoisDernier);
+
+        // ===== Calculs pour l'année =====
+        LocalDateTime debutAnnee = LocalDate.now().withDayOfYear(1).atStartOfDay();
+        LocalDateTime finAnnee = LocalDate.now().withMonth(12).withDayOfMonth(31).atTime(23, 59, 59);
+
+        BigDecimal caAnnee = commandeRepo.sumTotalByPeriode(debutAnnee, finAnnee);
+        long commandesAnnee = commandeRepo.countByPeriode(debutAnnee, finAnnee);
+
+        // Année dernière pour la variation
+        LocalDateTime debutAnneeDerniere = debutAnnee.minusYears(1);
+        LocalDateTime finAnneeDerniere = finAnnee.minusYears(1);
+        BigDecimal caAnneeDerniere = commandeRepo.sumTotalByPeriode(debutAnneeDerniere, finAnneeDerniere);
+        BigDecimal variationAnnee = calculerVariation(caAnnee, caAnneeDerniere);
+
+        // ===== Panier moyen =====
         BigDecimal panierMoyen = cmdActuel > 0 ?
                 caActuel.divide(BigDecimal.valueOf(cmdActuel), 2, RoundingMode.HALF_UP) :
                 BigDecimal.ZERO;
 
-        // Taux transformation
+        // ===== Taux transformation =====
         BigDecimal tauxTransfo = commandeRepo.tauxTransformation(debutDateTime, finDateTime);
 
-        // Créances
+        // ===== Créances =====
         BigDecimal creancesTotal = factureRepo.sumMontantByStatut(FactureClient.StatutFacture.NON_PAYE);
         long creancesNombre = factureRepo.countByStatut(FactureClient.StatutFacture.NON_PAYE);
         LocalDateTime dateRetard = LocalDate.now().minusDays(30).atStartOfDay();
         long facturesRetard = factureRepo.countEnRetard(dateRetard);
 
-        // Calcul des CA pour différentes périodes
-        LocalDateTime debutSemaine = p.getDebut().atStartOfDay();
-        LocalDateTime finSemaine = p.getFin().minusDays(7).atTime(23, 59, 59);
-
-        LocalDateTime debutMois = p.getDebut().withDayOfMonth(1).atStartOfDay();
-
+        // ===== Construction du KPI avec TOUS les champs =====
+        // ===== Construction du KPI avec TOUS les champs =====
         return new DashboardDTO.KPI(
-                caActuel, caPrecedent,
-                commandeRepo.sumTotalByPeriode(debutDateTime, finSemaine),
-                commandeRepo.sumTotalByPeriode(debutMois, finDateTime),
-                calculerVariation(caActuel, caPrecedent),
-                calculerVariation(
-                        commandeRepo.sumTotalByPeriode(debutDateTime, finSemaine),
-                        commandeRepo.sumTotalByPeriode(debutDateTime.minusWeeks(1), finSemaine.minusWeeks(1))),
-                calculerVariation(
-                        commandeRepo.sumTotalByPeriode(debutMois, finDateTime),
-                        commandeRepo.sumTotalByPeriode(debutMois.minusMonths(1), finDateTime.minusMonths(1))),
-                cmdActuel, cmdPrecedent,
-                commandeRepo.countByPeriode(debutDateTime, finSemaine),
-                commandeRepo.countByPeriode(debutMois, finDateTime),
-                panierMoyen, tauxTransfo,
-                creancesTotal, creancesNombre, facturesRetard
+                // CA (BigDecimal)
+                caActuel,                    // caJour
+                caPrecedent,                  // caHier
+                caSemaine,                    // caSemaine
+                caMois,                       // caMois
+                caAnnee,                      // caAnnee
+
+                // Variations (BigDecimal)
+                calculerVariation(caActuel, caPrecedent),     // variationJour
+                variationSemaine,                              // variationSemaine
+                variationMois,                                 // variationMois
+                variationAnnee,                                // variationAnnee
+
+                // Commandes (Long)
+                cmdActuel,                     // commandesJour
+                cmdPrecedent,                   // commandesHier
+                commandesSemaine,               // commandesSemaine
+                commandesMois,                   // commandesMois
+                commandesAnnee,                  // commandesAnnee
+
+                // Autres
+                panierMoyen,                     // panierMoyen (BigDecimal)
+                tauxTransfo,                      // tauxTransformation (BigDecimal)
+                creancesTotal,                    // creancesTotal (BigDecimal)
+                (Long) creancesNombre,            // ✅ CAST explicite en Long
+                (Long) facturesRetard              // ✅ CAST explicite en Long
         );
     }
 
