@@ -24,26 +24,26 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
-        // 1️⃣ Chercher user par email
+        // 1 Chercher user par email
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new UsernameNotFoundException("User not found with email: " + email));
 
-        // 2️⃣ Vérifier si le compte est activé
+        //  Vérifier si le compte est activé
         if (!user.isActive()) {
             throw new DisabledException("Account is not activated. Please check your email.");
         }
 
-        // 3️⃣ Vérifier si password existe
+        //  Vérifier si password existe
         if (user.getPassword() == null) {
             throw new DisabledException("Password not created yet.");
         }
 
-        // 4️⃣ Convertir rôle en authority Spring Security
+        //  Convertir rôle en authority Spring Security
         GrantedAuthority authority =
                 new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
 
-        // 5️⃣ Retourner UserDetails
+        //  Retourner UserDetails
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(user.getPassword())
@@ -51,7 +51,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .accountExpired(false)
                 .accountLocked(false)
                 .credentialsExpired(false)
-                .disabled(false) // on a déjà vérifié isActive
+                .disabled(false)
                 .build();
     }
 }
