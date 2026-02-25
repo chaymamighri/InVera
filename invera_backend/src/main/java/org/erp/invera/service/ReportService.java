@@ -156,7 +156,6 @@ public class ReportService {
 
         return report;
     }
-
     // ============== RAPPORT DES CLIENTS ==============
     public Map<String, Object> generateClientsReport(
             String period,
@@ -193,21 +192,37 @@ public class ReportService {
         // ===== RÉSUMÉ AVEC FILTRES DE DATE =====
         Map<String, Object> summary = new HashMap<>();
 
+        // ✅ Récupérer toutes les commandes de la période
+        List<CommandeClient> commandesPeriode = commandeRepository.findByDateCommandeBetween(
+                dateRange.getStartDateTime(),
+                dateRange.getEndDateTime()
+        );
+
+        // ✅ Clients actifs (ont passé commande dans la période)
+        Set<Integer> clientsActifsIds = commandesPeriode.stream()
+                .map(c -> c.getClient().getIdClient())
+                .collect(Collectors.toSet());
+        int clientsActifs = clientsActifsIds.size();
+        summary.put("clientsActifs", clientsActifs);
+
+        // ✅ CLIENTS INACTIFS (n'ont JAMAIS passé commande)
+        // Récupérer tous les IDs des clients qui ont déjà commandé (toutes périodes confondues)
+        List<Integer> allClientsAyantCommande = commandeRepository.findAll().stream()
+                .map(c -> c.getClient().getIdClient())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Compter les clients qui n'ont JAMAIS commandé
+        long clientsInactifs = allClients.stream()
+                .filter(client -> !allClientsAyantCommande.contains(client.getIdClient()))
+                .count();
+        summary.put("clientsInactifs", clientsInactifs);
+
         // ✅ Total clients DANS LA PÉRIODE (clients créés pendant la période)
         summary.put("totalClients", finalClients.size());
 
         // ✅ Nouveaux clients = mêmes que totalClients pour la période
         summary.put("nouveauxClients", finalClients.size());
-
-        // ✅ Clients actifs (ont passé commande dans la période)
-        List<CommandeClient> commandesPeriode = commandeRepository.findByDateCommandeBetween(
-                dateRange.getStartDateTime(),
-                dateRange.getEndDateTime()
-        );
-        Set<Integer> clientsActifsIds = commandesPeriode.stream()
-                .map(c -> c.getClient().getIdClient())
-                .collect(Collectors.toSet());
-        summary.put("clientsActifs", clientsActifsIds.size());
 
         // ✅ CA total de la période
         BigDecimal caTotal = commandesPeriode.stream()
@@ -286,6 +301,11 @@ public class ReportService {
         // ✅ Ajouter une option pour voir TOUS les clients (hors période)
         Map<String, Object> globalSummary = new HashMap<>();
         globalSummary.put("totalTousClients", allClients.size());
+
+        // ✅ Ajouter aussi les inactifs au global
+        globalSummary.put("clientsInactifsTotal", clientsInactifs);
+        globalSummary.put("clientsActifsTotal", allClients.size() - clientsInactifs);
+
         report.put("global", globalSummary);
 
         report.put("period", period);
@@ -293,8 +313,9 @@ public class ReportService {
         report.put("endDate", dateRange.getEndDate().toString());
 
         return report;
+
     }
-    // ============== CLASSES INTERNES ==============
+    // ========== CLASSES INTERNES ==============
 
     private static class ClientStats {
         private String nom;

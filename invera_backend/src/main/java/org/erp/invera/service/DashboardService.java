@@ -301,7 +301,6 @@ public class DashboardService {
         long facturesRetard = factureRepo.countEnRetard(dateRetard);
 
         // ===== Construction du KPI avec TOUS les champs =====
-        // ===== Construction du KPI avec TOUS les champs =====
         return new DashboardDTO.KPI(
                 // CA (BigDecimal)
                 caActuel,
