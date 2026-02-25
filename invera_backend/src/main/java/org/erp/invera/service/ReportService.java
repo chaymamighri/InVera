@@ -362,10 +362,13 @@ public class ReportService {
         LocalDate start;
         LocalDate end = now;
 
-        if ("custom".equals(period) && startDate != null && endDate != null) {
+        // ✅ SI ON A DES DATES, LES UTILISER DIRECTEMENT
+        if (startDate != null && endDate != null) {
             start = startDate;
             end = endDate;
-        } else {
+        }
+        // SINON, UTILISER LA PÉRIODE
+        else if (period != null) {
             switch (period) {
                 case "today":
                     start = now;
@@ -376,19 +379,16 @@ public class ReportService {
                 case "month":
                     start = now.minusMonths(1);
                     break;
-                case "quarter":
-                    start = now.minusMonths(3);
-                    break;
-                case "year":
-                    start = now.minusYears(1);
-                    break;
                 default:
                     start = now.minusMonths(1);
             }
+        } else {
+            start = now.minusMonths(1);
         }
 
         return new DateRange(start, end);
     }
+
 
     private List<CommandeClient> applyCommandeFilters(
             List<CommandeClient> commandes,
