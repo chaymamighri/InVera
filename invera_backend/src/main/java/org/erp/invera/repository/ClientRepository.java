@@ -53,9 +53,6 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
             "LOWER(c.adresse) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Client> searchClients(@Param("keyword") String keyword);
 
-    @Query("SELECT c FROM Client c " +
-            "ORDER BY c.idClient DESC")
-    List<Client> findRecentClients(@Param("limit") int limit);
 }
 
 
