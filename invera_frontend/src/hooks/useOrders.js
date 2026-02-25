@@ -417,6 +417,74 @@ const useOrders = () => {
     }
   }, []);
 
+  
+
+
+  // ✅ FONCTION DE MISE À JOUR AVEC LOGS DÉTAILLÉS
+const handleUpdateCommande = useCallback(async (commandeId, commandeData) => {
+  try {
+    console.log('🔍 Mise à jour commande ID:', commandeId);
+    console.log('📦 Données reçues dans handleUpdateCommande:', JSON.stringify(commandeData, null, 2));
+    
+    if (!commandeId) {
+      throw new Error('ID de commande manquant');
+    }
+
+    // Vérifier que la commande est en attente
+    const commandeExistante = commandes.find(c => c.idCommandeClient === commandeId);
+    if (commandeExistante && commandeExistante.statut !== 'EN_ATTENTE') {
+      throw new Error('Seules les commandes en attente peuvent être modifiées');
+    }
+
+    // Appel au service
+    console.log('📡 Appel à commandeService.updateCommande...');
+    const result = await commandeService.updateCommande(commandeId, commandeData);
+    console.log('✅ Résultat brut du service:', result);
+
+    if (result && result.success !== false) {
+      console.log('✅ Mise à jour réussie, mise à jour du state local');
+      
+      // Récupérer la commande mise à jour
+      const updatedCommande = result.commande || result;
+      console.log('📦 Commande mise à jour:', updatedCommande);
+      
+      // Mettre à jour la commande dans l'état local
+      setCommandes(prev => prev.map(c => 
+        c.idCommandeClient === commandeId 
+          ? {
+              ...c,
+              ...updatedCommande,
+              produits: updatedCommande.produits || c.produits,
+              sousTotal: toNumber(updatedCommande.sousTotal || c.sousTotal),
+              total: toNumber(updatedCommande.total || c.total),
+              statut: updatedCommande.statut || c.statut,
+              statutDisplay: getStatutDisplay(updatedCommande.statut || c.statut)
+            }
+          : c
+      ));
+      
+      // Rafraîchir les données pour être sûr
+      await chargerDonnees();
+      
+      return result;
+    }
+    
+    throw new Error(result?.message || 'Échec de la mise à jour');
+  } catch (error) {
+    console.error('❌ Erreur handleUpdateCommande:', error);
+    if (error.response) {
+      console.error('📋 Réponse erreur backend:', error.response.data);
+    }
+    throw error;
+  }
+}, [commandes, chargerDonnees, getStatutDisplay, toNumber]);
+
+
+  // ✅ Fonction pour récupérer une commande spécifique
+  const getCommandeById = useCallback((commandeId) => {
+    return commandes.find(c => c.idCommandeClient === commandeId) || null;
+  }, [commandes]);
+
   const resetSelection = useCallback(() => {
     setSelectedProducts([]);
     setSelectedClient(null);
@@ -446,7 +514,9 @@ const useOrders = () => {
     handleModifierQuantite,
     handleSupprimerProduit,
     handleValiderCommande,
-    handleRejeterCommande
+    handleRejeterCommande,
+    handleUpdateCommande,
+    getCommandeById
   };
 };
 

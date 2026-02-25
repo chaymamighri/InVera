@@ -146,6 +146,41 @@ export const commandeService = {
     }
   },
 
+// update commande
+async updateCommande(commandeId, commandeData) {
+  try {
+    console.log(`📡 Mise à jour commande ${commandeId}:`, commandeData);
+    
+    //  S'assurer que les IDs des produits sont bien formatés
+    const payload = {
+      ...commandeData,
+      produits: commandeData.produits.map(p => ({
+        ...p,
+        // S'assurer que l'id est soit un nombre, soit absent
+        id: p.id && !isNaN(parseInt(p.id)) ? parseInt(p.id) : undefined
+      }))
+    };
+    
+    const response = await api.put(`/commandes/${commandeId}`, payload, {
+      headers: authHeader()
+    });
+
+    console.log('✅ Réponse mise à jour:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Erreur updateCommande ${commandeId}:`, error);
+    if (error.response) {
+      console.error('📋 Détails erreur:', {
+        status: error.response.status,
+        data: error.response.data,
+        message: error.response.data?.message || error.message
+      });
+    }
+    throw error;
+  }
+},
+
+
   /**
    * Générer une facture pour une commande validée
    * @param {number} commandeId - ID de la commande
@@ -338,8 +373,6 @@ async generateOrGetInvoice(commandeId) {
   }
 },
 
-
- // Dans commandeService.js - Corriger la fonction checkExistingInvoice
 
 async checkExistingInvoice(commandeId) {
   try {
