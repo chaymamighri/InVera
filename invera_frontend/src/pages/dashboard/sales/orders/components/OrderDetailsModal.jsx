@@ -1,14 +1,12 @@
 // src/pages/dashboard/sales/orders/components/OrderDetailsModal.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   XMarkIcon,
   CalendarIcon,
   UserCircleIcon,
-  ShoppingCartIcon,
   CurrencyDollarIcon,
   TagIcon,
   ClipboardDocumentIcon,
-  TruckIcon,
   CheckCircleIcon,
   ClockIcon,
   XCircleIcon,
@@ -16,8 +14,11 @@ import {
   MapPinIcon,
   EnvelopeIcon,
   IdentificationIcon,
-  CubeIcon
+  CubeIcon,
+  PencilIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import UpdateOrderModal from './UpdateOrderModal'; 
 
 // Badge pour le type de client
 const ClientTypeBadge = ({ type }) => {
@@ -117,41 +118,56 @@ const formatDate = (dateString) => {
 const OrderDetailsModal = ({
   show,
   onClose,
-  commande,
-  toNumber
+  commande: initialCommande, 
+  toNumber,
+  onUpdateSuccess,
+  onRefresh
 }) => {
-  if (!show || !commande) return null;
+  // ÉTAT LOCAL
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [commande, setCommande] = useState(initialCommande);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // ✅ DEBUG - Vérifier la structure des produits reçus
-  console.log('🎯 OrderDetailsModal - Commande reçue:', {
-    id: commande.id,
-    numero: commande.numero,
-    dateCommande: commande.dateCommande,
-    produitsCount: commande.produits?.length || 0,
-    produits: commande.produits?.map(p => ({
-      id: p.id,
-      produitId: p.produitId,
-      libelle: p.libelle,
-      imageUrl: p.imageUrl,
-      prixUnitaire: p.prixUnitaire,
-      prix: p.prix,
-      quantite: p.quantite,
-      sousTotal: p.sousTotal,
-      remiseProduit: p.remiseProduit,
-      totalLigne: p.totalLigne,
-      quantiteStock: p.quantiteStock,
-      uniteMesure: p.uniteMesure
-    }))
+  // ✅ CORRECTION: S'assurer que la commande a un ID valide
+  useEffect(() => {
+    if (initialCommande) {
+      console.log('🔄 Mise à jour de la commande affichée:', {
+        id: initialCommande.id,
+        idCommandeClient: initialCommande.idCommandeClient,
+        numero: initialCommande.numero,
+        statut: initialCommande.statut
+      });
+      
+      // ✅ S'assurer que l'ID est préservé
+      const commandeAvecId = {
+        ...initialCommande,
+        id: initialCommande.id || initialCommande.idCommandeClient,
+        idCommandeClient: initialCommande.idCommandeClient || initialCommande.id
+      };
+      
+      setCommande(commandeAvecId);
+    }
+  }, [initialCommande]);
+
+  // ✅ DEBUG plus détaillé
+  console.log(' OrderDetailsModal - État actuel:', {
+    id: commande?.id,
+    idCommandeClient: commande?.idCommandeClient,
+    numero: commande?.numero,
+    statut: commande?.statut,
+    produitsCount: commande?.produits?.length || 0,
+    aDesDonnees: !!commande
   });
 
-  // ✅ Fonction utilitaire pour extraire le prix unitaire
+  if (!show || !commande) return null;
+
+  // Fonctions utilitaires
   const getPrixUnitaire = (produit) => {
     if (produit.prixUnitaire) return parseFloat(produit.prixUnitaire);
     if (produit.prix) return parseFloat(produit.prix);
     return 0;
   };
 
-  // ✅ Fonction utilitaire pour extraire le sous-total
   const getSousTotal = (produit) => {
     if (produit.sousTotal) return parseFloat(produit.sousTotal);
     const prix = getPrixUnitaire(produit);
@@ -159,7 +175,6 @@ const OrderDetailsModal = ({
     return prix * qte;
   };
 
-  // ✅ Fonction utilitaire pour extraire le total ligne
   const getTotalLigne = (produit) => {
     if (produit.totalLigne) return parseFloat(produit.totalLigne);
     const sousTotal = getSousTotal(produit);
@@ -175,30 +190,98 @@ const OrderDetailsModal = ({
   // Extraire les informations client
   const client = commande.client || {};
   const hasClientInfo = client.nom || client.prenom || client.telephone || client.email || client.adresse;
+
+  // ✅ GESTIONNAIRE APRÈS MISE À JOUR
+  const handleUpdateSuccess = (updatedCommande) => {
+    console.log('✅ Mise à jour réussie, nouvelle commande reçue:', updatedCommande);
+    
+    if (updatedCommande) {
+      // ✅ Préserver l'ID quelle que soit la structure
+      const commandeComplete = {
+        ...updatedCommande,
+        id: updatedCommande.id || updatedCommande.idCommandeClient || commande.id,
+        idCommandeClient: updatedCommande.idCommandeClient || updatedCommande.id || commande.idCommandeClient,
+        numero: updatedCommande.numero || updatedCommande.referenceCommandeClient || commande.numero
+      };
+      
+      console.log('✅ Commande complète après mise à jour:', commandeComplete);
+      setCommande(commandeComplete);
+    }
+    
+    setShowUpdateModal(false);
+    
+    if (onUpdateSuccess) {
+      onUpdateSuccess(updatedCommande);
+    }
+  };
+
+  // GESTIONNAIRE DE REFRESH
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    
+    setIsRefreshing(true);
+    try {
+      console.log('🔄 Rafraîchissement des données pour commande ID:', commande.id);
+      const refreshedCommande = await onRefresh(commande.id);
+      
+      if (refreshedCommande) {
+        // ✅ Même logique de préservation d'ID
+        const commandeComplete = {
+          ...refreshedCommande,
+          id: refreshedCommande.id || refreshedCommande.idCommandeClient || commande.id,
+          idCommandeClient: refreshedCommande.idCommandeClient || refreshedCommande.id || commande.idCommandeClient,
+          numero: refreshedCommande.numero || refreshedCommande.referenceCommandeClient || commande.numero
+        };
+        setCommande(commandeComplete);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du rafraîchissement:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
-        {/* En-tête */}
+        {/* En-tête avec bouton refresh */}
         <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold text-white">Détails de la Commande</h2>
               <p className="text-blue-100 text-sm mt-1 flex items-center">
                 <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
-                Numéro : {commande.numero}
+                Numéro : {commande.numero || commande.referenceCommandeClient || 'N/A'}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <XMarkIcon className="h-5 w-5 text-white" />
-            </button>
+            
+            {/* GROUPE DE BOUTONS */}
+            <div className="flex items-center gap-2">
+              {/* BOUTON RAFRAÎCHIR */}
+              {onRefresh && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Rafraîchir les données"
+                >
+                  <ArrowPathIcon className={`h-5 w-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              
+              {/* BOUTON FERMER */}
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5 text-white" />
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Reste du JSX inchangé... */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {/* Section 1 : Informations principales */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -218,13 +301,15 @@ const OrderDetailsModal = ({
                   <div className="space-y-3">
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Numéro de commande</div>
-                      <div className="font-medium text-gray-900 text-lg">{commande.numero}</div>
+                      <div className="font-medium text-gray-900 text-lg">
+                        {commande.numero || commande.referenceCommandeClient || 'N/A'}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-500 mb-1">Date de création</div>
                       <div className="font-medium text-gray-900 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-blue-500" />
-                        {formatDate(commande.dateCommande)}  {/* ✅ CORRIGÉ: dateCommande */}
+                        {formatDate(commande.dateCommande)}
                       </div>
                     </div>
                   </div>
@@ -345,7 +430,6 @@ const OrderDetailsModal = ({
                       
                       <tbody className="divide-y divide-gray-200">
                         {commande.produits.map((produit, index) => {
-                          // ✅ SÉCURISATION DE TOUTES LES VALEURS
                           const quantite = produit.quantite ? parseFloat(produit.quantite) : 0;
                           const prixUnitaire = getPrixUnitaire(produit);
                           const sousTotal = getSousTotal(produit);
@@ -355,7 +439,6 @@ const OrderDetailsModal = ({
 
                           return (
                             <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
-                              {/* Produit avec image et libellé */}
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
                                   {produit.imageUrl && (
@@ -364,9 +447,7 @@ const OrderDetailsModal = ({
                                         src={produit.imageUrl}
                                         alt={produit.libelle || `Produit ${produit.id || produit.produitId}`}
                                         className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
-                                        onError={(e) => {
-                                          e.target.style.display = 'none';
-                                        }}
+                                        onError={(e) => e.target.style.display = 'none'}
                                       />
                                     </div>
                                   )}
@@ -382,17 +463,16 @@ const OrderDetailsModal = ({
                                   </div>
                                 </div>
                               </td>
-                          {/* Catégorie */}
+                             {/* Catégorie - VERSION SIMPLIFIÉE */}
 <td className="px-4 py-3">
-  {produit.categorie ? (
+  {produit.categorieNom || produit.displayCategorie ? (
     <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-      {produit.categorie.nomCategorie || produit.categorie.nom || 'Catégorie'} 
+      {produit.categorieNom || produit.displayCategorie}
     </span>
   ) : (
     <span className="text-xs text-gray-400">—</span>
   )}
 </td>
-                              {/* Quantité */}
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
                                   <div className="font-medium text-gray-900">
@@ -401,22 +481,13 @@ const OrderDetailsModal = ({
                                       <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
                                     )}
                                   </div>
-                                  {produit.quantiteStock !== undefined && produit.quantiteStock !== null && (
-                                    <div className="text-xs text-gray-500">
-                                      Stock: {produit.quantiteStock}
-                                    </div>
-                                  )}
                                 </div>
                               </td>
-                              
-                              {/* Prix unitaire */}
                               <td className="px-4 py-3">
                                 <div className="font-medium text-gray-900">
                                   {prixUnitaire.toFixed(3)} dt
                                 </div>
                               </td>
-                              
-                              {/* Sous-total */}
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
                                   <div className="font-medium text-gray-900">
@@ -427,8 +498,6 @@ const OrderDetailsModal = ({
                                   </div>
                                 </div>
                               </td>
-                              
-                              {/* Remise */}
                               <td className="px-4 py-3">
                                 {remiseProduit > 0 ? (
                                   <div className="space-y-1">
@@ -445,8 +514,6 @@ const OrderDetailsModal = ({
                                   <span className="text-xs text-gray-400">—</span>
                                 )}
                               </td>
-                              
-                              {/* Total produit */}
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
                                   <div className="font-bold text-green-700">
@@ -460,7 +527,6 @@ const OrderDetailsModal = ({
                         })}
                       </tbody>
                       
-                      {/* Totaux */}
                       <tfoot className="bg-gray-50">
                         <tr className="font-medium border-t border-gray-300">
                           <td colSpan="4" className="px-4 py-3 text-right text-gray-600 text-sm">
@@ -493,7 +559,6 @@ const OrderDetailsModal = ({
                           </td>
                         </tr>
                         
-                        {/* Remise globale */}
                         {toNumber(commande.tauxRemise || commande.remise) > 0 && (
                           <tr className="bg-green-50">
                             <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
@@ -510,7 +575,6 @@ const OrderDetailsModal = ({
                           </tr>
                         )}
                         
-                        {/* Total final */}
                         <tr className="bg-green-50 border-t border-green-200">
                           <td colSpan="6" className="px-4 py-3 text-right text-gray-900">
                             <div className="font-bold">Total commande</div>
@@ -611,7 +675,18 @@ const OrderDetailsModal = ({
 
           {/* Section 5 : Actions */}
           <div className="pt-6 border-t border-gray-200">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              {commande.statut === 'EN_ATTENTE' && (
+                <button
+                  onClick={() => setShowUpdateModal(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-lg hover:from-amber-700 hover:to-yellow-700 text-sm font-medium transition-colors flex items-center gap-2"
+                  title="Modifier la commande"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  Modifier
+                </button>
+              )}
+              
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
@@ -622,6 +697,15 @@ const OrderDetailsModal = ({
           </div>
         </div>
       </div>
+      
+ {/* Modal de mise à jour */}
+      <UpdateOrderModal
+        show={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        commande={commande}
+        toNumber={toNumber}
+        onUpdateSuccess={handleUpdateSuccess}
+      />
     </div>
   );
 };

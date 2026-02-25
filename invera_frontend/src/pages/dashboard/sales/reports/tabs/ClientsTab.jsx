@@ -4,9 +4,8 @@ import { Filter, Calendar } from 'lucide-react';
 import { useReports } from '../../../../../hooks/useReports';
 
 const ClientsTab = () => {
-  // ✅ État pour TOUS les filtres - avec period='custom' pour le backend
   const [filters, setFilters] = useState({
-    period: 'custom',     // 👈 TOUJOURS 'custom' pour les dates personnalisées
+    period: 'custom',     
     startDate: null,
     endDate: null,
     clientType: undefined,
@@ -153,7 +152,7 @@ const ClientsTab = () => {
           {/* En-tête des filtres */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-purple-500" />
+              <Calendar className="w-5 h-5 text-blue-500" />
               <h3 className="font-medium text-gray-700">Filtres</h3>
             </div>
 
@@ -161,7 +160,7 @@ const ClientsTab = () => {
               <button
                 onClick={() => setShowSpecificFilters(!showSpecificFilters)}
                 className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
-                  ${showSpecificFilters ? 'bg-purple-50 border-purple-300 text-purple-600' : 'hover:bg-gray-50'}`}
+                  ${showSpecificFilters ? 'bg-blue-50 border-blue-300 text-blue-600' : 'hover:bg-gray-50'}`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filtres clients</span>
@@ -169,7 +168,7 @@ const ClientsTab = () => {
 
               <button
                 onClick={resetAllFilters}
-                className="px-4 py-2 border rounded-lg text-sm hover:bg-purple-100 bg-purple-50 text-purple-700 border-purple-200"
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-blue-100 bg-blue-50 text-blue-700 border-blue-200"
               >
                 Réinitialiser
               </button>
@@ -209,7 +208,7 @@ const ClientsTab = () => {
               <button
                 onClick={handleApplyCustom}
                 disabled={!localDates.startDate || !localDates.endDate}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Appliquer
               </button>
@@ -272,35 +271,47 @@ const ClientsTab = () => {
           )}
         </div>
       </div>
-
-      {/* ✅ Cartes résumé - Version avec couleurs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total clients */}
-        <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-          <p className="text-sm text-blue-600 mb-1">Total clients</p>
-          <p className="text-2xl font-bold text-blue-700">{data.summary?.totalClients || 0}</p>
-        </div>
-        
-        {/* Nouveaux clients */}
-        <div className="bg-green-50 p-6 rounded-xl border border-green-100">
-          <p className="text-sm text-green-600 mb-1">Nouveaux clients</p>
-          <p className="text-2xl font-bold text-green-700">{data.summary?.nouveauxClients || 0}</p>
-          <p className="text-xs text-green-500 mt-1">dans la période</p>
-        </div>
-        
-        {/* Clients actifs */}
-        <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
-          <p className="text-sm text-purple-600 mb-1">Clients actifs</p>
-          <p className="text-2xl font-bold text-purple-700">{data.summary?.clientsActifs || 0}</p>
-          <p className="text-xs text-purple-500 mt-1">ont passé commande</p>
-        </div>
-        
-        {/* CA total */}
-        <div className="bg-orange-50 p-6 rounded-xl border border-orange-100">
-          <p className="text-sm text-orange-600 mb-1">CA total</p>
-          <p className="text-2xl font-bold text-orange-700">{data.summary?.caTotal || 0} DT</p>
-        </div>
-      </div>
+{/* ✅ Cartes résumé - Version avec couleurs harmonisées */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Total clients */}
+  <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-blue-700 mb-1">Total clients</p>
+      <span className="text-2xl text-blue-600">👥</span>
+    </div>
+    <p className="text-3xl font-bold text-blue-800">{data.summary?.totalClients || 0}</p>
+    <p className="text-xs text-blue-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+      Base totale de clients
+    </p>
+  </div>
+  
+  {/* Clients inactifs */}
+  <div className="bg-gradient-to-br from-amber-50 to-orange-100/50 p-6 rounded-xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-amber-700 mb-1">Clients inactifs</p>
+      <span className="text-2xl text-amber-600">😴</span>
+    </div>
+    <p className="text-3xl font-bold text-amber-800">{data.summary?.clientsInactifs || 0}</p>
+    <p className="text-xs text-amber-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+      Aucune commande passée
+    </p>
+  </div>
+  
+  {/* Clients actifs */}
+  <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-purple-700 mb-1">Clients actifs</p>
+      <span className="text-2xl text-purple-600">🛒</span>
+    </div>
+    <p className="text-3xl font-bold text-purple-800">{data.summary?.clientsActifs || 0}</p>
+    <p className="text-xs text-purple-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+      Ont passé commande
+    </p>
+  </div>
+</div>
 
       {/* ✅ Statistiques par statut commercial */}
       {data.repartitionParStatutCommercial && (
@@ -343,7 +354,6 @@ const ClientsTab = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut commercial</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commandes</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Panier moyen</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -433,10 +443,7 @@ const ClientsTab = () => {
                         <p className="text-xs text-gray-500">CA</p>
                         <p className="text-sm font-semibold text-green-600">{stats.ca} DT</p>
                       </div>
-                      <div className="bg-white p-2 rounded-lg">
-                        <p className="text-xs text-gray-500">Panier</p>
-                        <p className="text-sm font-semibold">{stats.panierMoyen || 0} DT</p>
-                      </div>
+                  
                     </div>
                   </div>
                 );
