@@ -4,7 +4,6 @@ import {
   ExclamationTriangleIcon,
   EyeIcon,
   DocumentArrowDownIcon,
-  EnvelopeIcon,
   UserCircleIcon,
   BuildingOfficeIcon,
   CalendarIcon,
@@ -53,7 +52,6 @@ const FacturesTable = ({
   onSort,
   onView,
   onDownload,
-  onSendEmail,
   downloadLoading,
   formatDate,
   formatMontant,
@@ -232,16 +230,7 @@ const FacturesTable = ({
                         <DocumentArrowDownIcon className="h-4 w-4" />
                       )}
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSendEmail(facture, e);
-                      }}
-                      className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                      title="Envoyer par email"
-                    >
-                      <EnvelopeIcon className="h-4 w-4" />
-                    </button>
+            
                   </div>
                 </td>
               </tr>

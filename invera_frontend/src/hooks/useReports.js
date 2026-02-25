@@ -3,22 +3,41 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import reportService from '../services/ReportService';
 
 export const useReports = (reportType, initialFilters = {}) => {
-  // ✅ TOUS LES HOOKS DOIVENT ÊTRE APPELÉS DANS LE MÊME ORDRE À CHAQUE RENDU
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [filters, setFilters] = useState(initialFilters);
   
-  // ✅ Ref pour éviter les re-rendus inutiles
+
   const filtersRef = useRef(filters);
-  
-  // ✅ Ref pour suivre l'état de chargement (TOUJOURS DÉCLARÉE)
+
   const isLoadingRef = useRef(false);
 
-  // ✅ Mettre à jour la ref quand filters change (TOUJOURS APPELÉ)
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  /**
+   * Préparer les filtres pour l'API
+   */
+  const prepareFiltersForApi = (rawFilters) => {
+    const apiFilters = { ...rawFilters };
+    
+    // Si on a des dates, on s'assure que l'API comprend qu'on est en mode personnalisé
+    if (rawFilters.startDate && rawFilters.endDate) {
+      // On peut ajouter un flag ou garder tel quel selon ce qu'attend votre API
+      console.log('📅 Filtres avec dates personnalisées:', rawFilters);
+    }
+    
+    // Nettoyer les valeurs undefined
+    Object.keys(apiFilters).forEach(key => {
+      if (apiFilters[key] === undefined) {
+        delete apiFilters[key];
+      }
+    });
+    
+    return apiFilters;
+  };
 
   /**
    * Récupérer un rapport
@@ -37,21 +56,24 @@ export const useReports = (reportType, initialFilters = {}) => {
 
       const filtersToUse = customFilters || filtersRef.current;
       
-      console.log(`📡 useReports[${reportType}] - Chargement avec filtres:`, filtersToUse);
+      // Préparer les filtres pour l'API
+      const apiFilters = prepareFiltersForApi(filtersToUse);
+      
+      console.log(`📡 useReports[${reportType}] - Chargement avec filtres:`, apiFilters);
       
       let response;
       switch(reportType) {
         case 'sales':
-          response = await reportService.getSalesReport(filtersToUse);
+          response = await reportService.getSalesReport(apiFilters);
           break;
         case 'invoices':
-          response = await reportService.getInvoicesReport(filtersToUse);
+          response = await reportService.getInvoicesReport(apiFilters);
           break;
         case 'clients':
-          response = await reportService.getClientsReport(filtersToUse);
+          response = await reportService.getClientsReport(apiFilters);
           break;
         default:
-          response = await reportService.getReport(reportType, filtersToUse);
+          response = await reportService.getReport(reportType, apiFilters);
       }
       
       setData(response);
