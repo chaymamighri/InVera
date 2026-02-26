@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +109,41 @@ public class FactureClientController {
             }
         } catch (Exception e) {
             System.err.println("Erreur récupération facture pour commande " + commandeId + ": " + e.getMessage());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    /**
+     *  Générer une facture à partir d'une commande
+     */
+    @PostMapping("/generer/{commandeId}")
+    public ResponseEntity<?> genererFacture(@PathVariable Integer commandeId) {
+        try {
+            System.out.println(" Génération facture pour commande: " + commandeId);
+
+            FactureClient facture = factureService.genererFactureDepuisCommande(commandeId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Facture générée avec succès");
+            response.put("data", Map.of(
+                    "idFactureClient", facture.getIdFactureClient(),
+                    "referenceFactureClient", facture.getReferenceFactureClient(),
+                    "montantTotal", facture.getMontantTotal(),
+                    "statut", facture.getStatut()
+            ));
+
+            return ResponseEntity.ok()
+                    .header("Access-Control-Allow-Origin", "http://localhost:5173")
+                    .header("Access-Control-Allow-Credentials", "true")
+                    .body(response);
+
+        } catch (Exception e) {
+            System.err.println(" Erreur: " + e.getMessage());
+            e.printStackTrace();
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);

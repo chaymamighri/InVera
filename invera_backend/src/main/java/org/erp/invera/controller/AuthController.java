@@ -385,23 +385,5 @@ public class AuthController {
         return ResponseEntity.ok(new MessageResponse("Password created successfully"));
     }
 
-    // ===== CREATE TEMP ADMIN =====
-    @PostMapping("/create-admin-temp")
-    public ResponseEntity<?> createAdminTemp() {
-        if (userRepository.existsByEmail("admin@example.com")) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Admin already exists"));
-        }
 
-        User user = new User();
-        user.setNom("hamdi");
-        user.setEmail("hamdi@example.com");
-        user.setPassword(passwordEncoder.encode("hamdi123!"));
-        user.setNom("hamdi");
-        user.setPrenom("hamdi");
-        user.setRole(Role.ADMIN);
-        user.setActive(true);
-
-        userRepository.save(user);
-        return ResponseEntity.ok(new MessageResponse("Temporary admin created"));
-    }
 }
