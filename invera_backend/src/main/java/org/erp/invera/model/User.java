@@ -42,7 +42,7 @@ public class User implements UserDetails {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    // 🔥 CASCADE DELETE FOR PASSWORD RESET TOKENS
+    //  CASCADE DELETE FOR PASSWORD RESET TOKENS
     @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,
