@@ -1,9 +1,9 @@
 // src/pages/dashboard/sales/DashboardPage.jsx
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { RefreshCw, RotateCcw, X } from 'lucide-react'; // AJOUT de X
 import { useDashboardData } from '../../../../hooks/useDashboardData';
 import KPICard from './components/KPICard';
-import AdvancedPeriodSelector from './components/AdvancedPeriodSelector';
 import EvolutionChart from './components/EvolutionChart';
 import TopProducts from './components/TopProducts';
 import StatusDonutChart from './components/StatusDonutChart';
@@ -14,71 +14,119 @@ import SkeletonLoader from './components/SkeletonLoader';
 const DashboardPage = () => {
   const {
     loading,
-    refreshing,
     error,
     data,
-    selectedPeriod,
-    showCustomPicker,
-    changePeriod,
     applyCustomRange,
-    setShowCustomPicker,
     refresh,
     formatCurrency,
-    formatPercentage
   } = useDashboardData();
 
-  // ============================================
-  // 🧪 TESTS DE VÉRIFICATION DES DONNÉES BACKEND
-  // ============================================
-useEffect(() => {
-  if (data) {
-    console.log('=================================');
-    console.log('📊 STRUCTURE COMPLÈTE DE data.kpi:');
-    console.log('=================================');
-    console.log('kpi:', data.kpi);
-    console.log('Clés disponibles:', Object.keys(data.kpi || {}));
-    console.log('=================================');
-    console.log('vérification champs semaine:');
-    console.log('- commandesSemaine:', data.kpi?.commandesSemaine);
-    console.log('- caSemaine:', data.kpi?.caSemaine);
-    console.log('- variationSemaine:', data.kpi?.variationSemaine);
-    console.log('=================================');
-    console.log('vérification champs année:');
-    console.log('- commandesAnnee:', data.kpi?.commandesAnnee);
-    console.log('- caAnnee:', data.kpi?.caAnnee);
-    console.log('- variationAnnee:', data.kpi?.variationAnnee);
-    console.log('=================================');
-  }
-}, [data]);
+  // État local pour les dates
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [filterActive, setFilterActive] = useState(false); 
+
+  // Fonction pour réinitialiser (vider les champs)
+  const handleReset = () => {
+    setStartDate('');
+    setEndDate('');
+    setFilterActive(false);
+    applyCustomRange('', ''); 
+  };
+
+  // Fonction pour effacer un champ spécifique
+  const handleClearField = (type) => {
+    if (type === 'start') {
+      setStartDate('');
+      if (endDate) {
+        applyCustomRange('', endDate);
+      } else {
+        setFilterActive(false);
+        applyCustomRange('', '');
+      }
+    } else {
+      setEndDate('');
+      if (startDate) {
+        applyCustomRange(startDate, '');
+      } else {
+        setFilterActive(false);
+        applyCustomRange('', '');
+      }
+    }
+  };
+
+  // Initialiser sans dates (ou avec une logique différente)
+  useEffect(() => {
+    // NE PAS initialiser avec le mois en cours
+    // Laisser les champs vides par défaut
+    setStartDate('');
+    setEndDate('');
+    setFilterActive(false);
+  }, []);
+
+  const handleDateChange = (type, value) => {
+    setFilterActive(true); // Le filtre devient actif dès qu'on change une date
+    
+    if (type === 'start') {
+      setStartDate(value);
+      if (endDate) {
+        if (value <= endDate) {
+          applyCustomRange(value, endDate);
+        }
+      } else {
+        // Si pas de date de fin, on filtre juste avec la date de début
+        applyCustomRange(value, '');
+      }
+    } else {
+      setEndDate(value);
+      if (startDate) {
+        if (value >= startDate) {
+          applyCustomRange(startDate, value);
+        }
+      } else {
+        // Si pas de date de début, on filtre juste avec la date de fin
+        applyCustomRange('', value);
+      }
+    }
+  };
 
   // ============================================
-  // 📊 PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
+  //  TESTS DE VÉRIFICATION DES DONNÉES BACKEND
+  // ============================================
+  useEffect(() => {
+    if (data) {
+      console.log('=================================');
+      console.log('📊 STRUCTURE COMPLÈTE DE data.kpi:');
+      console.log('=================================');
+      console.log('kpi:', data.kpi);
+      console.log('Clés disponibles:', Object.keys(data.kpi || {}));
+    }
+  }, [data]);
+
+  // ============================================
+  //  PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
   // ============================================
 
-  // ✅ Données pour StatusDonutChart (directement du backend)
+  // Données pour StatusDonutChart (directement du backend)
   const statusData = useMemo(() => data?.statusRepartition || [], [data]);
 
-  // ✅ Données pour OrdersEvolutionChart (du backend)
+  // Données pour OrdersEvolutionChart (du backend)
   const ordersEvolutionData = useMemo(() => {
-    // Si les données backend existent, les utiliser
     if (data?.ordersEvolution && data.ordersEvolution.length > 0) {
       console.log('📈 Utilisation des données backend ordersEvolution:', data.ordersEvolution);
       return data.ordersEvolution;
     }
-    
-    // Sinon, tableau vide (pas de mock)
-    console.log('⚠️ ordersEvolution non disponible dans le backend');
+    console.log('ordersEvolution non disponible dans le backend');
     return [];
   }, [data]);
 
-  // ✅ Données pour ClientTypeChart (du backend)
+  // Données pour ClientTypeChart (du backend)
   const clientTypeData = useMemo(() => {
     if (data?.clientTypeRepartition && data.clientTypeRepartition.length > 0) {
       console.log('👥 Utilisation des données backend clientTypeRepartition:', data.clientTypeRepartition);
       return data.clientTypeRepartition;
     }
-    
-    console.log('⚠️ clientTypeRepartition non disponible dans le backend');
+    console.log('clientTypeRepartition non disponible dans le backend');
     return [];
   }, [data]);
 
@@ -114,73 +162,97 @@ useEffect(() => {
 
   const { kpi, charts } = data;
 
-
-  // Fonction pour obtenir le libellé de la période
-const getPeriodLabel = (period) => {
-  const labels = {
-    'today': "aujourd'hui",
-    'week': "cette semaine",
-    'month': "ce mois",
-    'quarter': "ce trimestre",
-    'year': "cette année",
-    'custom': "personnalisée"
-  };
-  return labels[period] || "période";
-};
-
-// Fonction pour obtenir le libellé de la période précédente
-const getPreviousPeriodLabel = (period) => {
-  const labels = {
-    'today': "hier",
-    'week': "semaine dernière",
-    'month': "mois dernier",
-    'quarter': "trimestre dernier",
-    'year': "année dernière",
-    'custom': "période précédente"
-  };
-  return labels[period] || "période précédente";
-};
-
-// Fonction pour calculer le ratio de projection
-const getProjectionRatio = (period) => {
-  const ratios = {
-    'today': "x365",
-    'week': "x52",
-    'month': "x12",
-    'quarter': "x4",
-    'year': "x1",
-    'custom': "projeté"
-  };
-  return ratios[period] || "";
-};
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="space-y-8"
     >
-{/* ===== EN-TÊTE AVEC SÉLECTEUR UNIQUEMENT ===== */}
-<div className="flex justify-end w-full">
-  <div className="flex-shrink-0">
-    <AdvancedPeriodSelector
-      selectedPeriod={selectedPeriod}
-      onChange={changePeriod}
-      onRefresh={refresh}
-      refreshing={refreshing}
-      onApplyCustom={applyCustomRange}
-      showCustomPicker={showCustomPicker}
-      setShowCustomPicker={setShowCustomPicker}
-    />
-  </div>
-</div>
+      {/* ===== SÉLECTEUR DE DATES EN HAUT ===== */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Période :</span>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <label className="block text-xs text-gray-500 mb-1">Date début</label>
+                <div className="relative">
+                  <input 
+                    type="date" 
+                    value={startDate} 
+                    onChange={(e) => handleDateChange('start', e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
+                    placeholder="JJ/MM/AAAA"
+                  />
+                  {startDate && (
+                    <button
+                      onClick={() => handleClearField('start')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="relative">
+                <label className="block text-xs text-gray-500 mb-1">Date fin</label>
+                <div className="relative">
+                  <input 
+                    type="date" 
+                    value={endDate} 
+                    onChange={(e) => handleDateChange('end', e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
+                    placeholder="JJ/MM/AAAA"
+                  />
+                  {endDate && (
+                    <button
+                      onClick={() => handleClearField('end')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {/* Bouton Reset - Vider tous les champs */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleReset}
+              className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+              title="Vider tous les filtres"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="text-sm font-medium">Reset</span>
+            </motion.button>
+
+          
+          </div>
+        </div>
+
+        {/* Indicateur de filtre actif */}
+        {filterActive && (startDate || endDate) && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
+            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
+            Filtre actif : 
+            {startDate && <span>du {new Date(startDate).toLocaleDateString('fr-FR')}</span>}
+            {startDate && endDate && <span> - </span>}
+            {endDate && <span>au {new Date(endDate).toLocaleDateString('fr-FR')}</span>}
+          </div>
+        )}
+      </div>
+
       {/* ===== SECTION 1: KPI PRINCIPAUX ===== */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
           <span className="w-1 h-6 bg-blue-500 rounded-full mr-3"></span>
-          Indicateurs clés du jour
+          Indicateurs clés
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           <KPICard
             title="Chiffre d'Affaires"
             value={kpi.caJour}
@@ -197,59 +269,10 @@ const getProjectionRatio = (period) => {
             color="green"
             trend={kpi.variationJour}
           />
-          
-          <KPICard
-            title="Panier Moyen"
-            value={kpi.panierMoyen}
-            icon="🛒"
-            color="purple"
-            formatValue={formatCurrency}
-          />
-          
-          <KPICard
-            title="Taux de Transformation"
-            value={kpi.tauxTransformation / 100}
-            icon="📊"
-            color="orange"
-            formatValue={formatPercentage}
-          />
         </div>
       </section>
 
-      {/* ===== SECTION 2: KPI SECONDAIRES ===== */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-          <span className="w-1 h-6 bg-red-500 rounded-full mr-3"></span>
-          Gestion des risques & performances
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <KPICard
-            title="Créances Clients"
-            value={kpi.creancesTotal}
-            icon="⚠️"
-            color="red"
-            formatValue={formatCurrency}
-          />
-          
-          <KPICard
-            title="Factures Impayées"
-            value={kpi.creancesNombre}
-            icon="📄"
-            color="red"
-          />
-          
-          <KPICard
-            title="CA Mensuel"
-            value={kpi.caMois}
-            icon="📈"
-            color="blue"
-            trend={kpi.variationMois}
-            formatValue={formatCurrency}
-          />
-        </div>
-      </section>
-
-      {/* ===== SECTION 3: GRAPHIQUES PRINCIPAUX ===== */}
+      {/* ===== SECTION 2: GRAPHIQUES PRINCIPAUX ===== */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
           <span className="w-1 h-6 bg-green-500 rounded-full mr-3"></span>
@@ -258,7 +281,7 @@ const getProjectionRatio = (period) => {
         
         {/* Ligne 1: Évolution CA et Top produits */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* 🔵 Évolution du CA (2/3) */}
+          {/* Évolution du CA (2/3) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -271,7 +294,7 @@ const getProjectionRatio = (period) => {
                 Évolution du Chiffre d'Affaires
               </h3>
               <span className="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-full">
-                7 derniers jours
+                {filterActive && (startDate || endDate) ? 'Période filtrée' : 'Toutes les données'}
               </span>
             </div>
             <EvolutionChart 
@@ -280,7 +303,7 @@ const getProjectionRatio = (period) => {
             />
           </motion.div>
 
-          {/* 🏆 Top produits (1/3) */}
+          {/* Top produits (1/3) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -305,7 +328,7 @@ const getProjectionRatio = (period) => {
 
         {/* Ligne 2: Répartition par statut et Évolution des commandes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 🔴 Répartition par statut - AVEC LES VRAIES DONNÉES */}
+          {/* Répartition par statut */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -327,7 +350,7 @@ const getProjectionRatio = (period) => {
             />
           </motion.div>
 
-          {/* 🟢 Évolution des commandes - Données BACKEND uniquement */}
+          {/* Évolution des commandes */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -364,7 +387,7 @@ const getProjectionRatio = (period) => {
           </motion.div>
         </div>
 
-        {/* Ligne 3: Répartition par type de client - Données BACKEND uniquement */}
+        {/* Ligne 3: Répartition par type de client */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -396,174 +419,8 @@ const getProjectionRatio = (period) => {
         </motion.div>
       </section>
 
-   {/* ===== SECTION 4: RÉSUMÉS ET COMPARATIFS ===== */}
-<section>
-  
-  <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-    <span className="w-1 h-6 bg-indigo-500 rounded-full mr-3"></span>
-    Résumés {getPeriodLabel(selectedPeriod)}
-  </h2>
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white"
-    >
-      <p className="text-blue-100 text-sm flex items-center">
-        <span className="mr-2">📊</span>
-        Commandes {getPeriodLabel(selectedPeriod).toLowerCase()}
-      </p>
-      <p className="text-3xl font-bold mt-2">
-        {(() => {
-          switch(selectedPeriod) {
-            case 'today': return kpi.commandesJour || 0;
-            case 'week': return kpi.commandesSemaine || 0;
-            case 'month': return kpi.commandesMois || 0;
-            case 'quarter': return kpi.commandesTrimestre || 0;
-            case 'year': return kpi.commandesAnnee || 0;
-            default: return kpi.commandesMois || 0;
-          }
-        })()}
-      </p>
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-blue-100 text-xs">
-          vs {getPreviousPeriodLabel(selectedPeriod)}
-        </p>
-        <span className={`text-sm font-semibold ${
-          (() => {
-            const variation = (() => {
-              switch(selectedPeriod) {
-                case 'today': return kpi.variationJour;
-                case 'week': return kpi.variationSemaine;
-                case 'month': return kpi.variationMois;
-                case 'quarter': return kpi.variationTrimestre;
-                case 'year': return kpi.variationAnnee;
-                default: return 0;
-              }
-            })();
-            return variation > 0 ? 'text-green-300' : 'text-red-300';
-          })()
-        }`}>
-          {(() => {
-            const variation = (() => {
-              switch(selectedPeriod) {
-                case 'today': return kpi.variationJour;
-                case 'week': return kpi.variationSemaine;
-                case 'month': return kpi.variationMois;
-                case 'quarter': return kpi.variationTrimestre;
-                case 'year': return kpi.variationAnnee;
-                default: return 0;
-              }
-            })();
-            return (variation > 0 ? '+' : '') + (variation?.toFixed(1) || '0') + '%';
-          })()}
-        </span>
-      </div>
-    </motion.div>
-
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white"
-    >
-      <p className="text-green-100 text-sm flex items-center">
-        <span className="mr-2">💰</span>
-        CA {getPeriodLabel(selectedPeriod).toLowerCase()}
-      </p>
-      <p className="text-3xl font-bold mt-2">
-        {formatCurrency((() => {
-          switch(selectedPeriod) {
-            case 'today': return kpi.caJour;
-            case 'week': return kpi.caSemaine;
-            case 'month': return kpi.caMois;
-            case 'quarter': return kpi.caTrimestre;
-            case 'year': return kpi.caAnnee;
-            default: return kpi.caMois;
-          }
-        })())}
-      </p>
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-green-100 text-xs">
-          vs {getPreviousPeriodLabel(selectedPeriod)}
-        </p>
-        <span className={`text-sm font-semibold ${
-          (() => {
-            const variation = (() => {
-              switch(selectedPeriod) {
-                case 'today': return kpi.variationJour;
-                case 'week': return kpi.variationSemaine;
-                case 'month': return kpi.variationMois;
-                case 'quarter': return kpi.variationTrimestre;
-                case 'year': return kpi.variationAnnee;
-                default: return 0;
-              }
-            })();
-            return variation > 0 ? 'text-green-300' : 'text-red-300';
-          })()
-        }`}>
-          {(() => {
-            const variation = (() => {
-              switch(selectedPeriod) {
-                case 'today': return kpi.variationJour;
-                case 'week': return kpi.variationSemaine;
-                case 'month': return kpi.variationMois;
-                case 'quarter': return kpi.variationTrimestre;
-                case 'year': return kpi.variationAnnee;
-                default: return 0;
-              }
-            })();
-            return (variation > 0 ? '+' : '') + (variation?.toFixed(1) || '0') + '%';
-          })()}
-        </span>
-      </div>
-    </motion.div>
-
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white"
-    >
-      <p className="text-purple-100 text-sm flex items-center">
-        <span className="mr-2">📈</span>
-        Projection annuelle
-      </p>
-      <p className="text-3xl font-bold mt-2">
-        {formatCurrency((() => {
-          const ca = (() => {
-            switch(selectedPeriod) {
-              case 'today': return kpi.caJour;
-              case 'week': return kpi.caSemaine;
-              case 'month': return kpi.caMois;
-              case 'quarter': return kpi.caTrimestre;
-              case 'year': return kpi.caAnnee;
-              default: return kpi.caMois;
-            }
-          })();
-          
-          const multipliers = {
-            'today': 365,
-            'week': 52,
-            'month': 12,
-            'quarter': 4,
-            'year': 1,
-            'custom': 12
-          };
-          
-          return (ca || 0) * (multipliers[selectedPeriod] || 12);
-        })())}
-      </p>
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-purple-100 text-xs">
-          basé sur {getPeriodLabel(selectedPeriod).toLowerCase()}
-        </p>
-        <span className="text-sm text-purple-300">
-          {getProjectionRatio(selectedPeriod)}
-        </span>
-      </div>
-    </motion.div>
-  </div>
-</section>
-
-  
       {/* ===== FOOTER ===== */}
-      {selectedPeriod === 'custom' && (
+      {filterActive && (startDate || endDate) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -571,20 +428,11 @@ const getProjectionRatio = (period) => {
         >
           <span className="inline-flex items-center">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
-            Période personnalisée appliquée
-          </span>
-        </motion.div>
-      )}
-
-      {selectedPeriod === 'year' && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-xs text-gray-400 text-right border-t pt-4"
-        >
-          <span className="inline-flex items-center">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-            Analyse annuelle {new Date().getFullYear()}
+            Filtre appliqué : 
+            {startDate && <span> du {new Date(startDate).toLocaleDateString('fr-FR')}</span>}
+            {startDate && endDate && <span> au </span>}
+            {endDate && <span>{new Date(endDate).toLocaleDateString('fr-FR')}</span>}
+            {!startDate && !endDate && <span> Aucun filtre</span>}
           </span>
         </motion.div>
       )}

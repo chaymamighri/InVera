@@ -1,6 +1,7 @@
 // src/pages/dashboard/sales/components/SkeletonLoader.jsx
 import React from 'react';
 
+// === maquette grise animée ===
 const SkeletonLoader = () => {
   return (
     <div className="space-y-6 animate-pulse">
