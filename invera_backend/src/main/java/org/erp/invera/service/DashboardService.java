@@ -19,8 +19,7 @@ public class DashboardService {
 
     private final CommandeClientRepository commandeRepo;
     private final FactureClientRepository factureRepo;
-    private final ProduitRepository produitRepo;
-    private final ClientRepository clientRepo;
+
 
     public DashboardDTO getSummary(String period) {
         Periode periode = calculerPeriode(period);
@@ -31,7 +30,7 @@ public class DashboardService {
         dto.setKpi(calculerKPI(periode));
         dto.setCharts(calculerCharts(periode));
 
-        // ✅ NOUVEAUX GRAPHIQUES
+        //  NOUVEAUX GRAPHIQUES
         dto.setStatusRepartition(getStatusRepartition(periode));
         dto.setOrdersEvolution(getOrdersEvolution(periode));
         dto.setClientTypeRepartition(getClientTypeRepartition(periode));
@@ -49,7 +48,7 @@ public class DashboardService {
         periode.setDebutCompare(null);
         periode.setFinCompare(null);
 
-        // ✅ CORRECTION: Appel correct de la méthode avec 'new'
+        //  CORRECTION: Appel correct de la méthode avec 'new'
         return new DashboardDTO(
                 true,                    // success
                 "Période personnalisée", // message
@@ -63,7 +62,7 @@ public class DashboardService {
     }
 
     // ========================
-    // 🔴 RÉPARTITION PAR STATUT
+    //  RÉPARTITION PAR STATUT
     // ========================
     private List<DashboardDTO.StatusData> getStatusRepartition(Periode p) {
         LocalDateTime debut = p.getDebut().atStartOfDay();
@@ -75,7 +74,7 @@ public class DashboardService {
                 .map(row -> {
                     DashboardDTO.StatusData data = new DashboardDTO.StatusData();
 
-                    // ✅ CORRECTION: L'enum est casté en enum puis converti en String
+                    //  CORRECTION: L'enum est casté en enum puis converti en String
                     CommandeClient.StatutCommande statutEnum = (CommandeClient.StatutCommande) row[0];
                     data.setStatut(statutEnum.name()); // Convertit l'enum en String (EN_ATTENTE, CONFIRMEE, etc.)
 
@@ -104,7 +103,7 @@ public class DashboardService {
     }
 
     // ========================
-    // 🟠 ÉVOLUTION DES COMMANDES (double axe)
+    // ÉVOLUTION DES COMMANDES
     // ========================
     private List<DashboardDTO.OrdersEvolutionData> getOrdersEvolution(Periode p) {
         List<DashboardDTO.OrdersEvolutionData> evolution = new ArrayList<>();
@@ -127,7 +126,7 @@ public class DashboardService {
     }
 
     // ========================
-    // 🟠 RÉPARTITION PAR TYPE DE CLIENT
+    //  RÉPARTITION PAR TYPE DE CLIENT
     // ========================
     private List<DashboardDTO.ClientTypeData> getClientTypeRepartition(Periode p) {
         LocalDateTime debut = p.getDebutDateTime();
@@ -302,34 +301,33 @@ public class DashboardService {
         long facturesRetard = factureRepo.countEnRetard(dateRetard);
 
         // ===== Construction du KPI avec TOUS les champs =====
-        // ===== Construction du KPI avec TOUS les champs =====
         return new DashboardDTO.KPI(
                 // CA (BigDecimal)
-                caActuel,                    // caJour
-                caPrecedent,                  // caHier
-                caSemaine,                    // caSemaine
-                caMois,                       // caMois
-                caAnnee,                      // caAnnee
+                caActuel,
+                caPrecedent,
+                caSemaine,
+                caMois,
+                caAnnee,
 
                 // Variations (BigDecimal)
-                calculerVariation(caActuel, caPrecedent),     // variationJour
-                variationSemaine,                              // variationSemaine
-                variationMois,                                 // variationMois
-                variationAnnee,                                // variationAnnee
+                calculerVariation(caActuel, caPrecedent),
+                variationSemaine,
+                variationMois,
+                variationAnnee,
 
                 // Commandes (Long)
-                cmdActuel,                     // commandesJour
-                cmdPrecedent,                   // commandesHier
-                commandesSemaine,               // commandesSemaine
-                commandesMois,                   // commandesMois
-                commandesAnnee,                  // commandesAnnee
+                cmdActuel,
+                cmdPrecedent,
+                commandesSemaine,
+                commandesMois,
+                commandesAnnee,
 
                 // Autres
-                panierMoyen,                     // panierMoyen (BigDecimal)
-                tauxTransfo,                      // tauxTransformation (BigDecimal)
-                creancesTotal,                    // creancesTotal (BigDecimal)
-                (Long) creancesNombre,            // ✅ CAST explicite en Long
-                (Long) facturesRetard              // ✅ CAST explicite en Long
+                panierMoyen,
+                tauxTransfo,
+                creancesTotal,
+                (Long) creancesNombre,
+                (Long) facturesRetard
         );
     }
 

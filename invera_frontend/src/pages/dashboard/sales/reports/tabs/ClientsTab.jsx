@@ -1,25 +1,22 @@
 // src/pages/dashboard/sales/reports/tabs/ClientsTab.jsx
-import React, { useState } from 'react';
-import { Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Filter, Calendar } from 'lucide-react';
 import { useReports } from '../../../../../hooks/useReports';
 
 const ClientsTab = () => {
-  // ✅ État pour TOUS les filtres
   const [filters, setFilters] = useState({
-    period: 'month',
+    period: 'custom',     
+    startDate: null,
+    endDate: null,
     clientType: undefined,
     commercialStatus: undefined
   });
 
   const [showSpecificFilters, setShowSpecificFilters] = useState(false);
-
-  // ✅ Périodes prédéfinies
-  const periods = [
-    { id: 'today', label: "Aujourd'hui" },
-    { id: 'week', label: 'Cette semaine' },
-    { id: 'month', label: 'Ce mois' },
-    { id: 'year', label: 'Cette année' }
-  ];
+  const [localDates, setLocalDates] = useState({
+    startDate: '',
+    endDate: ''
+  });
 
   // ✅ Types de clients
   const clientTypes = [
@@ -66,14 +63,21 @@ const ClientsTab = () => {
     setFilters: updateReportsFilters
   } = useReports('clients', filters);
 
-  // ✅ Gestionnaire de changement de période
-  const handlePeriodChange = (periodId) => {
-    const newFilters = {
-      ...filters,
-      period: periodId
-    };
-    setFilters(newFilters);
-    updateReportsFilters(newFilters);
+  // ✅ Appliquer la période personnalisée
+  const handleApplyCustom = () => {
+    if (localDates.startDate && localDates.endDate) {
+      console.log('📅 Application dates personnalisées:', localDates);
+      
+      const newFilters = {
+        ...filters,
+        period: 'custom',
+        startDate: localDates.startDate,
+        endDate: localDates.endDate
+      };
+      
+      setFilters(newFilters);
+      updateReportsFilters(newFilters);
+    }
   };
 
   // ✅ Gestionnaire pour les filtres spécifiques
@@ -86,17 +90,19 @@ const ClientsTab = () => {
     updateReportsFilters(newFilters);
   };
 
-  // ✅ Réinitialiser TOUS les filtres (sans fermer le panneau)
+  // ✅ Réinitialiser TOUS les filtres
   const resetAllFilters = () => {
     const defaultFilters = {
-      period: 'month',
+      period: 'custom',
+      startDate: null,
+      endDate: null,
       clientType: undefined,
       commercialStatus: undefined
     };
     
     setFilters(defaultFilters);
     updateReportsFilters(defaultFilters);
-    // ✅ NE PAS FERMER showSpecificFilters
+    setLocalDates({ startDate: '', endDate: '' });
   };
 
   if (loading && !data) {
@@ -142,107 +148,170 @@ const ClientsTab = () => {
 
       {/* ✅ SECTION FILTRES */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Barre principale des filtres */}
-        <div className="p-4 flex flex-wrap items-center gap-4">
-          {/* Sélecteur de période */}
-          <select
-            value={filters.period}
-            onChange={(e) => handlePeriodChange(e.target.value)}
-            className="px-4 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500"
-          >
-            {periods.map(p => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
+        <div className="p-4">
+          {/* En-tête des filtres */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-500" />
+              <h3 className="font-medium text-gray-700">Filtres</h3>
+            </div>
 
-          {/* Bouton Filtres spécifiques */}
-          <button
-            onClick={() => setShowSpecificFilters(!showSpecificFilters)}
-            className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
-              ${showSpecificFilters ? 'bg-purple-50 border-purple-300 text-purple-600' : 'hover:bg-gray-50'}`}
-          >
-            <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">Filtres clients</span>
-          </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSpecificFilters(!showSpecificFilters)}
+                className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
+                  ${showSpecificFilters ? 'bg-blue-50 border-blue-300 text-blue-600' : 'hover:bg-gray-50'}`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filtres clients</span>
+              </button>
 
-          {/* Bouton Réinitialiser tout */}
-          <button
-            onClick={resetAllFilters}
-            className="px-4 py-2 border rounded-lg text-sm hover:bg-purple-100 bg-purple-50 text-purple-700 border-purple-200 ml-auto"
-          >
-            Réinitialiser
-          </button>
-        </div>
-
-        {/* Filtres spécifiques - TOUJOURS affiché selon showSpecificFilters */}
-        {showSpecificFilters && (
-          <div className="p-4 border-t bg-gray-50">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Filtres clients</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Type de client */}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Type de client</label>
-                <select
-                  value={filters.clientType ?? 'all'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'all' ? undefined : e.target.value;
-                    handleSpecificFilterChange('clientType', value);
-                  }}
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
-                >
-                  {clientTypes.map(type => (
-                    <option key={type.id || 'all'} value={type.id ?? 'all'}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Statut commercial */}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Statut commercial</label>
-                <select
-                  value={filters.commercialStatus ?? 'all'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'all' ? undefined : e.target.value;
-                    handleSpecificFilterChange('commercialStatus', value);
-                  }}
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
-                >
-                  {commercialStatusOptions.map(option => (
-                    <option key={option.id || 'all'} value={option.id ?? 'all'}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <button
+                onClick={resetAllFilters}
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-blue-100 bg-blue-50 text-blue-700 border-blue-200"
+              >
+                Réinitialiser
+              </button>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ✅ Cartes résumé */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-6 rounded-xl">
-          <p className="text-sm text-blue-600">Total clients</p>
-          <p className="text-2xl font-bold">{data.summary?.totalClients || 0}</p>
-        </div>
-        <div className="bg-green-50 p-6 rounded-xl">
-          <p className="text-sm text-green-600">Nouveaux clients</p>
-          <p className="text-2xl font-bold">{data.summary?.nouveauxClients || 0}</p>
-          <p className="text-xs text-green-500">dans la période</p>
-        </div>
-        <div className="bg-purple-50 p-6 rounded-xl">
-          <p className="text-sm text-purple-600">Clients actifs</p>
-          <p className="text-2xl font-bold">{data.summary?.clientsActifs || 0}</p>
-          <p className="text-xs text-purple-500">ont passé commande</p>
-        </div>
-        <div className="bg-orange-50 p-6 rounded-xl">
-          <p className="text-sm text-orange-600">CA total</p>
-          <p className="text-2xl font-bold">{data.summary?.caTotal || 0} DT</p>
+          {/* Calendrier - Période personnalisée */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Sélectionner une période
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date de début</label>
+                <input
+                  type="date"
+                  value={localDates.startDate}
+                  onChange={(e) => setLocalDates({ ...localDates, startDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date de fin</label>
+                <input
+                  type="date"
+                  value={localDates.endDate}
+                  min={localDates.startDate}
+                  onChange={(e) => setLocalDates({ ...localDates, endDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-4">
+              <button
+                onClick={handleApplyCustom}
+                disabled={!localDates.startDate || !localDates.endDate}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Appliquer
+              </button>
+
+              {/* Indicateur des dates actives */}
+              {filters.startDate && filters.endDate && (
+                <div className="flex items-center text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Période active: du {filters.startDate} au {filters.endDate}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* FILTRES SPÉCIFIQUES */}
+          {showSpecificFilters && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Filtres clients</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Type de client */}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Type de client</label>
+                  <select
+                    value={filters.clientType ?? 'all'}
+                    onChange={(e) => {
+                      const value = e.target.value === 'all' ? undefined : e.target.value;
+                      handleSpecificFilterChange('clientType', value);
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                  >
+                    {clientTypes.map(type => (
+                      <option key={type.id || 'all'} value={type.id ?? 'all'}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Statut commercial */}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Statut commercial</label>
+                  <select
+                    value={filters.commercialStatus ?? 'all'}
+                    onChange={(e) => {
+                      const value = e.target.value === 'all' ? undefined : e.target.value;
+                      handleSpecificFilterChange('commercialStatus', value);
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                  >
+                    {commercialStatusOptions.map(option => (
+                      <option key={option.id || 'all'} value={option.id ?? 'all'}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+{/* ✅ Cartes résumé - Version avec couleurs harmonisées */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Total clients */}
+  <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-blue-700 mb-1">Total clients</p>
+      <span className="text-2xl text-blue-600">👥</span>
+    </div>
+    <p className="text-3xl font-bold text-blue-800">{data.summary?.totalClients || 0}</p>
+    <p className="text-xs text-blue-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+      Base totale de clients
+    </p>
+  </div>
+  
+  {/* Clients inactifs */}
+  <div className="bg-gradient-to-br from-amber-50 to-orange-100/50 p-6 rounded-xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-amber-700 mb-1">Clients inactifs</p>
+      <span className="text-2xl text-amber-600">😴</span>
+    </div>
+    <p className="text-3xl font-bold text-amber-800">{data.summary?.clientsInactifs || 0}</p>
+    <p className="text-xs text-amber-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+      Aucune commande passée
+    </p>
+  </div>
+  
+  {/* Clients actifs */}
+  <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-start justify-between">
+      <p className="text-sm font-medium text-purple-700 mb-1">Clients actifs</p>
+      <span className="text-2xl text-purple-600">🛒</span>
+    </div>
+    <p className="text-3xl font-bold text-purple-800">{data.summary?.clientsActifs || 0}</p>
+    <p className="text-xs text-purple-600/70 mt-2 flex items-center gap-1">
+      <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+      Ont passé commande
+    </p>
+  </div>
+</div>
 
       {/* ✅ Statistiques par statut commercial */}
       {data.repartitionParStatutCommercial && (
@@ -285,7 +354,6 @@ const ClientsTab = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut commercial</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commandes</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Panier moyen</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -375,10 +443,7 @@ const ClientsTab = () => {
                         <p className="text-xs text-gray-500">CA</p>
                         <p className="text-sm font-semibold text-green-600">{stats.ca} DT</p>
                       </div>
-                      <div className="bg-white p-2 rounded-lg">
-                        <p className="text-xs text-gray-500">Panier</p>
-                        <p className="text-sm font-semibold">{stats.panierMoyen || 0} DT</p>
-                      </div>
+                  
                     </div>
                   </div>
                 );

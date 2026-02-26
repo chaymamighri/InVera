@@ -60,7 +60,7 @@ const OrdersPage = () => {
     };
     
     init();
-  }, []);
+  }, [chargerDonnees]);
 
   // ✅ Fonction pour ajouter la nouvelle commande en PREMIÈRE position
   const ajouterNouvelleCommande = (nouvelleCommande) => {
@@ -69,6 +69,23 @@ const OrdersPage = () => {
       return [nouvelleCommande, ...prevCommandes];
     });
   };
+
+  const handleOrderUpdated = useCallback(async (updatedCommande) => {
+  console.log(' Mise à jour reçue:', updatedCommande);
+  
+  //  Mettre à jour la commande dans la liste
+  setCommandes(prev => prev.map(c => 
+    c.id === updatedCommande?.id ? { ...c, ...updatedCommande } : c
+  ));
+  
+  // Mettre à jour la commande sélectionnée si le modal est ouvert
+  if (selectedCommande && updatedCommande?.id === selectedCommande.id) {
+    setSelectedCommande(updatedCommande);
+  }
+  
+  toast.success('Commande mise à jour');
+}, [selectedCommande, setCommandes]);
+
 
   // Fonction pour charger les types de client
   const chargerTypesClient = useCallback(async () => {
@@ -86,82 +103,79 @@ const OrdersPage = () => {
   }, []);
 
   // Filtrer les commandes
-useEffect(() => {
-  // 1. D'abord on filtre
-  const filtered = commandes.filter(commande => {
-    const matchesSearch = searchTerm === '' || 
-      (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       commande.client?.prenom?.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = selectedStatus === 'Tous' || 
-      commande.statut === selectedStatus ||
-      (selectedStatus === 'En attente' && commande.statut === 'EN_ATTENTE') ||
-      (selectedStatus === 'Confirmé' && commande.statut === 'CONFIRMEE') ||
-      (selectedStatus === 'Refusé' && commande.statut === 'ANNULEE');
-    
-    const matchesClient = selectedClientId === 'Tous' || 
-      commande.client?.id === parseInt(selectedClientId);
-    
-    const matchesClientType = selectedClientType === 'Tous' || 
-      (commande.client?.typeClient && 
-       commande.client.typeClient.toUpperCase() === selectedClientType.toUpperCase());
-    
-    return matchesSearch && matchesStatus && matchesClient && matchesClientType;
-  });
-
-  // 2. Appliquer le tri si nécessaire
-  if (sortField) {
-    filtered.sort((a, b) => {
-      let aValue, bValue;
+  useEffect(() => {
+    const filtered = commandes.filter(commande => {
+      const matchesSearch = searchTerm === '' || 
+        (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         commande.client?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         commande.client?.prenom?.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      switch(sortField) {
-        case 'clientNom':
-          aValue = `${a.client?.nom || ''} ${a.client?.prenom || ''}`.trim().toLowerCase();
-          bValue = `${b.client?.nom || ''} ${b.client?.prenom || ''}`.trim().toLowerCase();
-          break;
-          
-        case 'dateCommande':
-          aValue = a.dateCommande ? new Date(a.dateCommande).getTime() : 0;
-          bValue = b.dateCommande ? new Date(b.dateCommande).getTime() : 0;
-          break;
-          
-        case 'total':
-          aValue = toNumber(a.total);
-          bValue = toNumber(b.total);
-          break;
-          
-        case 'sousTotal':
-          aValue = toNumber(a.sousTotal);
-          bValue = toNumber(b.sousTotal);
-          break;
-          
-        case 'numero':
-        case 'referenceCommandeClient':
-          aValue = a.numero || '';
-          bValue = b.numero || '';
-          break;
-          
-        default:
-          aValue = a[sortField] || '';
-          bValue = b[sortField] || '';
-      }
+      const matchesStatus = selectedStatus === 'Tous' || 
+        commande.statut === selectedStatus ||
+        (selectedStatus === 'En attente' && commande.statut === 'EN_ATTENTE') ||
+        (selectedStatus === 'Confirmé' && commande.statut === 'CONFIRMEE') ||
+        (selectedStatus === 'Refusé' && commande.statut === 'ANNULEE');
       
-      // Gestion des valeurs null/undefined
-      if (aValue === null || aValue === undefined) aValue = '';
-      if (bValue === null || bValue === undefined) bValue = '';
+      const matchesClient = selectedClientId === 'Tous' || 
+        commande.client?.id === parseInt(selectedClientId);
       
-      // Comparaison
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      const matchesClientType = selectedClientType === 'Tous' || 
+        (commande.client?.typeClient && 
+         commande.client.typeClient.toUpperCase() === selectedClientType.toUpperCase());
+      
+      return matchesSearch && matchesStatus && matchesClient && matchesClientType;
     });
-  }
-  
-  setFilteredCommandes(filtered);
-}, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
+
+    // Appliquer le tri si nécessaire
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(sortField) {
+          case 'clientNom':
+            aValue = `${a.client?.nom || ''} ${a.client?.prenom || ''}`.trim().toLowerCase();
+            bValue = `${b.client?.nom || ''} ${b.client?.prenom || ''}`.trim().toLowerCase();
+            break;
+            
+          case 'dateCommande':
+            aValue = a.dateCommande ? new Date(a.dateCommande).getTime() : 0;
+            bValue = b.dateCommande ? new Date(b.dateCommande).getTime() : 0;
+            break;
+            
+          case 'total':
+            aValue = toNumber(a.total);
+            bValue = toNumber(b.total);
+            break;
+            
+          case 'sousTotal':
+            aValue = toNumber(a.sousTotal);
+            bValue = toNumber(b.sousTotal);
+            break;
+            
+          case 'numero':
+          case 'referenceCommandeClient':
+            aValue = a.numero || '';
+            bValue = b.numero || '';
+            break;
+            
+          default:
+            aValue = a[sortField] || '';
+            bValue = b[sortField] || '';
+        }
+        
+        if (aValue === null || aValue === undefined) aValue = '';
+        if (bValue === null || bValue === undefined) bValue = '';
+        
+        if (sortDirection === 'asc') {
+          return aValue > bValue ? 1 : -1;
+        } else {
+          return aValue < bValue ? 1 : -1;
+        }
+      });
+    }
+    
+    setFilteredCommandes(filtered);
+  }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
 
   // Fonction de réinitialisation des filtres
   const handleResetFilters = useCallback(() => {
@@ -172,31 +186,26 @@ useEffect(() => {
   }, []);
 
   // Fonctions stabilisées avec useCallback
-const handleSort = useCallback((field) => {
-  // Mapping des champs d'affichage vers les champs réels
-  const fieldMap = {
-    'client': 'clientNom',        
-    'dateCreation': 'dateCommande' 
-  };
-  
-  const actualField = fieldMap[field] || field;
-  
-  if (sortField === actualField) {
-    // Si on clique sur le même champ
-    if (sortDirection === 'desc') {
-      // Passer de desc → asc
+  const handleSort = useCallback((field) => {
+    const fieldMap = {
+      'client': 'clientNom',        
+      'dateCreation': 'dateCommande' 
+    };
+    
+    const actualField = fieldMap[field] || field;
+    
+    if (sortField === actualField) {
+      if (sortDirection === 'desc') {
+        setSortDirection('asc');
+      } else if (sortDirection === 'asc') {
+        setSortField(null);
+        setSortDirection('desc');
+      }
+    } else {
+      setSortField(actualField);
       setSortDirection('asc');
-    } else if (sortDirection === 'asc') {
-      // Passer de asc → null (pas de tri)
-      setSortField(null);
-      setSortDirection('desc'); // reset
     }
-  } else {
-    // Nouveau champ de tri
-    setSortField(actualField);
-    setSortDirection('asc');
-  }
-}, [sortField, sortDirection]);
+  }, [sortField, sortDirection]);
 
   // Fonctions pour gérer les produits sélectionnés
   const handleSelectProduct = useCallback((produit) => {
@@ -215,168 +224,80 @@ const handleSort = useCallback((field) => {
     setSelectedProducts(prev => prev.filter(p => p.id !== produitId));
   }, [setSelectedProducts]);
 
-// Fonction pour créer la commande - CORRIGÉE
-const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
-  console.log('🔴 handleCreerCommandeAPI DÉBUT');
+  // Fonction pour créer la commande
+  const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
+    console.log('🔴 handleCreerCommandeAPI DÉBUT');
 
-  if (!clientId || selectedProducts.length === 0) {
-    alert('Veuillez sélectionner un client et ajouter au moins un produit');
-    return;
-  }
-
-  setIsCreating(true);
-
-  try {
-    const parsedClientId = parseInt(clientId, 10);
-    
-    if (isNaN(parsedClientId) || parsedClientId <= 0) {
-      throw new Error(`ID client invalide: "${clientId}"`);
+    if (!clientId || selectedProducts.length === 0) {
+      alert('Veuillez sélectionner un client et ajouter au moins un produit');
+      return;
     }
 
-    const commandeData = {
-      clientId: parsedClientId,  
-      produits: selectedProducts.map(p => {
-        console.log('📦 Préparation produit:', p.id, p.libelle);
-        
-        const produitId = parseInt(p.id, 10);
-        if (isNaN(produitId) || produitId <= 0) {
-          throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
-        }
-        
-        return {
-          produitId: produitId,  
-          quantite: parseInt(p.quantite, 10),  
-          prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
-          remisePourcentage: 0 
-        };
-      }),
-      remarques: notes || '',
-      statut: 'EN_ATTENTE'
-    };
+    setIsCreating(true);
 
-    console.log('📤 Données envoyées:', JSON.stringify(commandeData, null, 2));
-    
-    const response = await commandeService.createCommande(commandeData);
-    console.log('📥 Réponse brute:', response);
-    
-    if (response.success) {
-      alert('✅ Commande créée avec succès !');
+    try {
+      const parsedClientId = parseInt(clientId, 10);
       
-      // ✅ Extraire la commande de la réponse
-      const commandeBrute = response.data || response;
-      console.log('📦 Commande brute à transformer:', commandeBrute);
+      if (isNaN(parsedClientId) || parsedClientId <= 0) {
+        throw new Error(`ID client invalide: "${clientId}"`);
+      }
+
+      const commandeData = {
+        clientId: parsedClientId,  
+        produits: selectedProducts.map(p => {
+          console.log('📦 Préparation produit:', p.id, p.libelle);
+          
+          const produitId = parseInt(p.id, 10);
+          if (isNaN(produitId) || produitId <= 0) {
+            throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
+          }
+          
+          return {
+            produitId: produitId,  
+            quantite: parseInt(p.quantite, 10),  
+            prixUnitaire: parseFloat(toNumber(p.prix) || toNumber(p.prixUnitaire) || 0), 
+            remisePourcentage: 0 
+          };
+        }),
+        remarques: notes || '',
+        statut: 'EN_ATTENTE'
+      };
+
+      console.log('📤 Données envoyées:', JSON.stringify(commandeData, null, 2));
       
-      // ✅ Vérifier toutes les sources possibles pour la référence
-      console.log('🔍 Recherche de la référence:', {
-        referenceCommandeClient: commandeBrute.referenceCommandeClient,
-        reference: commandeBrute.reference,
-        numero: commandeBrute.numero,
-        id: commandeBrute.id,
-        idCommandeClient: commandeBrute.idCommandeClient
-      });
+      const response = await commandeService.createCommande(commandeData);
+      console.log('📥 Réponse brute:', response);
       
-      // ✅ Essayer différentes sources pour la référence
-      let referenceBackend = 
-        commandeBrute.referenceCommandeClient || 
-        commandeBrute.reference || 
-        commandeBrute.numero;
+      if (response.success) {
+        toast.success('✅ Commande créée avec succès !');
+        
+        // Recharger les données pour avoir la dernière version
+        await chargerDonnees();
+        
+        // Réinitialiser la sélection
+        resetSelection();
+        
+        // Fermer le modal
+        setShowCreateModal(false);
+        
+      } else {
+        toast.error('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
+      }
+    } catch (error) {
+      console.error('❌ ERREUR DÉTAILLÉE:', error);
       
-      // ✅ Si pas de référence, générer une avec le format du backend
-      if (!referenceBackend) {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        const random = Math.floor(Math.random() * 1000);
-        referenceBackend = `CMD-${today}-${random}`;
-        console.log('📋 Référence générée localement:', referenceBackend);
+      let errorMessage = 'Erreur lors de la création de la commande';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
-      // ✅ Récupérer le client sélectionné
-      const clientSelectionne = clients.find(c => c.id === parsedClientId);
-      
-      // Calculer les totaux
-      const sousTotal = selectedProducts.reduce((sum, p) => 
-        sum + (toNumber(p.prix) * p.quantite), 0
-      );
-      
-      const remise = clientSelectionne ? 
-        (clientSelectionne.typeClient === 'VIP' ? 0.15 :
-         clientSelectionne.typeClient === 'FIDELE' ? 0.10 :
-         clientSelectionne.typeClient === 'ENTREPRISE' ? 0.08 :
-         clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.05 : 0) : 0;
-      
-      const total = sousTotal * (1 - remise);
-      
-      // Construire la commande transformée - ✅ CORRIGÉ pour la référence
-      const commandeTransformee = {
-        idCommandeClient: commandeBrute.idCommandeClient || commandeBrute.id || Date.now(),
-        id: commandeBrute.idCommandeClient || commandeBrute.id || Date.now(),
-        referenceCommandeClient: referenceBackend,  // ✅ Utiliser la référence trouvée
-        numero: referenceBackend,                   // ✅ Utiliser la référence trouvée
-        
-        client: clientSelectionne ? {
-          idClient: clientSelectionne.id,
-          id: clientSelectionne.id,
-          nom: clientSelectionne.nom || '',
-          prenom: clientSelectionne.prenom || '',
-          typeClient: clientSelectionne.typeClient || 'PARTICULIER',
-          telephone: clientSelectionne.telephone || '',
-          email: clientSelectionne.email || '',
-          adresse: clientSelectionne.adresse || ''
-        } : null,
-        
-        dateCommande: commandeBrute.dateCommande || new Date().toISOString(),
-        
-        // Produits à partir de la sélection
-        produits: selectedProducts.map(p => ({
-          id: p.id,
-          ligneId: p.id,
-          produitId: p.id,
-          libelle: p.libelle,
-          prixUnitaire: toNumber(p.prix),
-          quantite: p.quantite,
-          sousTotal: toNumber(p.prix) * p.quantite,
-          imageUrl: p.imageUrl,
-          uniteMesure: p.uniteMesure,
-          categorie: p.categorie,
-          categorieNom: p.categorieNom
-        })),
-        
-        sousTotal: sousTotal,
-        tauxRemise: remise * 100,
-        total: total,
-        
-        statut: 'EN_ATTENTE',
-        statutDisplay: 'En attente'
-      };
-      
-      console.log('✅ Commande transformée avec numéro:', commandeTransformee.numero);
-      
-      // ✅ Ajouter la commande transformée
-      ajouterNouvelleCommande(commandeTransformee);
-      
-      // ✅ Réinitialiser la sélection
-      resetSelection();
-      
-      // ✅ Fermer le modal
-      setShowCreateModal(false);
-      
-    } else {
-      alert('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
+      toast.error('❌ Erreur: ' + errorMessage);
+    } finally {
+      setIsCreating(false);
     }
-  } catch (error) {
-    console.error('❌ ERREUR DÉTAILLÉE:', error);
-    
-    let errorMessage = 'Erreur lors de la création de la commande';
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    alert('❌ Erreur: ' + errorMessage);
-  } finally {
-    setIsCreating(false);
-  }
-}, [selectedProducts, toNumber, resetSelection, ajouterNouvelleCommande, clients]);
+  }, [selectedProducts, toNumber, resetSelection, chargerDonnees]);
 
   // Fonction pour valider une commande
   const handleValiderCommandeAPI = useCallback(async (commandeId) => {
@@ -385,11 +306,11 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
       
       await handleValiderCommande(commandeId);
       
-       toast.success('Commande créée avec succès !');
+      toast.success('Commande validée avec succès !');
       await chargerDonnees();
     } catch (error) {
       console.error('Erreur lors de la validation:', error);
-      alert('Erreur lors de la validation de la commande: ' + error.message);
+      toast.error('Erreur lors de la validation de la commande: ' + error.message);
     }
   }, [handleValiderCommande, chargerDonnees]);
 
@@ -400,11 +321,11 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
       
       await handleRejeterCommande(commandeId);
       
-      alert(' Commande rejetée avec succès !');
+      toast.success('Commande rejetée avec succès !');
       await chargerDonnees();
     } catch (error) {
       console.error('Erreur lors du rejet:', error);
-      alert('Erreur lors du rejet de la commande: ' + error.message);
+      toast.error('Erreur lors du rejet de la commande: ' + error.message);
     }
   }, [handleRejeterCommande, chargerDonnees]);
 
@@ -600,6 +521,12 @@ const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
           onClose={() => setShowDetailModal(false)}
           commande={selectedCommande}
           toNumber={toNumber}
+          onUpdateSuccess={handleOrderUpdated} 
+          onRefresh={async (commandeId) => {
+    // Logique pour recharger la commande
+    const refreshed = await commandeService.getCommandeById(commandeId);
+    return refreshed;
+           }}
         />
       )}
     </div>

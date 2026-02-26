@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, X, RefreshCw, Check, AlertCircle, TrendingUp } from 'lucide-react';
 
 const periods = [
-  { id: 'today', label: "Aujourd'hui", icon: '📅', description: 'Ventes du jour' },
+  { id: 'today', label: "Jour", icon: '📅', description: 'Ventes du jour' },
   { id: 'week', label: 'Cette semaine', icon: '📆', description: 'Lun - Dim' },
   { id: 'month', label: 'Ce mois', icon: '📊', description: 'Performance mensuelle' },
   { id: 'year', label: 'Cette année', icon: '📈', description: 'Vue annuelle' },
@@ -295,25 +295,7 @@ const AdvancedPeriodSelector = ({
                   <X className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
-              
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button onClick={setCurrentWeek} className="px-3 py-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-center">
-                  <span className="block font-medium text-gray-700">Cette semaine</span>
-                  <span className="text-xs text-gray-400">Lun - Dim</span>
-                </button>
-                <button onClick={setCurrentMonth} className="px-3 py-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-center">
-                  <span className="block font-medium text-gray-700">Ce mois</span>
-                  <span className="text-xs text-gray-400">1er - {new Date().toLocaleDateString('fr-FR', { month: 'long' })}</span>
-                </button>
-                <button onClick={setLast7Days} className="px-3 py-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-center">
-                  <span className="block font-medium text-gray-700">7 derniers jours</span>
-                  <span className="text-xs text-gray-400">Analyse rapide</span>
-                </button>
-                <button onClick={setLast30Days} className="px-3 py-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-center">
-                  <span className="block font-medium text-gray-700">30 derniers jours</span>
-                  <span className="text-xs text-gray-400">Mois glissant</span>
-                </button>
-              </div>
+                    
 
               <div className="space-y-3 mb-4">
                 <div className="grid grid-cols-2 gap-4">

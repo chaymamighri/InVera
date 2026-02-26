@@ -93,7 +93,7 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
             "SUM(l.sousTotal), " +
             "p.imageUrl) " +
             "FROM LigneCommandeClient l " +
-            "JOIN l.commandeClient c " +  // ← correction: commandeClient au lieu de commande
+            "JOIN l.commandeClient c " +
             "JOIN l.produit p " +
             "WHERE c.dateCommande BETWEEN :debut AND :fin " +
             "AND c.statut = 'CONFIRMEE' " +

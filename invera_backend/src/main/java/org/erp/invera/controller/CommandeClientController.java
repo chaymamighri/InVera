@@ -1,29 +1,24 @@
 package org.erp.invera.controller;
 
-import org.erp.invera.dto.CommandeRequestDTO;
-import org.erp.invera.dto.CommandeResponseDTO;
-import org.erp.invera.dto.ProduitCommandeDetailDTO;
-import org.erp.invera.dto.ProduitCommandeRequestDTO;
+import org.erp.invera.dto.*;
+import org.erp.invera.model.Client;
 import org.erp.invera.model.CommandeClient;
+import org.erp.invera.model.LigneCommandeClient;
 import org.erp.invera.model.Produit;
-import org.erp.invera.model.User;
+import org.erp.invera.repository.ClientRepository;
 import org.erp.invera.repository.CommandeClientRepository;
-import org.erp.invera.repository.ProduitRepository;
 import org.erp.invera.repository.UserRepository;
 import org.erp.invera.service.CommandeClientService;
 import org.erp.invera.service.ClientService;
 import org.erp.invera.service.ProduitService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -144,6 +139,72 @@ public class CommandeClientController {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateCommande(
+            @PathVariable Integer id,
+            @RequestBody CommandeUpdateRequestDTO commandeUpdateRequest) {
+
+        try {
+            System.out.println("📦 Mise à jour commande ID: " + id);
+            System.out.println("Données reçues: " + commandeUpdateRequest);
+
+            // Vérifier que la commande existe
+            CommandeClient commande = commandeClientRepository.findByIdWithDetails(id)
+                    .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + id));
+
+            // Vérifier que la commande est en attente
+            if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
+                throw new RuntimeException("Seules les commandes en attente peuvent être modifiées");
+            }
+
+            // Vérifier la disponibilité des produits
+            Map<Integer, Integer> produitsMap = new HashMap<>();
+            for (ProduitCommandeUpdateDTO produit : commandeUpdateRequest.getProduits()) {
+                produitsMap.put(produit.getProduitId(), produit.getQuantite().intValue());
+            }
+
+            boolean disponible = commandeService.verifierDisponibilite(produitsMap);
+            if (!disponible) {
+                throw new RuntimeException("Stock insuffisant pour certains produits");
+            }
+
+            // Mettre à jour la commande via le service
+            CommandeClient commandeMaj = commandeService.updateCommande(id, commandeUpdateRequest);
+
+            // Récupérer la commande mise à jour avec ses détails
+            CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commandeMaj.getIdCommandeClient())
+                    .orElse(commandeMaj);
+
+            // Convertir en DTO pour la réponse
+            CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
+                    commandeAvecDetails,
+                    clientService,
+                    produitService
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Commande mise à jour avec succès");
+            response.put("commande", commandeDTO);
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur serveur: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
