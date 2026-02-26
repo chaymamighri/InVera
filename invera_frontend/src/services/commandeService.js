@@ -1,13 +1,12 @@
 // src/services/commandeService.js
 import api from './api'; 
-import { authHeader } from './authHeader';
 
 export const commandeService = {
   // Récupérer toutes les commandes
   async getAllCommandes() {
     try {
       console.log('📡 Appel API: /commandes/getAllCommandes');
-      const response = await api.get('/commandes/getAllCommandes', { headers: authHeader() });
+      const response = await api.get('/commandes/getAllCommandes');
       
       if (response.data && response.data.success && response.data.commandes) {
         return response.data.commandes;
@@ -29,7 +28,7 @@ export const commandeService = {
   getCommandesValidees: async () => {
     try {
       console.log('📡 Appel API: /commandes/validated');
-      const response = await api.get('/commandes/validated', { headers: authHeader() });
+      const response = await api.get('/commandes/validated');
       
       if (response.data && response.data.success && response.data.commandes) {
         return response.data.commandes;
@@ -44,9 +43,7 @@ export const commandeService = {
   // Créer une nouvelle commande
   async createCommande(commandeData) {
     try {
-      const response = await api.post('/commandes/creer', commandeData, { 
-        headers: authHeader() 
-      });
+      const response = await api.post('/commandes/creer', commandeData );
       return response.data;
     } catch (error) {
       console.error(' Erreur createCommande:', error);
@@ -57,9 +54,7 @@ export const commandeService = {
   // Récupérer une commande par ID
   async getCommandeById(id) {
     try {
-      const response = await api.get(`/commandes/${id}`, {
-        headers: authHeader()
-      });
+      const response = await api.get(`/commandes/${id}`);
       
       if (response.data && response.data.success && response.data.commande) {
         return response.data.commande;
@@ -86,9 +81,7 @@ export const commandeService = {
       for (const endpoint of endpoints) {
         try {
           console.log(`📡 Essai endpoint: ${endpoint}`);
-          const response = await api.put(endpoint, {}, { 
-            headers: authHeader() 
-          });
+          const response = await api.put(endpoint, {});
           
           console.log(` Succès avec endpoint: ${endpoint}`);
           return response.data;
@@ -126,9 +119,7 @@ export const commandeService = {
       for (const endpoint of endpoints) {
         try {
           console.log(`📡 Essai endpoint: ${endpoint}`);
-          const response = await api.put(endpoint, {}, { 
-            headers: authHeader() 
-          });
+          const response = await api.put(endpoint, {});
           
           console.log(`Succès avec endpoint: ${endpoint}`);
           return response.data;
@@ -161,9 +152,7 @@ async updateCommande(commandeId, commandeData) {
       }))
     };
     
-    const response = await api.put(`/commandes/${commandeId}`, payload, {
-      headers: authHeader()
-    });
+    const response = await api.put(`/commandes/${commandeId}`, payload);
 
     console.log('✅ Réponse mise à jour:', response.data);
     return response.data;
@@ -183,7 +172,7 @@ async updateCommande(commandeId, commandeData) {
 
   /**
    * Générer une facture pour une commande validée
-   * @param {number} commandeId - ID de la commande
+   * @param {number} commandeId 
    */
   async generateInvoice(commandeId) {
     try {
@@ -217,21 +206,6 @@ async updateCommande(commandeId, commandeData) {
     }
   },
   
-  /**
-   * Télécharger une facture au format PDF
-   * @param {number} factureId - ID de la facture
-   */
-  async downloadInvoicePDF(factureId) {
-    try {
-      const response = await api.get(`/factures/telecharger/${factureId}`, {
-        responseType: 'blob'
-      });
-      return response;
-    } catch (error) {
-      console.error('❌ Erreur downloadInvoicePDF:', error);
-      throw error;
-    }
-  },
   
 //  Marquer une facture comme payée
 async marquerFacturePayee(factureId) {
@@ -256,9 +230,7 @@ async marquerFacturePayee(factureId) {
     console.log(`📡 Marquage facture ${numericId} comme payée`);
     
     // Endpoint exact du backend avec l'ID numérique
-    const response = await api.put(`/factures/${numericId}/payer`, {}, { 
-      headers: authHeader() 
-    });
+    const response = await api.put(`/factures/${numericId}/payer`);
     
     console.log(` Succès: facture ${numericId} marquée comme payée`);
     return response.data;
@@ -309,9 +281,7 @@ async getCommandesByClientId(clientId) {
         console.log(`📡 Récupération des commandes pour le client ${clientId}`);
         
         // Endpoint que vous avez créé dans le controller
-        const response = await api.get(`/commandes/client/${clientId}`, {
-            headers: authHeader()
-        });
+        const response = await api.get(`/commandes/client/${clientId}`);
         
         console.log('✅ Réponse API:', response.data);
         

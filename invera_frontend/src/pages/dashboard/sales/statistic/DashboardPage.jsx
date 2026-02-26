@@ -1,7 +1,7 @@
 // src/pages/dashboard/sales/DashboardPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, RotateCcw, X } from 'lucide-react'; // AJOUT de X
+import { RotateCcw, X } from 'lucide-react';
 import { useDashboardData } from '../../../../hooks/useDashboardData';
 import KPICard from './components/KPICard';
 import EvolutionChart from './components/EvolutionChart';
@@ -21,10 +21,26 @@ const DashboardPage = () => {
     formatCurrency,
   } = useDashboardData();
 
+  const handleApplyCustom = (start, end) => {
+  applyDateRange(start, end);
+};
+
   // État local pour les dates
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterActive, setFilterActive] = useState(false); 
+
+  // ✅ VALEURS PAR DÉFAUT VIDES
+  const defaultKPI = {
+    caJour: 0,
+    commandesJour: 0,
+    variationJour: 0
+  };
+
+  const defaultCharts = {
+    evolutionCA: [],
+    topProduits: []
+  };
 
   // Fonction pour réinitialiser (vider les champs)
   const handleReset = () => {
@@ -55,17 +71,15 @@ const DashboardPage = () => {
     }
   };
 
-  // Initialiser sans dates (ou avec une logique différente)
+  // Initialiser sans dates
   useEffect(() => {
-    // NE PAS initialiser avec le mois en cours
-    // Laisser les champs vides par défaut
     setStartDate('');
     setEndDate('');
     setFilterActive(false);
   }, []);
 
   const handleDateChange = (type, value) => {
-    setFilterActive(true); // Le filtre devient actif dès qu'on change une date
+    setFilterActive(true);
     
     if (type === 'start') {
       setStartDate(value);
@@ -74,7 +88,6 @@ const DashboardPage = () => {
           applyCustomRange(value, endDate);
         }
       } else {
-        // Si pas de date de fin, on filtre juste avec la date de début
         applyCustomRange(value, '');
       }
     } else {
@@ -84,49 +97,31 @@ const DashboardPage = () => {
           applyCustomRange(startDate, value);
         }
       } else {
-        // Si pas de date de début, on filtre juste avec la date de fin
         applyCustomRange('', value);
       }
     }
   };
 
   // ============================================
-  //  TESTS DE VÉRIFICATION DES DONNÉES BACKEND
-  // ============================================
-  useEffect(() => {
-    if (data) {
-      console.log('=================================');
-      console.log('📊 STRUCTURE COMPLÈTE DE data.kpi:');
-      console.log('=================================');
-      console.log('kpi:', data.kpi);
-      console.log('Clés disponibles:', Object.keys(data.kpi || {}));
-    }
-  }, [data]);
-
-  // ============================================
   //  PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
   // ============================================
 
-  // Données pour StatusDonutChart (directement du backend)
+  // Données pour StatusDonutChart
   const statusData = useMemo(() => data?.statusRepartition || [], [data]);
 
-  // Données pour OrdersEvolutionChart (du backend)
+  // Données pour OrdersEvolutionChart
   const ordersEvolutionData = useMemo(() => {
     if (data?.ordersEvolution && data.ordersEvolution.length > 0) {
-      console.log('📈 Utilisation des données backend ordersEvolution:', data.ordersEvolution);
       return data.ordersEvolution;
     }
-    console.log('ordersEvolution non disponible dans le backend');
     return [];
   }, [data]);
 
-  // Données pour ClientTypeChart (du backend)
+  // Données pour ClientTypeChart
   const clientTypeData = useMemo(() => {
     if (data?.clientTypeRepartition && data.clientTypeRepartition.length > 0) {
-      console.log('👥 Utilisation des données backend clientTypeRepartition:', data.clientTypeRepartition);
       return data.clientTypeRepartition;
     }
-    console.log('clientTypeRepartition non disponible dans le backend');
     return [];
   }, [data]);
 
@@ -156,11 +151,11 @@ const DashboardPage = () => {
     );
   }
 
-  if (!data) {
-    return null;
-  }
+  // ✅ Utilisation des valeurs par défaut si data n'existe pas
+  const kpi = data?.kpi || defaultKPI;
+  const charts = data?.charts || defaultCharts;
 
-  const { kpi, charts } = data;
+  
 
   return (
     <motion.div 
@@ -218,7 +213,7 @@ const DashboardPage = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Bouton Reset - Vider tous les champs */}
+            {/* Bouton Reset */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -229,8 +224,6 @@ const DashboardPage = () => {
               <RotateCcw className="w-4 h-4" />
               <span className="text-sm font-medium">Reset</span>
             </motion.button>
-
-          
           </div>
         </div>
 
@@ -281,7 +274,7 @@ const DashboardPage = () => {
         
         {/* Ligne 1: Évolution CA et Top produits */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Évolution du CA (2/3) */}
+          {/* Évolution du CA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -303,7 +296,7 @@ const DashboardPage = () => {
             />
           </motion.div>
 
-          {/* Top produits (1/3) */}
+          {/* Top produits */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -379,8 +372,8 @@ const DashboardPage = () => {
             ) : (
               <div className="h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
                 <div className="text-center">
-                  <p className="text-sm">Données non disponibles</p>
-                  <p className="text-xs mt-1">Implémentez ordersEvolution dans le backend</p>
+                  <p className="text-sm">Aucune donnée pour cette période</p>
+                  <p className="text-xs mt-1">Sélectionnez une période pour voir l'évolution</p>
                 </div>
               </div>
             )}
@@ -411,8 +404,8 @@ const DashboardPage = () => {
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
               <div className="text-center">
-                <p className="text-sm">Données non disponibles</p>
-                <p className="text-xs mt-1">Implémentez clientTypeRepartition dans le backend</p>
+                <p className="text-sm">Aucune donnée pour cette période</p>
+                <p className="text-xs mt-1">Sélectionnez une période pour voir la répartition</p>
               </div>
             </div>
           )}
