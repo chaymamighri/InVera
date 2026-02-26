@@ -315,6 +315,8 @@ public class ReportService {
         return report;
 
     }
+
+
     // ========== CLASSES INTERNES ==============
 
     private static class ClientStats {
@@ -351,6 +353,7 @@ public class ReportService {
     }
 
     private static class DateRange {
+
         private final LocalDate startDate;
         private final LocalDate endDate;
 
@@ -383,7 +386,7 @@ public class ReportService {
         LocalDate start;
         LocalDate end = now;
 
-        // ✅ SI ON A DES DATES, LES UTILISER DIRECTEMENT
+        // SI ON A DES DATES, LES UTILISER DIRECTEMENT
         if (startDate != null && endDate != null) {
             start = startDate;
             end = endDate;

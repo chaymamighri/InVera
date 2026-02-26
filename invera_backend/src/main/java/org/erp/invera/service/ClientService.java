@@ -24,9 +24,11 @@ public class ClientService {
         this.clientRepository = clientRepository;
     }
 
+
     // ====================
     // CRUD Operations
     // ====================
+
 
     /**
      * Créer un client à partir du DTO
@@ -44,7 +46,6 @@ public class ClientService {
                 throw new RuntimeException("Un client avec cet email existe déjà");
             }
         }
-
         // Convertir DTO en entité
         Client client = new Client();
         client.setNom(clientDTO.getNom());
@@ -76,33 +77,8 @@ public class ClientService {
 
         return clientRepository.save(client);
     }
-    /**
-     * Créer un client à partir de l'entité
-     */
-    public Client createClient(Client client) {
-        if (clientRepository.existsByTelephone(client.getTelephone())) {
-            throw new RuntimeException("Un client avec ce numéro de téléphone existe déjà");
-        }
 
-        if (client.getEmail() != null && !client.getEmail().isEmpty()) {
-            Optional<Client> existingEmail = clientRepository.findByEmail(client.getEmail());
-            if (existingEmail.isPresent()) {
-                throw new RuntimeException("Un client avec cet email existe déjà");
-            }
-        }
 
-        return clientRepository.save(client);
-    }
-
-    /**
-     * Récupérer tous les clients en DTO
-     */
-    public List<ClientDTO> getAllClientsDTO() {
-        return clientRepository.findAll()
-                .stream()
-                .map(ClientDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
 
     /**
      * Récupérer tous les clients en entités
@@ -111,36 +87,6 @@ public class ClientService {
         return clientRepository.findAll();
     }
 
-    /**
-     * Récupérer un client par ID en DTO
-     */
-    public ClientDTO getClientDTOById(Integer id) {
-        Client client = getClientById(id);
-        return ClientDTO.fromEntity(client);
-    }
-
-    /**
-     * Récupérer un client par ID en entité
-     */
-    public Client getClientById(Integer id) {
-        return clientRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé avec l'ID: " + id));
-    }
-
-    /**
-     * Rechercher des clients par mot-clé en DTO
-     */
-    public List<ClientDTO> searchClientsDTO(String keyword) {
-        List<Client> clients;
-        if (keyword == null || keyword.trim().isEmpty()) {
-            clients = clientRepository.findAll();
-        } else {
-            clients = clientRepository.searchClients(keyword);
-        }
-        return clients.stream()
-                .map(ClientDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
 
     /**
      * Rechercher des clients par mot-clé en entités
@@ -170,31 +116,6 @@ public class ClientService {
                 Client.TypeClient.ENTREPRISE.name(),
                 Client.TypeClient.FIDELE.name()
         );
-    }
-
-    /**
-     * Mettre à jour les remises d'un client
-     */
-    public ClientDTO updateClientRemises(Integer clientId,
-                                         Double remiseFidele,
-                                         Double remiseVIP,
-                                         Double remiseProfessionnelle) {
-        Client client = getClientById(clientId);
-
-        client.setRemiseClientFidele(remiseFidele);
-        client.setRemiseClientVIP(remiseVIP);
-        client.setRemiseClientProfessionnelle(remiseProfessionnelle);
-
-        Client updatedClient = clientRepository.save(client);
-        return ClientDTO.fromEntity(updatedClient);
-    }
-
-    /**
-     * Récupérer les remises d'un client via DTO
-     */
-    public ClientDTO getClientRemises(Integer clientId) {
-        Client client = getClientById(clientId);
-        return ClientDTO.fromEntity(client);
     }
 
     /**
@@ -240,6 +161,7 @@ public class ClientService {
         return savedClient;
     }
 
+
     /**
      * ✅ NOUVELLE MÉTHODE: Obtenir la remise par type de client (UNIQUEMENT depuis la base)
      * Retourne null si aucune remise n'est configurée en base
@@ -270,35 +192,6 @@ public class ClientService {
             }
         } catch (IllegalArgumentException e) {
             return null;
-        }
-    }
-
-    /**
-     * ✅ Méthode utilitaire pour vérifier si un type a des remises configurées
-     */
-    public boolean hasRemiseConfigured(String typeClient) {
-        Double remise = getRemiseForClientType(typeClient);
-        return remise != null && remise > 0;
-    }
-
-    /**
-     * Obtenir la remise effective d'un client (priorité à la valeur personnalisée)
-     */
-    public Double getRemiseEffective(Client client) {
-        if (client == null) return null;
-
-        switch (client.getTypeClient()) {
-            case VIP:
-                return client.getRemiseClientVIP();
-            case PROFESSIONNEL:
-                return client.getRemiseClientProfessionnelle();
-            case FIDELE:
-                return client.getRemiseClientFidele();
-            case ENTREPRISE:
-                return client.getRemiseClientProfessionnelle(); // Ou null selon votre logique
-            case PARTICULIER:
-            default:
-                return null;
         }
     }
 

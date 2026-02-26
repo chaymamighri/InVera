@@ -41,33 +41,4 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
     List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorie(
             String libelle, Produit.StockStatus status, Integer categorieId);
 
-
-    @Query("SELECT p FROM Produit p " +
-            "WHERE p.quantiteStock <= p.seuilMinimum AND p.quantiteStock > 0 " +
-            "ORDER BY p.quantiteStock ASC")
-    List<Produit> findLowStockProducts();
-
-    @Query("SELECT p FROM Produit p " +
-            "WHERE p.quantiteStock <= 0")
-    List<Produit> findOutOfStockProducts();
-
-
-    // Vérifier si un produit existe avec un certain libellé dans une catégorie
-    /*boolean existsByLibelleAndCategorieIdCategorie(String libelle, Integer categorieId);
-    @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$Alerte(" +
-            "p.idProduit, p.libelle, " +
-            "CONCAT('Stock: ', p.quantiteStock, ' ', p.uniteMesure), 'STOCK_FAIBLE', " +
-            "'Réapprovisionner', NULL, NULL) " +
-            "FROM Produit p " +
-            "WHERE p.quantiteStock <= p.seuilMinimum AND p.quantiteStock > 0 " +
-            "ORDER BY p.quantiteStock ASC LIMIT :limit")
-    List<DashboardDTO.Alerte> stocksFaibles(@Param("limit") int limit);
-
-    @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$Alerte(" +
-            "p.idProduit, p.libelle, 'Rupture de stock', 'RUPTURE', " +
-            "'Commander', NULL, NULL) " +
-            "FROM Produit p " +
-            "WHERE p.quantiteStock <= 0 LIMIT :limit")
-    List<DashboardDTO.Alerte> produitsRupture(@Param("limit") int limit);*/
-
 }

@@ -1,11 +1,8 @@
 package org.erp.invera.controller;
 
 import org.erp.invera.dto.*;
-import org.erp.invera.model.Client;
 import org.erp.invera.model.CommandeClient;
-import org.erp.invera.model.LigneCommandeClient;
 import org.erp.invera.model.Produit;
-import org.erp.invera.repository.ClientRepository;
 import org.erp.invera.repository.CommandeClientRepository;
 import org.erp.invera.repository.UserRepository;
 import org.erp.invera.service.CommandeClientService;
@@ -17,7 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 

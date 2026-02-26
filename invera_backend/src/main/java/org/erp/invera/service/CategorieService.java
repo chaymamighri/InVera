@@ -15,6 +15,7 @@ public class CategorieService {
     @Autowired
     private CategorieRepository categorieRepository;
 
+
     public Categorie save(Categorie categorie) {
         // Vérifier si le nom existe déjà
         if (categorieRepository.findByNomCategorieIgnoreCase(categorie.getNomCategorie()).isPresent()) {
@@ -23,14 +24,17 @@ public class CategorieService {
         return categorieRepository.save(categorie);
     }
 
+
     public List<Categorie> findAll() {
         return categorieRepository.findAllByOrderByNomCategorieAsc();
     }
+
 
     public Categorie findById(Integer id) {
         return categorieRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Catégorie non trouvée avec l'ID: " + id));
     }
+
 
     public Categorie update(Integer id, Categorie categorieDetails) {
         Categorie categorie = findById(id);
@@ -48,6 +52,7 @@ public class CategorieService {
         return categorieRepository.save(categorie);
     }
 
+
     public void deleteById(Integer id) {
         Categorie categorie = findById(id);
 
@@ -58,6 +63,7 @@ public class CategorieService {
 
         categorieRepository.delete(categorie);
     }
+
 
     public List<Categorie> search(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {

@@ -195,6 +195,7 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
+
     private Periode calculerPeriode(String period) {
         LocalDate now = LocalDate.now();
         Periode p = new Periode();
@@ -227,6 +228,7 @@ public class DashboardService {
         }
         return p;
     }
+
 
     private DashboardDTO.KPI calculerKPI(Periode p) {
         // Convertir LocalDate en LocalDateTime pour les requêtes
@@ -331,6 +333,7 @@ public class DashboardService {
         );
     }
 
+
     private DashboardDTO.Charts calculerCharts(Periode p) {
         // Évolution 7 jours
         List<DashboardDTO.Point> evolution = new ArrayList<>();
@@ -348,9 +351,10 @@ public class DashboardService {
         return new DashboardDTO.Charts(
                 evolution,
                 commandeRepo.topProduits(debut, fin, 5),
-                new ArrayList<>() // Repartition statuts (déplacé dans statusRepartition)
+                new ArrayList<>()
         );
     }
+
 
     private BigDecimal calculerVariation(BigDecimal current, BigDecimal previous) {
         if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
@@ -362,6 +366,7 @@ public class DashboardService {
                 .multiply(BigDecimal.valueOf(100));
     }
 
+    // class ou object interne pour (conteneur de date )
     @lombok.Data
     private static class Periode {
         private LocalDate debut;

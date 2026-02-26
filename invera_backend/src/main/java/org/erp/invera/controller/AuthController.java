@@ -39,7 +39,7 @@ public class AuthController {
     @Autowired private PasswordResetTokenRepository passwordResetTokenRepository;
     @Autowired private EmailService emailService;
 
-    @Autowired private NotificationRepository notificationRepository; // ✅ NEW
+    @Autowired private NotificationRepository notificationRepository;
 
     // ===== LOGIN =====
     @PostMapping("/login")

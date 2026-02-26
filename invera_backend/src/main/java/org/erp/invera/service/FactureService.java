@@ -23,41 +23,16 @@ public class FactureService {
     @Autowired
     private ClientRepository clientRepository;
 
+
+
     // ===== GÉNÉRATION =====
 
-    /**
-     * Génère une facture à partir d'une commande validée
-     */
-    @Transactional
-    public FactureClient genererFactureDepuisCommande(Integer commandeId) {
-        // 1. Récupérer la commande
-        CommandeClient commande = commandeRepository.findById(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + commandeId));
 
-        // 2. Vérifier que la commande est validée
-        if (commande.getStatut() != CommandeClient.StatutCommande.CONFIRMEE) {
-            throw new RuntimeException("Seules les commandes validées peuvent être facturées");
-        }
 
-        // 3. Vérifier qu'une facture n'existe pas déjà
-        if (factureRepository.existsByCommandeIdCommandeClient(commandeId)) {
-            throw new RuntimeException("Une facture existe déjà pour cette commande");
-        }
 
-        // 4. Créer la facture
-        FactureClient facture = new FactureClient();
-        facture.setCommande(commande);
-        facture.setClient(commande.getClient());
-        facture.setDateFacture(LocalDateTime.now());
-        facture.setReferenceFactureClient(genererReferenceFacture());
-        facture.setMontantTotal(commande.getTotal());
-        facture.setStatut(FactureClient.StatutFacture.NON_PAYE); // Par défaut non payée
 
-        // 5. Sauvegarder
-        return factureRepository.save(facture);
-    }
 
-    // ===== RECHERCHE PAR ID =====
+
 
     /**
      * Récupérer une facture par son ID
@@ -67,15 +42,7 @@ public class FactureService {
                 .orElseThrow(() -> new RuntimeException("Facture non trouvée avec l'ID: " + factureId));
     }
 
-    // ===== RECHERCHE PAR RÉFÉRENCE =====
 
-    /**
-     * Récupérer une facture par sa référence
-     */
-    public FactureClient getFactureByReference(String reference) {
-        return factureRepository.findByReferenceFactureClient(reference)
-                .orElseThrow(() -> new RuntimeException("Facture non trouvée: " + reference));
-    }
 
     // ===== RECHERCHE PAR COMMANDE =====
 
@@ -103,13 +70,6 @@ public class FactureService {
         return factureRepository.findByClientIdClient(clientId);
     }
 
-    /**
-     * Récupérer les factures par statut
-     */
-    public List<FactureClient> getFacturesByStatut(FactureClient.StatutFacture statut) {
-        return factureRepository.findByStatut(statut);
-    }
-
     // ===== MISE À JOUR =====
 
     /**
@@ -123,18 +83,11 @@ public class FactureService {
     }
 
     // ===== UTILITAIRES =====
-
-    /**
-     * Vérifier si une facture existe pour une commande
-     */
-    public boolean factureExistePourCommande(Integer commandeId) {
-        return factureRepository.existsByCommandeIdCommandeClient(commandeId);
-    }
-
     /**
      * Génère une référence unique pour la facture
      * Format: FAC-YYYYMMDD-XXXX
      */
+
     private String genererReferenceFacture() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         String datePart = LocalDateTime.now().format(formatter);
