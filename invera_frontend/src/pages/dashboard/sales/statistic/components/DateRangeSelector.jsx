@@ -14,16 +14,8 @@ const DateRangeSelector = ({
   const [dateError, setDateError] = useState('');
   const [lastCustomRange, setLastCustomRange] = useState(null);
 
-  // Initialiser avec le mois en cours au premier affichage
-  useEffect(() => {
-    if (showPicker && !startDate && !endDate) {
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      setStartDate(formatDateForInput(firstDay));
-      setEndDate(formatDateForInput(lastDay));
-    }
-  }, [showPicker]);
+  // ✅ PLUS D'INITIALISATION AUTOMATIQUE - dates vides par défaut
+  // useEffect supprimé
 
   const handleApplyCustom = () => {
     if (!startDate || !endDate) {
@@ -63,10 +55,7 @@ const DateRangeSelector = ({
   const handleClosePicker = () => {
     setShowPicker(false);
     setDateError('');
-    if (lastCustomRange) {
-      setStartDate(lastCustomRange.start);
-      setEndDate(lastCustomRange.end);
-    }
+    // ✅ Ne pas restaurer lastCustomRange
   };
 
   const formatDateForInput = (date) => {
@@ -95,8 +84,17 @@ const DateRangeSelector = ({
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
 
+  // ✅ Fonction pour réinitialiser (si besoin)
+  const handleReset = () => {
+    setStartDate('');
+    setEndDate('');
+    setLastCustomRange(null);
+    setDateError('');
+    onApplyCustom('', ''); // ← Appel avec dates vides
+  };
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 relative">
       {/* Bouton d'ouverture du calendrier */}
       <motion.button
         whileHover={{ scale: 1.02 }}
@@ -129,6 +127,19 @@ const DateRangeSelector = ({
         <span className="text-sm font-medium">Rafraîchir</span>
       </motion.button>
 
+      {/* Bouton Reset (optionnel) */}
+      {lastCustomRange && (
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleReset}
+          className="px-3 py-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+          title="Réinitialiser"
+        >
+          <X className="w-4 h-4" />
+        </motion.button>
+      )}
+
       {/* Sélecteur de dates */}
       <AnimatePresence>
         {showPicker && (
@@ -137,7 +148,6 @@ const DateRangeSelector = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-2xl border p-5 z-50 w-[500px]"
-            style={{ top: '100%', right: 0 }}
           >
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-xl" />
             

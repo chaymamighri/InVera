@@ -191,7 +191,7 @@ const InvoicingPage = () => {
       clientType: facture.client?.typeClient,
       total: facture.montantTotal,
       status: facture.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
-      statut: facture.statut // Garder le statut original pour le modal
+      statut: facture.statut 
     };
     
     setSelectedFacture(factureDetaillee);
@@ -363,7 +363,7 @@ const InvoicingPage = () => {
       // 6. Créer un élément div temporaire avec le template
       const element = document.createElement('div');
       element.innerHTML = InvoiceTemplate({ 
-        facture: facturePourTemplate, // Utiliser la version transformée
+        facture: facturePourTemplate, 
         items, 
         totaux, 
         formatDate, 
@@ -400,22 +400,6 @@ const InvoicingPage = () => {
     }
   };
 
-  // send facture to client avec email
-  const handleSendEmail = async (facture, e) => {
-    e?.stopPropagation();
-    
-    if (!facture.client?.email) {
-      alert('Ce client n\'a pas d\'adresse email renseignée');
-      return;
-    }
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert(`Email envoyé à ${facture.client.email}`);
-    } catch (error) {
-      alert('Erreur lors de l\'envoi de l\'email');
-    }
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -534,7 +518,6 @@ const InvoicingPage = () => {
         onSort={handleSort}
         onView={handleViewInvoice}
         onDownload={handleDownloadInvoice}
-        onSendEmail={handleSendEmail}
         downloadLoading={downloadLoading}
         formatDate={formatDate}
         formatMontant={formatMontant}

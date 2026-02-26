@@ -11,11 +11,9 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   CalendarIcon,
-  TagIcon,
   DocumentArrowDownIcon,
   TableCellsIcon,
   MapPinIcon,
-  CreditCardIcon
 } from '@heroicons/react/24/outline';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -25,7 +23,7 @@ import html2pdf from 'html2pdf.js';
 import InvoiceTemplate from './InvoiceTemplate';
 
 const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
-  // ✅ 1. TOUS LES HOOKS EN PREMIER
+  //  TOUS LES HOOKS EN PREMIER
   const [updating, setUpdating] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [items, setItems] = useState([]);
@@ -87,7 +85,7 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
     }
   }, [facture, isOpen]);
 
-  // ✅ 2. APRÈS tous les Hooks, on vérifie les conditions
+  //  APRÈS tous les Hooks, on vérifie les conditions
   if (!isOpen || !facture) return null;
 
   // Formatage de la date
@@ -111,9 +109,9 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
     }).format(nombre) + ' DT';
   };
 
-// Dans InvoiceModal.jsx - VERSION CORRIGÉE
+
 const handleStatusChange = async () => {
-  // ✅ Utiliser l'ID de la facture (11) et non l'ID de la commande (2)
+  
   const factureId = facture.id;
   
   console.log('🔍 ID facture à payer:', factureId);
@@ -124,10 +122,10 @@ const handleStatusChange = async () => {
   try {
     setUpdating(true);
     
-    // ✅ Appel API avec l'ID de la facture (11)
+    // Appel API avec l'ID de la facture (11)
     await commandeService.marquerFacturePayee(factureId);
     
-    // ✅ Passer l'ID de la facture au parent (11)
+    // Passer l'ID de la facture au parent (11)
     if (onStatusChange) {
       await onStatusChange(factureId, 'payée');
     }

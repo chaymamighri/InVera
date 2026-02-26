@@ -493,7 +493,6 @@ const ProductsConsultationPage = () => {
 
       const nouvellesCommandes = [...commandes, nouvelleCommande];
       setCommandes(nouvellesCommandes);
-      localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
       
       // Mettre à jour les stocks
       for (const product of selectedProducts) {

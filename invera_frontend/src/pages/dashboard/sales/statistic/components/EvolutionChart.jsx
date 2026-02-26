@@ -1,24 +1,32 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Calendar } from 'lucide-react';
 
 const EvolutionChart = ({ data, formatCurrency }) => {
   console.log('📊 EvolutionChart data:', data);
   
   if (!data || data.length === 0) {
     return (
-      <div className="h-64 w-full flex items-center justify-center text-gray-400">
-        Aucune donnée disponible
+      <div className="h-64 w-full flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-lg border-2 border-dashed border-gray-200">
+        <div className="text-5xl mb-4 animate-pulse">📊</div>
+        <p className="text-sm font-medium text-gray-500">Aucune donnée à afficher</p>
+        <p className="text-xs text-gray-400 mt-2 text-center max-w-xs px-4">
+          Sélectionnez une période dans le calendrier<br />
+          pour visualiser l'évolution du chiffre d'affaires
+        </p>
+        <div className="flex items-center gap-2 mt-4 text-blue-500">
+          <Calendar className="w-4 h-4" />
+          <span className="text-xs">Cliquez sur le calendrier pour commencer</span>
+        </div>
       </div>
     );
   }
 
-  // ✅ GARDER LA VALEUR RÉELLE - PAS DE TRANSFORMATION
   const maxValue = Math.max(...data.map(d => d.valeur), 1);
 
   return (
     <div className="h-64 w-full flex items-end space-x-2">
       {data.map((point, index) => {
-        // ✅ Hauteur basée sur la VRAIE valeur (préservation des données)
         const heightPercentage = (point.valeur / maxValue) * 100;
         
         return (
@@ -30,9 +38,7 @@ const EvolutionChart = ({ data, formatCurrency }) => {
                 transition={{ duration: 0.5, delay: index * 0.05 }}
                 className="w-full bg-gradient-to-t from-blue-500 to-cyan-500 rounded-t-lg group-hover:from-blue-600 group-hover:to-cyan-600 transition-all cursor-pointer relative"
                 style={{ 
-                  // ✅ Seulement un ajustement visuel minimum
                   minHeight: point.valeur > 0 ? '6px' : '2px',
-                  // ✅ Opacité basée sur la valeur (optionnel)
                   opacity: 0.7 + (heightPercentage / 300)
                 }}
               >
