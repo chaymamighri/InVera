@@ -3,69 +3,72 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: 'http://localhost:8081/api', 
+  headers: { 
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  timeout: 10000
 });
 
-const clearSession = () => {
-  ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((k) =>
-    localStorage.removeItem(k)
-  );
-};
-
-const redirectToLoginOnce = (message) => {
-  // show on login page too
-  if (message) sessionStorage.setItem('authError', message);
-
-  // avoid redirect loop
-  if (window.location.pathname === '/login') return;
-
-  // prevent multiple triggers
-  if (window.__redirectingToLogin) return;
-  window.__redirectingToLogin = true;
-
-  setTimeout(() => {
-    window.location.href = '/login';
-  }, 300);
-};
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    const cleanedToken = String(token).replace(/^"|"$/g, '').trim();
-    const normalizedToken = cleanedToken.startsWith('Bearer ')
-      ? cleanedToken.slice(7)
-      : cleanedToken;
-
-    config.headers.Authorization = `Bearer ${normalizedToken}`;
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  (response) => response,
+// ✅ Intercepteur avec LOGS OBLIGATOIRES pour debug
+api.interceptors.request.use(
+  (config) => {
+    console.log('=== INTERCEPTEUR REQUÊTE DÉCLENCHÉ ===');
+    console.log('URL complète:', config.baseURL + config.url);
+    console.log('Méthode:', config.method);
+    
+    // 1. Vérifier les DEUX sources
+    const sessionToken = sessionStorage.getItem('token');
+    const localToken = localStorage.getItem('token');
+    
+    console.log('Session token:', sessionToken ? 'PRÉSENT' : 'ABSENT');
+    console.log('Local token:', localToken ? 'PRÉSENT' : 'ABSENT');
+    console.log('Remember me:', localStorage.getItem('rememberMe') === 'true' ? 'OUI' : 'NON');
+    
+    // 2. Choisir le token
+    const token = sessionToken || localToken;
+    
+    // 3. Ajouter le token aux headers
+    if (token) {
+      const cleanedToken = token.replace(/^"|"$/g, '').trim();
+      config.headers.Authorization = `Bearer ${cleanedToken}`;
+      console.log('✅ TOKEN AJOUTÉ !');
+      console.log('Authorization:', config.headers.Authorization.substring(0, 30) + '...');
+    } else {
+      console.log('❌ AUCUN TOKEN TROUVÉ !');
+    }
+    
+    console.log('=====================================');
+    return config;
+  },
   (error) => {
-    const status = error?.response?.status;
-    const msg =
-      error?.response?.data?.message ||
-      error?.response?.data ||
-      error?.message ||
-      'Erreur serveur';
+    console.error('❌ Erreur intercepteur request:', error);
+    return Promise.reject(error);
+  }
+);
 
-    if (status === 401) {
-      clearSession();
-      toast.error('Session expirée. Veuillez vous reconnecter.');
-      redirectToLoginOnce('Session expirée. Veuillez vous reconnecter.');
+// Intercepteur response
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ Réponse reçue:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('❌ Erreur réponse:', error.config?.url, error.response?.status);
+    
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Nettoyer les tokens
+      ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+       'rememberMe', 'savedEmail', 'tokenExpiry'].forEach(k => 
+        localStorage.removeItem(k)
+      );
+      sessionStorage.removeItem('token');
+      
+      toast.error('Session expirée');
+      window.location.href = '/login';
     }
-
-    if (status === 403) {
-      // typical for "account deactivated"
-      clearSession();
-      const text = typeof msg === 'string' ? msg : 'Accès refusé. Compte désactivé.';
-      toast.error(text);
-      redirectToLoginOnce(text);
-    }
-
+    
     return Promise.reject(error);
   }
 );

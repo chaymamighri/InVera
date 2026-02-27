@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 
 const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) => {
   const navigate = useNavigate();
-  const { forgotPassword, resetPassword, loading: authLoading } = useAuth(); // AJOUTEZ resetPassword ici
+  const { forgotPassword, resetPassword, loading: authLoading } = useAuth(); 
   
   const [mode, setMode] = useState('login');
   const [formData, setFormData] = useState({
@@ -27,18 +27,28 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   });
   const [countdown, setCountdown] = useState(0);
 
-  useEffect(() => {
-    const rememberMe = localStorage.getItem('rememberMe');
-    const savedEmailFromStorage = localStorage.getItem('savedEmail');
-    
-    if (rememberMe === 'true' && savedEmailFromStorage) {
-      setFormData(prev => ({
-        ...prev,
-        email: savedEmailFromStorage,
-        rememberMe: true
-      }));
-    }
-  }, []);
+// Dans LoginForm.jsx
+useEffect(() => {
+  const rememberMe = localStorage.getItem('rememberMe');
+  const savedEmail = localStorage.getItem('savedEmail');
+  const expiry = localStorage.getItem('tokenExpiry');
+  
+  // Vérifier si rememberMe est encore valide
+  if (expiry && new Date(expiry) < new Date()) {
+    localStorage.removeItem('rememberMe');
+    localStorage.removeItem('savedEmail');
+    localStorage.removeItem('tokenExpiry');
+    return;
+  }
+  
+  if (rememberMe === 'true' && savedEmail) {
+    setFormData(prev => ({
+      ...prev,
+      email: savedEmail,
+      rememberMe: true
+    }));
+  }
+}, []);
 
   useEffect(() => {
     if (countdown > 0) {

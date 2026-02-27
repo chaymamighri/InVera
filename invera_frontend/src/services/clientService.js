@@ -1,15 +1,11 @@
 // src/services/clientService.js
 import api from './api';
-import { authHeader } from './authHeader';
 
 const clientService = {
   // Récupérer tous les clients
   getAllClients: async (params = {}) => {
     try {
-      const response = await api.get('/clients/liste', { 
-        params,
-        headers: authHeader(),
-      });
+      const response = await api.get('/clients/liste', {params});
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des clients:', error);
@@ -20,9 +16,7 @@ const clientService = {
   // Créer un nouveau client
   createClient: async (clientData) => {
     try {
-      const response = await api.post('/clients/creer', clientData, { 
-        headers: authHeader(),
-      });
+      const response = await api.post('/clients/creer', clientData);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la création du client:', error);
@@ -35,7 +29,6 @@ const clientService = {
     try {
       const response = await api.get('/clients/rechercher', {
         params: { q: searchTerm },
-        headers: authHeader(),
       });
       return response.data;
     } catch (error) {
@@ -47,9 +40,7 @@ const clientService = {
   // Récupérer un client par ID
   getClientById: async (id) => {
     try {
-      const response = await api.get(`/clients/${id}`, {
-        headers: authHeader(),
-      });
+      const response = await api.get(`/clients/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération du client ${id}:`, error);
@@ -60,9 +51,7 @@ const clientService = {
   // Mettre à jour un client (admin only – not used in this view)
   updateClient: async (id, clientData) => {
     try {
-      const response = await api.post(`/clients/update/${id}`, clientData, { 
-        headers: authHeader(),
-      });
+      const response = await api.post(`/clients/update/${id}`, clientData );
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la mise à jour du client ${id}:`, error);
@@ -73,9 +62,7 @@ const clientService = {
   // Supprimer un client (admin only – not used in this view)
   deleteClient: async (id) => {
     try {
-      const response = await api.delete(`/clients/${id}`, {
-        headers: authHeader(),
-      });
+      const response = await api.delete(`/clients/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la suppression du client ${id}:`, error);
@@ -97,9 +84,7 @@ const clientService = {
   // Récupérer la remise par type de client
   getRemiseByType: async (typeClient) => {
     try {
-      const response = await api.get(`/clients/remise/${typeClient}`, {
-        headers: authHeader(),
-      });
+      const response = await api.get(`/clients/remise/${typeClient}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération de la remise pour ${typeClient}:`, error);
@@ -114,7 +99,6 @@ const clientService = {
       const response = await api.put(
         `/clients/type/${type}/remise`,
         { remise: discount },
-        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -128,7 +112,6 @@ const clientService = {
     try {
       const response = await api.get('/clients/verifier-telephone', {
         params: { telephone },
-        headers: authHeader(),
       });
       return response.data;
     } catch (error) {

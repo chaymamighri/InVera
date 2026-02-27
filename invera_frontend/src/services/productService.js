@@ -1,15 +1,11 @@
 // src/services/productService.js
 import api from './api';
-import { authHeader } from './authHeader';
 
 const productService = {
   // Récupérer tous les produits
   getAllProducts: async (params = {}) => {
     try {
-      const response = await api.get('/produits/all', {  // ← Changé de /product/getallproduct à /produits/all
-        params,
-        headers: authHeader(),
-      });
+      const response = await api.get('/produits/all', {params});
       
       // La réponse du backend a la structure: { success, count, produits }
       // On extrait les produits pour simplifier l'utilisation
@@ -30,9 +26,7 @@ const productService = {
   // Récupérer un produit par ID
   getProductById: async (id) => {
     try {
-      const response = await api.get(`/produits/${id}`, {  // ← Changé
-        headers: authHeader(),
-      });
+      const response = await api.get(`/produits/${id}`);
       
       // La réponse du backend: { success, produit }
       if (response.data && response.data.success) {
@@ -54,9 +48,7 @@ const productService = {
       if (filters.status) params.append('status', filters.status);
       if (filters.categorieId) params.append('categorieId', filters.categorieId);
       
-      const response = await api.get(`/produits/search?${params.toString()}`, {  // ← Changé
-        headers: authHeader(),
-      });
+      const response = await api.get(`/produits/search?${params.toString()}`);
       
       // La réponse du backend: { success, count, produits }
       if (response.data && response.data.success) {
@@ -76,9 +68,7 @@ const productService = {
   // Créer un nouveau produit
   createProduct: async (productData) => {
     try {
-      const response = await api.post('/produits/add', productData, {  // ← Changé
-        headers: authHeader(),
-      });
+    const response = await api.post('/produits/add', productData);
       return response.data; // { success, message, produit }
     } catch (error) {
       console.error('Erreur lors de la création du produit:', error);
@@ -89,9 +79,7 @@ const productService = {
   // Mettre à jour un produit
   updateProduct: async (id, productData) => {
     try {
-      const response = await api.put(`/produits/update/${id}`, productData, {  // ← Changé
-        headers: authHeader(),
-      });
+      const response = await api.put(`/produits/update/${id}`, productData);
       return response.data; // { success, message, produit }
     } catch (error) {
       console.error(`Erreur lors de la mise à jour du produit ${id}:`, error);
@@ -102,9 +90,7 @@ const productService = {
   // Supprimer un produit
   deleteProduct: async (id) => {
     try {
-      const response = await api.delete(`/produits/delete/${id}`, {  // ← Changé
-        headers: authHeader(),
-      });
+      const response = await api.delete(`/produits/delete/${id}`);
       return response.data; // { success, message }
     } catch (error) {
       console.error(`Erreur lors de la suppression du produit ${id}:`, error);
@@ -115,9 +101,7 @@ const productService = {
   // Mettre à jour le stock
   updateStock: async (id, quantite) => {
     try {
-      const response = await api.patch(`/produits/${id}/stock?quantite=${quantite}`, {}, {
-        headers: authHeader(),
-      });
+      const response = await api.patch(`/produits/${id}/stock?quantite=${quantite}`);
       return response.data; // { success, message, produit, nouveauStock, status }
     } catch (error) {
       console.error(`Erreur lors de la mise à jour du stock ${id}:`, error);
@@ -128,9 +112,7 @@ const productService = {
   // Décrémenter le stock (après vente)
   decrementerStock: async (id, quantite) => {
     try {
-      const response = await api.post(`/produits/${id}/decrementer-stock?quantite=${quantite}`, {}, {
-        headers: authHeader(),
-      });
+      const response = await api.post(`/produits/${id}/decrementer-stock?quantite=${quantite}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la décrémentation du stock ${id}:`, error);
@@ -141,9 +123,7 @@ const productService = {
   // Incrémenter le stock (réapprovisionnement)
   incrementerStock: async (id, quantite) => {
     try {
-      const response = await api.post(`/produits/${id}/incrementer-stock?quantite=${quantite}`, {}, {
-        headers: authHeader(),
-      });
+      const response = await api.post(`/produits/${id}/incrementer-stock?quantite=${quantite}`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de l'incrémentation du stock ${id}:`, error);
@@ -154,9 +134,7 @@ const productService = {
   // Vérifier la disponibilité d'un produit
   verifierDisponibilite: async (id, quantite) => {
     try {
-      const response = await api.get(`/produits/${id}/verifier-disponibilite?quantite=${quantite}`, {
-        headers: authHeader(),
-      });
+      const response = await api.get(`/produits/${id}/verifier-disponibilite?quantite=${quantite}`);
       return response.data; // { success, disponible, message, ... }
     } catch (error) {
       console.error(`Erreur lors de la vérification de disponibilité ${id}:`, error);
@@ -167,9 +145,7 @@ const productService = {
   // Récupérer les produits par catégorie
   getProductsByCategorie: async (categorieId) => {
     try {
-      const response = await api.get(`/produits/categorie/${categorieId}`, {
-        headers: authHeader(),
-      });
+      const response = await api.get(`/produits/categorie/${categorieId}`);
       
       if (response.data && response.data.success) {
         return {
@@ -187,9 +163,7 @@ const productService = {
   // Récupérer les produits avec stock faible
   getLowStockProducts: async () => {
     try {
-      const response = await api.get('/produits/low-stock', {
-        headers: authHeader(),
-      });
+      const response = await api.get('/produits/low-stock');
       
       if (response.data && response.data.success) {
         return {
@@ -207,9 +181,7 @@ const productService = {
   // Récupérer les statistiques des produits
   getProductStats: async () => {
     try {
-      const response = await api.get('/produits/stats', {
-        headers: authHeader(),
-      });
+      const response = await api.get('/produits/stats');
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des statistiques:', error);

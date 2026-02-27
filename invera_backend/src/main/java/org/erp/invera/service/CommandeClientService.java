@@ -171,6 +171,8 @@ public class CommandeClientService {
         return savedCommande;
     }
 
+
+
     @Transactional
     public CommandeClient updateCommande(Integer commandeId, CommandeUpdateRequestDTO request) {
 
@@ -217,6 +219,8 @@ public class CommandeClientService {
         // Sauvegarder
         return commandeClientRepository.save(commande);
     }
+
+
 
     private void updateLignesCommande(CommandeClient commande, List<ProduitCommandeUpdateDTO> produitsDTO) {
 
@@ -265,6 +269,7 @@ public class CommandeClientService {
         }
     }
 
+
     private void updateExistingLigne(CommandeClient commande, ProduitCommandeUpdateDTO produitDTO) {
         LigneCommandeClient ligne = commande.getLignesCommande().stream()
                 .filter(l -> l.getIdLigneCommandeClient().equals(produitDTO.getId()))
@@ -304,6 +309,8 @@ public class CommandeClientService {
                 " | Nouvelle qté: " + nouvelleQuantite +
                 " | Ajustement stock: " + differenceStock);
     }
+
+
 
     private void addNewLigne(CommandeClient commande, ProduitCommandeUpdateDTO produitDTO) {
         // Récupérer le produit
@@ -348,6 +355,7 @@ public class CommandeClientService {
                 " | Stock restant: " + nouveauStock);
     }
 
+
     // Méthode utilitaire pour la conversion sécurisée Double -> BigDecimal
     private BigDecimal safeToBigDecimal(Double value) {
         if (value == null) {
@@ -360,6 +368,8 @@ public class CommandeClientService {
             return BigDecimal.ZERO;
         }
     }
+
+
 
     // Méthode pour calculer le sous-total
     private BigDecimal calculerSousTotal(List<LigneCommandeClient> lignes) {
@@ -374,6 +384,7 @@ public class CommandeClientService {
         return BigDecimal.ZERO;
     }
 
+
     // Méthode pour générer une référence de commande unique
     private String genererReferenceCommande() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
@@ -381,19 +392,4 @@ public class CommandeClientService {
         return "CMD-" + timestamp + "-" + (int)(Math.random() * 1000);
     }
 
-    // Nouvelle méthode pour vérifier la disponibilité avec List<ProduitCommandeRequestDTO>
-    private void verifierDisponibiliteProduits(List<ProduitCommandeRequestDTO> produits) {
-        if (produits == null || produits.isEmpty()) {
-            throw new RuntimeException("Aucun produit spécifié");
-        }
-
-        for (ProduitCommandeRequestDTO produitDTO : produits) {
-            Integer produitId = produitDTO.getProduitId();
-            Integer quantiteDemandee = produitDTO.getQuantite();
-
-            if (!produitService.verifierDisponibilite(produitId, quantiteDemandee)) {
-                throw new RuntimeException("Stock insuffisant pour le produit ID: " + produitId);
-            }
-        }
-    }
 }
