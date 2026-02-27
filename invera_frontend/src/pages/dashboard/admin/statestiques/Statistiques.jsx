@@ -21,14 +21,18 @@ import { useReports } from '../../../../hooks/useReports';
 
 /* ================= HELPERS ================= */
 
+/**
+ * Palette “colorée” (évite noir/blanc).
+ * Tip: ordre = couleurs les plus utilisées en premier.
+ */
 const COLORS = [
-  '#111827',
-  '#2563EB',
-  '#16A34A',
-  '#F59E0B',
-  '#DB2777',
-  '#7C3AED',
-  '#DC2626',
+  '#4F46E5', // indigo
+  '#0EA5E9', // sky
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EC4899', // pink
+  '#8B5CF6', // violet
+  '#EF4444', // red
 ];
 
 const pickFirst = (obj, keys, fallback = null) => {
@@ -134,18 +138,18 @@ const buildComparison = (items = []) => {
 /* ================= UI ================= */
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen bg-gray-50">
+  <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-emerald-50">
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">{children}</div>
   </div>
 );
 
 const Card = ({ title, subtitle, right, children }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 shadow-sm backdrop-blur">
     {(title || right) && (
-      <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 border-b border-indigo-100/70 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
-          {title ? <h2 className="text-base font-semibold text-gray-900">{title}</h2> : null}
-          {subtitle ? <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p> : null}
+          {title ? <h2 className="text-base font-semibold text-slate-800">{title}</h2> : null}
+          {subtitle ? <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p> : null}
         </div>
         {right ? <div className="flex flex-wrap items-center gap-2">{right}</div> : null}
       </div>
@@ -159,7 +163,9 @@ const Tab = ({ active, children, ...props }) => (
     type="button"
     className={[
       'rounded-xl px-4 py-2 text-sm font-semibold transition',
-      active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+      active
+        ? 'bg-indigo-600 text-indigo-50 shadow-sm'
+        : 'bg-sky-100/70 text-slate-700 hover:bg-sky-100',
     ].join(' ')}
     {...props}
   >
@@ -170,7 +176,7 @@ const Tab = ({ active, children, ...props }) => (
 const PrimaryButton = ({ className = '', ...props }) => (
   <button
     type="button"
-    className={`rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    className={`rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-50 shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     {...props}
   />
 );
@@ -178,23 +184,23 @@ const PrimaryButton = ({ className = '', ...props }) => (
 const SoftButton = ({ className = '', ...props }) => (
   <button
     type="button"
-    className={`rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    className={`rounded-xl bg-sky-100/70 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     {...props}
   />
 );
 
 const Kpi = ({ label, value, hint }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="text-xs font-medium text-gray-500">{label}</div>
-    <div className="mt-1 text-2xl font-semibold text-gray-900">{value}</div>
-    {hint ? <div className="mt-1 text-xs text-gray-500">{hint}</div> : null}
+  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 p-4 shadow-sm">
+    <div className="text-xs font-medium text-slate-600">{label}</div>
+    <div className="mt-1 text-2xl font-semibold text-slate-800">{value}</div>
+    {hint ? <div className="mt-1 text-xs text-slate-600">{hint}</div> : null}
   </div>
 );
 
 const EmptyBox = ({ title, description }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center">
-    <div className="text-base font-semibold text-gray-900">{title}</div>
-    <div className="mt-1 text-sm text-gray-500">{description}</div>
+  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 p-10 text-center">
+    <div className="text-base font-semibold text-slate-800">{title}</div>
+    <div className="mt-1 text-sm text-slate-600">{description}</div>
   </div>
 );
 
@@ -211,11 +217,11 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
   const top = rows.filter((r) => r.name !== 'Total').slice(0, 5);
 
   return (
-    <div className="min-w-[260px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
-      <div className="text-xs font-semibold text-gray-900">{label}</div>
-      <div className="mt-1 text-xs text-gray-500">
+    <div className="min-w-[260px] rounded-xl border border-indigo-100/70 bg-slate-50/95 p-3 shadow-lg backdrop-blur">
+      <div className="text-xs font-semibold text-slate-800">{label}</div>
+      <div className="mt-1 text-xs text-slate-600">
         Total:{' '}
-        <span className="font-semibold text-gray-900">
+        <span className="font-semibold text-slate-800">
           {formatMoney(total)} {suffix}
         </span>
       </div>
@@ -226,15 +232,15 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
             <div key={r.name} className="flex items-center justify-between gap-6 text-xs">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
-                <span className="text-gray-700">{r.name}</span>
+                <span className="text-slate-700">{r.name}</span>
               </div>
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-slate-800">
                 {formatMoney(r.value)} {suffix}
               </span>
             </div>
           ))}
           {rows.filter((r) => r.name !== 'Total').length > 5 && (
-            <div className="pt-1 text-[11px] text-gray-500">+ autres responsables…</div>
+            <div className="pt-1 text-[11px] text-slate-600">+ autres responsables…</div>
           )}
         </div>
       )}
@@ -344,12 +350,12 @@ const Statistiques = () => {
       {/* Header */}
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Statistiques</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
+          <p className="mt-1 text-sm text-slate-600">
             {filters.startDate || filters.endDate ? (
               <>
-                Dates: <span className="font-semibold text-gray-800">{filters.startDate ?? '—'}</span> →{' '}
-                <span className="font-semibold text-gray-800">{filters.endDate ?? '—'}</span>
+                Dates: <span className="font-semibold text-slate-700">{filters.startDate ?? '—'}</span> →{' '}
+                <span className="font-semibold text-slate-700">{filters.endDate ?? '—'}</span>
               </>
             ) : (
               <>Choisissez une plage de dates pour filtrer.</>
@@ -381,22 +387,22 @@ const Statistiques = () => {
       <Card title="Filtrer par dates" subtitle="Sélectionnez une date début et une date fin, puis cliquez sur Appliquer.">
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-4">
-            <label className="text-xs font-medium text-gray-600">Date début</label>
+            <label className="text-xs font-medium text-slate-700">Date début</label>
             <input
               type="date"
               value={dateFromDraft}
               onChange={(e) => setDateFromDraft(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-200"
+              className="mt-1 w-full rounded-xl border border-indigo-100/70 bg-slate-50/90 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
 
           <div className="md:col-span-4">
-            <label className="text-xs font-medium text-gray-600">Date fin</label>
+            <label className="text-xs font-medium text-slate-700">Date fin</label>
             <input
               type="date"
               value={dateToDraft}
               onChange={(e) => setDateToDraft(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-200"
+              className="mt-1 w-full rounded-xl border border-indigo-100/70 bg-slate-50/90 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
 
@@ -409,9 +415,9 @@ const Statistiques = () => {
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {loading ? (
-            <span className="text-sm text-gray-500">Chargement…</span>
+            <span className="text-sm text-slate-600">Chargement…</span>
           ) : error ? (
-            <span className="text-sm text-red-600">{error}</span>
+            <span className="text-sm text-rose-600">{error}</span>
           ) : (
             <span className="text-sm text-emerald-700">OK</span>
           )}
@@ -444,7 +450,7 @@ const Statistiques = () => {
           ) : tab === 'clients' ? (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-left text-gray-500">
+                <thead className="text-left text-slate-600">
                   <tr>
                     <th className="py-2">Client</th>
                     <th className="py-2">Type</th>
@@ -452,20 +458,20 @@ const Statistiques = () => {
                     <th className="py-2">CA</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-indigo-100/70">
                   {(topClients || []).map((c, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="py-2 font-medium text-gray-900">{c.nom ?? c.name ?? '—'}</td>
-                      <td className="py-2 text-gray-700">{c.type ?? '—'}</td>
-                      <td className="py-2 text-gray-700">{c.commandes ?? c.orders ?? 0}</td>
-                      <td className="py-2 font-semibold text-gray-900">
+                    <tr key={idx} className="hover:bg-sky-50/70">
+                      <td className="py-2 font-medium text-slate-800">{c.nom ?? c.name ?? '—'}</td>
+                      <td className="py-2 text-slate-700">{c.type ?? '—'}</td>
+                      <td className="py-2 text-slate-700">{c.commandes ?? c.orders ?? 0}</td>
+                      <td className="py-2 font-semibold text-slate-800">
                         {formatMoney(c.ca ?? c.totalCA ?? 0)} DT
                       </td>
                     </tr>
                   ))}
                   {(!topClients || topClients.length === 0) && (
                     <tr>
-                      <td className="py-3 text-gray-500" colSpan={4}>
+                      <td className="py-3 text-slate-600" colSpan={4}>
                         Aucun top client à afficher.
                       </td>
                     </tr>
@@ -481,26 +487,31 @@ const Statistiques = () => {
                 <AreaChart data={timeSeries} margin={{ top: 16, right: 18, left: 8, bottom: 24 }}>
                   <defs>
                     <linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS[1]} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={COLORS[1]} stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={COLORS[0]} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={COLORS[0]} stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
 
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tickMargin={10} />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} width={80} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#C7D2FE" opacity={0.7} />
+                  <XAxis dataKey="name" tickMargin={10} tick={{ fill: '#334155' }} axisLine={{ stroke: '#A5B4FC' }} />
+                  <YAxis
+                    tickFormatter={(v) => formatMoney(v)}
+                    width={80}
+                    tick={{ fill: '#334155' }}
+                    axisLine={{ stroke: '#A5B4FC' }}
+                  />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
                   <Legend verticalAlign="top" height={34} />
 
                   {Number.isFinite(avgTotal) && avgTotal > 0 && (
                     <ReferenceLine
                       y={avgTotal}
-                      stroke="#9CA3AF"
+                      stroke="#94A3B8"
                       strokeDasharray="6 6"
                       label={{
                         value: `Moyenne: ${formatMoney(avgTotal)} DT`,
                         position: 'insideTopRight',
-                        fill: '#6B7280',
+                        fill: '#475569',
                         fontSize: 12,
                       }}
                     />
@@ -510,7 +521,7 @@ const Statistiques = () => {
                     type="monotone"
                     dataKey="Total"
                     name="Total"
-                    stroke={COLORS[1]}
+                    stroke={COLORS[0]}
                     strokeWidth={3}
                     fill="url(#totalFill)"
                     activeDot={{ r: 6 }}
@@ -530,12 +541,18 @@ const Statistiques = () => {
                         stroke={COLORS[(idx + 2) % COLORS.length]}
                         strokeWidth={2}
                         dot={false}
-                        opacity={0.9}
+                        opacity={0.92}
                       />
                     ));
                   })()}
 
-                  <Brush dataKey="name" height={26} travellerWidth={10} />
+                  <Brush
+                    dataKey="name"
+                    height={26}
+                    travellerWidth={10}
+                    stroke="#6366F1"
+                    fill="#DBEAFE"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -555,21 +572,21 @@ const Statistiques = () => {
         >
           {tab === 'clients' ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-xs text-gray-500">Total clients</div>
-                <div className="mt-1 text-xl font-semibold text-gray-900">
+              <div className="rounded-2xl border border-indigo-100/70 bg-sky-50/60 p-4">
+                <div className="text-xs text-slate-600">Total clients</div>
+                <div className="mt-1 text-xl font-semibold text-slate-800">
                   {formatMoney(clients.data?.summary?.totalClients ?? 0)}
                 </div>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-xs text-gray-500">Clients actifs</div>
-                <div className="mt-1 text-xl font-semibold text-gray-900">
+              <div className="rounded-2xl border border-indigo-100/70 bg-emerald-50/50 p-4">
+                <div className="text-xs text-slate-600">Clients actifs</div>
+                <div className="mt-1 text-xl font-semibold text-slate-800">
                   {formatMoney(clients.data?.summary?.clientsActifs ?? 0)}
                 </div>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:col-span-2">
-                <div className="text-xs text-gray-500">CA total</div>
-                <div className="mt-1 text-xl font-semibold text-gray-900">
+              <div className="rounded-2xl border border-indigo-100/70 bg-indigo-50/50 p-4 sm:col-span-2">
+                <div className="text-xs text-slate-600">CA total</div>
+                <div className="mt-1 text-xl font-semibold text-slate-800">
                   {formatMoney(clients.data?.summary?.caTotal ?? 0)} DT
                 </div>
               </div>
@@ -582,7 +599,7 @@ const Statistiques = () => {
             <div className="h-[520px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparison} margin={{ top: 16, right: 18, left: 8, bottom: 70 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#C7D2FE" opacity={0.7} />
                   <XAxis
                     dataKey="name"
                     interval={0}
@@ -590,15 +607,22 @@ const Statistiques = () => {
                     textAnchor="end"
                     height={80}
                     tickMargin={10}
+                    tick={{ fill: '#334155' }}
+                    axisLine={{ stroke: '#A5B4FC' }}
                   />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} width={80} />
+                  <YAxis
+                    tickFormatter={(v) => formatMoney(v)}
+                    width={80}
+                    tick={{ fill: '#334155' }}
+                    axisLine={{ stroke: '#A5B4FC' }}
+                  />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Bar dataKey="total" name="Total" fill={COLORS[1]} radius={[10, 10, 0, 0]}>
+                  <Bar dataKey="total" name="Total" fill={COLORS[0]} radius={[10, 10, 0, 0]}>
                     <LabelList
                       dataKey="total"
                       position="top"
                       formatter={(v) => `${formatMoney(v)} DT`}
-                      style={{ fill: '#111827', fontWeight: 600, fontSize: 12 }}
+                      style={{ fill: '#334155', fontWeight: 700, fontSize: 12 }}
                     />
                   </Bar>
                 </BarChart>
