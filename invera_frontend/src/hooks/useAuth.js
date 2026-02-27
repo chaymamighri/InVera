@@ -3,52 +3,69 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
 export const useAuth = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // ← DÉMARRER À TRUE !
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // ← AJOUTÉ
   const navigate = useNavigate();
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (!authService.isAuthenticated()) return;
-
+      setLoading(true);
+      
       try {
+        // Vérifier l'authentification
+        const authenticated = authService.isAuthenticated();
+        
+        if (!authenticated) {
+          setLoading(false);
+          setIsAuthenticated(false);
+          return;
+        }
+
+        // Charger l'utilisateur
         const result = await authService.getCurrentUser();
+        
         if (result.success) {
           setUser(result.data);
+          setIsAuthenticated(true);
 
           localStorage.setItem('userRole', result.data.role);
           localStorage.setItem('userName', result.data.name);
           localStorage.setItem('userEmail', result.data.email);
+        } else {
+          await authService.logout();
+          setIsAuthenticated(false);
         }
-      } catch {
+      } catch (error) {
+        console.error('Erreur initialisation auth:', error);
         await authService.logout();
-        // keep it simple
-        navigate('/login');
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false); // ← TOUJOURS appelé à la fin !
       }
     };
 
     initializeAuth();
   }, [navigate]);
 
-  // ✅ Poll to auto logout if admin deactivates user
+  // Poll pour vérifier si l'utilisateur est toujours actif
   useEffect(() => {
-    if (!authService.isAuthenticated()) return;
+    if (!isAuthenticated) return;
 
     const interval = setInterval(async () => {
       try {
         const result = await authService.getCurrentUser();
         if (result?.data?.active === false) {
-          await authService.logout();
-          navigate('/login');
+          await logout();
         }
       } catch {
-        // 401/403 handled by interceptor
+        // Ignorer les erreurs
       }
     }, 20000);
 
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [isAuthenticated]);
 
   const login = async (credentials) => {
     setLoading(true);
@@ -58,11 +75,8 @@ export const useAuth = () => {
       const result = await authService.login(credentials);
 
       if (result.success) {
-        localStorage.setItem('token', result.data.token);
-
-        localStorage.setItem('userRole', result.data.user.role);
-        localStorage.setItem('userName', result.data.user.name);
-        localStorage.setItem('userEmail', result.data.user.email);
+        setUser(result.data.user);
+        setIsAuthenticated(true);
 
         let dashboardPath = '/dashboard';
         switch (result.data.user.role) {
@@ -75,13 +89,9 @@ export const useAuth = () => {
           case 'RESPONSABLE_ACHAT':
             dashboardPath = '/dashboard/procurement';
             break;
-          default:
-            dashboardPath = '/dashboard';
         }
 
         localStorage.setItem('userDashboard', dashboardPath);
-        setUser(result.data.user);
-
         return { success: true, data: result.data, dashboard: dashboardPath };
       }
 
@@ -94,89 +104,64 @@ export const useAuth = () => {
     }
   };
 
-  const logout = useCallback(async () => {
-    setLoading(true);
-    try {
-      await authService.logout();
-      setUser(null);
-      setError(null);
-      navigate('/login');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate]);
+// 1. logout appelé
+logout: async () => {
+  localStorage.clear();  
+  sessionStorage.clear();
+  return { success: true };
+}
+
+// useAuth.js
+const logout = useCallback(async () => {
+  setLoading(true);
+  try {
+    await authService.logout();  
+    
+    setUser(null);
+    setIsAuthenticated(false);
+    setError(null);
+    
+    navigate('/login');
+    
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+}, [navigate]);
+
+
+ const getUserRole = useCallback(() => {
+  if (!user) return null;
+  return user.role;
+}, [user]);
+
 
   const getCurrentUser = useCallback(() => {
-    if (user) return user;
-
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-
-    return {
-      role: localStorage.getItem('userRole'),
-      name: localStorage.getItem('userName'),
-      email: localStorage.getItem('userEmail'),
-      dashboard: localStorage.getItem('userDashboard')
-    };
+    return user;
   }, [user]);
 
-  const getUserRole = useCallback(() => {
-    return user?.role || localStorage.getItem('userRole');
-  }, [user]);
 
-  const isAuthenticated = useCallback(() => authService.isAuthenticated(), []);
 
-  const forgotPassword = async (email) => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await authService.forgotPassword(email);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const resetPassword = async (code, email, newPassword) => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await authService.resetPassword(code, email, newPassword);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getSavedEmail = () => {
-    const rememberMe = localStorage.getItem('rememberMe');
-    if (rememberMe === 'true') return localStorage.getItem('savedEmail') || '';
-    return '';
-  };
-
-  const fetchWithAuth = useCallback(async (url, options = {}) => {
-    return authService.fetchWithAuth(url, options);
-  }, []);
-
+// Ou mieux : utilisez simplement user.role directement
   return {
     loading,
     error,
     user,
+    isAuthenticated, // ← EXPOSÉ pour les composants
     login,
     logout,
-    forgotPassword,
-    resetPassword,
-    isAuthenticated,
+    forgotPassword: authService.forgotPassword,
+    resetPassword: authService.resetPassword,
+    isAuthenticated: () => isAuthenticated, // ← Version fonction
     getCurrentUser,
     getUserRole,
-    getSavedEmail,
-    fetchWithAuth
+    getSavedEmail: () => {
+      const rememberMe = localStorage.getItem('rememberMe');
+      return rememberMe === 'true' ? localStorage.getItem('savedEmail') || '' : '';
+    },
+    fetchWithAuth: authService.fetchWithAuth
   };
 };
 

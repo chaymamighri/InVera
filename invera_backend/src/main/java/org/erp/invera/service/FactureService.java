@@ -23,6 +23,7 @@ public class FactureService {
     @Autowired
     private ClientRepository clientRepository;
 
+
     // ===== GÉNÉRATION =====
 
     /**
@@ -57,7 +58,6 @@ public class FactureService {
         return factureRepository.save(facture);
     }
 
-    // ===== RECHERCHE PAR ID =====
 
     /**
      * Récupérer une facture par son ID
@@ -67,15 +67,7 @@ public class FactureService {
                 .orElseThrow(() -> new RuntimeException("Facture non trouvée avec l'ID: " + factureId));
     }
 
-    // ===== RECHERCHE PAR RÉFÉRENCE =====
 
-    /**
-     * Récupérer une facture par sa référence
-     */
-    public FactureClient getFactureByReference(String reference) {
-        return factureRepository.findByReferenceFactureClient(reference)
-                .orElseThrow(() -> new RuntimeException("Facture non trouvée: " + reference));
-    }
 
     // ===== RECHERCHE PAR COMMANDE =====
 
@@ -103,13 +95,6 @@ public class FactureService {
         return factureRepository.findByClientIdClient(clientId);
     }
 
-    /**
-     * Récupérer les factures par statut
-     */
-    public List<FactureClient> getFacturesByStatut(FactureClient.StatutFacture statut) {
-        return factureRepository.findByStatut(statut);
-    }
-
     // ===== MISE À JOUR =====
 
     /**
@@ -123,14 +108,6 @@ public class FactureService {
     }
 
     // ===== UTILITAIRES =====
-
-    /**
-     * Vérifier si une facture existe pour une commande
-     */
-    public boolean factureExistePourCommande(Integer commandeId) {
-        return factureRepository.existsByCommandeIdCommandeClient(commandeId);
-    }
-
     /**
      * Génère une référence unique pour la facture
      * Format: FAC-YYYYMMDD-XXXX

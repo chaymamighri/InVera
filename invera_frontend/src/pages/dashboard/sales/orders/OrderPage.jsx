@@ -104,6 +104,7 @@ const OrdersPage = () => {
 
   // Filtrer les commandes
   useEffect(() => {
+    
     const filtered = commandes.filter(commande => {
       const matchesSearch = searchTerm === '' || 
         (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
