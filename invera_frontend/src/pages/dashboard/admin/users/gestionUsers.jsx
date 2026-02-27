@@ -218,10 +218,7 @@ const GestionUsers = () => {
       />
 
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
-          <p className="text-sm text-gray-500 mt-1">Gérez vos utilisateurs commerciaux et achats</p>
-        </div>
+        
         <button
           onClick={() => setAddModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition"
