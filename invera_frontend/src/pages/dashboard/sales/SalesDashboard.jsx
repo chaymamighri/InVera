@@ -1,6 +1,7 @@
 // src/pages/dashboard/sales/SalesDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import Footer from '../../../components/Footer';
 
 const SalesDashboard = () => {
   const location = useLocation();
@@ -271,6 +272,7 @@ const getPageDescription = () => {
         <div className="p-6 md:p-8">
           <Outlet />
         </div>
+        <Footer/>
       </div>
     </div>
   );

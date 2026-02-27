@@ -23,6 +23,7 @@ import SalesTab from './pages/dashboard/sales/reports/tabs/SalesTab';
 import InvoicesTab from './pages/dashboard/sales/reports/tabs/InvoicesTab';
 import ClientsTab from './pages/dashboard/sales/reports/tabs/ClientsTab';
 import ReportsPage from './pages/dashboard/sales/reports/ReportsPage';
+import { SidebarProvider } from './context/SidebarContext';
 
 const ROLE_MAPPING = {
   ADMIN: 'admin',
@@ -146,6 +147,7 @@ const UnauthorizedPage = () => (
 function App() {
   return (
     <Router>
+       <SidebarProvider>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -185,7 +187,7 @@ function App() {
           <Route path="invoices" element={<InvoicingPage />} />
           <Route path="clients" element={<ClientManagePage />} />
 
-           {/* ✅ Routes pour les rapports - bien indentées */}
+           {/* ✅ Routes pour les rapports  */}
           <Route path="reports" element={<ReportsPage />}>
           <Route index element={<Navigate to="sales" replace />} />
           <Route path="sales" element={<SalesTab />} />
@@ -227,8 +229,8 @@ function App() {
           }
         />
       </Routes>
+        </SidebarProvider>
     </Router>
   );
 }
-
 export default App;

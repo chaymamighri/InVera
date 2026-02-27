@@ -1,38 +1,51 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   UsersIcon,
   ChartBarIcon,
-  DocumentTextIcon,
   Cog6ToothIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  TagIcon, // ✅ NEW ICON FOR REMISES
+  TagIcon,
 } from '@heroicons/react/24/outline';
-
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSidebar } from '../../../context/SidebarContext'; // AJOUT
+import Footer from '../../../components/Footer';
 
 // Pages
 import GestionUsers from './users/gestionUsers';
-import Rapports from './rapports/Rapports';
 import Statistiques from './statestiques/Statistiques';
 import Settings from './settings/Settings';
-import Remise from "./remise/Remise"; // ✅ new import
+import Remise from "./remise/RemiseProduit";
 
-// Memoized pages
 const MemoizedGestionUsers = React.memo(GestionUsers);
-const MemoizedRapports = React.memo(Rapports);
 const MemoizedStatistiques = React.memo(Statistiques);
 const MemoizedSettings = React.memo(Settings);
-const MemoizedRemise = React.memo(Remise); // ✅ FIXED NAME
+const MemoizedRemise = React.memo(Remise);
 
 const AdminDashboard = () => {
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
+  const navigate = useNavigate();
+  const { collapsed, toggleSidebar } = useSidebar(); // REMPLACE sidebarCollapsed
 
   const [activePage, setActivePage] = useState('stats');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
 
-  // Sidebar sections
+  useEffect(() => {
+    const userName = admin?.nom || localStorage.getItem('userName') || 'Administrateur';
+    const userEmail = admin?.email || localStorage.getItem('userEmail') || 'admin@invera.com';
+    const userRole = admin?.role || localStorage.getItem('userRole') || 'Administrateur';
+    const initials = userName
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+    
+    setUser({ name: userName, role: userRole, email: userEmail, initials });
+  }, [admin]);
+
+  const getFirstName = (fullName) => fullName.split(' ')[0];
+
   const sections = [
     {
       title: 'Tableau de bord',
@@ -43,14 +56,8 @@ const AdminDashboard = () => {
     {
       title: 'Gestion',
       items: [
-        { id: 'users', label: 'Gestion utilisateurs', icon: UsersIcon },
-        { id: 'remises', label: 'Remises', icon: TagIcon }, // ✅ UPDATED
-      ]
-    },
-    {
-      title: 'Rapports',
-      items: [
-        { id: 'reports', label: 'Rapports', icon: DocumentTextIcon },
+        { id: 'users', label: 'Utilisateurs', icon: UsersIcon },
+        { id: 'remises', label: 'Remises', icon: TagIcon },
       ]
     },
     {
@@ -67,59 +74,49 @@ const AdminDashboard = () => {
 
   const renderPage = useMemo(() => {
     switch (activePage) {
-      case 'stats':
-        return <MemoizedStatistiques />;
-      case 'users':
-        return <MemoizedGestionUsers />;
-      case 'remises': // ✅ UPDATED
-        return <MemoizedRemise />;
-      case 'reports':
-        return <MemoizedRapports />;
-      case 'settings':
-        return <MemoizedSettings />;
-      default:
-        return <MemoizedStatistiques />;
+      case 'stats': return <MemoizedStatistiques />;
+      case 'users': return <MemoizedGestionUsers />;
+      case 'remises': return <MemoizedRemise />;
+      case 'settings': return <MemoizedSettings />;
+      default: return <MemoizedStatistiques />;
     }
   }, [activePage]);
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed(prev => !prev);
-  }, []);
-
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Sidebar */}
-      <div
-        className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
-          sidebarCollapsed ? 'w-20' : 'w-64'
-        }`}
-      >
-        {/* Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b">
-          {!sidebarCollapsed && (
-            <span className="text-xl font-bold text-gray-800">
-              In<span className="text-teal-500">Vera</span>
-            </span>
-          )}
-          <button
-            onClick={toggleSidebar}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-auto"
-          >
-            {sidebarCollapsed ? (
-              <ArrowRightIcon className="w-5 h-5 text-gray-600" />
-            ) : (
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+      <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
+        collapsed ? 'w-20' : 'w-64'
+      }`}>
+        {/* En-tête */}
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            {!collapsed && (
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                  Administration
+                </h1>
+                <p className="text-xs text-gray-400 mt-1">
+                  Gestion et configuration
+                </p>
+              </div>
             )}
-          </button>
+            <button
+              onClick={toggleSidebar}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label={collapsed ? "Développer le menu" : "Réduire le menu"}
+            >
+              {collapsed ? '→' : '←'}
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}
-        <nav className="px-3 py-4 flex flex-col h-[calc(100vh-8rem)] overflow-y-auto">
-          <ul className="space-y-6 flex-1">
+        <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
+          <ul className="space-y-1 flex-1 overflow-y-auto">
             {sections.map((section) => (
               <li key={section.title}>
-                {!sidebarCollapsed && (
+                {!collapsed && (
                   <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                     {section.title}
                   </h3>
@@ -134,20 +131,24 @@ const AdminDashboard = () => {
                         <button
                           onClick={() => handleSetActivePage(item.id)}
                           className={`w-full flex items-center ${
-                            sidebarCollapsed
-                              ? 'justify-center px-3 py-3'
-                              : 'px-4 py-3'
+                            collapsed ? 'justify-center px-3 py-3' : 'px-4 py-3'
                           } rounded-lg transition-all duration-200 relative group ${
                             isActive
-                              ? 'bg-teal-50 text-teal-600'
+                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold border-l-3 border-blue-500'
                               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                           }`}
+                          title={collapsed ? item.label : ''}
                         >
-                          <Icon className="w-5 h-5 flex-shrink-0" />
-                          {!sidebarCollapsed && (
-                            <span className="ml-3 text-sm font-medium">
+                          <Icon className={`w-5 h-5 flex-shrink-0 ${
+                            isActive ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
+                          }`} />
+                          {!collapsed && (
+                            <span className="ml-3 flex-1 text-left text-sm">{item.label}</span>
+                          )}
+                          {collapsed && (
+                            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
                               {item.label}
-                            </span>
+                            </div>
                           )}
                         </button>
                       </li>
@@ -157,18 +158,71 @@ const AdminDashboard = () => {
               </li>
             ))}
           </ul>
+
+          {/* Profil utilisateur */}
+          <div className={`border-t pt-4 ${collapsed ? 'px-3' : 'px-4'} mt-auto`}>
+            <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
+              <div
+                className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => navigate('/profile')}
+                title="Voir mon profil"
+              >
+                {user.initials}
+              </div>
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">
+                    {getFirstName(user.name)}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{user.role}</p>
+                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+              )}
+              {collapsed && (
+                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
+                  <div className="font-medium">{user.name}</div>
+                  <div className="text-gray-300 text-xs">{user.role}</div>
+                  <div className="text-gray-400 text-xs">{user.email}</div>
+                </div>
+              )}
+            </div>
+          </div>
         </nav>
       </div>
 
-      {/* Main Content */}
-      <div
-        className={`flex-1 transition-all duration-300 ${
-          sidebarCollapsed ? 'ml-20' : 'ml-64'
-        }`}
-      >
-        <main className="h-full overflow-y-auto p-6">
+      {/* Contenu principal */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 overflow-hidden ${
+        collapsed ? 'ml-20' : 'ml-64'
+      }`}>
+        {/* Top Bar */}
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
+          <div className="px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {activePage === 'stats' && 'Statistiques'}
+                  {activePage === 'users' && 'Gestion utilisateurs'}
+                  {activePage === 'remises' && 'Gestion Remises'}
+                  {activePage === 'settings' && 'Paramètres'}
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  {activePage === 'stats' && "Statistiques et indicateurs de performance"}
+                  {activePage === 'users' && "Gérez les utilisateurs et leurs permissions"}
+                  {activePage === 'remises' && "Gérez les remises clients et produits"}
+                  {activePage === 'settings' && "Configurez les paramètres de l'application"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenu de la page */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto">
           {renderPage}
-        </main>
+        </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
