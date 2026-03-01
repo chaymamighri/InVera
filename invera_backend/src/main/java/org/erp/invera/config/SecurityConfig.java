@@ -12,11 +12,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.util.Arrays;
 
@@ -40,25 +40,34 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * CORS for Flutter Web dev server (random port) + local dev.
+     * Your Wi-Fi IPv4 (from ipconfig): 172.20.10.7
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:5174"
+
+        // Use allowedOriginPatterns to support wildcard ports (Flutter web uses random ports)
+        // NOTE: When allowCredentials(true), you must NOT use "*" for allowed origins.
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://172.20.10.7:*"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization","Content-Type","X-Requested-With","Accept","Origin",
-                "Access-Control-Request-Method","Access-Control-Request-Headers"
+                "Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
+                "Access-Control-Request-Method", "Access-Control-Request-Headers"
         ));
-        configuration.setExposedHeaders(Arrays.asList("Authorization","Content-Disposition"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Disposition"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        // Register broadly to avoid path/preflight mismatches
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
@@ -71,6 +80,9 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Allow all preflight requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // public
                         .requestMatchers("/api/auth/login",
                                 "/api/auth/create-password",
@@ -95,7 +107,7 @@ public class SecurityConfig {
 
                         // roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
-                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL","ADMIN")
+                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
                         .requestMatchers("/api/categories/**").hasRole("ADMIN")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
