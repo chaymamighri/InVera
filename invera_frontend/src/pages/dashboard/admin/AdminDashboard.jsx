@@ -7,7 +7,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { useSidebar } from '../../../context/SidebarContext'; // AJOUT
+import { useSidebar } from '../../../context/SidebarContext';
 import Footer from '../../../components/Footer';
 
 // Pages
@@ -25,7 +25,7 @@ const AdminDashboard = () => {
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
   const navigate = useNavigate();
-  const { collapsed, toggleSidebar } = useSidebar(); // REMPLACE sidebarCollapsed
+  const { collapsed, toggleSidebar } = useSidebar();
 
   const [activePage, setActivePage] = useState('stats');
   const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
@@ -191,11 +191,14 @@ const AdminDashboard = () => {
       </div>
 
       {/* Contenu principal */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 overflow-hidden ${
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${
         collapsed ? 'ml-20' : 'ml-64'
       }`}>
-        {/* Top Bar */}
-        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
+        {/* ESPACE POUR LE HEADER FIXED (du Layout) */}
+        <div className="h-16"></div>
+
+        {/* Top Bar locale (sticky) */}
+        <div className="sticky top-16 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
           <div className="px-8 py-4">
             <div className="flex items-center justify-between">
               <div>

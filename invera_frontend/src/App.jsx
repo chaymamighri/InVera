@@ -109,12 +109,17 @@ const DashboardRedirect = () => {
   }
 };
 
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+// fonction ProtectedRoute qui accepter le paramètre useLayout
+const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   const userData = getUserData();
   if (!userData) return <Navigate to="/login" replace />;
 
   if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
 
+  // Si useLayout est false, on retourne directement les enfants sans Layout
+  if (!useLayout) return children;
+
+  // Sinon, on utilise le Layout standard
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
@@ -165,20 +170,32 @@ function App() {
         <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
         {/* Dashboards */}
-        <Route
-          path="/dashboard/admin"
-          element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>}
-        />
+         <Route
+    path="/dashboard/admin/*" 
+    element={
+      <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
+        <AdminDashboard />
+      </ProtectedRoute>
+    }
+  /> {/* Procurement Dashboard - SANS Layout car il a sa propre sidebar */}
+  <Route
+    path="/dashboard/procurement"
+    element={
+      <ProtectedRoute allowedRoles={['procurement']} useLayout={true}>
+        <ProcurementDashboard />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/dashboard/procurement"
-          element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>}
-        />
-
-        <Route
-          path="/dashboard/sales"
-          element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}
-        >
+  {/* Sales Dashboard - AVEC Layout (utilisation du Header standard) */}
+  <Route
+    path="/dashboard/sales"
+    element={
+      <ProtectedRoute allowedRoles={['sales']} useLayout={true}>
+        <SalesDashboard />
+      </ProtectedRoute>
+    }
+  >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
@@ -197,14 +214,22 @@ function App() {
           </Route>
 
         {/* Shared */}
-        <Route
-          path="/profile"
-          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>}
-        />
-        <Route
-          path="/settings"
-          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><SettingsPage /></ProtectedRoute>}
-        />
+       <Route
+    path="/profile"
+    element={
+      <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+        <ProfilePage />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/settings"
+    element={
+      <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+        <SettingsPage />
+      </ProtectedRoute>
+    }
+  />
 
         {/* Redirect helper */}
         <Route path="/dashboard" element={<DashboardRedirect />} />

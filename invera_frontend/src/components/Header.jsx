@@ -1,15 +1,18 @@
 // src/components/Header.jsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BellIcon, UserCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import logo from '../assets/images/logo.png';
 import { notificationService } from '../services/notificationService';
+import { useSidebar } from '../context/SidebarContext';
 
-const Header = ({ sidebarCollapsed = false }) => {
+const Header = () => {
+  const { collapsed } = useSidebar();
+  const location = useLocation();
+
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-
   const [notifLoading, setNotifLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -234,19 +237,30 @@ const Header = ({ sidebarCollapsed = false }) => {
     setIsProfileOpen((p) => !p);
   };
 
-  // ✅ SAME LOGIC AS DASHBOARD: ml-20 when collapsed, ml-64 when expanded
-  const leftOffsetClass = sidebarCollapsed ? 'ml-20' : 'ml-64';
+  // Vérifier si on est sur une page avec sidebar (admin, procurement, sales)
+  const isDashboardPage = location.pathname.startsWith('/dashboard/');
+
+  // Marge gauche sur pages dashboard
+  const leftMarginClass = isDashboardPage
+    ? (collapsed ? 'left-20' : 'left-64')
+    : 'left-0'; // Pas de marge sur profile/settings
+
+  const widthClass = isDashboardPage
+    ? (collapsed ? 'w-[calc(100%-80px)]' : 'w-[calc(100%-256px)]')
+    : 'w-full'; // Pleine largeur sur profile/settings
 
   return (
-    <header
-      className={`${leftOffsetClass} bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg relative z-40 transition-all duration-300`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <header
+    className={`fixed top-0 z-40 transition-all duration-300 ${leftMarginClass} ${widthClass}`}
+  >
+    <div className="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg w-full">
+      <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/dashboard" className="flex items-center space-x-3">
               {logo && <img src={logo} alt="InVera ERP Logo" className="h-10 w-auto" />}
+              {/* Afficher le texte dans TOUS les cas */}
               <div className="hidden md:block">
                 <h1 className="text-lg font-bold text-white">InVera ERP</h1>
                 <p className="text-xs text-blue-200">Système de Gestion Intégré</p>
@@ -256,199 +270,198 @@ const Header = ({ sidebarCollapsed = false }) => {
 
           {/* Right Section */}
           <div className="flex items-center space-x-4">
-            {/* 🔔 Notifications (ADMIN only) */}
-            {user.isAdmin && (
-              <div className="relative" ref={notifRef}>
-                <button
-                  onClick={toggleNotifications}
-                  className="relative p-2 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
-                  title="Notifications"
-                >
-                  <BellIcon className="h-5 w-5" />
+            {/* 🔔 Notifications */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={toggleNotifications}
+                className="relative p-2 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                title="Notifications"
+              >
+                <BellIcon className="h-5 w-5" />
 
-                  {unreadCount > 0 ? (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center ring-2 ring-blue-900">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  ) : (
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-green-400 rounded-full ring-2 ring-blue-900"></span>
-                  )}
-                </button>
+                {unreadCount > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center ring-2 ring-blue-900">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : (
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-green-400 rounded-full ring-2 ring-blue-900"></span>
+                )}
+              </button>
 
-                {isNotifOpen && (
-                  <div className="absolute right-0 mt-2 w-[420px] bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
-                    <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">Notifications</p>
-                          <p className="text-xs text-blue-100">Non lues: {unreadCount}</p>
-                        </div>
-
-                        <button
-                          onClick={markAllRead}
-                          className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full"
-                        >
-                          Tout lire
-                        </button>
+              {/* Dropdown notifications */}
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-[420px] bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
+                  <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">Notifications</p>
+                        <p className="text-xs text-blue-100">Non lues: {unreadCount}</p>
                       </div>
 
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          onClick={async () => {
+                      <button
+                        onClick={markAllRead}
+                        className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full"
+                      >
+                        Tout lire
+                      </button>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await notificationService.deleteRange('week');
+                            toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
+                            await loadNotifications();
+                            await loadUnreadCount({ withToast: false });
+                          } catch {
+                            toast.error('Erreur suppression (7 jours)');
+                          }
+                        }}
+                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                      >
+                        Supprimer 7 jours
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await notificationService.deleteRange('month');
+                            toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
+                            await loadNotifications();
+                            await loadUnreadCount({ withToast: false });
+                          } catch {
+                            toast.error('Erreur suppression (30 jours)');
+                          }
+                        }}
+                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                      >
+                        Supprimer 30 jours
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            const current = new Date();
+                            const ym = `${current.getFullYear()}-${String(
+                              current.getMonth() + 1
+                            ).padStart(2, '0')}`;
+                            const res = await notificationService.deleteMonth(ym);
+                            toast.success(`Supprimé (${ym}): ${res?.data?.deleted ?? 0}`);
+                            await loadNotifications();
+                            await loadUnreadCount({ withToast: false });
+                          } catch {
+                            toast.error('Erreur suppression (ce mois)');
+                          }
+                        }}
+                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                      >
+                        Supprimer ce mois
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          confirmToast('Supprimer TOUTES les notifications ?', async () => {
                             try {
-                              const res = await notificationService.deleteRange('week');
+                              const res = await notificationService.deleteAll();
                               toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
                               await loadNotifications();
                               await loadUnreadCount({ withToast: false });
                             } catch {
-                              toast.error('Erreur suppression (7 jours)');
+                              toast.error('Erreur suppression totale');
                             }
-                          }}
-                          className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                        >
-                          Supprimer 7 jours
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await notificationService.deleteRange('month');
-                              toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
-                              await loadNotifications();
-                              await loadUnreadCount({ withToast: false });
-                            } catch {
-                              toast.error('Erreur suppression (30 jours)');
-                            }
-                          }}
-                          className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                        >
-                          Supprimer 30 jours
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            try {
-                              const current = new Date();
-                              const ym = `${current.getFullYear()}-${String(
-                                current.getMonth() + 1
-                              ).padStart(2, '0')}`;
-                              const res = await notificationService.deleteMonth(ym);
-                              toast.success(`Supprimé (${ym}): ${res?.data?.deleted ?? 0}`);
-                              await loadNotifications();
-                              await loadUnreadCount({ withToast: false });
-                            } catch {
-                              toast.error('Erreur suppression (ce mois)');
-                            }
-                          }}
-                          className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                        >
-                          Supprimer ce mois
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            confirmToast('Supprimer TOUTES les notifications ?', async () => {
-                              try {
-                                const res = await notificationService.deleteAll();
-                                toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
-                                await loadNotifications();
-                                await loadUnreadCount({ withToast: false });
-                              } catch {
-                                toast.error('Erreur suppression totale');
-                              }
-                            });
-                          }}
-                          className="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full"
-                        >
-                          Tout supprimer
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="max-h-[380px] overflow-auto">
-                      {notifLoading ? (
-                        <div className="p-4 text-sm text-gray-500">Chargement...</div>
-                      ) : notifications.length === 0 ? (
-                        <div className="p-6 text-center text-sm text-gray-500">Aucune notification</div>
-                      ) : (
-                        <div className="p-2">
-                          {groupByMonth(notifications).map(([monthLabel, items]) => (
-                            <div key={monthLabel} className="mb-3">
-                              <div className="px-3 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
-                                <span>{monthLabel}</span>
-
-                                <button
-                                  onClick={() => {
-                                    const monthValue = items?.[0]?.__monthValue;
-                                    if (!monthValue) return;
-
-                                    confirmToast(`Supprimer toutes les notifications de ${monthValue} ?`, async () => {
-                                      try {
-                                        const res = await notificationService.deleteMonth(monthValue);
-                                        toast.success(`Supprimé (${monthValue}): ${res?.data?.deleted ?? 0}`);
-                                        await loadNotifications();
-                                        await loadUnreadCount({ withToast: false });
-                                      } catch {
-                                        toast.error('Erreur suppression mois');
-                                      }
-                                    });
-                                  }}
-                                  className="text-[11px] px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                >
-                                  Supprimer mois
-                                </button>
-                              </div>
-
-                              <div className="divide-y divide-gray-100 rounded-xl overflow-hidden border border-gray-100">
-                                {items.map((n) => (
-                                  <div key={n.id} className={`px-3 py-3 ${n.read ? 'bg-white' : 'bg-yellow-50'}`}>
-                                    <div className="flex items-start justify-between gap-3">
-                                      <button
-                                        onClick={() => !n.read && markRead(n.id)}
-                                        className="text-left flex-1"
-                                        title={!n.read ? 'Cliquer pour marquer comme lu' : ''}
-                                      >
-                                        <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
-                                          {n.message}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mt-1">{formatDate(n.createdAt)}</p>
-                                      </button>
-
-                                      <button
-                                        onClick={() => {
-                                          confirmToast('Supprimer cette notification ?', async () => {
-                                            try {
-                                              await notificationService.deleteOne(n.id);
-                                              toast.success('Notification supprimée');
-                                              setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-                                              await loadUnreadCount({ withToast: false });
-                                            } catch {
-                                              toast.error('Erreur suppression notification');
-                                            }
-                                          });
-                                        }}
-                                        className="text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700"
-                                        title="Supprimer"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
-                      Cliquez sur une notification non lue pour la marquer comme lue.
+                          });
+                        }}
+                        className="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full"
+                      >
+                        Tout supprimer
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  <div className="max-h-[380px] overflow-auto">
+                    {notifLoading ? (
+                      <div className="p-4 text-sm text-gray-500">Chargement...</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="p-6 text-center text-sm text-gray-500">Aucune notification</div>
+                    ) : (
+                      <div className="p-2">
+                        {groupByMonth(notifications).map(([monthLabel, items]) => (
+                          <div key={monthLabel} className="mb-3">
+                            <div className="px-3 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
+                              <span>{monthLabel}</span>
+
+                              <button
+                                onClick={() => {
+                                  const monthValue = items?.[0]?.__monthValue;
+                                  if (!monthValue) return;
+
+                                  confirmToast(`Supprimer toutes les notifications de ${monthValue} ?`, async () => {
+                                    try {
+                                      const res = await notificationService.deleteMonth(monthValue);
+                                      toast.success(`Supprimé (${monthValue}): ${res?.data?.deleted ?? 0}`);
+                                      await loadNotifications();
+                                      await loadUnreadCount({ withToast: false });
+                                    } catch {
+                                      toast.error('Erreur suppression mois');
+                                    }
+                                  });
+                                }}
+                                className="text-[11px] px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                              >
+                                Supprimer mois
+                              </button>
+                            </div>
+
+                            <div className="divide-y divide-gray-100 rounded-xl overflow-hidden border border-gray-100">
+                              {items.map((n) => (
+                                <div key={n.id} className={`px-3 py-3 ${n.read ? 'bg-white' : 'bg-yellow-50'}`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <button
+                                      onClick={() => !n.read && markRead(n.id)}
+                                      className="text-left flex-1"
+                                      title={!n.read ? 'Cliquer pour marquer comme lu' : ''}
+                                    >
+                                      <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
+                                        {n.message}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1">{formatDate(n.createdAt)}</p>
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
+                                        confirmToast('Supprimer cette notification ?', async () => {
+                                          try {
+                                            await notificationService.deleteOne(n.id);
+                                            toast.success('Notification supprimée');
+                                            setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+                                            await loadUnreadCount({ withToast: false });
+                                          } catch {
+                                            toast.error('Erreur suppression notification');
+                                          }
+                                        });
+                                      }}
+                                      className="text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700"
+                                      title="Supprimer"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
+                    Cliquez sur une notification non lue pour la marquer comme lue.
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="hidden lg:block h-6 w-px bg-white/20"></div>
 
@@ -525,12 +538,12 @@ const Header = ({ sidebarCollapsed = false }) => {
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </div>
-    </header>
-  );
+    </div>
+  </header>
+);
 };
 
 export default Header;
