@@ -14,8 +14,8 @@ import lombok.NoArgsConstructor;
 public class JwtResponse {
     private String token;
     private String type = "Bearer";
-    private Long id;           // ← AJOUTER
-    private String email;         // ← AJOUTER
+    private Long id;
+    private String email;
     private String role;
     private String nom;
     private String prenom;
