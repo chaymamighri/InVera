@@ -1,6 +1,5 @@
 package org.erp.invera.repository;
 
-import org.erp.invera.dto.DashboardDTO;
 import org.erp.invera.model.Categorie;
 import org.erp.invera.model.Produit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,32 +12,37 @@ import java.util.List;
 @Repository
 public interface ProduitRepository extends JpaRepository<Produit, Integer> {
 
-    // Recherche par libellé (insensible à la casse)
-    List<Produit> findByLibelleContainingIgnoreCase(String libelle);
+    // ========== MÉTHODES AVEC FILTRE ACTIF ==========
 
-    // Recherche par statut
-    List<Produit> findByStatus(Produit.StockStatus status);
+    // Recherche des produits actifs uniquement
+    List<Produit> findByActiveTrue();
 
-    // Recherche par libellé et statut
-    List<Produit> findByLibelleContainingIgnoreCaseAndStatus(String libelle, Produit.StockStatus status);
+    // Recherche des produits inactifs uniquement
+    List<Produit> findByActiveFalse();
 
-    // Recherche par liste de statuts
-    List<Produit> findByStatusIn(List<Produit.StockStatus> statusList);
 
-    // Recherche par catégorie (objet Categorie)
-    List<Produit> findByCategorie(Categorie categorie);
+    // Recherche par liste de statuts (produits actifs)
+    List<Produit> findByStatusInAndActiveTrue(List<Produit.StockStatus> statusList);
 
-    // Recherche par ID de catégorie - CORRIGÉ : categorie.idCategorie au lieu de categorie.id
-    List<Produit> findByCategorieIdCategorie(Integer categorieId);
+    // Recherche par catégorie (produits actifs)
+    List<Produit> findByCategorieAndActiveTrue(Categorie categorie);
 
-    // Recherche par libellé et catégorie ID - CORRIGÉ
-    List<Produit> findByLibelleContainingIgnoreCaseAndCategorieIdCategorie(String libelle, Integer categorieId);
+    // Recherche avec filtre actif dynamique
+    List<Produit> findByLibelleContainingIgnoreCaseAndActive(String libelle, Boolean active);
 
-    // Recherche par statut et catégorie ID - CORRIGÉ
-    List<Produit> findByStatusAndCategorieIdCategorie(Produit.StockStatus status, Integer categorieId);
+    List<Produit> findByStatusAndActive(Produit.StockStatus status, Boolean active);
 
-    // Recherche par libellé, statut et catégorie ID - CORRIGÉ
-    List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorie(
-            String libelle, Produit.StockStatus status, Integer categorieId);
+    List<Produit> findByCategorieIdCategorieAndActive(Integer categorieId, Boolean active);
+
+    List<Produit> findByStatusAndCategorieIdCategorieAndActive(Produit.StockStatus status, Integer categorieId, Boolean active);
+
+    List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndActive(String libelle, Produit.StockStatus status, Boolean active);
+
+    List<Produit> findByLibelleContainingIgnoreCaseAndCategorieIdCategorieAndActive(String libelle, Integer categorieId, Boolean active);
+
+    List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorieAndActive(
+            String libelle, Produit.StockStatus status, Integer categorieId, Boolean active);
+
+
 
 }

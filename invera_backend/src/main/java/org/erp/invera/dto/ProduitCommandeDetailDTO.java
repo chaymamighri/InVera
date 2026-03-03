@@ -32,8 +32,7 @@ public class ProduitCommandeDetailDTO {
     private Integer categorieId;
     private String categorieNom;
 
-    private String uniteMesure;
-
+    private Produit.UniteMesure uniteMesure;
     /**
      * Convertit une ligne de commande en DTO
      */

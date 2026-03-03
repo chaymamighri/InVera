@@ -100,7 +100,7 @@ public class SecurityConfig {
                         // roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL","ADMIN")
-                        .requestMatchers("/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers("/api/categories/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
 

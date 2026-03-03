@@ -42,12 +42,16 @@ public class Produit {
     @Column(name = "status", nullable = false)
     private StockStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "unite_mesure", nullable = false)
+    private UniteMesure uniteMesure;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean active = true;
+
     @Column(name = "seuil_minimum", nullable = false)
     private Integer seuilMinimum;
-
-    @Column(name = "unite_mesure", nullable = false)
-    private String uniteMesure;
-
+    
     @Column(name = "image_url")
     private String imageUrl;
 
@@ -56,11 +60,11 @@ public class Produit {
 
     // --- Nouveaux champs d'audit ---
     @CreatedBy
-    @JoinColumn(name = "created_by", nullable = true,  updatable = false)
+    @JoinColumn(name = "created_by", nullable = false,  updatable = false)
     private String createdBy;
 
     @CreatedDate
-    @Column(name = "created_at", nullable = true,  updatable = false)
+    @Column(name = "created_at", nullable = false,  updatable = false)
     private LocalDateTime createdAt;
     // ------------------------------
 
@@ -69,5 +73,17 @@ public class Produit {
         RUPTURE,
         FAIBLE,
         CRITIQUE
+    }
+
+    public enum UniteMesure {
+        PIECE,
+        KILOGRAMME,
+        GRAMME,
+        LITRE,
+        MILLILITRE,
+        METRE,
+        BOITE,
+        CARTON,
+        PALETTE
     }
 }
