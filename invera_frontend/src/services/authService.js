@@ -89,6 +89,8 @@ localStorage.removeItem('tokenExpiry');
     return { success: true, message: 'Instructions envoyées par email' };
   },
 
+
+
   resetPassword: async (code, email, newPassword) => {
     const response = await api.post('/auth/reset-password', {
       code,
@@ -98,6 +100,7 @@ localStorage.removeItem('tokenExpiry');
     return response.data;
   },
 
+  
 // vérif cordonnées user connecter
  isAuthenticated: () => {
   // Vérifier d'abord sessionStorage (session normale)

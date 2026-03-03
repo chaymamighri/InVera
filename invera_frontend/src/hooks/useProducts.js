@@ -7,166 +7,252 @@ const useProducts = (initialFilters = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
+    page: 0,
+    size: 10,
     total: 0,
     totalPages: 0
   });
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState({
+    actif: '',
+    ...initialFilters
+  });
 
-  // ✅ Fonction pour normaliser un produit
+  const getStatusLabel = (status) => {
+    const labels = {
+      'EN_STOCK': 'En stock',
+      'FAIBLE': 'Stock faible',
+      'CRITIQUE': 'Stock critique',
+      'RUPTURE': 'Rupture'
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'EN_STOCK': 'green',
+      'FAIBLE': 'yellow',
+      'CRITIQUE': 'orange',
+      'RUPTURE': 'red'
+    };
+    return colors[status] || 'gray';
+  };
+
+  // ========== 2. FONCTIONS DE NORMALISATION ==========
+
   const normalizeProduct = useCallback((produit) => {
     if (!produit) return null;
     
-    // Extraire les informations de catégorie
     let categorie = null;
     let categorieNom = null;
     let categorieId = null;
     
     if (produit.categorie) {
       categorie = produit.categorie;
-      categorieId = produit.categorie.idCategorie || produit.categorie.id;
-      
-      // Essayer différentes propriétés pour le nom
-      categorieNom = produit.categorie.nomCategorie || 
-                     produit.categorie.nom || 
-                     produit.categorie.libelle || 
-                     produit.categorie.name ||
-                     'Catégorie';
-    } else if (produit.categorieNom) {
-      categorieNom = produit.categorieNom;
-    } else if (produit.categorieId) {
-      categorieId = produit.categorieId;
-      categorieNom = `Catégorie ${produit.categorieId}`;
+      categorieId = produit.categorie.idCategorie;
+      categorieNom = produit.categorie.libelle || 'Catégorie';
     }
     
+    const remiseTemporaire = produit.remiseTemporaire != null 
+      ? Number(produit.remiseTemporaire) 
+      : 0;
+    
     return {
-      // Propriétés originales
       ...produit,
-      
-      // Propriétés normalisées
-      idProduit: produit.idProduit || produit.id,
-      libelle: produit.libelle || produit.nom || 'Produit sans nom',
-      prixVente: produit.prixVente || produit.prix || 0,
-      quantiteStock: produit.quantiteStock || produit.stock || 0,
-      uniteMesure: produit.uniteMesure || produit.unite || 'unité',
-      imageUrl: produit.imageUrl || produit.image || null,
-      
-      // ✅ Catégorie normalisée
+      id: produit.idProduit,
+      nom: produit.libelle,
+      prix: produit.prixVente,
+      stock: produit.quantiteStock,
+      unite: produit.uniteMesure,
+      image: produit.imageUrl,
+      remise: remiseTemporaire,
+      estActif: produit.active,
       categorie: categorie,
       categorieId: categorieId,
       categorieNom: categorieNom,
-      
-      // Pour l'affichage direct
-      displayCategorie: categorieNom || '—'
+      displayCategorie: categorieNom || '—',
+      statutStock: produit.status,
+      statutStockLabel: getStatusLabel(produit.status), 
+      statutStockColor: getStatusColor(produit.status)  
     };
-  }, []);
+  }, []); // Dépendances vides car getStatusLabel/Color sont définies avant
 
-  // ✅ Fonction pour normaliser une liste de produits
   const normalizeProducts = useCallback((productsData) => {
     if (!Array.isArray(productsData)) return [];
     return productsData.map(p => normalizeProduct(p)).filter(Boolean);
   }, [normalizeProduct]);
 
-  // Charger les produits
-  const loadProducts = useCallback(async (page = 1, customFilters = {}) => {
-    setLoading(true);
-    setError(null);
+  // ========== 3. FONCTIONS DE CHARGEMENT ==========
+const loadProducts = useCallback(async (page = 0, customFilters = {}) => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    // ========== LOGS DÉTAILLÉS ==========
+    console.log('🟦 ====== LOAD PRODUCTS DÉBUT ======');
+    console.log('📌 Page reçue:', page);
+    console.log('📌 customFilters reçus:', customFilters);
+    console.log('📌 filters (état du hook):', filters);
+    console.log('📌 pagination.size:', pagination.size);
     
-    try {
-      const params = {
-        page,
-        limit: pagination.limit,
-        ...filters,
-        ...customFilters
+    // ✅ 1. Fusionner les paramètres
+    const rawParams = {
+      ...customFilters, 
+      ...filters, 
+      page: page,
+      size: pagination.size
+    };
+    console.log('📌 rawParams (avant nettoyage):', rawParams);
+    
+    // ✅ 2. Supprimer les paramètres vides ou undefined
+    const searchParams = {};
+    Object.keys(rawParams).forEach(key => {
+      const value = rawParams[key];
+      console.log(`🔍 Clé "${key}": valeur =`, value, `type =`, typeof value);
+      
+      if (value !== '' && value !== undefined && value !== null) {
+        searchParams[key] = value;
+        console.log(`  ✅ "${key}" conservé avec valeur:`, value);
+      } else {
+        console.log(`  ❌ "${key}" filtré (vide ou null)`);
+      }
+    });
+    
+    // ✅ 3. S'assurer que page et size sont toujours présents
+    searchParams.page = page;
+    searchParams.size = pagination.size;
+    console.log('📌 searchParams FINAUX:', searchParams);
+    
+    console.log('📡 Envoi requête à searchProducts avec:', searchParams);
+    
+    // ✅ 4. TOUJOURS utiliser searchProducts
+    const response = await productService.searchProducts(searchParams);
+    console.log('📦 Réponse brute de searchProducts:', response);
+    
+    let productsData = [];
+    let paginationData = null;
+    
+    if (response?.data && Array.isArray(response.data)) {
+      console.log('✅ Format 1: response.data est un tableau de', response.data.length, 'éléments');
+      productsData = response.data;
+      paginationData = {
+        total: response.total || productsData.length,
+        totalPages: response.totalPages || Math.ceil(productsData.length / pagination.size),
+        page: response.currentPage || page,
+        size: response.size || pagination.size
       };
+      console.log('📊 paginationData:', paginationData);
+      
+    } else if (Array.isArray(response)) {
+      console.log('✅ Format 2: response est un tableau direct de', response.length, 'éléments');
+      productsData = response;
+      paginationData = {
+        total: productsData.length,
+        totalPages: Math.ceil(productsData.length / pagination.size),
+        page: 0,
+        size: pagination.size
+      };
+      console.log('📊 paginationData:', paginationData);
+      
+    } else if (response?.success && response?.produits) {
+      console.log('✅ Format 3: response.produits est un tableau de', response.produits.length, 'éléments');
+      productsData = response.produits;
+      paginationData = {
+        total: response.total || response.count || productsData.length,
+        totalPages: response.totalPages || Math.ceil((response.total || response.count || productsData.length) / pagination.size),
+        page: response.currentPage || page,
+        size: response.size || pagination.size
+      };
+      console.log('📊 paginationData:', paginationData);
+      
+    } else {
+      console.warn('⚠️ Format de réponse non reconnu:', response);
+    }
+    
+    console.log('📦 Données produits brutes:', productsData);
+    
+    const produitsNormalises = normalizeProducts(productsData);
+    console.log('✨ Produits normalisés:', produitsNormalises.length, 'éléments');
+    if (produitsNormalises.length > 0) {
+      console.log('✨ Premier produit normalisé:', produitsNormalises[0]);
+    }
+    
+    setProducts(produitsNormalises);
+    console.log('✅ State products mis à jour');
+    
+    if (paginationData) {
+      setPagination(prev => ({
+        ...prev,
+        page: paginationData.page,
+        size: paginationData.size,
+        total: paginationData.total,
+        totalPages: paginationData.totalPages
+      }));
+      console.log('✅ State pagination mis à jour:', paginationData);
+    }
+    
+    console.log('🟦 ====== LOAD PRODUCTS FIN ======');
+    
+  } catch (err) {
+    console.error('❌ ERREUR dans useProducts:', err);
+    console.error('❌ Détails:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
+    setError(err.response?.data?.message || 'Erreur lors du chargement des produits');
+  } finally {
+    setLoading(false);
+    console.log('🏁 Loading set to false');
+  }
+}, [filters, pagination.size, normalizeProducts]);
 
-      console.log('📡 Chargement produits avec params:', params);
-      const response = await productService.getAllProducts(params);
-      
-      console.log('📦 Réponse brute:', response);
-      
+  // ========== 4. AUTRES FONCTIONS ==========
+
+  const searchProducts = useCallback(async (searchParams = {}) => {
+    setLoading(true);
+    try {
+      const response = await productService.searchProducts(searchParams);
       let productsData = [];
       let paginationData = null;
       
-      // Adapter la structure du backend
-      if (response.data) {
+      if (response?.data && Array.isArray(response.data)) {
         productsData = response.data;
-        paginationData = response.pagination;
+        paginationData = {
+          total: response.total || productsData.length,
+          totalPages: response.totalPages || Math.ceil(productsData.length / pagination.size),
+          page: response.currentPage || 0,
+          size: response.size || pagination.size
+        };
       } else if (Array.isArray(response)) {
         productsData = response;
-      } else if (response.success && response.produits) {
-        productsData = response.produits;
-        paginationData = response.pagination;
-      }
-      
-      // ✅ Normaliser les produits
-      const produitsNormalises = normalizeProducts(productsData);
-      console.log('✅ Produits normalisés:', produitsNormalises.map(p => ({
-        id: p.idProduit,
-        libelle: p.libelle,
-        categorie: p.categorieNom
-      })));
-      
-      setProducts(produitsNormalises);
-      
-      // Mettre à jour la pagination
-      if (paginationData) {
-        setPagination(paginationData);
-      } else if (response.total) {
-        setPagination(prev => ({
-          ...prev,
-          page,
-          total: response.total,
-          totalPages: Math.ceil(response.total / pagination.limit)
-        }));
-      } else if (productsData.length > 0) {
-        // Si pas d'info de pagination, on suppose que c'est la page 1 avec tous les produits
-        setPagination(prev => ({
-          ...prev,
-          page,
+        paginationData = {
           total: productsData.length,
-          totalPages: Math.ceil(productsData.length / pagination.limit)
-        }));
-      }
-      
-    } catch (err) {
-      console.error('❌ Erreur dans useProducts:', err);
-      setError(err.response?.data?.message || 'Erreur lors du chargement des produits');
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, pagination.limit, normalizeProducts]);
-
-  // Recherche de produits
-  const searchProducts = useCallback(async (searchTerm, searchFilters = {}) => {
-    setLoading(true);
-    try {
-      console.log('🔍 Recherche produits:', searchTerm, searchFilters);
-      const response = await productService.searchProducts(searchTerm, searchFilters);
-      
-      console.log('📦 Résultat recherche:', response);
-      
-      let productsData = [];
-      
-      if (response.data) {
-        productsData = response.data;
-      } else if (Array.isArray(response)) {
-        productsData = response;
-      } else if (response.success && response.produits) {
+          totalPages: Math.ceil(productsData.length / pagination.size),
+          page: 0,
+          size: pagination.size
+        };
+      } else if (response?.success && response?.produits) {
         productsData = response.produits;
+        paginationData = {
+          total: response.total || response.count || productsData.length,
+          totalPages: response.totalPages || Math.ceil((response.total || response.count || productsData.length) / pagination.size),
+          page: response.currentPage || 0,
+          size: response.size || pagination.size
+        };
       }
       
-      // ✅ Normaliser les résultats
       const produitsNormalises = normalizeProducts(productsData);
       setProducts(produitsNormalises);
       
-      // Mettre à jour la pagination
-      setPagination(prev => ({
-        ...prev,
-        total: response.count || response.total || productsData.length,
-        totalPages: Math.ceil((response.count || response.total || productsData.length) / pagination.limit)
-      }));
+      if (paginationData) {
+        setPagination(prev => ({
+          ...prev,
+          page: paginationData.page,
+          size: paginationData.size,
+          total: paginationData.total,
+          totalPages: paginationData.totalPages
+        }));
+      }
       
       return response;
     } catch (err) {
@@ -176,14 +262,13 @@ const useProducts = (initialFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit, normalizeProducts]);
+  }, [pagination.size, normalizeProducts]);
 
-  // Créer un produit
   const createProduct = async (productData) => {
     try {
       const response = await productService.createProduct(productData);
-      if (response && response.success) {
-        await loadProducts(pagination.page);
+      if (response?.success) {
+        await loadProducts(0);
       }
       return response;
     } catch (err) {
@@ -192,18 +277,18 @@ const useProducts = (initialFilters = {}) => {
     }
   };
 
-  // Mettre à jour un produit
   const updateProduct = async (id, productData) => {
     try {
       const response = await productService.updateProduct(id, productData);
-      if (response && response.success && response.produit) {
-        // Normaliser le produit mis à jour
-        const produitNormalise = normalizeProduct(response.produit);
-        setProducts(prev => prev.map(p => 
-          p.idProduit === id ? produitNormalise : p
-        ));
-      } else {
-        await loadProducts(pagination.page);
+      if (response?.success) {
+        if (response.produit) {
+          const produitNormalise = normalizeProduct(response.produit);
+          setProducts(prev => prev.map(p => 
+            p.id === id ? produitNormalise : p
+          ));
+        } else {
+          await loadProducts(pagination.page);
+        }
       }
       return response;
     } catch (err) {
@@ -212,12 +297,14 @@ const useProducts = (initialFilters = {}) => {
     }
   };
 
-  // Supprimer un produit
   const deleteProduct = async (id) => {
     try {
       const response = await productService.deleteProduct(id);
-      if (response && response.success) {
-        setProducts(prev => prev.filter(p => p.idProduit !== id));
+      if (response?.success) {
+        setProducts(prev => prev.filter(p => p.id !== id));
+        if (products.length === 1 && pagination.page > 0) {
+          await loadProducts(pagination.page - 1);
+        }
       }
       return response;
     } catch (err) {
@@ -226,33 +313,132 @@ const useProducts = (initialFilters = {}) => {
     }
   };
 
-  // Vérifier la disponibilité
-  const checkProductsAvailability = async (productIds) => {
+  const reactivateProduct = async (id) => {
     try {
-      return await productService.checkAvailability(productIds);
+      const response = await productService.reactivateProduct(id);
+      if (response?.success) {
+        if (response.produit) {
+          const produitNormalise = normalizeProduct(response.produit);
+          setProducts(prev => prev.map(p => 
+            p.id === id ? produitNormalise : p
+          ));
+        } else {
+          await loadProducts(pagination.page);
+        }
+      }
+      return response;
+    } catch (err) {
+      console.error('❌ Erreur réactivation:', err);
+      throw err;
+    }
+  };
+
+  const updateStock = async (id, nouvelleQuantite) => {
+    try {
+      const response = await productService.updateStock(id, nouvelleQuantite);
+      if (response?.success && response.produit) {
+        const produitNormalise = normalizeProduct(response.produit);
+        setProducts(prev => prev.map(p => 
+          p.id === id ? produitNormalise : p
+        ));
+      }
+      return response;
+    } catch (err) {
+      console.error('❌ Erreur mise à jour stock:', err);
+      throw err;
+    }
+  };
+
+  const checkAvailability = async (id, quantite) => {
+    try {
+      return await productService.checkAvailability(id, quantite);
     } catch (err) {
       console.error('❌ Erreur vérification disponibilité:', err);
       throw err;
     }
   };
 
-  // Appliquer des filtres
+  const checkMultipleAvailability = async (items) => {
+    try {
+      return await productService.checkMultipleAvailability(items);
+    } catch (err) {
+      console.error('❌ Erreur vérification multiple:', err);
+      throw err;
+    }
+  };
+
+  const loadLowStockProducts = async () => {
+    setLoading(true);
+    try {
+      const response = await productService.getLowStockProducts();
+      if (response?.data) {
+        const produitsNormalises = normalizeProducts(response.data);
+        setProducts(produitsNormalises);
+        setPagination(prev => ({
+          ...prev,
+          total: response.count || produitsNormalises.length,
+          totalPages: 1,
+          page: 0
+        }));
+      }
+      return response;
+    } catch (err) {
+      console.error('❌ Erreur chargement stock faible:', err);
+      setError(err.response?.data?.message || 'Erreur lors du chargement');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const applyFilters = useCallback((newFilters) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
-    loadProducts(1, newFilters);
+    loadProducts(0, newFilters);
   }, [loadProducts]);
 
-  // Réinitialiser les filtres
   const resetFilters = useCallback(() => {
-    setFilters(initialFilters);
-    loadProducts(1, initialFilters);
-  }, [initialFilters, loadProducts]);
+  // ✅ Remettre à l'état initial avec actif: '' (vide)
+  setFilters({ 
+    actif: '', 
+    status: '', 
+    categorieId: '',
+    ...initialFilters 
+  });
+  
+  // ✅ Charger avec les filtres réinitialisés
+  loadProducts(0, { 
+    actif: '', 
+    status: '', 
+    categorieId: '' 
+  });
+}, [initialFilters, loadProducts]);
 
-  // Charger initialement
+  const changePage = useCallback((newPage) => {
+    loadProducts(newPage);
+  }, [loadProducts]);
+
+  const changePageSize = useCallback((newSize) => {
+    setPagination(prev => ({ ...prev, size: newSize }));
+    loadProducts(0, { ...filters, size: newSize });
+  }, [filters, loadProducts]);
+
+  // ========== 5. EFFET DE CHARGEMENT INITIAL ==========
   useEffect(() => {
-    loadProducts();
-  }, []);
+  // ✅ Se déclenche à chaque changement de filtre
+  console.log('🔄 Filtres changés, rechargement...', filters);
+  
+  const params = {
+    page: 0,
+    size: pagination.size,
+    actif: filters.actif || undefined,
+    status: filters.status || undefined,
+    categorieId: filters.categorieId || undefined
+  };
+  
+  loadProducts(0, params);
+}, [filters.actif, filters.status, filters.categorieId, pagination.size]); 
 
+  // ========== 6. RETOUR ==========
   return {
     products,
     loading,
@@ -261,15 +447,22 @@ const useProducts = (initialFilters = {}) => {
     filters,
     loadProducts,
     searchProducts,
+    loadLowStockProducts,
     createProduct,
     updateProduct,
     deleteProduct,
-    checkProductsAvailability,
+    reactivateProduct,
+    updateStock,
+    checkAvailability,
+    checkMultipleAvailability,
     applyFilters,
     resetFilters,
     setFilters,
-    // ✅ Export de la fonction de normalisation pour usage externe
-    normalizeProduct
+    changePage,
+    changePageSize,
+    normalizeProduct,
+    getStatusLabel,
+    getStatusColor
   };
 };
 

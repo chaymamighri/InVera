@@ -1,6 +1,5 @@
 // src/services/dashboardService.js
 import api from './api';
-import { authHeader } from './authHeader';
 
 class DashboardService {
   // Récupérer toutes les données du dashboard en un seul appel API
@@ -8,9 +7,7 @@ class DashboardService {
     try {
       console.log(`Récupération données dashboard pour période: ${period}`);
       
-      const response = await api.get(`/dashboard/summary?period=${period}`, {
-        headers: authHeader()
-      });
+      const response = await api.get(`/dashboard/summary?period=${period}`);
       
       // La réponse doit avoir la structure attendue par le frontend
       return response.data;
