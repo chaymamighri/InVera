@@ -14,35 +14,24 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
 
     // ========== MÉTHODES AVEC FILTRE ACTIF ==========
 
-    // Recherche des produits actifs uniquement
+    // ========== MÉTHODES SIMPLES ==========
     List<Produit> findByActiveTrue();
-
-    // Recherche des produits inactifs uniquement
     List<Produit> findByActiveFalse();
-
-
-    // Recherche par liste de statuts (produits actifs)
+    List<Produit> findByCategorieAndActiveTrue(Categorie categorie);
     List<Produit> findByStatusInAndActiveTrue(List<Produit.StockStatus> statusList);
 
-    // Recherche par catégorie (produits actifs)
-    List<Produit> findByCategorieAndActiveTrue(Categorie categorie);
 
-    // Recherche avec filtre actif dynamique
-    List<Produit> findByLibelleContainingIgnoreCaseAndActive(String libelle, Boolean active);
-
-    List<Produit> findByStatusAndActive(Produit.StockStatus status, Boolean active);
-
-    List<Produit> findByCategorieIdCategorieAndActive(Integer categorieId, Boolean active);
-
-    List<Produit> findByStatusAndCategorieIdCategorieAndActive(Produit.StockStatus status, Integer categorieId, Boolean active);
-
-    List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndActive(String libelle, Produit.StockStatus status, Boolean active);
-
-    List<Produit> findByLibelleContainingIgnoreCaseAndCategorieIdCategorieAndActive(String libelle, Integer categorieId, Boolean active);
-
-    List<Produit> findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorieAndActive(
-            String libelle, Produit.StockStatus status, Integer categorieId, Boolean active);
-
-
+    @Query(value = "SELECT * FROM produit WHERE " +
+            "(:keyword IS NULL OR lower(libelle) LIKE lower(concat('%', :keyword, '%'))) AND " +  // Plus de convert_from !
+            "(:status IS NULL OR status = :status) AND " +
+            "(:categorieId IS NULL OR categorie_id = :categorieId) AND " +
+            "(:actif IS NULL OR is_active = :actif)",
+            nativeQuery = true)
+    List<Produit> searchProduits(
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("categorieId") Integer categorieId,
+            @Param("actif") Boolean actif
+    );
 
 }

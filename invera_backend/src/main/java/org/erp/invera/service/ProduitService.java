@@ -138,48 +138,30 @@ public class ProduitService {
     /**
      * Rechercher des produits avec filtres
      */
+
     public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId, Boolean actif) {
-        // Si tous les filtres sont présents
-        if (keyword != null && status != null && categorieId != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorieAndActive(
-                    keyword, status, categorieId, actif);
-        }
-        // Keyword + Status
-        else if (keyword != null && status != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndStatusAndActive(keyword, status, actif);
-        }
-        // Keyword + Catégorie
-        else if (keyword != null && categorieId != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndCategorieIdCategorieAndActive(keyword, categorieId, actif);
-        }
-        // Status + Catégorie
-        else if (status != null && categorieId != null) {
-            return produitRepository.findByStatusAndCategorieIdCategorieAndActive(status, categorieId, actif);
-        }
-        // Keyword seul
-        else if (keyword != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndActive(keyword, actif);
-        }
-        // Status seul
-        else if (status != null) {
-            return produitRepository.findByStatusAndActive(status, actif);
-        }
-        // Catégorie seule
-        else if (categorieId != null) {
-            return produitRepository.findByCategorieIdCategorieAndActive(categorieId, actif);
+
+        // Logs pour debug
+        System.out.println("========== SERVICE SEARCH ==========");
+        System.out.println("keyword: " + keyword);
+        System.out.println("status (enum): " + status);
+        System.out.println("categorieId: " + categorieId);
+        System.out.println("actif: " + actif);
+
+        // CONVERSION : enum -> String
+        String statusStr = null;
+        if (status != null) {
+            statusStr = status.name(); // Convertit EN_STOCK -> "EN_STOCK"
+            System.out.println("status converti en String: " + statusStr);
         }
 
-        // Aucun filtre : comportement selon la valeur de actif
-        if (actif == null) {
-            // Si actif est null, retourner TOUS les produits
-            return produitRepository.findAll();
-        } else if (actif) {
-            // Si actif est true, retourner les produits actifs
-            return produitRepository.findByActiveTrue();
-        } else {
-            // Si actif est false, retourner les produits inactifs
-            return produitRepository.findByActiveFalse();
-        }
+        // Appel au repository avec le String
+        List<Produit> resultats = produitRepository.searchProduits(keyword, statusStr, categorieId, actif);
+
+        System.out.println("Résultats trouvés: " + resultats.size());
+        System.out.println("====================================");
+
+        return resultats;
     }
 
     /**

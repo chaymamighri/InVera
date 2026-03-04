@@ -1,8 +1,7 @@
-// produits/CreateProduitForm.jsx
 import React, { useState } from 'react';
 import ProduitFormBase from './ProduitFormBase';
 
-const CreateProduitForm = ({ categories, onClose, onSave }) => {
+const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
@@ -12,12 +11,16 @@ const CreateProduitForm = ({ categories, onClose, onSave }) => {
     seuilMinimum: 10,
     uniteMesure: 'pièce',
     imageUrl: '',
+    imageFile: null,  
     remiseTemporaire: 0,
     active: true
   });
 
   const [errors, setErrors] = useState({});
+  const [imagePreview, setImagePreview] = useState(null);
+  const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
 
+  // FONCTION : validateForm
   const validateForm = () => {
     const newErrors = {};
     
@@ -34,13 +37,7 @@ const CreateProduitForm = ({ categories, onClose, onSave }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (validateForm()) {
-      onSave(formData);
-    }
-  };
-
+  //  FONCTION : handleChange
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
@@ -52,6 +49,7 @@ const CreateProduitForm = ({ categories, onClose, onSave }) => {
     }
   };
 
+  //  FONCTION: handleCategorieChange
   const handleCategorieChange = (e) => {
     const categorieId = parseInt(e.target.value);
     const selectedCategorie = categories.find(c => c.idCategorie === categorieId);
@@ -64,13 +62,80 @@ const CreateProduitForm = ({ categories, onClose, onSave }) => {
     }
   };
 
+  //  Fonction pour l'upload d'image
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setErrors(prev => ({ ...prev, imageUrl: 'Format non supporté' }));
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, imageUrl: 'Image trop volumineuse (max 5MB)' }));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+
+      setFormData(prev => ({
+        ...prev,
+        imageFile: file,
+        imageUrl: ''
+      }));
+    }
+  };
+
+  //  Fonction pour supprimer l'image
+  const handleRemoveImage = () => {
+    setFormData(prev => ({
+      ...prev,
+      imageFile: null,
+      imageUrl: ''
+    }));
+    setImagePreview(null);
+    document.getElementById('image-upload').value = '';
+  };
+
+  //  Fonction de soumission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      const formDataToSend = new FormData();
+      formDataToSend.append('libelle', formData.libelle);
+      formDataToSend.append('prixVente', formData.prixVente);
+      formDataToSend.append('prixAchat', formData.prixAchat);
+      formDataToSend.append('categorieId', formData.categorie.idCategorie);
+      formDataToSend.append('quantiteStock', formData.quantiteStock);
+      formDataToSend.append('seuilMinimum', formData.seuilMinimum);
+      formDataToSend.append('uniteMesure', formData.uniteMesure);
+      formDataToSend.append('remiseTemporaire', formData.remiseTemporaire);
+      formDataToSend.append('active', formData.active);
+      
+      if (formData.imageFile) {
+        formDataToSend.append('image', formData.imageFile);
+      }
+      
+      onSave(formDataToSend);
+    }
+  };
+
   return (
     <ProduitFormBase
       formData={formData}
       errors={errors}
       categories={categories}
       handleChange={handleChange}
+      handleImageChange={handleImageChange}   
+      handleRemoveImage={handleRemoveImage}    
+      imagePreview={imagePreview}             
       handleCategorieChange={handleCategorieChange}
+      isRemiseDisabled={isRemiseDisabled} 
       handleSubmit={handleSubmit}
       onClose={onClose}
       isEditMode={false}

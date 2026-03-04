@@ -96,6 +96,8 @@ public class SecurityConfig {
                                 "/api/auth/all",
                                 "/api/auth/delete/**",
                                 "/api/auth/update/**").hasRole("ADMIN")
+                        // authorise uploads images
+                        .requestMatchers("/uploads/**").permitAll()
 
                         // roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
