@@ -1,5 +1,7 @@
 // produits/Produits.jsx
 import React, { useState , useCallback } from 'react';
+import { useAuth } from '../../../../hooks/useAuth';
+
 import {
   ArrowPathIcon,
   ChevronLeftIcon,
@@ -33,6 +35,9 @@ const Produits = () => {
     getStatusLabel = (s) => s || '',
     getStatusColor = (s) => 'gray'
   } = useProducts({ actif: '' }) || {}; 
+  
+  const { user } = useAuth();
+  const userRole = user?.role;
 
   // ✅ Hook pour les catégories (gère le fallback automatiquement)
   const { categories, loading: categoriesLoading } = useCategories();
@@ -47,7 +52,7 @@ const Produits = () => {
     categorieId: '',
     actif: ''  
   });
-
+ 
   // ========== GESTIONNAIRES (inchangés) ==========
   const handleAddProduit = () => {
     setSelectedProduit(null);
@@ -259,12 +264,14 @@ const handleResetFilters = useCallback(() => {
             categories={categories}
             onClose={handleCloseForm}
             onSave={handleSaveProduit}
+            userRole={userRole} 
           />
         ) : (
           <CreateProduitForm
             categories={categories}
             onClose={handleCloseForm}
             onSave={handleSaveProduit}
+            userRole={userRole} 
           />
         )
       )}

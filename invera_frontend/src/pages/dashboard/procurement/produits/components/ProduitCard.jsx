@@ -17,6 +17,7 @@ const ProduitCard = ({
 }) => {
   const [showStockAdjust, setShowStockAdjust] = useState(false);
   const [newQuantity, setNewQuantity] = useState(produit.quantiteStock);
+  const [imageError, setImageError] = useState(false);
 
   // ========== GESTION DU STOCK ==========
   const handleStockSubmit = (e) => {
@@ -69,15 +70,37 @@ const ProduitCard = ({
     setShowStockAdjust(true);
   };
 
+  // ========== GESTION DE L'IMAGE ==========
+  const getImageUrl = () => {
+    if (!produit.imageUrl) return null;
+    
+    // Si l'URL commence par http, c'est une URL absolue
+    if (produit.imageUrl.startsWith('http')) {
+      return produit.imageUrl;
+    }
+    
+    // c'est un chemin relatif
+    let cleanPath = produit.imageUrl.replace(/^\/+|\/+$/g, '');
+    return `http://localhost:8081/${cleanPath}`;
+  };
+
+  const handleImageError = () => {
+    console.error('Erreur chargement image:', produit.imageUrl);
+    setImageError(true);
+  };
+
   // ========== FORMATAGE DES PRIX ==========
   const formatPrice = (price) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'XOF',
+      currency: 'TND',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
   };
+
+  const imageUrl = getImageUrl();
+  const hasValidImage = imageUrl && !imageError;
 
   return (
     <div className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 relative h-full flex flex-col ${
@@ -127,13 +150,21 @@ const ProduitCard = ({
         
         {/* ========== EN-TÊTE AVEC IMAGE ========== */}
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
-            {produit.imageUrl ? (
-              <img src={produit.imageUrl} alt={produit.libelle} className="w-8 h-8 object-cover rounded" />
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+            {hasValidImage ? (
+              <img 
+                src={imageUrl} 
+                alt={produit.libelle} 
+                className="w-full h-full object-cover"
+                onError={handleImageError}
+                loading="lazy"
+              />
             ) : (
-              <span className="text-lg font-bold text-blue-600">
-                {produit.libelle.charAt(0)}
-              </span>
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500">
+                <span className="text-lg font-bold text-white">
+                  {produit.libelle?.charAt(0).toUpperCase()}
+                </span>
+              </div>
             )}
           </div>
           
@@ -187,53 +218,53 @@ const ProduitCard = ({
           ) : null}
         </div>
 
-       {/* ========== ACTIONS STOCK ========== */}
-<div className="pt-1 border-t border-gray-200 mt-auto">
-  {showStockAdjust ? (
-    <form onSubmit={handleStockSubmit} className="flex gap-1.5">
-      <input
-        type="number"
-        value={newQuantity}
-        onChange={(e) => setNewQuantity(e.target.value)}
-        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-        min="0"
-        step="1"
-        placeholder="Qté"
-        autoFocus
-      />
-      <button
-        type="submit"
-        className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors whitespace-nowrap"
-      >
-        OK
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setShowStockAdjust(false);
-          setNewQuantity(produit.quantiteStock);
-        }}
-        className="px-3 py-1.5 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors whitespace-nowrap"
-      >
-        Annuler
-      </button>
-    </form>
-  ) : (
-    <button
-      type="button"
-      onClick={handleAdjustClick}
-      disabled={!produit.active}
-      className={`w-full py-1.5 rounded-lg transition-colors text-sm font-medium ${
-        produit.active 
-          ? 'bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer' 
-          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-      }`}
-      title={produit.active ? "Modifier le stock" : "Produit inactif - modification impossible"}
-    >
-      Modifier le stock
-    </button>
-  )}
-</div>
+        {/* ========== ACTIONS STOCK ========== */}
+        <div className="pt-1 border-t border-gray-200 mt-auto">
+          {showStockAdjust ? (
+            <form onSubmit={handleStockSubmit} className="flex gap-1.5">
+              <input
+                type="number"
+                value={newQuantity}
+                onChange={(e) => setNewQuantity(e.target.value)}
+                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                min="0"
+                step="1"
+                placeholder="Qté"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors whitespace-nowrap"
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStockAdjust(false);
+                  setNewQuantity(produit.quantiteStock);
+                }}
+                className="px-3 py-1.5 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors whitespace-nowrap"
+              >
+                Annuler
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAdjustClick}
+              disabled={!produit.active}
+              className={`w-full py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                produit.active 
+                  ? 'bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer' 
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+              title={produit.active ? "Modifier le stock" : "Produit inactif - modification impossible"}
+            >
+              Modifier le stock
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,10 +2,10 @@
 import api from './api';
 
 // Fonction utilitaire pour récupérer le token (si vous avez besoin d'headers spécifiques)
-const getAuthHeader = () => {
+/*const getAuthHeader = () => {
   const token = localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
-};
+};*/
 
 const productService = {
   /**
@@ -105,18 +105,35 @@ getAllProducts: async (params = {}) => {
 
   /**
    * Créer un nouveau produit
-   * POST /api/produits/add
    */
-  createProduct: async (productData) => {
-    try {
-      const response = await api.post('/produits/add', productData);
-      return response.data; // { success, message, produit }
-    } catch (error) {
-      console.error('Erreur lors de la création du produit:', error);
-      throw error;
+createProduct: async (productData) => {
+  try {
+    // Vérifier si c'est du FormData
+    const isFormData = productData instanceof FormData;
+    
+    console.log('📤 Envoi en', isFormData ? 'FormData' : 'JSON');
+    
+    // Log du contenu si FormData
+    if (isFormData) {
+      for (let pair of productData.entries()) {
+        console.log(`📦 ${pair[0]}:`, pair[1] instanceof File ? `Fichier: ${pair[1].name}` : pair[1]);
+      }
     }
-  },
-
+    
+    const response = await api.post('/produits/add', productData, {
+      headers: isFormData ? {
+        'Content-Type': 'multipart/form-data'
+      } : {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    return response.data; 
+  } catch (error) {
+    console.error('❌ Erreur lors de la création du produit:', error);
+    throw error;
+  }
+},
   /**
    * Mettre à jour un produit
    * PUT /api/produits/update/{id}
@@ -161,17 +178,32 @@ getAllProducts: async (params = {}) => {
 
   /**
    * Mettre à jour le stock d'un produit
-   * PATCH /api/produits/{id}/stock?quantite=
+  
    */
-  updateStock: async (id, quantite) => {
-    try {
-      const response = await api.patch(`/produits/${id}/stock?quantite=${quantite}`);
-      return response.data; // { success, message, produit, nouveauStock, status }
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour du stock ${id}:`, error);
-      throw error;
-    }
-  },
+/**
+ * Mettre à jour l'image d'un produit
+ */
+
+updateProduct: async (id, productData) => {
+  try {
+    const isFormData = productData instanceof FormData;
+    
+    console.log(`📤 Envoi mise à jour en ${isFormData ? 'FormData' : 'JSON'}`);
+    
+    const response = await api.put(`/produits/update/${id}`, productData, {
+      headers: isFormData ? {
+        'Content-Type': 'multipart/form-data'
+      } : {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    return response.data; // { success, message, produit }
+  } catch (error) {
+    console.error(`❌ Erreur mise à jour produit ${id}:`, error);
+    throw error;
+  }
+},
 
   /**
    * Vérifier la disponibilité d'un produit

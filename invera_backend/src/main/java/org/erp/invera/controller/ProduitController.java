@@ -1,14 +1,22 @@
 package org.erp.invera.controller;
 
+import org.erp.invera.model.Categorie;
 import org.erp.invera.model.Produit;
 import org.erp.invera.service.ProduitService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Objects;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/produits")
@@ -16,35 +24,114 @@ import java.util.Map;
 public class ProduitController {
 
     private final ProduitService produitService;
+    private static final String UPLOAD_DIR = "uploads/produits";
 
     public ProduitController(ProduitService produitService) {
         this.produitService = produitService;
     }
 
+
+    // ==== function to save image
+    private String saveImage(MultipartFile image) throws IOException {
+
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+
+        // Vérifier le type (sécurité)
+        String contentType = image.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IOException("Fichier invalide. Seules les images sont autorisées.");
+        }
+
+        // Créer dossier si absent
+        Path uploadPath = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();
+        Files.createDirectories(uploadPath);
+
+        // Sécuriser nom original
+        String originalFileName = StringUtils.cleanPath(
+                Objects.requireNonNull(image.getOriginalFilename())
+        );
+
+        // Extension
+        String extension = "";
+        int dotIndex = originalFileName.lastIndexOf(".");
+        if (dotIndex > 0) {
+            extension = originalFileName.substring(dotIndex);
+        }
+
+        // Nom unique
+        String fileName = UUID.randomUUID().toString() + extension;
+
+        Path filePath = uploadPath.resolve(fileName);
+
+        Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return "/uploads/produits/" + fileName;
+    }
     /**
-     * Ajouter un nouveau produit
+     * Ajouter un nouveau produit (avec image via FormData)
      */
-    @PostMapping("/add")
-    public ResponseEntity<Map<String, Object>> addProduct(@RequestBody Produit produit) {
+    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> addProduct(
+            @RequestParam("libelle") String libelle,
+            @RequestParam("prixVente") Double prixVente,
+            @RequestParam("prixAchat") Double prixAchat,
+            @RequestParam("categorieId") Integer categorieId,
+            @RequestParam(value = "quantiteStock", defaultValue = "0") Integer quantiteStock,
+            @RequestParam(value = "seuilMinimum", defaultValue = "10") Integer seuilMinimum,
+            @RequestParam(value = "uniteMesure", defaultValue = "pièce") String uniteMesure,
+            @RequestParam(value = "remiseTemporaire", required = false) Double remiseTemporaire,
+            @RequestParam(value = "active", defaultValue = "true") Boolean active,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+
         try {
-            // Validation de base
-            if (produit.getLibelle() == null || produit.getLibelle().trim().isEmpty()) {
-                return errorResponse("Le libellé du produit est requis", HttpStatus.BAD_REQUEST);
+            Produit produit = new Produit();
+            produit.setLibelle(libelle);
+            produit.setPrixVente(prixVente);
+            produit.setPrixAchat(prixAchat);
+            produit.setQuantiteStock(quantiteStock);
+            produit.setSeuilMinimum(seuilMinimum);
+
+            // Conversion UniteMesure (String -> Enum)
+            try {
+                // Note: votre frontend envoie "pièce", "kg", etc.
+                // Il faut mapper ces valeurs vers votre enum
+                String uniteUpper = uniteMesure.toUpperCase();
+                // Mapper "pièce" -> "PIECE", "kg" -> "KILOGRAMME", etc.
+                if (uniteUpper.equals("PIÈCE") || uniteUpper.equals("PIECE")) {
+                    produit.setUniteMesure(Produit.UniteMesure.PIECE);
+                } else if (uniteUpper.equals("KG") || uniteUpper.equals("KILOGRAMME")) {
+                    produit.setUniteMesure(Produit.UniteMesure.KILOGRAMME);
+                } else if (uniteUpper.equals("L") || uniteUpper.equals("LITRE")) {
+                    produit.setUniteMesure(Produit.UniteMesure.LITRE);
+                } else if (uniteUpper.equals("M") || uniteUpper.equals("METRE")) {
+                    produit.setUniteMesure(Produit.UniteMesure.METRE);
+                } else {
+                    // Valeur par défaut
+                    produit.setUniteMesure(Produit.UniteMesure.PIECE);
+                }
+            } catch (Exception e) {
+                return errorResponse("Unité de mesure invalide", HttpStatus.BAD_REQUEST);
             }
 
-            if (produit.getCategorie() == null || produit.getCategorie().getIdCategorie() == null) {
-                return errorResponse("La catégorie du produit est requise", HttpStatus.BAD_REQUEST);
+            // Gestion de la remise (peut être null)
+            if (remiseTemporaire != null) {
+                produit.setRemiseTemporaire(remiseTemporaire);
             }
 
-            if (produit.getPrixVente() == null || produit.getPrixVente() <= 0) {
-                return errorResponse("Le prix de vente doit être supérieur à 0", HttpStatus.BAD_REQUEST);
-            }
+            produit.setActive(active);
 
-            // Initialisation des valeurs par défaut
-            if (produit.getQuantiteStock() == null) produit.setQuantiteStock(0);
-            if (produit.getSeuilMinimum() == null) produit.setSeuilMinimum(10);
-            if (produit.getActive() == null) produit.setActive(true);
-            if (produit.getRemiseTemporaire() == null) produit.setRemiseTemporaire(0.0);
+            // Récupérer la catégorie
+            Categorie categorie = new Categorie();
+            categorie.setIdCategorie(categorieId);
+            produit.setCategorie(categorie);
+
+            // Traitement de l'image
+            if (image != null && !image.isEmpty()) {
+                String imageUrl = saveImage(image);
+                produit.setImageUrl(imageUrl);
+            }
 
             Produit createdProduit = produitService.createProduit(produit);
 
@@ -54,14 +141,12 @@ public class ProduitController {
             response.put("produit", createdProduit);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
-            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
         } catch (Exception e) {
-            return errorResponse("Erreur lors de l'ajout du produit: " + e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            e.printStackTrace();
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
-
     /**
      * Récupérer tous les produits
      */
@@ -100,16 +185,73 @@ public class ProduitController {
     /**
      * Modifier un produit
      */
-    @PutMapping("/update/{id}")
-    public ResponseEntity<Map<String, Object>> updateProduct(@PathVariable Integer id, @RequestBody Produit produit) {
+    @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> updateProduct(
+            @PathVariable Integer id,
+            @RequestParam(required = false) String libelle,
+            @RequestParam(required = false) Double prixVente,
+            @RequestParam(required = false) Double prixAchat,
+            @RequestParam(required = false) Integer categorieId,  // ← AJOUTÉ
+            @RequestParam(required = false) Integer quantiteStock,
+            @RequestParam(required = false) Integer seuilMinimum,
+            @RequestParam(required = false) String uniteMesure,    // ← AJOUTÉ
+            @RequestParam(required = false) Double remiseTemporaire, // ← AJOUTÉ (nullable)
+            @RequestParam(required = false) Boolean active,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+
         try {
-            // Validation des données modifiables
-            if (produit.getPrixVente() != null && produit.getPrixVente() <= 0) {
-                return errorResponse("Le prix de vente doit être supérieur à 0", HttpStatus.BAD_REQUEST);
+            Produit produit = produitService.getProduitById(id)
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+
+            // Mise à jour des champs si fournis
+            if (libelle != null) produit.setLibelle(libelle);
+            if (prixVente != null) produit.setPrixVente(prixVente);
+            if (prixAchat != null) produit.setPrixAchat(prixAchat);
+            if (quantiteStock != null) produit.setQuantiteStock(quantiteStock);
+            if (seuilMinimum != null) produit.setSeuilMinimum(seuilMinimum);
+            if (active != null) produit.setActive(active);
+
+            // ✅ Gestion de la remise (peut être null pour RESPONSABLE_ACHAT)
+            if (remiseTemporaire != null) {
+                produit.setRemiseTemporaire(remiseTemporaire);
+            }
+            // Si remiseTemporaire est null, on garde la valeur existante ou on la met à null
+            // (selon votre logique métier)
+
+            // ✅ Mise à jour de la catégorie
+            if (categorieId != null) {
+                Categorie categorie = new Categorie();
+                categorie.setIdCategorie(categorieId);
+                produit.setCategorie(categorie);
             }
 
-            if (produit.getSeuilMinimum() != null && produit.getSeuilMinimum() < 0) {
-                return errorResponse("Le seuil minimum doit être positif", HttpStatus.BAD_REQUEST);
+            // ✅ Mise à jour de l'unité de mesure
+            if (uniteMesure != null && !uniteMesure.isEmpty()) {
+                try {
+                    Produit.UniteMesure unite = Produit.UniteMesure.valueOf(uniteMesure.toUpperCase());
+                    produit.setUniteMesure(unite);
+                } catch (IllegalArgumentException e) {
+                    return errorResponse("Unité de mesure invalide. Valeurs acceptées: PIECE, KILOGRAMME, LITRE, METRE, etc.",
+                            HttpStatus.BAD_REQUEST);
+                }
+            }
+
+            // Mise à jour de l'image
+            if (image != null && !image.isEmpty()) {
+                // Supprimer l'ancienne image si elle existe
+                if (produit.getImageUrl() != null) {
+                    try {
+                        Path oldImagePath = Paths.get(UPLOAD_DIR)
+                                .resolve(Paths.get(produit.getImageUrl()).getFileName());
+                        Files.deleteIfExists(oldImagePath);
+                    } catch (Exception e) {
+                        // Log mais on continue
+                        System.err.println("Impossible de supprimer l'ancienne image: " + e.getMessage());
+                    }
+                }
+
+                String imageUrl = saveImage(image);
+                produit.setImageUrl(imageUrl);
             }
 
             Produit updatedProduit = produitService.updateProduit(id, produit);
@@ -120,11 +262,12 @@ public class ProduitController {
             response.put("produit", updatedProduit);
 
             return ResponseEntity.ok(response);
+
         } catch (RuntimeException e) {
             return errorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
         } catch (Exception e) {
-            return errorResponse("Erreur lors de la mise à jour: " + e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            e.printStackTrace();
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

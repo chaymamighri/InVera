@@ -19,7 +19,11 @@ const ProduitFormBase = ({
   errors,
   categories,
   handleChange,
+  handleImageChange,    
+  handleRemoveImage,      
+  imagePreview,       
   handleCategorieChange,
+  isRemiseDisabled,   
   handleSubmit,
   onClose,
   isEditMode,
@@ -41,7 +45,9 @@ const ProduitFormBase = ({
             <h3 className="text-lg font-semibold text-gray-700">Informations générales</h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Libellé *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Libellé <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 name="libelle"
@@ -54,7 +60,9 @@ const ProduitFormBase = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix d'achat * (F CFA)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prix d'achat <span className="text-red-500">*</span> DT
+                </label>
                 <input
                   type="number"
                   name="prixAchat"
@@ -68,7 +76,9 @@ const ProduitFormBase = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix de vente * (F CFA)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prix de vente <span className="text-red-500">*</span> DT
+                </label>
                 <input
                   type="number"
                   name="prixVente"
@@ -83,7 +93,9 @@ const ProduitFormBase = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Catégorie <span className="text-red-500">*</span>
+              </label>
               <select
                 value={formData.categorie?.idCategorie || ''}
                 onChange={handleCategorieChange}
@@ -117,7 +129,9 @@ const ProduitFormBase = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unité de mesure *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unité de mesure <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="uniteMesure"
                   value={formData.uniteMesure}
@@ -132,7 +146,9 @@ const ProduitFormBase = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Seuil minimum d'alerte *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Seuil minimum d'alerte <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
                 name="seuilMinimum"
@@ -154,21 +170,31 @@ const ProduitFormBase = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Remise temporaire (%)</label>
+              
                 <input
                   type="number"
                   name="remiseTemporaire"
-                  value={formData.remiseTemporaire}
+                  value={formData.remiseTemporaire || 0}
                   onChange={handleChange}
                   min="0"
                   max="100"
                   step="0.1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isRemiseDisabled}
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 
+                    ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                 />
+                {isRemiseDisabled && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    La remise est gérée par l'administrateur
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Statut <span className="text-red-500">*</span>
+                </label>
                 <div className="flex items-center gap-4 mt-2">
                   <label className="flex items-center gap-2">
                     <input
@@ -194,16 +220,51 @@ const ProduitFormBase = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
-              <input
-                type="url"
-                name="imageUrl"
-                value={formData.imageUrl}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+            {/* Section Image */}
+            <div className="col-span-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Image du produit
+              </label>
+              
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleImageChange}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100"
+                  />
+                </div>
+
+                {imagePreview && (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Aperçu"
+                      className="h-20 w-20 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {errors.imageUrl && (
+                <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+              )}
             </div>
           </div>
 

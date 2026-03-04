@@ -102,18 +102,18 @@ const loadProducts = useCallback(async (page = 0, customFilters = {}) => {
       size: pagination.size
     };
     console.log('📌 rawParams (avant nettoyage):', rawParams);
-    
-    // ✅ 2. Supprimer les paramètres vides ou undefined
-    const searchParams = {};
+const searchParams = {};
     Object.keys(rawParams).forEach(key => {
       const value = rawParams[key];
-      console.log(`🔍 Clé "${key}": valeur =`, value, `type =`, typeof value);
       
       if (value !== '' && value !== undefined && value !== null) {
-        searchParams[key] = value;
-        console.log(`  ✅ "${key}" conservé avec valeur:`, value);
-      } else {
-        console.log(`  ❌ "${key}" filtré (vide ou null)`);
+        // 👇 Mapper les noms de paramètres
+        if (key === 'categorie' || key === 'categorieId') {
+          searchParams['categorieId'] = value;  // Toujours utiliser 'categorieId'
+          console.log(`🔄 Mappage: ${key} -> categorieId =`, value);
+        } else {
+          searchParams[key] = value;
+        }
       }
     });
     
@@ -278,24 +278,30 @@ const loadProducts = useCallback(async (page = 0, customFilters = {}) => {
   };
 
   const updateProduct = async (id, productData) => {
-    try {
-      const response = await productService.updateProduct(id, productData);
-      if (response?.success) {
-        if (response.produit) {
-          const produitNormalise = normalizeProduct(response.produit);
-          setProducts(prev => prev.map(p => 
-            p.id === id ? produitNormalise : p
-          ));
-        } else {
-          await loadProducts(pagination.page);
-        }
+  try {
+    // Vérifier si c'est du FormData
+    const isFormData = productData instanceof FormData;
+    
+    console.log(`📤 Mise à jour en ${isFormData ? 'FormData' : 'JSON'}`);
+    
+    const response = await productService.updateProduct(id, productData);
+    
+    if (response?.success) {
+      if (response.produit) {
+        const produitNormalise = normalizeProduct(response.produit);
+        setProducts(prev => prev.map(p => 
+          p.id === id ? produitNormalise : p
+        ));
+      } else {
+        await loadProducts(pagination.page);
       }
-      return response;
-    } catch (err) {
-      console.error('❌ Erreur mise à jour:', err);
-      throw err;
     }
-  };
+    return response;
+  } catch (err) {
+    console.error('❌ Erreur mise à jour:', err);
+    throw err;
+  }
+};
 
   const deleteProduct = async (id) => {
     try {
