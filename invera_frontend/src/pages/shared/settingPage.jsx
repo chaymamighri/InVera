@@ -100,12 +100,7 @@ const SettingsPage = () => {
         icon: <BellIcon className="h-5 w-5" />,
         description: 'Configurez vos préférences de notifications'
       },
-      {
-        id: 'language',
-        name: 'Langue',
-        icon: <GlobeAltIcon className="h-5 w-5" />,
-        description: 'Choisissez votre langue préférée'
-      }
+    
     ],
     []
   );
@@ -510,16 +505,6 @@ const SettingsPage = () => {
                     </div>
                   )}
 
-                  {activeTab === 'language' && (
-                    <div className="text-center py-12">
-                      <GlobeAltIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-700 mb-2">
-                        Sélection de la langue
-                      </h3>
-                      <p className="text-gray-500">Cette fonctionnalité est en cours de développement.</p>
-                      <p className="text-sm text-gray-400 mt-2">Bientôt disponible !</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

@@ -39,7 +39,15 @@ const ProduitFormBase = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={(e) => {
+    try {
+      handleSubmit(e);
+    } catch (error) {
+      console.error('🔥 Erreur submit formulaire:', error);
+      e.preventDefault();
+    }
+  }} className="p-6 space-y-6">
+    
           {/* Informations générales */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-700">Informations générales</h3>
@@ -64,7 +72,7 @@ const ProduitFormBase = ({
                   Prix d'achat <span className="text-red-500">*</span> DT
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="prixAchat"
                   value={formData.prixAchat}
                   onChange={handleChange}
@@ -80,7 +88,7 @@ const ProduitFormBase = ({
                   Prix de vente <span className="text-red-500">*</span> DT
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="prixVente"
                   value={formData.prixVente}
                   onChange={handleChange}
@@ -164,109 +172,118 @@ const ProduitFormBase = ({
             </div>
           </div>
 
-          {/* Informations commerciales */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">Informations commerciales</h3>
+{/* Informations commerciales */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-gray-700">Informations commerciales</h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-              
-                <input
-                  type="number"
-                  name="remiseTemporaire"
-                  value={formData.remiseTemporaire || 0}
-                  onChange={handleChange}
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  disabled={isRemiseDisabled}
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 
-                    ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
-                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                />
-                {isRemiseDisabled && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    La remise est gérée par l'administrateur
-                  </p>
-                )}
-              </div>
+  <div className="grid grid-cols-2 gap-4">
+    {/* Remise temporaire */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Remise temporaire (%)
+      </label>
+      <input
+        type="text"
+        name="remiseTemporaire"
+        value={formData.remiseTemporaire || ''}
+        onChange={handleChange}
+        disabled={isRemiseDisabled}
+        placeholder="0"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 
+          ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : 'bg-white'}
+          focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+      />
+      {isRemiseDisabled && (
+        <p className="mt-1 text-xs text-gray-500">
+          La remise est gérée par l'administrateur
+        </p>
+      )}
+      {errors.remiseTemporaire && (
+        <p className="mt-1 text-sm text-red-600">{errors.remiseTemporaire}</p>
+      )}
+    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Statut <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-4 mt-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === true}
-                      onChange={() => handleChange({ target: { name: 'active', value: true } })}
-                      className="text-blue-600"
-                    />
-                    <span className="text-sm">Actif</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === false}
-                      onChange={() => handleChange({ target: { name: 'active', value: false } })}
-                      className="text-red-600"
-                    />
-                    <span className="text-sm">Inactif</span>
-                  </label>
-                </div>
-              </div>
-            </div>
+    {/* Statut */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Statut <span className="text-red-500">*</span>
+      </label>
+      <div className="flex items-center gap-4 mt-2">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="active"
+            checked={formData.active === true}
+            onChange={() => handleChange({ target: { name: 'active', value: true } })}
+            className="text-blue-600"
+          />
+          <span className="text-sm">Actif</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="active"
+            checked={formData.active === false}
+            onChange={() => handleChange({ target: { name: 'active', value: false } })}
+            className="text-red-600"
+          />
+          <span className="text-sm">Inactif</span>
+        </label>
+      </div>
+    </div>
+  </div>
 
-            {/* Section Image */}
-            <div className="col-span-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Image du produit
-              </label>
-              
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    id="image-upload"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={handleImageChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-blue-50 file:text-blue-700
-                      hover:file:bg-blue-100"
-                  />
-                </div>
+  {/* Section Image - CORRIGÉE */}
+  <div className="col-span-6">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Image du produit
+    </label>
+    
+    <div className="flex items-start space-x-4">
+      <div className="flex-1">
+        <input
+          type="file"
+          id="image-upload"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleImageChange}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-full file:border-0
+            file:text-sm file:font-semibold
+            file:bg-blue-50 file:text-blue-700
+            hover:file:bg-blue-100"
+        />
+    
+      </div>
 
-                {imagePreview && (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Aperçu"
-                      className="h-20 w-20 object-cover rounded-lg border border-gray-300"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {errors.imageUrl && (
-                <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
-              )}
-            </div>
-          </div>
+      {imagePreview && (
+        <div className="relative flex-shrink-0">
+          <img
+            src={imagePreview}
+            alt="Aperçu"
+            className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
+            onError={(e) => {
+              console.error('Erreur chargement image:', imagePreview);
+              e.target.src = '/placeholder-image.png'; // Image par défaut en cas d'erreur
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleRemoveImage}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
+            title="Supprimer l'image"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+    
+    {errors.imageUrl && (
+      <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+    )}
+  </div>
+</div>
 
           {/* Boutons d'action */}
           <div className="sticky bottom-0 bg-white border-t pt-4 flex justify-end gap-3">
