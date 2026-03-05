@@ -1,7 +1,6 @@
 // produits/Produits.jsx
-import React, { useState , useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
-
 import {
   ArrowPathIcon,
   ChevronLeftIcon,
@@ -29,8 +28,9 @@ const Produits = () => {
     deleteProduct,
     reactivateProduct,
     updateStock,
-    applyFilters,
-    resetFilters,
+    filters,           
+    setFilters,      
+    resetFilters,     
     changePage,
     getStatusLabel = (s) => s || '',
     getStatusColor = (s) => 'gray'
@@ -39,52 +39,93 @@ const Produits = () => {
   const { user } = useAuth();
   const userRole = user?.role;
 
-  // ✅ Hook pour les catégories (gère le fallback automatiquement)
+  // Hook pour les catégories
   const { categories, loading: categoriesLoading } = useCategories();
 
-  // ========== ÉTATS LOCAUX ==========
-  const [showForm, setShowForm] = useState(false);
-  const [selectedProduit, setSelectedProduit] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  // ========== ÉTATS LOCAUX SÉPARÉS ==========
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [searchInput, setSearchInput] = useState(''); 
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState({
-    status: '',
-    categorieId: '',
-    actif: ''  
-  });
- 
-  // ========== GESTIONNAIRES (inchangés) ==========
+
+  // Synchroniser l'input avec la recherche du hook
+  useEffect(() => {
+    setSearchInput(filters.keyword || '');
+  }, [filters.keyword]);
+
+  // ========== GESTIONNAIRES ==========
   const handleAddProduit = () => {
-    setSelectedProduit(null);
-    setShowForm(true);
+    console.log('➕ Ouverture formulaire création');
+    setEditingProduct(null);
+    setIsFormOpen(true);
   };
 
   const handleEditProduit = (produit) => {
+    console.log('✏️ Édition produit:', produit?.id, produit?.libelle);
     if (!produit) return;
-    setSelectedProduit(produit);
-    setShowForm(true);
+    setEditingProduct(produit);
+    setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedProduit(null);
+    console.log('❌ Fermeture formulaire');
+    setIsFormOpen(false);
+    setEditingProduct(null);
   };
 
-  const handleSaveProduit = async (formData) => {
-    if (!formData) return;
+  // ✅ FONCTION SÉPARÉE POUR LA CRÉATION
+  const handleCreateProduct = async (formData) => {
+    console.log('➕ handleCreateProduct - Création produit');
+    console.log('📦 formData type:', formData instanceof FormData ? 'FormData' : typeof formData);
+    
+    if (!formData) {
+      console.error('❌ formData null');
+      toast.error('Erreur: données du formulaire manquantes');
+      return;
+    }
     
     try {
-      const response = selectedProduit
-        ? await updateProduct(selectedProduit.id, formData)
-        : await createProduct(formData);
+      const response = await createProduct(formData);
+      console.log('✅ Réponse création:', response);
       
       if (response?.success) {
-        toast.success(selectedProduit ? 'Produit modifié' : 'Produit ajouté');
+        toast.success('Produit ajouté avec succès');
         handleCloseForm();
+      } else {
+        toast.error(response?.message || 'Erreur lors de la création');
       }
     } catch (error) {
-      console.error('❌ Erreur sauvegarde:', error);
-      toast.error(error?.response?.data?.message || 'Erreur lors de la sauvegarde');
+      console.error('❌ Erreur création:', error);
+      console.error('❌ Response:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Erreur lors de la création');
+    }
+  };
+
+  // ✅ FONCTION SÉPARÉE POUR LA MODIFICATION
+  const handleUpdateProduct = async (id, formData) => {
+    console.log('✏️ handleUpdateProduct - Modification produit ID:', id);
+    console.log('📦 formData type:', formData instanceof FormData ? 'FormData' : typeof formData);
+    
+    if (!id || !formData) {
+      console.error('❌ ID ou formData manquant');
+      toast.error('Erreur: données manquantes pour la modification');
+      return;
+    }
+    
+    try {
+      const response = await updateProduct(id, formData);
+      console.log('✅ Réponse modification:', response);
+      
+      if (response?.success) {
+        toast.success('Produit modifié avec succès');
+        handleCloseForm();
+      } else {
+        toast.error(response?.message || 'Erreur lors de la modification');
+      }
+    } catch (error) {
+      console.error('❌ Erreur modification:', error);
+      console.error('❌ Response:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Erreur lors de la modification');
     }
   };
 
@@ -119,65 +160,33 @@ const Produits = () => {
     }
   };
 
-const handleSearchSubmit = useCallback((e) => {
-  if (e) e.preventDefault();
-  
-  console.log('🔍 localFilters COMPLET =', localFilters);
-  console.log('🔍 localFilters.actif =', localFilters.actif, 'type:', typeof localFilters.actif);
-  
-  const params = {
-    keyword: searchTerm || undefined,
-    status: localFilters.status || undefined,
-    categorieId: localFilters.categorieId || undefined
-  };
-  
-  // Pour "Tous", on n'envoie PAS le paramètre actif
-  if (localFilters.actif === 'true') {
-    params.actif = true;
-    console.log('✅ CAS "Actifs" détecté');
-  } else if (localFilters.actif === 'false') {
-    params.actif = false;
-    console.log('✅ CAS "Inactifs" détecté');
-  } else {
-    console.log('✅ CAS "Tous" détecté (pas de paramètre actif)');
-  }
-  
-  console.log('🔍 params final:', params);
-  
-  if (searchProducts) {
-    searchProducts(params);
-  }
-}, [searchTerm, localFilters.status, localFilters.categorieId, localFilters.actif, searchProducts]);
+  // RECHERCHE avec debounce
+  const handleSearch = useCallback((keyword) => {
+    setFilters(prev => ({
+      ...prev,
+      keyword: keyword || undefined
+    }));
+  }, [setFilters]);
 
-const handleFilterChange = useCallback((key, value) => {
-  console.log(`🔧 Filter change RECU dans Produits - ${key}:`, JSON.stringify(value), 'type:', typeof value);
-  setLocalFilters(prev => {
-    const newFilters = { ...prev, [key]: value };
-    console.log('🆕 NOUVEAUX FILTRES dans Produits:', newFilters);
-    return newFilters;
-  });
-}, []);
+  // CHANGEMENT DE FILTRE
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value || undefined
+    }));
+  }, [setFilters]);
 
-
-const handleResetFilters = useCallback(() => {
-  setLocalFilters({ status: '', categorieId: '', actif: '' });
-  setSearchTerm('');
-  if (resetFilters) {
+  // RÉINITIALISATION TOTALE
+  const handleResetFilters = useCallback(() => {
+    setSearchInput('');
     resetFilters();
-  }
-}, [resetFilters]);
+  }, [resetFilters]);
 
-  const handleApplyFilters = () => {
-    if (applyFilters) {
-      applyFilters({
-        status: localFilters.status || undefined,
-        categorieId: localFilters.categorieId || undefined
-      });
-    }
-    setShowFilters(false);
-  };
-
-
+  // RAFRAÎCHIR
+  const handleRefresh = useCallback(() => {
+    searchProducts(filters);
+    toast.success('Liste actualisée');
+  }, [filters, searchProducts]);
 
   // ========== RENDU ==========
   if (productsError) {
@@ -193,18 +202,18 @@ const handleResetFilters = useCallback(() => {
   return (
     <div className="space-y-6">
       <ProduitToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onSearchSubmit={handleSearchSubmit}
-        showFilters={showFilters}
-        onToggleFilters={() => setShowFilters(!showFilters)}
-        filters={localFilters}
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        onSearch={handleSearch}
+        filters={filters}          
         onFilterChange={handleFilterChange}
-        onApplyFilters={handleApplyFilters}
         onResetFilters={handleResetFilters}
         onAddProduit={handleAddProduit}
-        categories={categories} 
+        categories={categories}   
+        onRefresh={handleRefresh} 
         loadingCategories={categoriesLoading}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
       />
 
       {productsLoading ? (
@@ -217,7 +226,7 @@ const handleResetFilters = useCallback(() => {
             {products && products.length > 0 ? (
               products.map(produit => (
                 <ProduitCard
-                  key={produit?.id || Math.random()}
+                  key={produit?.id || produit?.idProduit || Math.random()}
                   produit={produit || {}}
                   onEdit={handleEditProduit}
                   onToggleActive={handleToggleActive}
@@ -257,20 +266,21 @@ const handleResetFilters = useCallback(() => {
         </>
       )}
 
-      {showForm && (
-        selectedProduit ? (
+      {/* Formulaire avec fonctions séparées */}
+      {isFormOpen && (
+        editingProduct ? (
           <EditProduitForm
-            produit={selectedProduit}
+            produit={editingProduct}
             categories={categories}
             onClose={handleCloseForm}
-            onSave={handleSaveProduit}
+            onSave={handleUpdateProduct}  
             userRole={userRole} 
           />
         ) : (
           <CreateProduitForm
             categories={categories}
             onClose={handleCloseForm}
-            onSave={handleSaveProduit}
+            onSave={handleCreateProduct}  
             userRole={userRole} 
           />
         )

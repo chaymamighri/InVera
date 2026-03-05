@@ -57,11 +57,28 @@ const ProduitCard = ({
   };
 
   // ========== GESTION DE L'ÉDITION ==========
-  const handleEditClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onEdit(produit);
-  };
+const handleEditClick = (e) => {
+  
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Vérifier que produit est valide
+  if (!produit) {
+    console.error('🟢 ERREUR: produit est null!');
+    return;
+  }
+  
+  if (!produit.id) {
+    console.error('🟢 ERREUR: produit.id est manquant!');
+    console.log('🟢 produit complet:', JSON.stringify(produit));
+    return;
+  }
+  
+  onEdit(produit);
+};
+
+// Ajoutez aussi un log au niveau du rendu
+console.log('🟢 Rendu ProduitCard pour produit:', produit?.id, produit?.libelle);
 
   // ========== GESTION DE L'AJUSTEMENT ==========
   const handleAdjustClick = (e) => {
@@ -94,8 +111,8 @@ const ProduitCard = ({
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'TND',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3
     }).format(price);
   };
 
@@ -170,7 +187,7 @@ const ProduitCard = ({
           
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900 truncate text-base">{produit.libelle}</h3>
-            <p className="text-xs text-gray-600 truncate">{produit.categorie?.libelle || 'Sans catégorie'}</p>
+            <p className="text-xs text-gray-600 truncate">{produit.categorieNom || produit.displayCategorie || 'Sans catégorie'}</p>
           </div>
         </div>
 

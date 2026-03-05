@@ -30,7 +30,6 @@ getAllProducts: async (params = {}) => {
 },
   /**
    * Récupérer tous les produits actifs uniquement
-   * GET /api/produits?actifs=true
    */
   getActiveProducts: async () => {
     try {
@@ -52,7 +51,6 @@ getAllProducts: async (params = {}) => {
 
   /**
    * Récupérer un produit par son ID
-   * GET /api/produits/{id}
    */
   getProductById: async (id) => {
     try {
@@ -70,7 +68,6 @@ getAllProducts: async (params = {}) => {
 
   /**
    * Recherche avancée de produits avec filtres
-   * GET /api/produits/search?keyword=&status=&categorieId=&actif=
    */
  searchProducts: async ({ keyword, status, categorieId, actif } = {}) => {
   try {
@@ -136,21 +133,43 @@ createProduct: async (productData) => {
 },
   /**
    * Mettre à jour un produit
-   * PUT /api/produits/update/{id}
    */
-  updateProduct: async (id, productData) => {
-    try {
-      const response = await api.put(`/produits/update/${id}`, productData);
-      return response.data; // { success, message, produit }
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour du produit ${id}:`, error);
-      throw error;
+updateProduct: async (id, productData) => {
+  try {
+    console.log(`📤 updateProduct - ID:`, id);
+    console.log(`📤 updateProduct - Type reçu:`, productData instanceof FormData ? 'FORMDATA' : typeof productData);
+    
+    // ✅ FORCER la conversion en FormData si nécessaire
+    let dataToSend = productData;
+    
+    if (!(productData instanceof FormData)) {
+      console.log(`⚠️ Conversion en FormData...`);
+      dataToSend = new FormData();
+      
+      // Si c'est un objet, ajouter chaque propriété
+      if (productData && typeof productData === 'object') {
+        Object.entries(productData).forEach(([key, value]) => {
+          dataToSend.append(key, String(value));
+        });
+      }
     }
-  },
+    
+    // ✅ TOUJOURS envoyer comme multipart/form-data
+    const response = await api.put(`/produits/update/${id}`, dataToSend, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erreur updateProduct:', error);
+    throw error;
+  }
+},
 
   /**
    * Désactiver un produit (soft delete)
-   * DELETE /api/produits/delete/{id}
    */
   deleteProduct: async (id) => {
     try {
@@ -164,8 +183,7 @@ createProduct: async (productData) => {
 
   /**
    * Réactiver un produit
-   * PATCH /api/produits/{id}/reactiver
-   */
+=   */
   reactivateProduct: async (id) => {
     try {
       const response = await api.patch(`/produits/${id}/reactiver`);
@@ -177,38 +195,8 @@ createProduct: async (productData) => {
   },
 
   /**
-   * Mettre à jour le stock d'un produit
-  
-   */
-/**
- * Mettre à jour l'image d'un produit
- */
-
-updateProduct: async (id, productData) => {
-  try {
-    const isFormData = productData instanceof FormData;
-    
-    console.log(`📤 Envoi mise à jour en ${isFormData ? 'FormData' : 'JSON'}`);
-    
-    const response = await api.put(`/produits/update/${id}`, productData, {
-      headers: isFormData ? {
-        'Content-Type': 'multipart/form-data'
-      } : {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response.data; // { success, message, produit }
-  } catch (error) {
-    console.error(`❌ Erreur mise à jour produit ${id}:`, error);
-    throw error;
-  }
-},
-
-  /**
    * Vérifier la disponibilité d'un produit
-   * GET /api/produits/{id}/disponibilite?quantite=
-   */
+=   */
   checkAvailability: async (id, quantite) => {
     try {
       const response = await api.get(`/produits/${id}/disponibilite?quantite=${quantite}`);
@@ -251,8 +239,7 @@ updateProduct: async (id, productData) => {
 
   /**
    * Récupérer les produits par catégorie
-   * GET /api/produits/categorie/{categorieId}
-   */
+=   */
   getProductsByCategorie: async (categorieId) => {
     try {
       const response = await api.get(`/produits/categorie/${categorieId}`);
@@ -272,8 +259,7 @@ updateProduct: async (id, productData) => {
 
   /**
    * Récupérer les produits avec stock faible
-   * GET /api/produits/low-stock
-   */
+=   */
   getLowStockProducts: async () => {
     try {
       const response = await api.get('/produits/low-stock');
@@ -293,8 +279,7 @@ updateProduct: async (id, productData) => {
 
   /**
    * Récupérer les statistiques des produits
-   * GET /api/produits/statistiques
-   */
+)   */
   getProductStats: async () => {
     try {
       const response = await api.get('/produits/statistiques');

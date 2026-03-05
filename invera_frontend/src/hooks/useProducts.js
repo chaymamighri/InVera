@@ -12,10 +12,33 @@ const useProducts = (initialFilters = {}) => {
     total: 0,
     totalPages: 0
   });
+  
+  // ✅ 1. AJOUTER 'keyword' DANS L'ÉTAT INITIAL DES FILTRES
   const [filters, setFilters] = useState({
     actif: '',
+    status: '',
+    categorieId: '',
+    keyword: '',  // <-- AJOUTER CETTE LIGNE
     ...initialFilters
   });
+
+
+
+  // ✅ 3. MODIFIER L'EFFET DE CHARGEMENT POUR INCLURE keyword
+  useEffect(() => {
+    console.log('🔄 Filtres changés, rechargement...', filters);
+    
+    const params = {
+      page: 0,
+      size: pagination.size,
+      actif: filters.actif || undefined,
+      status: filters.status || undefined,
+      categorieId: filters.categorieId || undefined,
+      keyword: filters.keyword || undefined  
+    };
+    
+    loadProducts(0, params);
+  }, [filters.actif, filters.status, filters.categorieId, filters.keyword, pagination.size]);
 
   const getStatusLabel = (status) => {
     const labels = {
@@ -39,42 +62,72 @@ const useProducts = (initialFilters = {}) => {
 
   // ========== 2. FONCTIONS DE NORMALISATION ==========
 
-  const normalizeProduct = useCallback((produit) => {
-    if (!produit) return null;
-    
-    let categorie = null;
-    let categorieNom = null;
-    let categorieId = null;
-    
-    if (produit.categorie) {
-      categorie = produit.categorie;
-      categorieId = produit.categorie.idCategorie;
-      categorieNom = produit.categorie.libelle || 'Catégorie';
+const normalizeProduct = useCallback((produit) => {
+  if (!produit) return null;
+  
+  // Extraire les infos de catégorie
+  let categorieNom = 'Sans catégorie';
+  let categorieId = null;
+  
+  if (produit.categorie) {
+    if (typeof produit.categorie === 'object') {
+      // ✅ Pour votre backend Spring Boot : le champ s'appelle "nomCategorie"
+      categorieNom = produit.categorie.nomCategorie || 'Sans catégorie';
+      categorieId = produit.categorie.idCategorie || produit.categorie.id;
+    } else if (typeof produit.categorie === 'string') {
+      categorieNom = produit.categorie;
     }
+  }
+  
+  const remiseTemporaire = produit.remiseTemporaire != null 
+    ? Number(produit.remiseTemporaire) 
+    : 0;
+  
+  return {
+    ...produit,
+    // Identifiants
+    id: produit.idProduit || produit.id,
+    idProduit: produit.idProduit || produit.id,
     
-    const remiseTemporaire = produit.remiseTemporaire != null 
-      ? Number(produit.remiseTemporaire) 
-      : 0;
+    // Noms
+    nom: produit.libelle,
+    libelle: produit.libelle,
     
-    return {
-      ...produit,
-      id: produit.idProduit,
-      nom: produit.libelle,
-      prix: produit.prixVente,
-      stock: produit.quantiteStock,
-      unite: produit.uniteMesure,
-      image: produit.imageUrl,
-      remise: remiseTemporaire,
-      estActif: produit.active,
-      categorie: categorie,
-      categorieId: categorieId,
-      categorieNom: categorieNom,
-      displayCategorie: categorieNom || '—',
-      statutStock: produit.status,
-      statutStockLabel: getStatusLabel(produit.status), 
-      statutStockColor: getStatusColor(produit.status)  
-    };
-  }, []); // Dépendances vides car getStatusLabel/Color sont définies avant
+    // Prix
+    prix: produit.prixVente,
+    prixVente: produit.prixVente,
+    prixAchat: produit.prixAchat,
+    
+    // Stock
+    stock: produit.quantiteStock,
+    quantiteStock: produit.quantiteStock,
+    unite: produit.uniteMesure,
+    uniteMesure: produit.uniteMesure,
+    seuilMinimum: produit.seuilMinimum,
+    
+    // Image
+    image: produit.imageUrl,
+    imageUrl: produit.imageUrl,
+    
+    // Remise
+    remise: remiseTemporaire,
+    
+    // Statut actif
+    estActif: produit.active,
+    active: produit.active,
+    
+    // ✅ CATÉGORIE - L'ESSENTIEL
+    categorieId: categorieId,
+    categorieNom: categorieNom,
+    displayCategorie: categorieNom,
+    
+    // Statut stock
+    statutStock: produit.status,
+    status: produit.status,
+    statutStockLabel: getStatusLabel(produit.status),
+    statutStockColor: getStatusColor(produit.status)
+  };
+}, [getStatusLabel, getStatusColor]);
 
   const normalizeProducts = useCallback((productsData) => {
     if (!Array.isArray(productsData)) return [];
@@ -101,7 +154,7 @@ const loadProducts = useCallback(async (page = 0, customFilters = {}) => {
       page: page,
       size: pagination.size
     };
-    console.log('📌 rawParams (avant nettoyage):', rawParams);
+    console.log(' rawParams (avant nettoyage):', rawParams);
 const searchParams = {};
     Object.keys(rawParams).forEach(key => {
       const value = rawParams[key];
@@ -110,7 +163,7 @@ const searchParams = {};
         // 👇 Mapper les noms de paramètres
         if (key === 'categorie' || key === 'categorieId') {
           searchParams['categorieId'] = value;  // Toujours utiliser 'categorieId'
-          console.log(`🔄 Mappage: ${key} -> categorieId =`, value);
+          console.log(` Mappage: ${key} -> categorieId =`, value);
         } else {
           searchParams[key] = value;
         }
@@ -277,14 +330,15 @@ const searchParams = {};
     }
   };
 
-  const updateProduct = async (id, productData) => {
+ // useProducts.js - updateProduct avec logs
+const updateProduct = async (id, productData) => {
+  console.log('🔵 ===== USEPRODUCTS UPDATE =====');
+  console.log('🔵 ID:', id);
+  console.log('🔵 Type reçu:', productData instanceof FormData ? 'FORMDATA' : typeof productData);
+  
   try {
-    // Vérifier si c'est du FormData
-    const isFormData = productData instanceof FormData;
-    
-    console.log(`📤 Mise à jour en ${isFormData ? 'FormData' : 'JSON'}`);
-    
     const response = await productService.updateProduct(id, productData);
+    console.log('🔵 Réponse service:', response);
     
     if (response?.success) {
       if (response.produit) {
@@ -296,6 +350,7 @@ const searchParams = {};
         await loadProducts(pagination.page);
       }
     }
+    console.log('🔵 ===== FIN USEPRODUCTS UPDATE =====');
     return response;
   } catch (err) {
     console.error('❌ Erreur mise à jour:', err);
@@ -397,27 +452,33 @@ const searchParams = {};
     }
   };
 
+
+  // ✅ 2. MODIFIER resetFilters POUR INCLURE keyword
+  const resetFilters = useCallback(() => {
+    // Remettre à l'état initial
+    setFilters({ 
+      actif: '', 
+      status: '', 
+      categorieId: '',
+      keyword: '',  
+      ...initialFilters 
+    });
+    
+    // Charger avec les filtres réinitialisés
+    loadProducts(0, { 
+      actif: '', 
+      status: '', 
+      categorieId: '',
+      keyword: ''  
+    });
+  }, [initialFilters, loadProducts]);
+
+  // appliquer plusieurs filtres à la fois 
   const applyFilters = useCallback((newFilters) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
     loadProducts(0, newFilters);
   }, [loadProducts]);
 
-  const resetFilters = useCallback(() => {
-  // ✅ Remettre à l'état initial avec actif: '' (vide)
-  setFilters({ 
-    actif: '', 
-    status: '', 
-    categorieId: '',
-    ...initialFilters 
-  });
-  
-  // ✅ Charger avec les filtres réinitialisés
-  loadProducts(0, { 
-    actif: '', 
-    status: '', 
-    categorieId: '' 
-  });
-}, [initialFilters, loadProducts]);
 
   const changePage = useCallback((newPage) => {
     loadProducts(newPage);
