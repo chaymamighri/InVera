@@ -16,7 +16,7 @@ import {
 
 import { authService } from '../../services/authService';
 import api from '../../services/api';
-import Header from '../../components/Header'; // 👈 IMPORTER HEADER
+import Header from '../../components/Header';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -51,7 +51,7 @@ const SettingsPage = () => {
     const load = async () => {
       setLoadingMe(true);
       try {
-        const res = await authService.getCurrentUser(); // uses /auth/me already
+        const res = await authService.getCurrentUser(); 
         const data = res?.data;
 
         setMe(data);

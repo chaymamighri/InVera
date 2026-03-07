@@ -22,17 +22,16 @@ import { useReports } from '../../../../hooks/useReports';
 /* ================= HELPERS ================= */
 
 /**
- * Palette “colorée” (évite noir/blanc).
- * Tip: ordre = couleurs les plus utilisées en premier.
+ * Palette aux couleurs du thème Invera (teal)
  */
 const COLORS = [
-  '#4F46E5', // indigo
-  '#0EA5E9', // sky
-  '#10B981', // emerald
-  '#F59E0B', // amber
-  '#EC4899', // pink
-  '#8B5CF6', // violet
-  '#EF4444', // red
+  '#14b8a6', // teal-500
+  '#0d9488', // teal-600
+  '#2dd4bf', // teal-400
+  '#5eead4', // teal-300
+  '#99f6e4', // teal-200
+  '#2c3e50', // dark blue-grey (contraste)
+  '#f59e0b', // amber (accent)
 ];
 
 const pickFirst = (obj, keys, fallback = null) => {
@@ -138,18 +137,18 @@ const buildComparison = (items = []) => {
 /* ================= UI ================= */
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-emerald-50">
+  <div className="min-h-screen bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50">
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">{children}</div>
   </div>
 );
 
 const Card = ({ title, subtitle, right, children }) => (
-  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 shadow-sm backdrop-blur">
+  <div className="rounded-xl border border-teal-100 bg-white shadow-sm hover:shadow-md transition-shadow">
     {(title || right) && (
-      <div className="flex flex-col gap-2 border-b border-indigo-100/70 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 border-b border-teal-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
-          {title ? <h2 className="text-base font-semibold text-slate-800">{title}</h2> : null}
-          {subtitle ? <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p> : null}
+          {title ? <h2 className="text-base font-semibold text-gray-800">{title}</h2> : null}
+          {subtitle ? <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p> : null}
         </div>
         {right ? <div className="flex flex-wrap items-center gap-2">{right}</div> : null}
       </div>
@@ -162,10 +161,10 @@ const Tab = ({ active, children, ...props }) => (
   <button
     type="button"
     className={[
-      'rounded-xl px-4 py-2 text-sm font-semibold transition',
+      'rounded-lg px-4 py-2 text-sm font-medium transition-all',
       active
-        ? 'bg-indigo-600 text-indigo-50 shadow-sm'
-        : 'bg-sky-100/70 text-slate-700 hover:bg-sky-100',
+        ? 'bg-teal-500 text-white shadow-sm hover:bg-teal-600'
+        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-teal-600',
     ].join(' ')}
     {...props}
   >
@@ -176,31 +175,26 @@ const Tab = ({ active, children, ...props }) => (
 const PrimaryButton = ({ className = '', ...props }) => (
   <button
     type="button"
-    className={`rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-50 shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-    {...props}
-  />
-);
-
-const SoftButton = ({ className = '', ...props }) => (
-  <button
-    type="button"
-    className={`rounded-xl bg-sky-100/70 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    className={`rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className}`}
     {...props}
   />
 );
 
 const Kpi = ({ label, value, hint }) => (
-  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 p-4 shadow-sm">
-    <div className="text-xs font-medium text-slate-600">{label}</div>
-    <div className="mt-1 text-2xl font-semibold text-slate-800">{value}</div>
-    {hint ? <div className="mt-1 text-xs text-slate-600">{hint}</div> : null}
+  <div className="rounded-xl border border-teal-100 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+    <p className="text-sm font-medium text-gray-500">{label}</p>
+    <p className="mt-2 text-2xl font-semibold text-gray-800">{value}</p>
+    {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
   </div>
 );
 
 const EmptyBox = ({ title, description }) => (
-  <div className="rounded-2xl border border-indigo-100/70 bg-slate-50/80 p-10 text-center">
-    <div className="text-base font-semibold text-slate-800">{title}</div>
-    <div className="mt-1 text-sm text-slate-600">{description}</div>
+  <div className="rounded-xl border border-teal-100 bg-teal-50/30 p-12 text-center">
+    <svg className="mx-auto h-12 w-12 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+    </svg>
+    <p className="mt-4 text-base font-medium text-gray-700">{title}</p>
+    <p className="mt-1 text-sm text-gray-500">{description}</p>
   </div>
 );
 
@@ -217,11 +211,11 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
   const top = rows.filter((r) => r.name !== 'Total').slice(0, 5);
 
   return (
-    <div className="min-w-[260px] rounded-xl border border-indigo-100/70 bg-slate-50/95 p-3 shadow-lg backdrop-blur">
-      <div className="text-xs font-semibold text-slate-800">{label}</div>
-      <div className="mt-1 text-xs text-slate-600">
+    <div className="min-w-[260px] rounded-lg border border-teal-100 bg-white p-3 shadow-lg">
+      <p className="text-xs font-semibold text-gray-800">{label}</p>
+      <div className="mt-1 text-xs text-gray-600">
         Total:{' '}
-        <span className="font-semibold text-slate-800">
+        <span className="font-semibold text-teal-600">
           {formatMoney(total)} {suffix}
         </span>
       </div>
@@ -232,15 +226,15 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
             <div key={r.name} className="flex items-center justify-between gap-6 text-xs">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
-                <span className="text-slate-700">{r.name}</span>
+                <span className="text-gray-600">{r.name}</span>
               </div>
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-gray-800">
                 {formatMoney(r.value)} {suffix}
               </span>
             </div>
           ))}
           {rows.filter((r) => r.name !== 'Total').length > 5 && (
-            <div className="pt-1 text-[11px] text-slate-600">+ autres responsables…</div>
+            <p className="pt-1 text-[11px] text-gray-400">+ autres responsables…</p>
           )}
         </div>
       )}
@@ -251,11 +245,9 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
 /* ================= PAGE ================= */
 
 const Statistiques = () => {
-  const [tab, setTab] = useState('sales'); // sales | purchases | clients
-
+  const [tab, setTab] = useState('sales');
   const [dateFromDraft, setDateFromDraft] = useState('');
   const [dateToDraft, setDateToDraft] = useState('');
-
   const [filters, setFilters] = useState({ startDate: undefined, endDate: undefined });
 
   const sales = useReports('sales', {});
@@ -267,16 +259,10 @@ const Statistiques = () => {
     const common = {
       startDate: filters.startDate,
       endDate: filters.endDate,
-      // If you still get "11 commandes" always, it's backend pagination.
-      // Uncomment ONE that matches your API:
-      // limit: 1000,
-      // page: 0,
-      // size: 1000,
     };
 
     sales.setFilters(common);
     clients.setFilters(common);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.startDate, filters.endDate]);
 
   const salesItems = sales.data?.ventes || [];
@@ -319,7 +305,7 @@ const Statistiques = () => {
         { label: 'CA total', value: `${formatMoney(ca)} DT` },
         { label: 'Nombre de ventes', value: formatMoney(count) },
         { label: 'Panier moyen', value: `${formatMoney(panier)} DT` },
-        { label: 'Taux transformation', value: `${formatMoney(summary.tauxTransformation ?? 0)}%`, hint: 'Si fourni' },
+        { label: 'Taux transformation', value: `${formatMoney(summary.tauxTransformation ?? 0)}%` },
       ];
     }
 
@@ -334,7 +320,7 @@ const Statistiques = () => {
     }
 
     return [
-      { label: 'Achats', value: '—', hint: 'À venir (prochain sprint)' },
+      { label: 'Achats', value: '—' },
       { label: 'Montant', value: '—' },
       { label: 'Fournisseurs', value: '—' },
       { label: 'Statut', value: '—' },
@@ -348,30 +334,24 @@ const Statistiques = () => {
   return (
     <Shell>
       {/* Header */}
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Statistiques</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="text-2xl font-bold text-gray-800">Statistiques</h1>
+          <p className="mt-1 text-sm text-gray-500">
             {filters.startDate || filters.endDate ? (
               <>
-                Dates: <span className="font-semibold text-slate-700">{filters.startDate ?? '—'}</span> →{' '}
-                <span className="font-semibold text-slate-700">{filters.endDate ?? '—'}</span>
+                Période : <span className="font-medium text-teal-600">{filters.startDate ?? '…'}</span> →{' '}
+                <span className="font-medium text-teal-600">{filters.endDate ?? '…'}</span>
               </>
             ) : (
-              <>Choisissez une plage de dates pour filtrer.</>
+              <>Sélectionnez une période pour filtrer les données</>
             )}
           </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <SoftButton onClick={handleRefresh} disabled={loading}>
-            Rafraîchir
-          </SoftButton>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <Tab active={tab === 'sales'} onClick={() => setTab('sales')}>
           Ventes
         </Tab>
@@ -383,26 +363,26 @@ const Statistiques = () => {
         </Tab>
       </div>
 
-      {/* Filters (calendar only) */}
-      <Card title="Filtrer par dates" subtitle="Sélectionnez une date début et une date fin, puis cliquez sur Appliquer.">
+      {/* Filters */}
+      <Card title="Filtrer par période" subtitle="Sélectionnez une date de début et de fin">
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-4">
-            <label className="text-xs font-medium text-slate-700">Date début</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Date début</label>
             <input
               type="date"
               value={dateFromDraft}
               onChange={(e) => setDateFromDraft(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-indigo-100/70 bg-slate-50/90 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
             />
           </div>
 
           <div className="md:col-span-4">
-            <label className="text-xs font-medium text-slate-700">Date fin</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Date fin</label>
             <input
               type="date"
               value={dateToDraft}
               onChange={(e) => setDateToDraft(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-indigo-100/70 bg-slate-50/90 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
             />
           </div>
 
@@ -413,66 +393,77 @@ const Statistiques = () => {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex items-center gap-2 text-sm">
           {loading ? (
-            <span className="text-sm text-slate-600">Chargement…</span>
+            <span className="flex items-center text-gray-500">
+              <svg className="animate-spin h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Chargement…
+            </span>
           ) : error ? (
-            <span className="text-sm text-rose-600">{error}</span>
+            <span className="text-red-500">{error}</span>
           ) : (
-            <span className="text-sm text-emerald-700">OK</span>
+            <span className="flex items-center text-teal-600">
+              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Données à jour
+            </span>
           )}
-          {filterHint ? <span className="text-sm text-amber-700">• {filterHint}</span> : null}
+          {filterHint && <span className="text-amber-600">• {filterHint}</span>}
         </div>
       </Card>
 
       {/* KPIs */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
           <Kpi key={k.label} label={k.label} value={k.value} hint={k.hint} />
         ))}
       </div>
 
-      {/* ====== REQUESTED LAYOUT: EVOLUTION CA then below comparison ====== */}
-      <div className="mt-5 space-y-4">
-        {/* Evolution CA */}
+      {/* Main Content */}
+      <div className="mt-6 space-y-6">
+        {/* Evolution Chart */}
         <Card
-          title={tab === 'sales' ? 'Graphe évolution CA' : tab === 'clients' ? 'Top clients' : 'Achats'}
+          title={tab === 'sales' ? 'Évolution du chiffre d\'affaires' : tab === 'clients' ? 'Top clients' : 'Achats'}
           subtitle={
             tab === 'sales'
-              ? 'Area + Line, avec moyenne et zoom (Brush).'
+              ? 'Évolution journalière avec moyenne et zoom'
               : tab === 'clients'
-              ? 'Liste des meilleurs clients (si disponible).'
-              : 'À venir (prochain sprint).'
+              ? 'Classement des meilleurs clients'
+              : 'Module en développement'
           }
         >
           {!hasData && tab !== 'purchases' ? (
-            <EmptyBox title="Aucune donnée" description="Essayez une autre plage de dates." />
+            <EmptyBox title="Aucune donnée" description="Essayez de modifier votre période de filtrage" />
           ) : tab === 'clients' ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="text-left text-slate-600">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="py-2">Client</th>
-                    <th className="py-2">Type</th>
-                    <th className="py-2">Commandes</th>
-                    <th className="py-2">CA</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Client</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Commandes</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">CA</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-indigo-100/70">
+                <tbody className="divide-y divide-gray-200">
                   {(topClients || []).map((c, idx) => (
-                    <tr key={idx} className="hover:bg-sky-50/70">
-                      <td className="py-2 font-medium text-slate-800">{c.nom ?? c.name ?? '—'}</td>
-                      <td className="py-2 text-slate-700">{c.type ?? '—'}</td>
-                      <td className="py-2 text-slate-700">{c.commandes ?? c.orders ?? 0}</td>
-                      <td className="py-2 font-semibold text-slate-800">
+                    <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
+                      <td className="px-4 py-3 font-medium text-gray-900">{c.nom ?? c.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{c.type ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{c.commandes ?? c.orders ?? 0}</td>
+                      <td className="px-4 py-3 font-medium text-teal-600">
                         {formatMoney(c.ca ?? c.totalCA ?? 0)} DT
                       </td>
                     </tr>
                   ))}
                   {(!topClients || topClients.length === 0) && (
                     <tr>
-                      <td className="py-3 text-slate-600" colSpan={4}>
-                        Aucun top client à afficher.
+                      <td className="px-4 py-8 text-center text-gray-500" colSpan={4}>
+                        Aucun client à afficher
                       </td>
                     </tr>
                   )}
@@ -480,39 +471,42 @@ const Statistiques = () => {
               </table>
             </div>
           ) : tab === 'purchases' ? (
-            <EmptyBox title="Achats" description="À venir (prochain sprint)." />
+            <EmptyBox title="Module Achats" description="Cette section sera bientôt disponible" />
           ) : (
             <div className="h-[560px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timeSeries} margin={{ top: 16, right: 18, left: 8, bottom: 24 }}>
                   <defs>
                     <linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS[0]} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={COLORS[0]} stopOpacity={0.03} />
+                      <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
 
-                  <CartesianGrid strokeDasharray="3 3" stroke="#C7D2FE" opacity={0.7} />
-                  <XAxis dataKey="name" tickMargin={10} tick={{ fill: '#334155' }} axisLine={{ stroke: '#A5B4FC' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                  />
                   <YAxis
                     tickFormatter={(v) => formatMoney(v)}
-                    width={80}
-                    tick={{ fill: '#334155' }}
-                    axisLine={{ stroke: '#A5B4FC' }}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    axisLine={{ stroke: '#cbd5e1' }}
                   />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Legend verticalAlign="top" height={34} />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
 
                   {Number.isFinite(avgTotal) && avgTotal > 0 && (
                     <ReferenceLine
                       y={avgTotal}
-                      stroke="#94A3B8"
-                      strokeDasharray="6 6"
+                      stroke="#94a3b8"
+                      strokeDasharray="5 5"
                       label={{
                         value: `Moyenne: ${formatMoney(avgTotal)} DT`,
                         position: 'insideTopRight',
                         fill: '#475569',
-                        fontSize: 12,
+                        fontSize: 11,
                       }}
                     />
                   )}
@@ -520,38 +514,41 @@ const Statistiques = () => {
                   <Area
                     type="monotone"
                     dataKey="Total"
-                    name="Total"
-                    stroke={COLORS[0]}
+                    name="CA Total"
+                    stroke="#14b8a6"
                     strokeWidth={3}
                     fill="url(#totalFill)"
-                    activeDot={{ r: 6 }}
-                    dot={{ r: 2 }}
+                    activeDot={{ r: 6, fill: '#0d9488' }}
+                    dot={{ r: 2, fill: '#14b8a6' }}
                   />
-                  <Line type="monotone" dataKey="Total" name="Total" stroke={COLORS[1]} strokeWidth={2} dot={false} />
+                  
+                  <Line 
+                    type="monotone" 
+                    dataKey="Total" 
+                    name="Tendance" 
+                    stroke="#0d9488" 
+                    strokeWidth={2} 
+                    dot={false} 
+                  />
 
-                  {/* Optional: show up to 3 responsables to avoid clutter */}
-                  {(() => {
-                    const extra = seriesKeys.filter((k) => k !== 'Total').slice(0, 3);
-                    return extra.map((k, idx) => (
-                      <Line
-                        key={k}
-                        type="monotone"
-                        dataKey={k}
-                        name={k}
-                        stroke={COLORS[(idx + 2) % COLORS.length]}
-                        strokeWidth={2}
-                        dot={false}
-                        opacity={0.92}
-                      />
-                    ));
-                  })()}
+                  {seriesKeys.filter((k) => k !== 'Total').slice(0, 3).map((k, idx) => (
+                    <Line
+                      key={k}
+                      type="monotone"
+                      dataKey={k}
+                      name={k}
+                      stroke={COLORS[(idx + 2) % COLORS.length]}
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
+                  ))}
 
                   <Brush
                     dataKey="name"
                     height={26}
                     travellerWidth={10}
-                    stroke="#6366F1"
-                    fill="#DBEAFE"
+                    stroke="#14b8a6"
+                    fill="#f0fdfa"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -559,70 +556,67 @@ const Statistiques = () => {
           )}
         </Card>
 
-        {/* Comparison BELOW */}
+        {/* Comparison Chart */}
         <Card
-          title={tab === 'sales' ? 'Graphe de comparaison entre les responsables' : tab === 'clients' ? 'Résumé clients' : 'Achats'}
+          title={tab === 'sales' ? 'Performance par responsable' : tab === 'clients' ? 'Résumé clients' : 'Achats'}
           subtitle={
             tab === 'sales'
-              ? 'Barres verticales (triées), avec valeurs visibles.'
+              ? 'Répartition du chiffre d\'affaires'
               : tab === 'clients'
-              ? 'Indicateurs clés.'
-              : 'À venir (prochain sprint).'
+              ? 'Indicateurs clés clients'
+              : 'Module en développement'
           }
         >
           {tab === 'clients' ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-indigo-100/70 bg-sky-50/60 p-4">
-                <div className="text-xs text-slate-600">Total clients</div>
-                <div className="mt-1 text-xl font-semibold text-slate-800">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="bg-teal-50/30 rounded-xl border border-teal-100 p-5">
+                <p className="text-sm text-gray-500">Total clients</p>
+                <p className="mt-2 text-2xl font-semibold text-gray-800">
                   {formatMoney(clients.data?.summary?.totalClients ?? 0)}
-                </div>
+                </p>
               </div>
-              <div className="rounded-2xl border border-indigo-100/70 bg-emerald-50/50 p-4">
-                <div className="text-xs text-slate-600">Clients actifs</div>
-                <div className="mt-1 text-xl font-semibold text-slate-800">
+              <div className="bg-teal-50/30 rounded-xl border border-teal-100 p-5">
+                <p className="text-sm text-gray-500">Clients actifs</p>
+                <p className="mt-2 text-2xl font-semibold text-gray-800">
                   {formatMoney(clients.data?.summary?.clientsActifs ?? 0)}
-                </div>
+                </p>
               </div>
-              <div className="rounded-2xl border border-indigo-100/70 bg-indigo-50/50 p-4 sm:col-span-2">
-                <div className="text-xs text-slate-600">CA total</div>
-                <div className="mt-1 text-xl font-semibold text-slate-800">
+              <div className="sm:col-span-2 bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl p-5">
+                <p className="text-sm text-white/80">CA total clients</p>
+                <p className="mt-2 text-2xl font-semibold text-white">
                   {formatMoney(clients.data?.summary?.caTotal ?? 0)} DT
-                </div>
+                </p>
               </div>
             </div>
           ) : tab === 'purchases' ? (
-            <EmptyBox title="Achats" description="À venir (prochain sprint)." />
+            <EmptyBox title="Module Achats" description="Cette section sera bientôt disponible" />
           ) : comparison.length === 0 ? (
-            <EmptyBox title="Indisponible" description="Le backend ne renvoie peut-être pas le champ responsable." />
+            <EmptyBox title="Données non disponibles" description="Aucune donnée de responsable trouvée" />
           ) : (
             <div className="h-[520px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparison} margin={{ top: 16, right: 18, left: 8, bottom: 70 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#C7D2FE" opacity={0.7} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis
                     dataKey="name"
-                    interval={0}
                     angle={-25}
                     textAnchor="end"
                     height={80}
-                    tickMargin={10}
-                    tick={{ fill: '#334155' }}
-                    axisLine={{ stroke: '#A5B4FC' }}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    axisLine={{ stroke: '#cbd5e1' }}
                   />
                   <YAxis
                     tickFormatter={(v) => formatMoney(v)}
-                    width={80}
-                    tick={{ fill: '#334155' }}
-                    axisLine={{ stroke: '#A5B4FC' }}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    axisLine={{ stroke: '#cbd5e1' }}
                   />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Bar dataKey="total" name="Total" fill={COLORS[0]} radius={[10, 10, 0, 0]}>
+                  <Bar dataKey="total" name="CA" fill="#14b8a6" radius={[8, 8, 0, 0]}>
                     <LabelList
                       dataKey="total"
                       position="top"
                       formatter={(v) => `${formatMoney(v)} DT`}
-                      style={{ fill: '#334155', fontWeight: 700, fontSize: 12 }}
+                      style={{ fill: '#14b8a6', fontWeight: 600, fontSize: 11 }}
                     />
                   </Bar>
                 </BarChart>
