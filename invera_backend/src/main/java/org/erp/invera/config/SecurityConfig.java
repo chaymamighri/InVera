@@ -104,7 +104,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL","ADMIN")
                         .requestMatchers("/api/categories/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL","RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+
+
 
                         .anyRequest().authenticated()
                 )
