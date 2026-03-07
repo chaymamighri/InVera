@@ -46,7 +46,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5173",
                 "http://localhost:3000",
-                "http://localhost:61809",// Port actuel de votre Flutter web
+                "http://localhost:55774",// Port actuel de votre Flutter web
                 "http://localhost:*",   // Tous les ports localhost
                 "http://127.0.0.1:*",
                 "http://192.168.56.1:*",
