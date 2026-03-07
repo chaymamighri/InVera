@@ -1,0 +1,232 @@
+package org.erp.invera.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.dto.FournisseurDTO;
+import org.erp.invera.service.FournisseurServices;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/fournisseurs")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+@Slf4j
+public class FournisseurController {
+
+    private final FournisseurServices fournisseurServices;
+
+    // ==================== GET ALL ====================
+
+    /**
+     * Récupère tous les fournisseurs (y compris inactifs)
+     */
+    @GetMapping("/all")  // Ajout du slash pour cohérence
+    public ResponseEntity<List<FournisseurDTO>> getAllFournisseurs() {
+        log.info("GET /api/fournisseurs/all - Récupération de tous les fournisseurs");
+        List<FournisseurDTO> fournisseurs = fournisseurServices.getAllFournisseurs();
+        return ResponseEntity.ok(fournisseurs);
+    }
+
+    /**
+     * Récupère uniquement les fournisseurs actifs
+     */
+    @GetMapping("/active")
+    public ResponseEntity<List<FournisseurDTO>> getActiveFournisseurs() {
+        log.info("GET /api/fournisseurs/active - Récupération des fournisseurs actifs");
+        List<FournisseurDTO> fournisseurs = fournisseurServices.getActiveFournisseurs();
+        return ResponseEntity.ok(fournisseurs);
+    }
+
+    /**
+     * Récupère uniquement les fournisseurs inactifs (soft delete)
+     */
+    @GetMapping("/inactive")
+    public ResponseEntity<List<FournisseurDTO>> getInactiveFournisseurs() {
+        log.info("GET /api/fournisseurs/inactive - Récupération des fournisseurs inactifs");
+        List<FournisseurDTO> fournisseurs = fournisseurServices.getInactiveFournisseurs();
+        return ResponseEntity.ok(fournisseurs);
+    }
+
+    // ==================== GET BY ID ====================
+
+    /**
+     * Récupère un fournisseur par son ID (vérifie s'il est actif)
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<FournisseurDTO> getFournisseurById(@PathVariable Integer id) {
+        log.info("GET /api/fournisseurs/{} - Récupération du fournisseur", id);
+        FournisseurDTO fournisseur = fournisseurServices.getFournisseurById(id);
+        return ResponseEntity.ok(fournisseur);
+    }
+
+    /**
+     * Récupère un fournisseur par son ID (même si inactif - pour admin)
+     */
+    @GetMapping("/{id}/admin")
+    public ResponseEntity<FournisseurDTO> getFournisseurByIdAdmin(@PathVariable Integer id) {
+        log.info("GET /api/fournisseurs/{}/admin - Récupération admin du fournisseur", id);
+        FournisseurDTO fournisseur = fournisseurServices.getFournisseurByIdAdmin(id);
+        return ResponseEntity.ok(fournisseur);
+    }
+
+    // ==================== CREATE ====================
+
+    /**
+     * Crée un nouveau fournisseur (version JSON)
+     */
+    @PostMapping("add")
+    public ResponseEntity<FournisseurDTO> createFournisseur(@Valid @RequestBody FournisseurDTO fournisseurDTO) {
+        log.info("POST /api/fournisseurs - Création du fournisseur: {}", fournisseurDTO.getNomFournisseur());
+
+        FournisseurDTO created = fournisseurServices.createFournisseur(
+                fournisseurDTO.getNomFournisseur(),
+                fournisseurDTO.getEmail(),
+                fournisseurDTO.getAdresse(),
+                fournisseurDTO.getTelephone(),
+                fournisseurDTO.getVille(),
+                fournisseurDTO.getPays()
+        );
+
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    // ==================== UPDATE ====================
+
+    /**
+     * Met à jour un fournisseur existant (version JSON)
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<FournisseurDTO> updateFournisseur(
+            @PathVariable Integer id,
+            @Valid @RequestBody FournisseurDTO fournisseurDTO) {
+
+        log.info("PUT /api/fournisseurs/{} - Mise à jour du fournisseur", id);
+
+        FournisseurDTO updated = fournisseurServices.updateFournisseur(
+                id,
+                fournisseurDTO.getNomFournisseur(),
+                fournisseurDTO.getEmail(),
+                fournisseurDTO.getAdresse(),
+                fournisseurDTO.getTelephone(),
+                fournisseurDTO.getVille(),
+                fournisseurDTO.getPays(),
+                fournisseurDTO.getActif()
+        );
+
+        return ResponseEntity.ok(updated);
+    }
+
+    // ==================== SOFT DELETE (DÉSACTIVATION) ====================
+
+    /**
+     * Soft delete - Désactive un fournisseur
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> softDeleteFournisseur(@PathVariable Integer id) {
+        log.info("DELETE /api/fournisseurs/{} - Désactivation du fournisseur", id);
+
+        fournisseurServices.softDeleteFournisseur(id);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Fournisseur désactivé avec succès");
+        response.put("status", "success");
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== HARD DELETE (SUPPRESSION PHYSIQUE) ====================
+
+    /**
+     * Hard delete - Suppression physique (réservé admin)
+     */
+    @DeleteMapping("/{id}/hard")
+    public ResponseEntity<Map<String, String>> hardDeleteFournisseur(@PathVariable Integer id) {
+        log.info("DELETE /api/fournisseurs/{}/hard - Suppression définitive", id);
+
+        fournisseurServices.hardDeleteFournisseur(id);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Fournisseur supprimé définitivement");
+        response.put("status", "success");
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== REACTIVATION ====================
+
+    /**
+     * Réactive un fournisseur désactivé
+     */
+    @PatchMapping("/{id}/reactivate")
+    public ResponseEntity<FournisseurDTO> reactivateFournisseur(@PathVariable Integer id) {
+        log.info("PATCH /api/fournisseurs/{}/reactivate - Réactivation du fournisseur", id);
+
+        FournisseurDTO reactivated = fournisseurServices.reactivateFournisseur(id);
+        return ResponseEntity.ok(reactivated);
+    }
+
+    // ==================== SEARCH ====================
+
+    /**
+     * Recherche paginée des fournisseurs actifs
+     */
+    @GetMapping("/search")
+    public ResponseEntity<Page<FournisseurDTO>> searchActiveFournisseurs(
+            @RequestParam String term,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "nomFournisseur,asc") String[] sort) {
+
+        log.info("GET /api/fournisseurs/search - Recherche: '{}', page: {}, size: {}", term, page, size);
+
+        Sort.Direction direction = sort[1].equalsIgnoreCase("desc") ?
+                Sort.Direction.DESC : Sort.Direction.ASC;
+        Sort sortObj = Sort.by(direction, sort[0]);
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+
+        Page<FournisseurDTO> result = fournisseurServices.searchActiveFournisseurs(term, pageable);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Recherche paginée de tous les fournisseurs (admin)
+     */
+    @GetMapping("/search/all")
+    public ResponseEntity<Page<FournisseurDTO>> searchAllFournisseurs(
+            @RequestParam String term,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "nomFournisseur,asc") String[] sort) {
+
+        log.info("GET /api/fournisseurs/search/all - Recherche admin: '{}', page: {}, size: {}", term, page, size);
+
+        Sort.Direction direction = sort[1].equalsIgnoreCase("desc") ?
+                Sort.Direction.DESC : Sort.Direction.ASC;
+        Sort sortObj = Sort.by(direction, sort[0]);
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+
+        Page<FournisseurDTO> result = fournisseurServices.searchAllFournisseurs(term, pageable);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== STATISTIQUES ====================
+
+    /**
+     * Récupère les statistiques des fournisseurs
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats() {
+        log.info("GET /api/fournisseurs/stats - Récupération des statistiques");
+        Map<String, Object> stats = fournisseurServices.getStats();
+        return ResponseEntity.ok(stats);
+    }
+}
