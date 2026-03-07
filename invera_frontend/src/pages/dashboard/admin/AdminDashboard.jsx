@@ -4,6 +4,7 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   TagIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
@@ -13,12 +14,12 @@ import Footer from '../../../components/Footer';
 // Pages
 import GestionUsers from './users/gestionUsers';
 import Statistiques from './statestiques/Statistiques';
-import Settings from './settings/Settings';
+import Fournisseurs from './fournisseurs/Fournisseurs';
 import Remise from "./remise/RemiseProduit";
 
 const MemoizedGestionUsers = React.memo(GestionUsers);
 const MemoizedStatistiques = React.memo(Statistiques);
-const MemoizedSettings = React.memo(Settings);
+const MemoizedFournisseurs = React.memo(Fournisseurs);
 const MemoizedRemise = React.memo(Remise);
 
 const AdminDashboard = () => {
@@ -58,12 +59,8 @@ const AdminDashboard = () => {
       items: [
         { id: 'users', label: 'Utilisateurs', icon: UsersIcon },
         { id: 'remises', label: 'Remises', icon: TagIcon },
-      ]
-    },
-    {
-      title: 'Administration',
-      items: [
-        { id: 'settings', label: 'Paramètres', icon: Cog6ToothIcon },
+        { id: 'fournisseurs', label: 'Fournisseurs', icon: UserGroupIcon  },
+
       ]
     }
   ];
@@ -77,7 +74,7 @@ const AdminDashboard = () => {
       case 'stats': return <MemoizedStatistiques />;
       case 'users': return <MemoizedGestionUsers />;
       case 'remises': return <MemoizedRemise />;
-      case 'settings': return <MemoizedSettings />;
+      case 'fournisseurs': return <MemoizedFournisseurs />;
       default: return <MemoizedStatistiques />;
     }
   }, [activePage]);
@@ -206,13 +203,13 @@ const AdminDashboard = () => {
                   {activePage === 'stats' && 'Statistiques'}
                   {activePage === 'users' && 'Gestion utilisateurs'}
                   {activePage === 'remises' && 'Gestion Remises'}
-                  {activePage === 'settings' && 'Paramètres'}
+                  {activePage === 'fournisseurs' && 'Gestion Fournisseurs'}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {activePage === 'stats' && "Statistiques et indicateurs de performance"}
                   {activePage === 'users' && "Gérez les utilisateurs et leurs permissions"}
                   {activePage === 'remises' && "Gérez les remises clients et produits"}
-                  {activePage === 'settings' && "Configurez les paramètres de l'application"}
+                  {activePage === 'fournisseurs' && "Gérez les fournisseurs"}
                 </p>
               </div>
             </div>
