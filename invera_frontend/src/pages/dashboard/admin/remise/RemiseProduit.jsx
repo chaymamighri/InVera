@@ -152,18 +152,20 @@ const Remise = () => {
 
   return (
     <div className="space-y-6 p-4 md:p-6 bg-gray-50 min-h-screen">
-      {/* Header avec titre et tabs */}
+      {/* Header avec titre et tabs à droite */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Gestion des Remises</h1>
         
-        {/* Tabs redesign */}
-        <div className="bg-white rounded-lg p-1 border border-gray-200 inline-flex shadow-sm">
+        {/* Espace pour titre si nécessaire */}
+        <h1 className="text-xl font-semibold text-gray-800">Dashboard</h1>
+        
+        {/* Tabs redesign - maintenant à droite avec ml-auto */}
+        <div className="bg-white rounded-lg p-1 border border-gray-200 inline-flex shadow-sm ml-auto">
           <button
             onClick={() => setActiveTab("clients")}
             className={`
               px-5 py-2 rounded-lg text-sm font-medium transition-all
               ${activeTab === "clients"
-                ? "bg-teal-500 text-white shadow-sm"
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }
             `}
@@ -175,7 +177,7 @@ const Remise = () => {
             className={`
               px-5 py-2 rounded-lg text-sm font-medium transition-all
               ${activeTab === "products"
-                ? "bg-teal-500 text-white shadow-sm"
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }
             `}
@@ -184,7 +186,7 @@ const Remise = () => {
           </button>
         </div>
       </div>
-
+        
       {/* Clients Tab Content */}
       {activeTab === "clients" && (
         <div className="space-y-6">
@@ -271,17 +273,19 @@ const Remise = () => {
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
                     <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Remise</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Nom</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Téléphone</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Type</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Remise</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredClients.map((client) => (
-                      <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                    {filteredClients.map((client, index) => (
+                      <tr key={client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+                        index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                      }`}>
                         <td className="px-4 py-3 font-medium text-gray-900">{client.nom || client.name || "-"}</td>
                         <td className="px-4 py-3 text-gray-600">{client.telephone || "-"}</td>
                         <td className="px-4 py-3">
@@ -301,50 +305,50 @@ const Remise = () => {
           )}
 
           {/* Client Type Discount Configuration */}
-          {clientTypes.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
-              <h3 className="text-sm font-medium text-gray-700 mb-4">Remises par type de client</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {clientTypes.map((type) => (
-                  <div
-                    key={type}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-teal-200 transition-all"
-                  >
-                    <span className="text-sm font-medium text-gray-700">{type}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={clientDiscounts[type] || 0}
-                          onChange={(e) =>
-                            handleClientDiscountChange(
-                              type,
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                          className="w-16 px-2 py-1.5 text-sm border-0 focus:ring-0 text-right"
-                        />
-                        <span className="px-1 text-sm text-gray-500">%</span>
-                      </div>
-                      <button
-                        onClick={() => saveClientTypeDiscount(type)}
-                        className="px-3 py-1.5 text-xs bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-all shadow-sm"
-                      >
-                        Enregistrer
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-4 flex items-center gap-1">
-                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Ces remises s'appliquent à tous les clients du type correspondant.
-              </p>
+        {clientTypes.length > 0 && (
+  <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
+    <h3 className="text-sm font-medium text-gray-700 mb-4">Remises par type de client</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {clientTypes.map((type) => (
+        <div
+          key={type}
+          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-teal-200 transition-all"
+        >
+          <span className="text-sm font-medium text-gray-700">{type}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={clientDiscounts[type] || 0}
+                onChange={(e) =>
+                  handleClientDiscountChange(
+                    type,
+                    parseInt(e.target.value) || 0
+                  )
+                }
+                className="w-16 px-2 py-1.5 text-sm border-0 focus:ring-0 text-right"
+              />
+              <span className="px-1 text-sm text-gray-500">%</span>
             </div>
+            <button
+              onClick={() => saveClientTypeDiscount(type)}
+              className="px-3 py-1.5 text-xs bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-lg hover:from-emerald-600 hover:to-blue-600 transition-all shadow-sm"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+    <p className="text-xs text-gray-500 mt-4 flex items-center gap-1">
+      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Ces remises s'appliquent à tous les clients du type correspondant.
+    </p>
+  </div>
           )}
         </div>
       )}
@@ -393,41 +397,43 @@ const Remise = () => {
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
                     <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Remise</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Image</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Nom</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Catégorie</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Prix</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Stock</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Remise</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {products.map((product) => (
-                      <tr key={product.idProduit} className="hover:bg-gray-50 transition-colors">
+                    {products.map((product, index) => (
+                      <tr key={product.idProduit} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+                        index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                      }`}>
                        <td className="px-4 py-3">
-  {product.imageUrl ? (
-    <img
-      src={product.imageUrl.startsWith('http') 
-        ? product.imageUrl 
-        : `http://localhost:8081/${product.imageUrl.replace(/^\/+/, '')}`
-      }
-      alt={product.libelle}
-      className="w-10 h-10 object-cover rounded-lg border border-gray-200 shadow-sm"
-      onError={(e) => {
-        console.error('Erreur chargement image:', product.imageUrl);
-        e.target.onerror = null;
-        e.target.src = '/images/default-product.png';
-      }}
-      loading="lazy"
-    />
-  ) : (
-    <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-bold border border-gray-200">
-      {product.libelle?.charAt(0).toUpperCase() || 'P'}
-    </div>
-  )}
-</td>
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl.startsWith('http') 
+                                ? product.imageUrl 
+                                : `http://localhost:8081/${product.imageUrl.replace(/^\/+/, '')}`
+                              }
+                              alt={product.libelle}
+                              className="w-10 h-10 object-cover rounded-lg border border-gray-200 shadow-sm"
+                              onError={(e) => {
+                                console.error('Erreur chargement image:', product.imageUrl);
+                                e.target.onerror = null;
+                                e.target.src = '/images/default-product.png';
+                              }}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm font-bold border border-gray-200">
+                              {product.libelle?.charAt(0).toUpperCase() || 'P'}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 font-medium text-gray-900">{product.libelle || "-"}</td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
