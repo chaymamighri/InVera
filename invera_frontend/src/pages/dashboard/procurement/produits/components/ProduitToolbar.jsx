@@ -126,7 +126,7 @@ const ProduitToolbar = ({
 
           <button
             onClick={onAddProduit}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
           >
             <PlusIcon className="h-5 w-5" />
             Nouveau produit

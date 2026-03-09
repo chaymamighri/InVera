@@ -3,7 +3,6 @@ import { useFournisseur } from '../../../../../hooks/useFournisseur';
 
 const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [resultsCount, setResultsCount] = useState(0);
   const { searchFournisseurs, loading } = useFournisseur();
   const inputRef = useRef(null);
 
@@ -19,11 +18,8 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
     const delayDebounce = setTimeout(async () => {
       if (searchTerm.trim().length >= 2) {
         const results = await searchFournisseurs(searchTerm, 0, 100);
-        setResultsCount(results.length);
-        // Utiliser la ref au lieu de la fonction directement
         onSearchResultsRef.current(results, searchTerm);
       } else if (searchTerm.trim().length === 0) {
-        setResultsCount(0);
         onSearchResultsRef.current([], '');
       }
     }, 300);
@@ -34,7 +30,6 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
   // Fonction pour vider le champ de recherche
   const handleClearSearch = () => {
     setSearchTerm('');
-    setResultsCount(0);
     onSearchResultsRef.current([], '');
     // Remettre le focus sur l'input après avoir vidé
     inputRef.current?.focus();
@@ -43,17 +38,16 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
   const handleViewModeClick = (mode) => {
     onViewModeChange(mode);
     setSearchTerm(''); 
-    setResultsCount(0);
   };
 
   return (
-       <div className="rounded-xl shadow-md p-4">
-        <div className="flex flex-col lg:flex-row gap-3">
-        {/* Search Bar - Auto */}
+    <div className="rounded-xl shadow-md p-4">
+      <div className="flex flex-col lg:flex-row gap-3">
+        {/* Search Bar - MODIFIÉ : gris par défaut, vert au focus */}
         <div className="flex-1">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -63,10 +57,10 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher un fournisseur..."
-              className="w-full pl-8 pr-8 py-2 text-sm border-2 border-emerald-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+              className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
             />
             
-            {/* Bouton "x" pour vider - visible uniquement quand searchTerm n'est pas vide */}
+            {/* Bouton "x" pour vider */}
             {searchTerm && !loading && (
               <button
                 onClick={handleClearSearch}
@@ -79,7 +73,7 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
               </button>
             )}
 
-            {/* Indicateur de chargement (remplace le "x" quand loading) */}
+            {/* Indicateur de chargement */}
             {loading && (
               <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center">
                 <svg className="animate-spin h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
@@ -105,17 +99,10 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
                 Minimum 2 caractères
               </span>
             )}
-            
-            {/* Nombre de résultats */}
-            {searchTerm && searchTerm.length >= 2 && !loading && (
-              <span className="text-emerald-600 font-medium">
-                {resultsCount} résultat{resultsCount > 1 ? 's' : ''}
-              </span>
-            )}
           </div>
         </div>
 
-        {/* View Mode Filters */}
+        {/* View Mode Filters - NON MODIFIÉS */}
         <div className="flex gap-1.5 bg-white/50 p-1 rounded-lg">
           <button
             onClick={() => handleViewModeClick('active')}

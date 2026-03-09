@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useFournisseur } from '../../../../hooks/useFournisseur';
 import FournisseurSearch from './components/FournisseurSearch';
 import FournisseurTable from './components/FournisseurTable';
@@ -7,85 +8,114 @@ import FournisseurForm from './components/FournisseurForm';
 
 const FournisseurManagement = () => {
   const {
-    activeFournisseurs,
-    inactiveFournisseurs,
-    allFournisseurs, // Vous devez avoir cette fonction dans votre hook
+    allFournisseurs,
     loading,
     error,
-    fetchActiveFournisseurs,
-    fetchInactiveFournisseurs,
-    fetchAllFournisseurs, // Vous devez avoir cette fonction dans votre hook
+    fetchAllFournisseurs,
     softDeleteFournisseur,
     reactivateFournisseur,
     createFournisseur,
     updateFournisseur
   } = useFournisseur();
 
-  const [viewMode, setViewMode] = useState('all'); // 'all' par défaut
+  const [viewMode, setViewMode] = useState('all');
   const [searchResults, setSearchResults] = useState([]);
   const [activeSearchTerm, setActiveSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingFournisseur, setEditingFournisseur] = useState(null);
 
+  // Charger toutes les données au démarrage
   useEffect(() => {
-    // Charger toutes les données au démarrage
     if (fetchAllFournisseurs) {
       fetchAllFournisseurs();
     }
-    fetchActiveFournisseurs();
-    fetchInactiveFournisseurs();
-  }, [fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs]);
+  }, [fetchAllFournisseurs]);
 
   const handleSearchResults = (results, term) => {
     setSearchResults(results);
     setActiveSearchTerm(term);
   };
 
+  const refreshData = async () => {
+    if (fetchAllFournisseurs) {
+      await fetchAllFournisseurs();
+    }
+  };
+
   const handleCreate = async (data) => {
+    const toastId = toast.loading('Création du fournisseur en cours...');
+    
     try {
       await createFournisseur(data);
       setShowModal(false);
-      // Recharger les listes
-      if (fetchAllFournisseurs) fetchAllFournisseurs();
-      await fetchActiveFournisseurs();
-      await fetchInactiveFournisseurs();
+      await refreshData();
       setSearchResults([]);
       setActiveSearchTerm('');
+      
+      // Toast de succès - utilisera la configuration de App.jsx (6000ms)
+      toast.success(' Fournisseur créé avec succès !', {
+        id: toastId,
+        icon: '🎉',
+      });
     } catch (error) {
-      alert('Erreur: ' + error.message);
+      // Toast d'erreur - utilisera la configuration de App.jsx (8000ms)
+      toast.error('❌ Erreur: ' + error.message, {
+        id: toastId,
+      });
     }
   };
 
   const handleUpdate = async (data) => {
+    const toastId = toast.loading('Mise à jour du fournisseur en cours...');
+    
     try {
       await updateFournisseur(editingFournisseur.idFournisseur, data);
       setShowModal(false);
       setEditingFournisseur(null);
-      // Recharger les listes
-      if (fetchAllFournisseurs) fetchAllFournisseurs();
-      await fetchActiveFournisseurs();
-      await fetchInactiveFournisseurs();
+      await refreshData();
       setSearchResults([]);
       setActiveSearchTerm('');
+      
+      // Toast de succès
+      toast.success(' Fournisseur modifié avec succès !', {
+        id: toastId,
+      });
     } catch (error) {
-      alert('Erreur: ' + error.message);
+      toast.error('❌ Erreur: ' + error.message, {
+        id: toastId,
+      });
     }
   };
 
- // Cherchez cette fonction
-const handleToggleStatus = async (id, isActive) => {
-    if (isActive) {
-      await softDeleteFournisseur(id);
-    } else {
-      await reactivateFournisseur(id);
+  const handleToggleStatus = async (id, isActive) => {
+    const action = isActive ? 'désactivation' : 'réactivation';
+    const toastId = toast.loading(`${action} du fournisseur en cours...`);
+    
+    try {
+      if (isActive) {
+        await softDeleteFournisseur(id);
+      } else {
+        await reactivateFournisseur(id);
+      }
+      await refreshData();
+      setSearchResults([]);
+      setActiveSearchTerm('');
+      
+      // Toast de succès
+      toast.success(
+        isActive 
+          ? ' Fournisseur désactivé avec succès !' 
+          : ' Fournisseur réactivé avec succès !',
+        { 
+          id: toastId,
+        }
+      );
+    } catch (error) {
+      toast.error(`❌ Erreur lors de la ${action}: ` + error.message, {
+        id: toastId,
+      });
     }
-    // Recharger les listes
-    await fetchActiveFournisseurs();
-    await fetchInactiveFournisseurs();
-    setSearchResults([]);
-    setActiveSearchTerm('');
-
-};
+  };
 
   const openAddModal = () => {
     setEditingFournisseur(null);
@@ -97,22 +127,38 @@ const handleToggleStatus = async (id, isActive) => {
     setShowModal(true);
   };
 
-  // Déterminer les fournisseurs à afficher
-  const getDisplayedFournisseurs = () => {
-    if (activeSearchTerm) {
-      return searchResults;
-    }
-    
-    switch(viewMode) {
-      case 'active':
-        return activeFournisseurs;
-      case 'inactive':
-        return inactiveFournisseurs;
-      case 'all':
-      default:
-        return allFournisseurs || [...activeFournisseurs, ...inactiveFournisseurs];
-    }
-  };
+  // Filtrer les fournisseurs selon le mode d'affichage
+ // Si votre fournisseur a un champ dateCreation ou createdAt
+const getDisplayedFournisseurs = () => {
+  if (activeSearchTerm) {
+    // Trier aussi les résultats de recherche
+    return [...searchResults].sort((a, b) => 
+      new Date(b.dateCreation) - new Date(a.dateCreation)
+    );
+  }
+  
+  if (!allFournisseurs) return [];
+  
+  let filtered = [];
+  switch(viewMode) {
+    case 'active':
+      filtered = allFournisseurs.filter(f => f.actif === true);
+      break;
+    case 'inactive':
+      filtered = allFournisseurs.filter(f => f.actif === false);
+      break;
+    case 'all':
+    default:
+      filtered = allFournisseurs;
+  }
+  
+  // Trier par date de création (le plus récent en premier)
+  return [...filtered].sort((a, b) => {
+    const dateA = new Date(a.dateCreation || a.createdAt || 0);
+    const dateB = new Date(b.dateCreation || b.createdAt || 0);
+    return dateB - dateA;
+  });
+};
 
   const displayedFournisseurs = getDisplayedFournisseurs();
 
@@ -183,7 +229,7 @@ const handleToggleStatus = async (id, isActive) => {
           setShowModal(false);
           setEditingFournisseur(null);
         }}
-        title={editingFournisseur ? 'Modifier' : 'Nouveau fournisseur'}
+        title={editingFournisseur ? 'Modifier' : 'Ajouter'}
       >
         <FournisseurForm
           initialData={editingFournisseur}

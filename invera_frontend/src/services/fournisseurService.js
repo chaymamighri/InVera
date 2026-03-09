@@ -61,7 +61,7 @@ class FournisseurService {
    */
   async createFournisseur(fournisseurData) {
     try {
-      const response = await api.post('/fournisseurs', fournisseurData);
+      const response = await api.post('/fournisseurs/add', fournisseurData);
       return response.data;
     } catch (error) {
       throw this.handleError(error);

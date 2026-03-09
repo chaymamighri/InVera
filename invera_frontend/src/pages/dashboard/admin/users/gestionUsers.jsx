@@ -8,7 +8,7 @@ import {
   PencilIcon,
   TrashIcon,
   XCircleIcon,
-  UserIcon
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
 
@@ -61,7 +61,7 @@ const InputField = ({ label, value, onChange, placeholder, type = "text" }) => (
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
     />
   </div>
 );
@@ -72,7 +72,7 @@ const SelectField = ({ label, value, onChange, options }) => (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -255,16 +255,16 @@ const GestionUsers = () => {
       </div>
 
       {/* Barre de recherche et filtres */}
-<div className="rounded-xl shadow-md p-4">
-          <div className="flex flex-wrap items-center gap-4">
+      <div className="rounded-xl shadow-md p-4">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-1 min-w-[200px]">
-            <MagnifyingGlassIcon className="w-4 h-4 text-emerald-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher un utilisateur..."
-              className="w-full pl-9 pr-8 py-2 text-sm border-2 border-emerald-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+              className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
             />
             {searchTerm && (
               <button
@@ -280,7 +280,7 @@ const GestionUsers = () => {
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
-              className="px-3 py-2 text-sm border-2 border-emerald-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 bg-white"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white"
             >
               <option value="all">Tous</option>
               <option value="sales">Commercial</option>
@@ -302,19 +302,20 @@ const GestionUsers = () => {
         </div>
       )}
 
-      {/* Tableau des utilisateurs */}
-      <div className="bg-white rounded-xl shadow-md border border-emerald-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase">Nom</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase">Rôle</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase">Statut</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase">Actions</th>
-              </tr>
-            </thead>
+=      {/* Tableau des utilisateurs */}
+<div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+  <div className="overflow-x-auto">
+    <table className="w-full">
+      <thead className="bg-gray-100">
+        <tr>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nom</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rôle</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Statut</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+        </tr>
+      </thead>
+  
             <tbody className="divide-y divide-emerald-100">
               {filteredUsers.map((user, index) => (
                 <tr
@@ -333,7 +334,10 @@ const GestionUsers = () => {
                   </td>
 
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{user.email}</span>
+                    <div className="flex items-center gap-2">
+                      <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{user.email}</span>
+                    </div>
                   </td>
 
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -394,13 +398,19 @@ const GestionUsers = () => {
             onChange={val => setNewUser({ ...newUser, name: val })}
             placeholder="Jean Dupont"
           />
-          <InputField
-            label="Email"
-            type="email"
-            value={newUser.email}
-            onChange={val => setNewUser({ ...newUser, email: val })}
-            placeholder="email@example.com"
-          />
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <div className="relative">
+              <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="email@example.com"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
+              />
+            </div>
+          </div>
           <SelectField
             label="Rôle"
             value={newUser.role}
@@ -439,12 +449,18 @@ const GestionUsers = () => {
               value={editingUser.name}
               onChange={val => setEditingUser({ ...editingUser, name: val })}
             />
-            <InputField
-              label="Email"
-              type="email"
-              value={editingUser.email}
-              onChange={val => setEditingUser({ ...editingUser, email: val })}
-            />
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="relative">
+                <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
+                />
+              </div>
+            </div>
             <SelectField
               label="Rôle"
               value={editingUser.role}

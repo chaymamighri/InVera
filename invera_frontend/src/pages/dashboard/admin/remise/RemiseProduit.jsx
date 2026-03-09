@@ -269,40 +269,47 @@ const Remise = () => {
             </div>
           )}
 
-          {!clientsLoading && filteredClients.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Téléphone</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Type</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Remise</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredClients.map((client, index) => (
-                      <tr key={client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
-                      }`}>
-                        <td className="px-4 py-3 font-medium text-gray-900">{client.nom || client.name || "-"}</td>
-                        <td className="px-4 py-3 text-gray-600">{client.telephone || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700">
-                            {client.typeClient}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-medium text-gray-900">{client.remise ?? 0}%</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        {!clientsLoading && filteredClients.length > 0 && (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-100"> 
+          <tr>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+            <th className="ttext-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Téléphone</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Remise</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {filteredClients.map((client, index) => (
+            <tr key={client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+              index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+            }`}>
+              <td className="px-4 py-3 font-medium text-gray-900">{client.nom || client.name || "-"}</td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <span className="text-sm text-gray-600">{client.telephone || "-"}</span>
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700">
+                  {client.typeClient}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <span className="font-medium text-gray-900">{client.remise ?? 0}%</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
           {/* Client Type Discount Configuration */}
         {clientTypes.length > 0 && (
@@ -334,7 +341,7 @@ const Remise = () => {
             </div>
             <button
               onClick={() => saveClientTypeDiscount(type)}
-              className="px-3 py-1.5 text-xs bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-lg hover:from-emerald-600 hover:to-blue-600 transition-all shadow-sm"
+              className="px-3 py-1.5 text-xs bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-blue-600 transition-all shadow-sm"
             >
               Enregistrer
             </button>
@@ -393,20 +400,21 @@ const Remise = () => {
             </div>
           )}
 
-          {!productsLoading && products.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Image</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Catégorie</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Prix</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Stock</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-white uppercase tracking-wider">Remise</th>
-                    </tr>
-                  </thead>
+      {!productsLoading && products.length > 0 && (
+  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Image</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Remise</th>
+          </tr>
+        </thead>
+    
                   <tbody className="divide-y divide-gray-200">
                     {products.map((product, index) => (
                       <tr key={product.idProduit} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
