@@ -22,6 +22,9 @@ public class ProduitService {
         this.categorieRepository = categorieRepository;
     }
 
+    /**
+     * Créer un nouveau produit
+     */
     public Produit createProduit(Produit produit) {
         // Vérifier que la catégorie existe
         if (produit.getCategorie() != null && produit.getCategorie().getIdCategorie() != null) {
@@ -35,20 +38,45 @@ public class ProduitService {
         return produitRepository.save(produit);
     }
 
+    /**
+     * Récupérer tous les produits
+     */
     public List<Produit> getAllProduits() {
         return produitRepository.findAll();
     }
 
+    /**
+     * Récupérer tous les produits actifs uniquement
+     */
+    public List<Produit> getProduitsActifs() {
+        return produitRepository.findByActiveTrue();
+    }
+
+    /**
+     * Récupérer un produit par son ID
+     */
     public Optional<Produit> getProduitById(Integer id) {
         return produitRepository.findById(id);
     }
 
+    /**
+     * Mettre à jour un produit existant
+     */
     public Produit updateProduit(Integer id, Produit produitDetails) {
         return produitRepository.findById(id)
                 .map(produit -> {
-                    produit.setLibelle(produitDetails.getLibelle());
-                    produit.setPrixVente(produitDetails.getPrixVente());
-                    produit.setPrixAchat(produitDetails.getPrixAchat());
+                    // Mise à jour des champs uniquement s'ils sont fournis
+                    if (produitDetails.getLibelle() != null) {
+                        produit.setLibelle(produitDetails.getLibelle());
+                    }
+
+                    if (produitDetails.getPrixVente() != null) {
+                        produit.setPrixVente(produitDetails.getPrixVente());
+                    }
+
+                    if (produitDetails.getPrixAchat() != null) {
+                        produit.setPrixAchat(produitDetails.getPrixAchat());
+                    }
 
                     // Mise à jour de la catégorie si spécifiée
                     if (produitDetails.getCategorie() != null && produitDetails.getCategorie().getIdCategorie() != null) {
@@ -57,15 +85,27 @@ public class ProduitService {
                         produit.setCategorie(categorie);
                     }
 
-                    produit.setQuantiteStock(produitDetails.getQuantiteStock());
-                    produit.setSeuilMinimum(produitDetails.getSeuilMinimum());
-                    produit.setUniteMesure(produitDetails.getUniteMesure());
-                    produit.setImageUrl(produitDetails.getImageUrl());
+                    if (produitDetails.getQuantiteStock() != null) {
+                        produit.setQuantiteStock(produitDetails.getQuantiteStock());
+                    }
 
-                    // Mise à jour de la remise temporaire (seule remise dans Produit)
-                    produit.setRemiseTemporaire(produitDetails.getRemiseTemporaire());
+                    if (produitDetails.getSeuilMinimum() != null) {
+                        produit.setSeuilMinimum(produitDetails.getSeuilMinimum());
+                    }
 
-                    // Recalculer le statut
+                    if (produitDetails.getUniteMesure() != null) {
+                        produit.setUniteMesure(produitDetails.getUniteMesure());
+                    }
+
+                    if (produitDetails.getImageUrl() != null) {
+                        produit.setImageUrl(produitDetails.getImageUrl());
+                    }
+
+                    if (produitDetails.getRemiseTemporaire() != null) {
+                        produit.setRemiseTemporaire(produitDetails.getRemiseTemporaire());
+                    }
+
+                    // Recalculer le statut du stock
                     updateStockStatus(produit);
 
                     return produitRepository.save(produit);
@@ -73,93 +113,101 @@ public class ProduitService {
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
     }
 
-    public void deleteProduit(Integer id) {
-        if (!produitRepository.existsById(id)) {
-            throw new RuntimeException("Produit non trouvé avec l'id: " + id);
-        }
-        produitRepository.deleteById(id);
-    }
-
-    // Nouvelle méthode pour mettre à jour le stock
-    public Produit updateStock(Integer id, Integer quantite) {
-        return produitRepository.findById(id)
-                .map(produit -> {
-                    produit.setQuantiteStock(quantite);
-                    updateStockStatus(produit);
-                    return produitRepository.save(produit);
-                })
+    /**
+     * Désactiver un produit (soft delete)
+     */
+    public void desactiverProduit(Integer id) {
+        Produit produit = produitRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+
+        produit.setActive(false);
+        produitRepository.save(produit);
     }
 
-    // Méthodes de recherche avec catégorie
-    public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId) {
-        if (keyword != null && status != null && categorieId != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndStatusAndCategorieIdCategorie(
-                    keyword, status, categorieId);
-        } else if (keyword != null && status != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndStatus(keyword, status);
-        } else if (keyword != null && categorieId != null) {
-            return produitRepository.findByLibelleContainingIgnoreCaseAndCategorieIdCategorie(keyword, categorieId);
-        } else if (status != null && categorieId != null) {
-            return produitRepository.findByStatusAndCategorieIdCategorie(status, categorieId);
-        } else if (keyword != null) {
-            return produitRepository.findByLibelleContainingIgnoreCase(keyword);
-        } else if (status != null) {
-            return produitRepository.findByStatus(status);
-        } else if (categorieId != null) {
-            return produitRepository.findByCategorieIdCategorie(categorieId);
+    /**
+     * Réactiver un produit
+     */
+    public Produit reactiverProduit(Integer id) {
+        Produit produit = produitRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+
+        produit.setActive(true);
+        return produitRepository.save(produit);
+    }
+
+    /**
+     * Rechercher des produits avec filtres
+     */
+
+    public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId, Boolean actif) {
+
+        // Logs pour debug
+        System.out.println("========== SERVICE SEARCH ==========");
+        System.out.println("keyword: " + keyword);
+        System.out.println("status (enum): " + status);
+        System.out.println("categorieId: " + categorieId);
+        System.out.println("actif: " + actif);
+
+        // CONVERSION : enum -> String
+        String statusStr = null;
+        if (status != null) {
+            statusStr = status.name(); // Convertit EN_STOCK -> "EN_STOCK"
+            System.out.println("status converti en String: " + statusStr);
         }
-        return produitRepository.findAll();
+
+        // Appel au repository avec le String
+        List<Produit> resultats = produitRepository.searchProduits(keyword, statusStr, categorieId, actif);
+
+        System.out.println("Résultats trouvés: " + resultats.size());
+        System.out.println("====================================");
+
+        return resultats;
     }
 
-    // Recherche par catégorie
+    /**
+     * Récupérer les produits par catégorie
+     */
     public List<Produit> getProduitsByCategorie(Integer categorieId) {
         Categorie categorie = categorieRepository.findById(categorieId)
                 .orElseThrow(() -> new RuntimeException("Catégorie non trouvée avec l'id: " + categorieId));
-        return produitRepository.findByCategorie(categorie);
+        return produitRepository.findByCategorieAndActiveTrue(categorie);
     }
 
-    // Méthode pour récupérer les produits avec stock faible
+    /**
+     * Récupérer les produits avec stock faible (FAIBLE ou CRITIQUE)
+     */
     public List<Produit> getLowStockProduits() {
-        return produitRepository.findByStatusIn(
+        return produitRepository.findByStatusInAndActiveTrue(
                 List.of(Produit.StockStatus.FAIBLE, Produit.StockStatus.CRITIQUE)
         );
     }
 
+    /**
+     * Mettre à jour le stock d'un produit
+     */
+    public Produit updateStock(Integer id, Integer nouvelleQuantite) {
+        return produitRepository.findById(id)
+                .map(produit -> {
+                    produit.setQuantiteStock(nouvelleQuantite);
+                    updateStockStatus(produit);
+                    return produitRepository.save(produit);
+                })
+                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+    }
+
+    /**
+     * Vérifier la disponibilité d'un produit pour une quantité donnée
+     */
     public boolean verifierDisponibilite(Integer produitId, Integer quantiteDemandee) {
         Produit produit = produitRepository.findById(produitId)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + produitId));
 
-        return produit.getQuantiteStock() >= quantiteDemandee;
+        return produit.getActive() && produit.getQuantiteStock() >= quantiteDemandee;
     }
 
-    // Méthode pour ajuster le stock après une vente
-    @Transactional
-    public void decrementerStock(Integer produitId, Integer quantiteVendue) {
-        Produit produit = produitRepository.findById(produitId)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + produitId));
-
-        if (produit.getQuantiteStock() < quantiteVendue) {
-            throw new RuntimeException("Stock insuffisant pour le produit: " + produit.getLibelle());
-        }
-
-        produit.setQuantiteStock(produit.getQuantiteStock() - quantiteVendue);
-        updateStockStatus(produit);
-        produitRepository.save(produit);
-    }
-
-    // Méthode pour réapprovisionner le stock
-    @Transactional
-    public void incrementerStock(Integer produitId, Integer quantiteAjoutee) {
-        Produit produit = produitRepository.findById(produitId)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + produitId));
-
-        produit.setQuantiteStock(produit.getQuantiteStock() + quantiteAjoutee);
-        updateStockStatus(produit);
-        produitRepository.save(produit);
-    }
-
-    // Méthode privée pour mettre à jour le statut du stock
+    /**
+     * Méthode privée pour mettre à jour le statut du stock
+     */
     private void updateStockStatus(Produit produit) {
         if (produit.getQuantiteStock() == null || produit.getSeuilMinimum() == null) {
             produit.setStatus(Produit.StockStatus.RUPTURE);
@@ -173,7 +221,7 @@ public class ProduitService {
             produit.setStatus(Produit.StockStatus.RUPTURE);
         } else if (quantite <= seuil * 0.25) {
             produit.setStatus(Produit.StockStatus.CRITIQUE);
-        } else if (quantite <= seuil * 0.5) {
+        } else if (quantite <= seuil) {
             produit.setStatus(Produit.StockStatus.FAIBLE);
         } else {
             produit.setStatus(Produit.StockStatus.EN_STOCK);

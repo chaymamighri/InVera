@@ -41,19 +41,20 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS for Flutter Web dev server (random port) + local dev.
-     * Your Wi-Fi IPv4 (from ipconfig): 172.20.10.7
+     * CORS for local dev, Flutter Web, Vite, React and LAN access.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Use allowedOriginPatterns to support wildcard ports (Flutter web uses random ports)
-        // NOTE: When allowCredentials(true), you must NOT use "*" for allowed origins.
+        // Use allowedOriginPatterns to support wildcard ports.
+        // With allowCredentials(true), do not use "*".
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "http://172.20.10.7:*"
+                "http://172.20.10.7:*",
+                "http://192.168.56.1:*",
+                "http://192.168.56.1:8081"
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
@@ -66,7 +67,6 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Register broadly to avoid path/preflight mismatches
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -80,37 +80,39 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Allow all preflight requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // public
-                        .requestMatchers("/api/auth/login",
+                        .requestMatchers(
+                                "/api/auth/login",
                                 "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/create-admin-temp").permitAll()
+                                "/api/auth/create-admin-temp"
+                        ).permitAll()
 
-                        // authenticated user endpoints (profile)
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
 
-                        // admin notifications
                         .requestMatchers("/api/notifications/**").hasRole("ADMIN")
 
-                        // admin only
-                        .requestMatchers("/api/auth/register",
+                        .requestMatchers(
+                                "/api/auth/register",
                                 "/api/auth/activate/**",
                                 "/api/auth/filter",
                                 "/api/auth/all",
                                 "/api/auth/delete/**",
-                                "/api/auth/update/**").hasRole("ADMIN")
+                                "/api/auth/update/**"
+                        ).hasRole("ADMIN")
 
-                        // roles
+                        .requestMatchers("/uploads/**").permitAll()
+
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
                         .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
-                        .requestMatchers("/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/commandes-fournisseurs/**").hasRole("RESPONSABLE_ACHAT")
 
                         .anyRequest().authenticated()
                 )
