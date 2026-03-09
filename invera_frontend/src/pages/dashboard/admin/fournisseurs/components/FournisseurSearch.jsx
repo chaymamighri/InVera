@@ -47,8 +47,8 @@ const FournisseurSearch = ({ onViewModeChange, viewMode, onSearchResults }) => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl shadow-md p-4 border border-emerald-100">
-      <div className="flex flex-col lg:flex-row gap-3">
+       <div className="rounded-xl shadow-md p-4">
+        <div className="flex flex-col lg:flex-row gap-3">
         {/* Search Bar - Auto */}
         <div className="flex-1">
           <div className="relative">

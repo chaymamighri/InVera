@@ -22,16 +22,16 @@ import { useReports } from '../../../../hooks/useReports';
 /* ================= HELPERS ================= */
 
 /**
- * Palette aux couleurs du thème Invera (teal)
+ * Palette aux couleurs du thème Invera (vert-bleu)
  */
 const COLORS = [
-  '#14b8a6', // teal-500
-  '#0d9488', // teal-600
-  '#2dd4bf', // teal-400
-  '#5eead4', // teal-300
-  '#99f6e4', // teal-200
-  '#2c3e50', // dark blue-grey (contraste)
-  '#f59e0b', // amber (accent)
+  '#10b981', // emerald-500
+  '#3b82f6', // blue-500
+  '#059669', // emerald-600
+  '#2563eb', // blue-600
+  '#34d399', // emerald-400
+  '#60a5fa', // blue-400
+  '#8b5cf6', // violet-500 (accent)
 ];
 
 const pickFirst = (obj, keys, fallback = null) => {
@@ -137,15 +137,15 @@ const buildComparison = (items = []) => {
 /* ================= UI ================= */
 
 const Shell = ({ children }) => (
-  <div className="min-h-screen bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50">
+  <div className="min-h-screen bg-white">
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">{children}</div>
   </div>
 );
 
 const Card = ({ title, subtitle, right, children }) => (
-  <div className="rounded-xl border border-teal-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+  <div className="rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
     {(title || right) && (
-      <div className="flex flex-col gap-2 border-b border-teal-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
           {title ? <h2 className="text-base font-semibold text-gray-800">{title}</h2> : null}
           {subtitle ? <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p> : null}
@@ -163,8 +163,8 @@ const Tab = ({ active, children, ...props }) => (
     className={[
       'rounded-lg px-4 py-2 text-sm font-medium transition-all',
       active
-        ? 'bg-teal-500 text-white shadow-sm hover:bg-teal-600'
-        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-teal-600',
+        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-md hover:from-emerald-600 hover:to-blue-600'
+        : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600',
     ].join(' ')}
     {...props}
   >
@@ -175,22 +175,22 @@ const Tab = ({ active, children, ...props }) => (
 const PrimaryButton = ({ className = '', ...props }) => (
   <button
     type="button"
-    className={`rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className}`}
+    className={`rounded-lg bg-gradient-to-r from-emerald-500 to-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:from-emerald-600 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50 transition-all ${className}`}
     {...props}
   />
 );
 
 const Kpi = ({ label, value, hint }) => (
-  <div className="rounded-xl border border-teal-100 bg-white p-5 shadow-sm hover:shadow-md transition-all">
-    <p className="text-sm font-medium text-gray-500">{label}</p>
+  <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+    <p className="text-sm font-medium text-emerald-600">{label}</p>
     <p className="mt-2 text-2xl font-semibold text-gray-800">{value}</p>
     {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
   </div>
 );
 
 const EmptyBox = ({ title, description }) => (
-  <div className="rounded-xl border border-teal-100 bg-teal-50/30 p-12 text-center">
-    <svg className="mx-auto h-12 w-12 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <div className="rounded-xl border border-gray-200 bg-gray-50 p-12 text-center">
+    <svg className="mx-auto h-12 w-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
     </svg>
     <p className="mt-4 text-base font-medium text-gray-700">{title}</p>
@@ -211,11 +211,11 @@ const ProTooltip = ({ active, payload, label, suffix = 'DT' }) => {
   const top = rows.filter((r) => r.name !== 'Total').slice(0, 5);
 
   return (
-    <div className="min-w-[260px] rounded-lg border border-teal-100 bg-white p-3 shadow-lg">
+    <div className="min-w-[260px] rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
       <p className="text-xs font-semibold text-gray-800">{label}</p>
       <div className="mt-1 text-xs text-gray-600">
         Total:{' '}
-        <span className="font-semibold text-teal-600">
+        <span className="font-semibold text-emerald-600">
           {formatMoney(total)} {suffix}
         </span>
       </div>
@@ -333,22 +333,7 @@ const Statistiques = () => {
 
   return (
     <Shell>
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Statistiques</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {filters.startDate || filters.endDate ? (
-              <>
-                Période : <span className="font-medium text-teal-600">{filters.startDate ?? '…'}</span> →{' '}
-                <span className="font-medium text-teal-600">{filters.endDate ?? '…'}</span>
-              </>
-            ) : (
-              <>Sélectionnez une période pour filtrer les données</>
-            )}
-          </p>
-        </div>
-      </div>
+    
 
       {/* Tabs */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -364,62 +349,63 @@ const Statistiques = () => {
       </div>
 
       {/* Filters */}
-      <Card title="Filtrer par période" subtitle="Sélectionnez une date de début et de fin">
-        <div className="grid gap-3 md:grid-cols-12 md:items-end">
-          <div className="md:col-span-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Date début</label>
-            <input
-              type="date"
-              value={dateFromDraft}
-              onChange={(e) => setDateFromDraft(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
-            />
-          </div>
+      {/* Filters */}
+<Card title="Filtrer par période" subtitle="Sélectionnez une date de début et de fin">
+  <div className="grid gap-3 md:grid-cols-12 md:items-end">
+    <div className="md:col-span-4">
+      <label className="block text-xs font-medium text-emerald-600 mb-1">Date début</label>
+      <input
+        type="date"
+        value={dateFromDraft}
+        onChange={(e) => setDateFromDraft(e.target.value)}
+        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+      />
+    </div>
 
-          <div className="md:col-span-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Date fin</label>
-            <input
-              type="date"
-              value={dateToDraft}
-              onChange={(e) => setDateToDraft(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
-            />
-          </div>
+    <div className="md:col-span-4">
+      <label className="block text-xs font-medium text-emerald-600 mb-1">Date fin</label>
+      <input
+        type="date"
+        value={dateToDraft}
+        onChange={(e) => setDateToDraft(e.target.value)}
+        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+      />
+    </div>
 
-          <div className="md:col-span-4 md:flex md:justify-end">
-            <PrimaryButton onClick={applyFilters} disabled={loading}>
-              Appliquer
-            </PrimaryButton>
-          </div>
-        </div>
+    <div className="md:col-span-4 md:flex md:justify-end">
+      <PrimaryButton onClick={applyFilters} disabled={loading}>
+        Appliquer
+      </PrimaryButton>
+    </div>
+  </div>
 
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          {loading ? (
-            <span className="flex items-center text-gray-500">
-              <svg className="animate-spin h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Chargement…
-            </span>
-          ) : error ? (
-            <span className="text-red-500">{error}</span>
-          ) : (
-            <span className="flex items-center text-teal-600">
-              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Données à jour
-            </span>
-          )}
-          {filterHint && <span className="text-amber-600">• {filterHint}</span>}
-        </div>
-      </Card>
+  <div className="mt-3 flex items-center gap-2 text-sm">
+    {loading ? (
+      <span className="flex items-center text-gray-500">
+        <svg className="animate-spin h-4 w-4 mr-1 text-emerald-500" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        Chargement…
+      </span>
+    ) : error ? (
+      <span className="text-red-500">{error}</span>
+    ) : (
+      <span className="flex items-center text-emerald-600">
+        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        Données à jour
+      </span>
+    )}
+    {filterHint && <span className="text-amber-600">• {filterHint}</span>}
+  </div>
+</Card>
 
       {/* KPIs */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <Kpi key={k.label} label={k.label} value={k.value} hint={k.hint} />
+        {kpis.map((k, idx) => (
+          <Kpi key={idx} label={k.label} value={k.value} hint={k.hint} />
         ))}
       </div>
 
@@ -441,21 +427,21 @@ const Statistiques = () => {
           ) : tab === 'clients' ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
                   <tr>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Client</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Commandes</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">CA</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-white uppercase">Client</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-white uppercase">Type</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-white uppercase">Commandes</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-white uppercase">CA</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {(topClients || []).map((c, idx) => (
-                    <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-900">{c.nom ?? c.name ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{c.type ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{c.commandes ?? c.orders ?? 0}</td>
-                      <td className="px-4 py-3 font-medium text-teal-600">
+                      <td className="px-4 py-3 font-medium text-emerald-600">
                         {formatMoney(c.ca ?? c.totalCA ?? 0)} DT
                       </td>
                     </tr>
@@ -478,8 +464,8 @@ const Statistiques = () => {
                 <AreaChart data={timeSeries} margin={{ top: 16, right: 18, left: 8, bottom: 24 }}>
                   <defs>
                     <linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
 
@@ -515,18 +501,18 @@ const Statistiques = () => {
                     type="monotone"
                     dataKey="Total"
                     name="CA Total"
-                    stroke="#14b8a6"
+                    stroke="#10b981"
                     strokeWidth={3}
                     fill="url(#totalFill)"
-                    activeDot={{ r: 6, fill: '#0d9488' }}
-                    dot={{ r: 2, fill: '#14b8a6' }}
+                    activeDot={{ r: 6, fill: '#059669' }}
+                    dot={{ r: 2, fill: '#10b981' }}
                   />
                   
                   <Line 
                     type="monotone" 
                     dataKey="Total" 
                     name="Tendance" 
-                    stroke="#0d9488" 
+                    stroke="#059669" 
                     strokeWidth={2} 
                     dot={false} 
                   />
@@ -547,8 +533,8 @@ const Statistiques = () => {
                     dataKey="name"
                     height={26}
                     travellerWidth={10}
-                    stroke="#14b8a6"
-                    fill="#f0fdfa"
+                    stroke="#10b981"
+                    fill="#f0fdf4"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -569,19 +555,19 @@ const Statistiques = () => {
         >
           {tab === 'clients' ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="bg-teal-50/30 rounded-xl border border-teal-100 p-5">
-                <p className="text-sm text-gray-500">Total clients</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <p className="text-sm text-emerald-600">Total clients</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-800">
                   {formatMoney(clients.data?.summary?.totalClients ?? 0)}
                 </p>
               </div>
-              <div className="bg-teal-50/30 rounded-xl border border-teal-100 p-5">
-                <p className="text-sm text-gray-500">Clients actifs</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <p className="text-sm text-blue-600">Clients actifs</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-800">
                   {formatMoney(clients.data?.summary?.clientsActifs ?? 0)}
                 </p>
               </div>
-              <div className="sm:col-span-2 bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl p-5">
+              <div className="sm:col-span-2 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-xl p-5">
                 <p className="text-sm text-white/80">CA total clients</p>
                 <p className="mt-2 text-2xl font-semibold text-white">
                   {formatMoney(clients.data?.summary?.caTotal ?? 0)} DT
@@ -611,12 +597,12 @@ const Statistiques = () => {
                     axisLine={{ stroke: '#cbd5e1' }}
                   />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Bar dataKey="total" name="CA" fill="#14b8a6" radius={[8, 8, 0, 0]}>
+                  <Bar dataKey="total" name="CA" fill="#10b981" radius={[8, 8, 0, 0]}>
                     <LabelList
                       dataKey="total"
                       position="top"
                       formatter={(v) => `${formatMoney(v)} DT`}
-                      style={{ fill: '#14b8a6', fontWeight: 600, fontSize: 11 }}
+                      style={{ fill: '#10b981', fontWeight: 600, fontSize: 11 }}
                     />
                   </Bar>
                 </BarChart>
