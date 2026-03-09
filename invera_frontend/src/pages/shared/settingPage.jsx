@@ -1,5 +1,5 @@
 // src/pages/settings/SettingsPage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -8,7 +8,7 @@ import {
   LockClosedIcon,
   ShieldCheckIcon,
   BellIcon,
-  GlobeAltIcon,
+  ArrowPathIcon,
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon
@@ -16,6 +16,7 @@ import {
 
 import { authService } from '../../services/authService';
 import api from '../../services/api';
+import { notificationService } from '../../services/notificationService';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -44,6 +45,9 @@ const SettingsPage = () => {
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifActionLoading, setNotifActionLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
   // ---------- Load /me ----------
   useEffect(() => {
@@ -67,7 +71,7 @@ const SettingsPage = () => {
         if (data?.role) localStorage.setItem('userRole', data.role);
         if (fullName) localStorage.setItem('userName', fullName);
         if (data?.email) localStorage.setItem('userEmail', data.email);
-      } catch (e) {
+      } catch {
         // 401/403 redirect handled by interceptor
         toast.error("Impossible de charger vos informations.");
       } finally {
@@ -98,15 +102,14 @@ const SettingsPage = () => {
         name: 'Notifications',
         icon: <BellIcon className="h-5 w-5" />,
         description: 'Configurez vos préférences de notifications'
-      },
-      {
-        id: 'language',
-        name: 'Langue',
-        icon: <GlobeAltIcon className="h-5 w-5" />,
-        description: 'Choisissez votre langue préférée'
       }
     ],
     []
+  );
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
   );
 
   // ---------- Helpers ----------
@@ -123,6 +126,68 @@ const SettingsPage = () => {
     if (passwordForm.newPassword.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
     if (passwordForm.newPassword !== passwordForm.confirmPassword) return "Les mots de passe ne correspondent pas.";
     return '';
+  };
+
+  const formatNotificationDate = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString();
+  };
+
+  const loadNotifications = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await notificationService.getAll();
+      setNotifications(Array.isArray(res?.data) ? res.data : []);
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
+        'Erreur notifications';
+      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') return;
+    loadNotifications();
+  }, [activeTab, loadNotifications]);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch {
+      toast.error('Impossible de marquer comme lue');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+    setNotifActionLoading(true);
+    try {
+      await notificationService.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast.success('Toutes les notifications sont marquées comme lues');
+    } catch {
+      toast.error('Impossible de tout marquer comme lu');
+    } finally {
+      setNotifActionLoading(false);
+    }
+  };
+
+  const handleDeleteNotification = async (id) => {
+    try {
+      await notificationService.deleteOne(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.success('Notification supprimée');
+    } catch {
+      toast.error('Erreur suppression notification');
+    }
   };
 
   // ---------- Profile submit ----------
@@ -528,26 +593,84 @@ const SettingsPage = () => {
                   </div>
                 )}
 
-                {/* -------- Notifications / Language (placeholder) -------- */}
+                {/* -------- Notifications -------- */}
                 {activeTab === 'notifications' && (
-                  <div className="text-center py-12">
-                    <BellIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-700 mb-2">
-                      Configuration des notifications
-                    </h3>
-                    <p className="text-gray-500">Cette fonctionnalité est en cours de développement.</p>
-                    <p className="text-sm text-gray-400 mt-2">Bientôt disponible !</p>
-                  </div>
-                )}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          Centre de notifications
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {unreadCount > 0
+                            ? `${unreadCount} notification(s) non lue(s)`
+                            : 'Toutes vos notifications sont lues'}
+                        </p>
+                      </div>
 
-                {activeTab === 'language' && (
-                  <div className="text-center py-12">
-                    <GlobeAltIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-700 mb-2">
-                      Sélection de la langue
-                    </h3>
-                    <p className="text-gray-500">Cette fonctionnalité est en cours de développement.</p>
-                    <p className="text-sm text-gray-400 mt-2">Bientôt disponible !</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={loadNotifications}
+                          disabled={notifLoading}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-white ${
+                            notifLoading ? 'opacity-70 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <ArrowPathIcon className={`h-4 w-4 ${notifLoading ? 'animate-spin' : ''}`} />
+                          Actualiser
+                        </button>
+                        <button
+                          onClick={handleMarkAllAsRead}
+                          disabled={notifActionLoading || unreadCount === 0}
+                          className={`px-3 py-2 rounded-lg text-sm text-white bg-blue-600 hover:bg-blue-700 ${
+                            notifActionLoading || unreadCount === 0 ? 'opacity-70 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          Tout marquer comme lu
+                        </button>
+                      </div>
+                    </div>
+
+                    {notifLoading ? (
+                      <div className="py-12 text-center text-gray-500">Chargement des notifications...</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500">Aucune notification</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                              n.read ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-200'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
+                                {n.message || 'Notification sans message'}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{formatNotificationDate(n.createdAt)}</p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {!n.read && (
+                                <button
+                                  onClick={() => handleMarkAsRead(n.id)}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                >
+                                  Marquer lue
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteNotification(n.id)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                              >
+                                Supprimer
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
