@@ -3,7 +3,7 @@ package org.erp.invera.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.erp.invera.model.Fournisseur;
+import org.erp.invera.model.Fournisseurs.Fournisseur;
 
 import java.time.LocalDateTime;
 

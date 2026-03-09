@@ -1,6 +1,6 @@
 package org.erp.invera.repository;
 
-import org.erp.invera.model.Fournisseur;
+import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
