@@ -106,6 +106,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL","RESPONSABLE_ACHAT")
                         .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/commandes-fournisseurs/**").hasRole( "RESPONSABLE_ACHAT")
 
 
 
