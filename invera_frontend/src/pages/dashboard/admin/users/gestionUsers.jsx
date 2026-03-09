@@ -302,7 +302,7 @@ const GestionUsers = () => {
         </div>
       )}
 
-=      {/* Tableau des utilisateurs */}
+      {/* Tableau des utilisateurs */}
 <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
   <div className="overflow-x-auto">
     <table className="w-full">
@@ -335,7 +335,7 @@ const GestionUsers = () => {
 
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                      <EnvelopeIcon className="w-4 h-4 text-emerald-500" />
                       <span className="text-sm text-gray-600">{user.email}</span>
                     </div>
                   </td>
