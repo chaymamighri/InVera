@@ -255,8 +255,8 @@ const GestionUsers = () => {
       </div>
 
       {/* Barre de recherche et filtres */}
-      <div className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl shadow-md p-4 border border-emerald-100">
-        <div className="flex flex-wrap items-center gap-4">
+<div className="rounded-xl shadow-md p-4">
+          <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-1 min-w-[200px]">
             <MagnifyingGlassIcon className="w-4 h-4 text-emerald-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -277,7 +277,6 @@ const GestionUsers = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <FunnelIcon className="w-4 h-4 text-emerald-500" />
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
