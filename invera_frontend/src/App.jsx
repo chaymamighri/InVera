@@ -151,17 +151,64 @@ const UnauthorizedPage = () => (
 
 function App() {
   return (
-    <Router>
-       <SidebarProvider>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: { borderRadius: '12px' }
-        }}
-      />
-
-      <Routes>
+  <Router>
+  <SidebarProvider>
+ <Toaster
+  position="top-right"
+  containerStyle={{
+    top: 80,
+    right: 20,
+  }}
+  toastOptions={{
+    duration: 5000,
+    closeButton: true,
+    
+    // Style de base pour tous les toasts
+    style: {
+      borderRadius: '12px',
+      background: '#1e293b',
+      color: '#f8fafc',
+      padding: '16px 20px',
+      fontSize: '14px',
+      fontWeight: '500',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+      border: '1px solid #334155',
+      maxWidth: '380px',
+    },
+    
+    // Configuration spécifique pour les succès
+    success: {
+      duration: 6000,
+      icon: '✅', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #10b981',
+      },
+      // Pas besoin de répéter closeButton ici car hérité
+    },
+    
+    // Configuration spécifique pour les erreurs
+    error: {
+      duration: 8000,
+      icon: '❌', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #ef4444',
+      },
+    },
+    
+    // Configuration spécifique pour le loading
+    loading: {
+      duration: Infinity,
+      icon: '⏳', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #6b7280',
+      },
+    },
+  }}
+/>
+  <Routes>
         {/* ✅ ALWAYS LAND ON LOGIN */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 

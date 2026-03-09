@@ -8,7 +8,7 @@ import {
   ChartBarIcon,
   DocumentTextIcon,
   InboxIcon,
-  ArrowPathIcon, // Pour les icônes de réapprovisionnement
+  ArrowPathIcon, 
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
@@ -139,7 +139,7 @@ const ProcurementDashboard = () => {
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Gestion Achats
+                  Tableau de Bord Gestion Achats
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
                   Stocks et commandes

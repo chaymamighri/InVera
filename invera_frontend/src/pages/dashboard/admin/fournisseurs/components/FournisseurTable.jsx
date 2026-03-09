@@ -38,18 +38,18 @@ const FournisseurTable = ({ fournisseurs, onEdit, onToggleStatus }) => {
 
   return (
     <>
-      <div className="w-full bg-gradient-to-br from-white to-emerald-50 rounded-xl shadow-md border border-emerald-100 overflow-hidden">
+      <div className="w-full bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-emerald-500 to-blue-500">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Nom</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Email</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Téléphone</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Ville</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Pays</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Statut</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-white uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Nom</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Email</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Téléphone</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Ville</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Pays</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100">
@@ -143,19 +143,19 @@ const FournisseurTable = ({ fournisseurs, onEdit, onToggleStatus }) => {
                         </svg>
                       </button>
 
-                     <button
-  onClick={() => onToggleStatus(fournisseur.idFournisseur, fournisseur.actif)}
-  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-    fournisseur.actif ? 'bg-emerald-500' : 'bg-gray-300'
-  }`}
-  title={fournisseur.actif ? 'Désactiver' : 'Activer'}
->
-  <span
-    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-      fournisseur.actif ? 'translate-x-5' : 'translate-x-0.5'
-    }`}
-  />
-</button>
+                      <button
+                        onClick={() => handleToggleClick(fournisseur.idFournisseur, fournisseur.actif)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          fournisseur.actif ? 'bg-emerald-500' : 'bg-gray-300'
+                        }`}
+                        title={fournisseur.actif ? 'Désactiver' : 'Activer'}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            fournisseur.actif ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </td>
                 </tr>
