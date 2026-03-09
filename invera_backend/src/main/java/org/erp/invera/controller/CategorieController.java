@@ -14,7 +14,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/categories")
-@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
 public class CategorieController {
 
     @Autowired
@@ -26,7 +25,6 @@ public class CategorieController {
      * Ajouter une nouvelle catégorie (admin seulement)
      */
     @PostMapping("/add")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> addCategorie(@RequestBody Categorie categorie) {
         try {
             Categorie savedCategorie = categorieService.save(categorie);
@@ -49,7 +47,6 @@ public class CategorieController {
      * Récupérer toutes les catégories (admin et commercial)
      */
     @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMMERCIAL')")
     public ResponseEntity<Map<String, Object>> getAllCategories() {
         try {
             List<Categorie> categories = categorieService.findAll();
@@ -72,7 +69,6 @@ public class CategorieController {
      * Récupérer une catégorie par ID
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMMERCIAL')")
     public ResponseEntity<Map<String, Object>> getCategorieById(@PathVariable Integer id) {
         try {
             Categorie categorie = categorieService.findById(id);
@@ -94,7 +90,6 @@ public class CategorieController {
      * Mettre à jour une catégorie (admin seulement)
      */
     @PutMapping("/update/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> updateCategorie(
             @PathVariable Integer id,
             @RequestBody Categorie categorieDetails) {
@@ -119,7 +114,6 @@ public class CategorieController {
      * Supprimer une catégorie (admin seulement)
      */
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteCategorie(@PathVariable Integer id) {
         try {
             categorieService.deleteById(id);
@@ -141,7 +135,6 @@ public class CategorieController {
      * Rechercher des catégories par nom
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COMMERCIAL')")
     public ResponseEntity<Map<String, Object>> searchCategories(
             @RequestParam(required = false) String keyword) {
         try {

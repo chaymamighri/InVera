@@ -109,12 +109,17 @@ const DashboardRedirect = () => {
   }
 };
 
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+// fonction ProtectedRoute qui accepter le paramètre useLayout
+const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   const userData = getUserData();
   if (!userData) return <Navigate to="/login" replace />;
 
   if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
 
+  // Si useLayout est false, on retourne directement les enfants sans Layout
+  if (!useLayout) return children;
+
+  // Sinon, on utilise le Layout standard
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
@@ -146,17 +151,64 @@ const UnauthorizedPage = () => (
 
 function App() {
   return (
-    <Router>
-       <SidebarProvider>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: { borderRadius: '12px' }
-        }}
-      />
-
-      <Routes>
+  <Router>
+  <SidebarProvider>
+ <Toaster
+  position="top-right"
+  containerStyle={{
+    top: 80,
+    right: 20,
+  }}
+  toastOptions={{
+    duration: 5000,
+    closeButton: true,
+    
+    // Style de base pour tous les toasts
+    style: {
+      borderRadius: '12px',
+      background: '#1e293b',
+      color: '#f8fafc',
+      padding: '16px 20px',
+      fontSize: '14px',
+      fontWeight: '500',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+      border: '1px solid #334155',
+      maxWidth: '380px',
+    },
+    
+    // Configuration spécifique pour les succès
+    success: {
+      duration: 6000,
+      icon: '✅', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #10b981',
+      },
+      // Pas besoin de répéter closeButton ici car hérité
+    },
+    
+    // Configuration spécifique pour les erreurs
+    error: {
+      duration: 8000,
+      icon: '❌', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #ef4444',
+      },
+    },
+    
+    // Configuration spécifique pour le loading
+    loading: {
+      duration: Infinity,
+      icon: '⏳', // ← Garde l'icône
+      style: {
+        background: '#0f172a',
+        border: '1px solid #6b7280',
+      },
+    },
+  }}
+/>
+  <Routes>
         {/* ✅ ALWAYS LAND ON LOGIN */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -165,20 +217,32 @@ function App() {
         <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
         {/* Dashboards */}
-        <Route
-          path="/dashboard/admin"
-          element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>}
-        />
+         <Route
+    path="/dashboard/admin/*" 
+    element={
+      <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
+        <AdminDashboard />
+      </ProtectedRoute>
+    }
+  /> {/* Procurement Dashboard - SANS Layout car il a sa propre sidebar */}
+  <Route
+    path="/dashboard/procurement"
+    element={
+      <ProtectedRoute allowedRoles={['procurement']} useLayout={true}>
+        <ProcurementDashboard />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/dashboard/procurement"
-          element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>}
-        />
-
-        <Route
-          path="/dashboard/sales"
-          element={<ProtectedRoute allowedRoles={['sales', 'admin']}><SalesDashboard /></ProtectedRoute>}
-        >
+  {/* Sales Dashboard - AVEC Layout (utilisation du Header standard) */}
+  <Route
+    path="/dashboard/sales"
+    element={
+      <ProtectedRoute allowedRoles={['sales']} useLayout={true}>
+        <SalesDashboard />
+      </ProtectedRoute>
+    }
+  >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
@@ -197,14 +261,22 @@ function App() {
           </Route>
 
         {/* Shared */}
-        <Route
-          path="/profile"
-          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><ProfilePage /></ProtectedRoute>}
-        />
-        <Route
-          path="/settings"
-          element={<ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']}><SettingsPage /></ProtectedRoute>}
-        />
+       <Route
+    path="/profile"
+    element={
+      <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+        <ProfilePage />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/settings"
+    element={
+      <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+        <SettingsPage />
+      </ProtectedRoute>
+    }
+  />
 
         {/* Redirect helper */}
         <Route path="/dashboard" element={<DashboardRedirect />} />

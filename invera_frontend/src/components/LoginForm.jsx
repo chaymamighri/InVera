@@ -385,16 +385,16 @@ useEffect(() => {
         </label>
       </div>
 
-      {/* Submit button */}
-      <Button
-        type="submit"
-        loading={isLoading}
-        fullWidth
-        variant="primary"
-        size="lg"
-      >
-        {isLoading ? 'Connexion...' : 'Se connecter'}
-      </Button>
+     {/* Submit button */}
+<Button
+  type="submit"
+  loading={isLoading}
+  fullWidth
+  size="lg"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+>
+  {isLoading ? 'Connexion...' : 'Se connecter'}
+</Button>
 
       {errors.submit && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -517,15 +517,15 @@ useEffect(() => {
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
             </div>
 
-            <Button
-              type="submit"
-              loading={isLoading}
-              fullWidth
-              variant="primary"
-              size="md"
-            >
-              {isLoading ? 'Envoi...' : 'Envoyer le code'}
-            </Button>
+           <Button
+  type="submit"
+  loading={isLoading}
+  fullWidth
+  size="md"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+>
+  {isLoading ? 'Envoi...' : 'Envoyer le code'}
+</Button>
           </form>
         )}
 
@@ -579,16 +579,15 @@ useEffect(() => {
                 Modifier l'email
               </button>
             </div>
-
-            <Button
-              type="submit"
-              loading={isLoading}
-              fullWidth
-              variant="primary"
-              size="md"
-            >
-              {isLoading ? 'Vérification...' : 'Vérifier le code'}
-            </Button>
+<Button
+  type="submit"
+  loading={isLoading}
+  fullWidth
+  size="md"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+>
+  {isLoading ? 'Vérification...' : 'Vérifier le code'}
+</Button>
           </form>
         )}
 
@@ -678,16 +677,15 @@ useEffect(() => {
               </div>
               {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
             </div>
-
-            <Button
-              type="submit"
-              loading={isLoading}
-              fullWidth
-              variant="primary"
-              size="md"
-            >
-              {isLoading ? 'Réinitialisation...' : 'Réinitialiser'}
-            </Button>
+<Button
+  type="submit"
+  loading={isLoading}
+  fullWidth
+  size="md"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+>
+  {isLoading ? 'Réinitialisation...' : 'Réinitialiser'}
+</Button>
           </form>
         )}
       </div>

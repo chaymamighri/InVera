@@ -48,7 +48,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col md:flex-row">
-      <div className="md:w-1/2 bg-gradient-to-br from-blue-500 to-blue-800 text-white p-6 md:p-12 flex flex-col">
+      <div className="md:w-1/2 bg-gradient-to-br from-blue-900 to-blue-800 text-white p-6 md:p-12 flex flex-col">
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
           <div className="mb-8">
             <div className="flex flex-col items-center">

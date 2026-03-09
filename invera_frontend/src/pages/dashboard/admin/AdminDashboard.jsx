@@ -4,28 +4,29 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   TagIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { useSidebar } from '../../../context/SidebarContext'; // AJOUT
+import { useSidebar } from '../../../context/SidebarContext';
 import Footer from '../../../components/Footer';
 
 // Pages
 import GestionUsers from './users/gestionUsers';
 import Statistiques from './statestiques/Statistiques';
-import Settings from './settings/Settings';
+import Fournisseurs from './fournisseurs/Fournisseurs';
 import Remise from "./remise/RemiseProduit";
 
 const MemoizedGestionUsers = React.memo(GestionUsers);
 const MemoizedStatistiques = React.memo(Statistiques);
-const MemoizedSettings = React.memo(Settings);
+const MemoizedFournisseurs = React.memo(Fournisseurs);
 const MemoizedRemise = React.memo(Remise);
 
 const AdminDashboard = () => {
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
   const navigate = useNavigate();
-  const { collapsed, toggleSidebar } = useSidebar(); // REMPLACE sidebarCollapsed
+  const { collapsed, toggleSidebar } = useSidebar();
 
   const [activePage, setActivePage] = useState('stats');
   const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
@@ -58,12 +59,8 @@ const AdminDashboard = () => {
       items: [
         { id: 'users', label: 'Utilisateurs', icon: UsersIcon },
         { id: 'remises', label: 'Remises', icon: TagIcon },
-      ]
-    },
-    {
-      title: 'Administration',
-      items: [
-        { id: 'settings', label: 'Paramètres', icon: Cog6ToothIcon },
+        { id: 'fournisseurs', label: 'Fournisseurs', icon: UserGroupIcon  },
+
       ]
     }
   ];
@@ -77,7 +74,7 @@ const AdminDashboard = () => {
       case 'stats': return <MemoizedStatistiques />;
       case 'users': return <MemoizedGestionUsers />;
       case 'remises': return <MemoizedRemise />;
-      case 'settings': return <MemoizedSettings />;
+      case 'fournisseurs': return <MemoizedFournisseurs />;
       default: return <MemoizedStatistiques />;
     }
   }, [activePage]);
@@ -191,11 +188,14 @@ const AdminDashboard = () => {
       </div>
 
       {/* Contenu principal */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 overflow-hidden ${
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${
         collapsed ? 'ml-20' : 'ml-64'
       }`}>
-        {/* Top Bar */}
-        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
+        {/* ESPACE POUR LE HEADER FIXED (du Layout) */}
+        <div className="h-16"></div>
+
+        {/* Top Bar locale (sticky) */}
+        <div className="sticky top-16 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
           <div className="px-8 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -203,13 +203,13 @@ const AdminDashboard = () => {
                   {activePage === 'stats' && 'Statistiques'}
                   {activePage === 'users' && 'Gestion utilisateurs'}
                   {activePage === 'remises' && 'Gestion Remises'}
-                  {activePage === 'settings' && 'Paramètres'}
+                  {activePage === 'fournisseurs' && 'Gestion Fournisseurs'}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {activePage === 'stats' && "Statistiques et indicateurs de performance"}
                   {activePage === 'users' && "Gérez les utilisateurs et leurs permissions"}
                   {activePage === 'remises' && "Gérez les remises clients et produits"}
-                  {activePage === 'settings' && "Configurez les paramètres de l'application"}
+                  {activePage === 'fournisseurs' && "Gérez les fournisseurs"}
                 </p>
               </div>
             </div>

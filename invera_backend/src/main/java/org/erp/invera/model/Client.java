@@ -49,10 +49,10 @@ public class Client {
 
     // --- Nouveaux champs d'audit ---
     @CreatedBy
-    @JoinColumn(name = "created_by", nullable = true,  updatable = false)
+    @JoinColumn(name = "created_by", nullable = false,  updatable = false)
     private String createdBy;
 
-    @Column(name = "created_at", nullable = true, updatable = false )
+    @Column(name = "created_at", nullable = false, updatable = false )
     private LocalDateTime createdAt;
     // ------------------------------
 
