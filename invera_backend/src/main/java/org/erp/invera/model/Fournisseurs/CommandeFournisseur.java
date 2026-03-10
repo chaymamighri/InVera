@@ -102,7 +102,7 @@ public class CommandeFournisseur {
 
     public void annulerCommande() {
         if (statut != StatutCommande.RECUE && statut != StatutCommande.FACTUREE) {
-            this.statut = StatutCommande.ANNULÉE;
+            this.statut = StatutCommande.ANNULEE;
         }
     }
 
@@ -112,7 +112,7 @@ public class CommandeFournisseur {
         ENVOYEE("Envoyée au fournisseur"),
         RECUE("Reçue"),
         FACTUREE("Facturée"),
-        ANNULÉE("Annulée"),
+        ANNULEE("Annulée"),
         REJETEE("Rejetée");
 
         private final String libelle;
