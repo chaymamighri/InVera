@@ -157,53 +157,49 @@ function App() {
   position="top-right"
   containerStyle={{
     top: 80,
-    right: 20,
+    right: 24,
   }}
   toastOptions={{
     duration: 5000,
     closeButton: true,
-    
-    // Style de base pour tous les toasts
+
+    // Style global
     style: {
-      borderRadius: '12px',
-      background: '#1e293b',
-      color: '#f8fafc',
-      padding: '16px 20px',
-      fontSize: '14px',
-      fontWeight: '500',
-      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-      border: '1px solid #334155',
-      maxWidth: '380px',
+      borderRadius: "10px",
+      background: "#ffffff",
+      color: "#0f172a",
+      padding: "14px 18px",
+      fontSize: "14px",
+      fontWeight: "500",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+      border: "1px solid #e2e8f0",
+      maxWidth: "360px",
     },
-    
-    // Configuration spécifique pour les succès
+
+    // SUCCESS
     success: {
-      duration: 6000,
-      icon: '✅', // ← Garde l'icône
+      icon: "✓",
+      duration: 5000,
       style: {
-        background: '#0f172a',
-        border: '1px solid #10b981',
+        borderLeft: "4px solid #22c55e",
       },
-      // Pas besoin de répéter closeButton ici car hérité
     },
-    
-    // Configuration spécifique pour les erreurs
+
+    // ERROR
     error: {
-      duration: 8000,
-      icon: '❌', // ← Garde l'icône
+      icon: "✕",
+      duration: 7000,
       style: {
-        background: '#0f172a',
-        border: '1px solid #ef4444',
+        borderLeft: "4px solid #ef4444",
       },
     },
-    
-    // Configuration spécifique pour le loading
+
+    // LOADING
     loading: {
+      icon: "⏳",
       duration: Infinity,
-      icon: '⏳', // ← Garde l'icône
       style: {
-        background: '#0f172a',
-        border: '1px solid #6b7280',
+        borderLeft: "4px solid #3b82f6",
       },
     },
   }}

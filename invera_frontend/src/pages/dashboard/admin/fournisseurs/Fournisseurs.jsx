@@ -128,7 +128,6 @@ const FournisseurManagement = () => {
   };
 
   // Filtrer les fournisseurs selon le mode d'affichage
- // Si votre fournisseur a un champ dateCreation ou createdAt
 const getDisplayedFournisseurs = () => {
   if (activeSearchTerm) {
     // Trier aussi les résultats de recherche
@@ -223,24 +222,23 @@ const getDisplayedFournisseurs = () => {
       )}
 
       {/* Modal */}
-      <FournisseurModal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setEditingFournisseur(null);
-        }}
-        title={editingFournisseur ? 'Modifier' : 'Ajouter'}
-      >
-        <FournisseurForm
-          initialData={editingFournisseur}
-          onSubmit={editingFournisseur ? handleUpdate : handleCreate}
-          onCancel={() => {
-            setShowModal(false);
-            setEditingFournisseur(null);
-          }}
-          loading={loading}
-        />
-      </FournisseurModal>
+     <FournisseurModal
+  isOpen={showModal}
+  onClose={() => {
+    setShowModal(false);
+    setEditingFournisseur(null);
+  }}
+>
+  <FournisseurForm
+    initialData={editingFournisseur}
+    onSubmit={editingFournisseur ? handleUpdate : handleCreate}
+    onCancel={() => {
+      setShowModal(false);
+      setEditingFournisseur(null);
+    }}
+    loading={loading}
+  />
+</FournisseurModal>
     </div>
   );
 };
