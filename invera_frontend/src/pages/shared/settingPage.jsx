@@ -1,5 +1,5 @@
 // src/pages/settings/SettingsPage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -8,7 +8,7 @@ import {
   LockClosedIcon,
   ShieldCheckIcon,
   BellIcon,
-  GlobeAltIcon,
+  ArrowPathIcon,
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon
@@ -16,16 +16,17 @@ import {
 
 import { authService } from '../../services/authService';
 import api from '../../services/api';
+import { notificationService } from '../../services/notificationService';
 import Header from '../../components/Header';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loadingMe, setLoadingMe] = useState(true);
 
-  // ✅ data from /me
+  // data from /me
   const [me, setMe] = useState(null);
 
-  // ✅ profile form
+  // profile form
   const [profileForm, setProfileForm] = useState({
     username: '',
     nom: '',
@@ -33,25 +34,28 @@ const SettingsPage = () => {
     email: ''
   });
 
-  // ✅ password form
+  // password form
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  // ✅ single toggle for all password fields
+  // single toggle for all password fields
   const [showPasswords, setShowPasswords] = useState(false);
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifActionLoading, setNotifActionLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
   // ---------- Load /me ----------
   useEffect(() => {
     const load = async () => {
       setLoadingMe(true);
       try {
-        const res = await authService.getCurrentUser(); 
+        const res = await authService.getCurrentUser();
         const data = res?.data;
 
         setMe(data);
@@ -63,14 +67,12 @@ const SettingsPage = () => {
           email: data?.email || ''
         });
 
-        // keep storage consistent
         const fullName = `${data?.nom || data?.lastName || ''} ${data?.prenom || data?.firstName || ''}`.trim();
         if (data?.role) localStorage.setItem('userRole', data.role);
         if (fullName) localStorage.setItem('userName', fullName);
         if (data?.email) localStorage.setItem('userEmail', data.email);
-      } catch (e) {
-        // 401/403 redirect handled by interceptor
-        toast.error("Impossible de charger vos informations.");
+      } catch {
+        toast.error('Impossible de charger vos informations.');
       } finally {
         setLoadingMe(false);
       }
@@ -99,26 +101,92 @@ const SettingsPage = () => {
         name: 'Notifications',
         icon: <BellIcon className="h-5 w-5" />,
         description: 'Configurez vos préférences de notifications'
-      },
-    
+      }
     ],
     []
+  );
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
   );
 
   // ---------- Helpers ----------
   const validateProfile = () => {
     if (!profileForm.username.trim()) return "Le nom d'utilisateur est requis.";
-    if (!profileForm.nom.trim()) return "Le nom est requis.";
-    if (!profileForm.prenom.trim()) return "Le prénom est requis.";
+    if (!profileForm.nom.trim()) return 'Le nom est requis.';
+    if (!profileForm.prenom.trim()) return 'Le prénom est requis.';
     return '';
   };
 
   const validatePassword = () => {
-    if (!passwordForm.oldPassword.trim()) return "Le mot de passe actuel est requis.";
-    if (!passwordForm.newPassword.trim()) return "Le nouveau mot de passe est requis.";
-    if (passwordForm.newPassword.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) return "Les mots de passe ne correspondent pas.";
+    if (!passwordForm.oldPassword.trim()) return 'Le mot de passe actuel est requis.';
+    if (!passwordForm.newPassword.trim()) return 'Le nouveau mot de passe est requis.';
+    if (passwordForm.newPassword.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) return 'Les mots de passe ne correspondent pas.';
     return '';
+  };
+
+  const formatNotificationDate = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString();
+  };
+
+  const loadNotifications = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await notificationService.getAll();
+      setNotifications(Array.isArray(res?.data) ? res.data : []);
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
+        'Erreur notifications';
+      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') return;
+    loadNotifications();
+  }, [activeTab, loadNotifications]);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch {
+      toast.error('Impossible de marquer comme lue');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+    setNotifActionLoading(true);
+    try {
+      await notificationService.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast.success('Toutes les notifications sont marquées comme lues');
+    } catch {
+      toast.error('Impossible de tout marquer comme lu');
+    } finally {
+      setNotifActionLoading(false);
+    }
+  };
+
+  const handleDeleteNotification = async (id) => {
+    try {
+      await notificationService.deleteOne(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.success('Notification supprimée');
+    } catch {
+      toast.error('Erreur suppression notification');
+    }
   };
 
   // ---------- Profile submit ----------
@@ -130,14 +198,12 @@ const SettingsPage = () => {
 
     setSavingProfile(true);
     try {
-      // ✅ backend: PUT /api/auth/update-profile
       await api.put('/auth/update-profile', {
         username: profileForm.username.trim(),
         nom: profileForm.nom.trim(),
         prenom: profileForm.prenom.trim()
       });
 
-      // refresh /me after update
       const res = await authService.getCurrentUser();
       const data = res?.data;
       setMe(data);
@@ -158,8 +224,8 @@ const SettingsPage = () => {
         error?.response?.data?.message ||
         error?.response?.data ||
         error?.message ||
-        "Erreur lors de la mise à jour du profil.";
-      toast.error(typeof msg === 'string' ? msg : "Erreur lors de la mise à jour du profil.");
+        'Erreur lors de la mise à jour du profil.';
+      toast.error(typeof msg === 'string' ? msg : 'Erreur lors de la mise à jour du profil.');
     } finally {
       setSavingProfile(false);
     }
@@ -174,7 +240,6 @@ const SettingsPage = () => {
 
     setSavingPassword(true);
     try {
-      // ✅ backend: PUT /api/auth/change-password
       await api.put('/auth/change-password', {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
@@ -213,7 +278,6 @@ const SettingsPage = () => {
       <Header />
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Back */}
           <Link
             to="/profile"
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-6"
@@ -223,7 +287,6 @@ const SettingsPage = () => {
           </Link>
 
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Sidebar */}
             <div className="lg:w-1/4">
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Paramètres</h2>
@@ -249,7 +312,6 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            {/* Main */}
             <div className="lg:w-3/4">
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100 p-8">
@@ -267,7 +329,6 @@ const SettingsPage = () => {
                 </div>
 
                 <div className="p-8">
-                  {/* -------- PROFILE TAB -------- */}
                   {activeTab === 'profile' && (
                     <div className="space-y-6">
                       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
@@ -365,7 +426,6 @@ const SettingsPage = () => {
                     </div>
                   )}
 
-                  {/* -------- SECURITY TAB -------- */}
                   {activeTab === 'security' && (
                     <div className="space-y-8">
                       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
@@ -375,7 +435,6 @@ const SettingsPage = () => {
                             Changer le mot de passe
                           </h3>
 
-                          {/* Global show/hide toggle */}
                           <button
                             type="button"
                             onClick={() => setShowPasswords((prev) => !prev)}
@@ -398,7 +457,6 @@ const SettingsPage = () => {
 
                         <form onSubmit={handlePasswordSubmit} className="space-y-6">
                           <div className="space-y-4">
-                            {/* Current password */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mot de passe actuel
@@ -416,7 +474,6 @@ const SettingsPage = () => {
                               </div>
                             </div>
 
-                            {/* New password */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Nouveau mot de passe
@@ -434,7 +491,6 @@ const SettingsPage = () => {
                               </div>
                             </div>
 
-                            {/* Confirm password */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Confirmer le nouveau mot de passe
@@ -493,18 +549,91 @@ const SettingsPage = () => {
                     </div>
                   )}
 
-                  {/* -------- Notifications / Language (placeholder) -------- */}
                   {activeTab === 'notifications' && (
-                    <div className="text-center py-12">
-                      <BellIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-700 mb-2">
-                        Configuration des notifications
-                      </h3>
-                      <p className="text-gray-500">Cette fonctionnalité est en cours de développement.</p>
-                      <p className="text-sm text-gray-400 mt-2">Bientôt disponible !</p>
+                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-800">
+                            Centre de notifications
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {unreadCount > 0
+                              ? `${unreadCount} notification(s) non lue(s)`
+                              : 'Toutes vos notifications sont lues'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={loadNotifications}
+                            disabled={notifLoading}
+                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-white ${
+                              notifLoading ? 'opacity-70 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <ArrowPathIcon className={`h-4 w-4 ${notifLoading ? 'animate-spin' : ''}`} />
+                            Actualiser
+                          </button>
+                          <button
+                            onClick={handleMarkAllAsRead}
+                            disabled={notifActionLoading || unreadCount === 0}
+                            className={`px-3 py-2 rounded-lg text-sm text-white bg-blue-600 hover:bg-blue-700 ${
+                              notifActionLoading || unreadCount === 0 ? 'opacity-70 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            Tout marquer comme lu
+                          </button>
+                        </div>
+                      </div>
+
+                      {notifLoading ? (
+                        <div className="py-12 text-center text-gray-500">
+                          Chargement des notifications...
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="py-12 text-center text-gray-500">
+                          Aucune notification
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {notifications.map((n) => (
+                            <div
+                              key={n.id}
+                              className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                                n.read ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-200'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
+                                  {n.message || 'Notification sans message'}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {formatNotificationDate(n.createdAt)}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {!n.read && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(n.id)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                  >
+                                    Marquer lue
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteNotification(n.id)}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-
                 </div>
               </div>
             </div>

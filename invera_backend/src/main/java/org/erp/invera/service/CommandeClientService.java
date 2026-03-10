@@ -122,11 +122,7 @@ public class CommandeClientService {
 
             lignesCommande.add(ligne);
             sousTotal = sousTotal.add(sousTotalLigne);
-
-            // Mettre à jour le stock
-            int nouveauStock = produit.getQuantiteStock() - produitDTO.getQuantite();
-            produit.setQuantiteStock(nouveauStock);
-            produitRepository.save(produit);
+            // Stock is moved only when the order is confirmed.
 
             System.out.println("📦 Produit ajouté: " + produit.getLibelle() +
                     ", Quantité: " + produitDTO.getQuantite() +
@@ -238,12 +234,6 @@ public class CommandeClientService {
         for (LigneCommandeClient ligneExistante : commande.getLignesCommande()) {
             if (!idsAConserver.contains(ligneExistante.getIdLigneCommandeClient())) {
                 lignesASupprimer.add(ligneExistante);
-
-                // Remettre le stock pour les produits supprimés
-                Produit produit = ligneExistante.getProduit();
-                int nouveauStock = produit.getQuantiteStock() + ligneExistante.getQuantite();
-                produit.setQuantiteStock(nouveauStock);
-                produitRepository.save(produit);
             }
         }
 
@@ -295,14 +285,6 @@ public class CommandeClientService {
         // Ajuster le stock
         Produit produit = ligne.getProduit();
         int differenceStock = ancienneQuantite - nouvelleQuantite; // Positif si on retire moins, négatif si on ajoute plus
-        int nouveauStock = produit.getQuantiteStock() + differenceStock;
-
-        if (nouveauStock < 0) {
-            throw new RuntimeException("Stock insuffisant pour le produit: " + produit.getLibelle());
-        }
-
-        produit.setQuantiteStock(nouveauStock);
-        produitRepository.save(produit);
 
         System.out.println("✅ Ligne mise à jour: " + ligne.getIdLigneCommandeClient() +
                 " | Ancienne qté: " + ancienneQuantite +
@@ -346,8 +328,6 @@ public class CommandeClientService {
 
         // Mettre à jour le stock
         int nouveauStock = produit.getQuantiteStock() - quantiteDemandee;
-        produit.setQuantiteStock(nouveauStock);
-        produitRepository.save(produit);
 
         System.out.println("➕ Nouvelle ligne ajoutée: " + produit.getLibelle() +
                 " | Quantité: " + quantiteDemandee +
@@ -357,6 +337,70 @@ public class CommandeClientService {
 
 
     // Méthode utilitaire pour la conversion sécurisée Double -> BigDecimal
+
+    @Transactional
+    public CommandeClient confirmerCommande(Integer commandeId) {
+        CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
+                .orElseThrow(() -> new RuntimeException("Commande non trouvee"));
+
+        if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
+            throw new RuntimeException("Seules les commandes en attente peuvent etre confirmees");
+        }
+
+        Map<Integer, Integer> quantitesParProduit = new HashMap<>();
+        for (LigneCommandeClient ligne : commande.getLignesCommande()) {
+            Integer produitId = ligne.getProduit().getIdProduit();
+            quantitesParProduit.merge(produitId, ligne.getQuantite(), Integer::sum);
+        }
+
+        for (Map.Entry<Integer, Integer> entry : quantitesParProduit.entrySet()) {
+            Produit produit = produitRepository.findById(entry.getKey())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouve: " + entry.getKey()));
+
+            if (produit.getQuantiteStock() < entry.getValue()) {
+                throw new RuntimeException(
+                        "Stock insuffisant pour le produit: " + produit.getLibelle() +
+                                " (Disponible: " + produit.getQuantiteStock() +
+                                ", Demande: " + entry.getValue() + ")");
+            }
+        }
+
+        for (Map.Entry<Integer, Integer> entry : quantitesParProduit.entrySet()) {
+            Produit produit = produitRepository.findById(entry.getKey())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouve: " + entry.getKey()));
+
+            produit.setQuantiteStock(produit.getQuantiteStock() - entry.getValue());
+            produitRepository.save(produit);
+        }
+
+        commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
+        return commandeClientRepository.save(commande);
+    }
+
+    @Transactional
+    public CommandeClient rejeterCommande(Integer commandeId) {
+        CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
+                .orElseThrow(() -> new RuntimeException("Commande non trouvee"));
+
+        if (commande.getStatut() == CommandeClient.StatutCommande.ANNULEE) {
+            throw new RuntimeException("La commande est deja annulee");
+        }
+
+        if (commande.getStatut() == CommandeClient.StatutCommande.CONFIRMEE) {
+            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
+                Integer produitId = ligne.getProduit().getIdProduit();
+                Produit produit = produitRepository.findById(produitId)
+                        .orElseThrow(() -> new RuntimeException("Produit non trouve: " + produitId));
+
+                produit.setQuantiteStock(produit.getQuantiteStock() + ligne.getQuantite());
+                produitRepository.save(produit);
+            }
+        }
+
+        commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
+        return commandeClientRepository.save(commande);
+    }
+
     private BigDecimal safeToBigDecimal(Double value) {
         if (value == null) {
             return BigDecimal.ZERO;

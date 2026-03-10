@@ -192,6 +192,42 @@ public class AuthController {
         return ResponseEntity.ok(new MessageResponse("Mot de passe modifié avec succès"));
     }
 
+    // ===== UPDATE OWN PROFILE =====
+    @PutMapping("/update-profile")
+    @Transactional
+    public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateProfileRequest request,
+                                           Authentication authentication) {
+
+        String currentEmail = authentication.getName();
+
+        User user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isActive()) {
+            return ResponseEntity.status(403)
+                    .body(new MessageResponse("Compte désactivé. Contactez l’administrateur."));
+        }
+
+        String newNom = request.getNom().trim();
+        String newPrenom = request.getPrenom().trim();
+        String newEmail = request.getEmail().trim().toLowerCase();
+
+        if (!newEmail.equalsIgnoreCase(user.getEmail()) && userRepository.existsByEmail(newEmail)) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Email déjà utilisé"));
+        }
+
+        user.setNom(newNom);
+        user.setPrenom(newPrenom);
+        user.setEmail(newEmail);
+        userRepository.save(user);
+
+        String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
+        String msg = "👤 Profil mis à jour par: " + fullName + " (" + user.getEmail() + ")";
+        notificationRepository.save(new Notification("PROFILE_UPDATED", msg, user.getEmail(), fullName));
+
+        return ResponseEntity.ok(new MessageResponse("Profil mis à jour avec succès"));
+    }
+
     // ===== FILTER USERS =====
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/filter")

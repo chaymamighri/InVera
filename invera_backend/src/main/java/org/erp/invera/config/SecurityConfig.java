@@ -12,11 +12,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.util.Arrays;
 
@@ -40,29 +40,34 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * CORS for local dev, Flutter Web, Vite, React and LAN access.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:55774",// Port actuel de votre Flutter web
-                "http://localhost:*",   // Tous les ports localhost
+
+        // Use allowedOriginPatterns to support wildcard ports.
+        // With allowCredentials(true), do not use "*".
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
                 "http://127.0.0.1:*",
+                "http://172.20.10.7:*",
                 "http://192.168.56.1:*",
                 "http://192.168.56.1:8081"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization","Content-Type","X-Requested-With","Accept","Origin",
-                "Access-Control-Request-Method","Access-Control-Request-Headers"
+                "Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
+                "Access-Control-Request-Method", "Access-Control-Request-Headers"
         ));
-        configuration.setExposedHeaders(Arrays.asList("Authorization","Content-Disposition"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Disposition"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
@@ -75,40 +80,39 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // public
-                        .requestMatchers("/api/auth/login",
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/login",
                                 "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/create-admin-temp").permitAll()
+                                "/api/auth/create-admin-temp"
+                        ).permitAll()
 
-                        // authenticated user endpoints (profile)
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
 
-                        // admin notifications
                         .requestMatchers("/api/notifications/**").hasRole("ADMIN")
 
-                        // admin only
-                        .requestMatchers("/api/auth/register",
+                        .requestMatchers(
+                                "/api/auth/register",
                                 "/api/auth/activate/**",
                                 "/api/auth/filter",
                                 "/api/auth/all",
                                 "/api/auth/delete/**",
-                                "/api/auth/update/**").hasRole("ADMIN")
-                        // authorise uploads images
+                                "/api/auth/update/**"
+                        ).hasRole("ADMIN")
+
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // roles
                         .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
-                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL","ADMIN")
-                        .requestMatchers("/api/categories/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
+                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL","RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/commandes-fournisseurs/**").hasRole( "RESPONSABLE_ACHAT")
-
-
+                        .requestMatchers("/api/commandes-fournisseurs/**").hasRole("RESPONSABLE_ACHAT")
 
                         .anyRequest().authenticated()
                 )

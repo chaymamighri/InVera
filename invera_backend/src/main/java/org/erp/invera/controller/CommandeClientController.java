@@ -345,11 +345,7 @@ public class CommandeClientController {
     @PutMapping("/{id}/valider")
     public ResponseEntity<Map<String, Object>> validerCommande(@PathVariable Integer id) {
         try {
-            CommandeClient commande = commandeClientRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
-
-            commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
-            CommandeClient commandeMaj = commandeClientRepository.save(commande);
+            CommandeClient commandeMaj = commandeService.confirmerCommande(id);
 
             CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commandeMaj.getIdCommandeClient())
                     .orElse(commandeMaj);
@@ -377,11 +373,7 @@ public class CommandeClientController {
     @PutMapping("/{id}/rejeter")
     public ResponseEntity<Map<String, Object>> rejeterCommande(@PathVariable Integer id) {
         try {
-            CommandeClient commande = commandeClientRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
-
-            commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
-            CommandeClient commandeMaj = commandeClientRepository.save(commande);
+            CommandeClient commandeMaj = commandeService.rejeterCommande(id);
 
             CommandeClient commandeAvecDetails = commandeClientRepository.findByIdWithDetails(commandeMaj.getIdCommandeClient())
                     .orElse(commandeMaj);
