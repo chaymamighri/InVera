@@ -1,7 +1,7 @@
-package org.erp.invera.dto.commandeDTo;
+package org.erp.invera.dto.commandeClientdto;
 
 import lombok.Data;
-import org.erp.invera.dto.ProduitDTO.ProduitCommandeUpdateDTO;
+import org.erp.invera.dto.Produitdto.ProduitCommandeUpdateDTO;
 
 import java.math.BigDecimal;
 import java.util.List;

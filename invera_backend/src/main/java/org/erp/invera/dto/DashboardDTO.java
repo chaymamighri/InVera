@@ -52,8 +52,8 @@ public class DashboardDTO {
         private BigDecimal panierMoyen;
         private BigDecimal tauxTransformation;
         private BigDecimal creancesTotal;
-        private Long creancesNombre;      // ✅ Changé de long à Long
-        private Long facturesEnRetard;    // ✅ Changé de long à Long
+        private Long creancesNombre;
+        private Long facturesEnRetard;
 
         // Constructeur avec TOUS les champs en types objet
         public KPI(
@@ -189,9 +189,4 @@ public class DashboardDTO {
         private BigDecimal montant;
         private String couleur;
     }
-
-
-
-
-
 }

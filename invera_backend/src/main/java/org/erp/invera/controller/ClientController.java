@@ -1,8 +1,8 @@
 package org.erp.invera.controller;
 
-import org.erp.invera.dto.ClientDTO;
-import org.erp.invera.dto.NouveauClientDTO;
-import org.erp.invera.model.Client;
+import org.erp.invera.dto.clientdto.ClientDTO;
+import org.erp.invera.dto.clientdto.NouveauClientDTO;
+import org.erp.invera.model.client.Client;
 import org.erp.invera.service.ClientService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

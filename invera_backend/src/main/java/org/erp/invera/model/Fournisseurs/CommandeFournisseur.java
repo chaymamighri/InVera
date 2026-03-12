@@ -42,7 +42,7 @@ public class CommandeFournisseur {
     private StatutCommande statut;
 
     @Column(length = 50)
-    private String numeroCommande; // Généré automatiquement
+    private String numeroCommande;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal totalHT;

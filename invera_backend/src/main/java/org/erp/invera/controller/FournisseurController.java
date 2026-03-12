@@ -2,7 +2,7 @@ package org.erp.invera.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.erp.invera.dto.FournisseurDTO;
+import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.service.FournisseurServices;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +19,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/fournisseurs")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class FournisseurController {
@@ -31,7 +30,7 @@ public class FournisseurController {
     /**
      * Récupère tous les fournisseurs (y compris inactifs)
      */
-    @GetMapping("/all")  // Ajout du slash pour cohérence
+    @GetMapping("/all")
     public ResponseEntity<List<FournisseurDTO>> getAllFournisseurs() {
         log.info("GET /api/fournisseurs/all - Récupération de tous les fournisseurs");
         List<FournisseurDTO> fournisseurs = fournisseurServices.getAllFournisseurs();
@@ -58,32 +57,10 @@ public class FournisseurController {
         return ResponseEntity.ok(fournisseurs);
     }
 
-    // ==================== GET BY ID ====================
-
-    /**
-     * Récupère un fournisseur par son ID (vérifie s'il est actif)
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<FournisseurDTO> getFournisseurById(@PathVariable Integer id) {
-        log.info("GET /api/fournisseurs/{} - Récupération du fournisseur", id);
-        FournisseurDTO fournisseur = fournisseurServices.getFournisseurById(id);
-        return ResponseEntity.ok(fournisseur);
-    }
-
-    /**
-     * Récupère un fournisseur par son ID (même si inactif - pour admin)
-     */
-    @GetMapping("/{id}/admin")
-    public ResponseEntity<FournisseurDTO> getFournisseurByIdAdmin(@PathVariable Integer id) {
-        log.info("GET /api/fournisseurs/{}/admin - Récupération admin du fournisseur", id);
-        FournisseurDTO fournisseur = fournisseurServices.getFournisseurByIdAdmin(id);
-        return ResponseEntity.ok(fournisseur);
-    }
-
     // ==================== CREATE ====================
 
     /**
-     * Crée un nouveau fournisseur (version JSON)
+     * Crée un nouveau fournisseur
      */
     @PostMapping("add")
     public ResponseEntity<FournisseurDTO> createFournisseur(@Valid @RequestBody FournisseurDTO fournisseurDTO) {
@@ -104,7 +81,7 @@ public class FournisseurController {
     // ==================== UPDATE ====================
 
     /**
-     * Met à jour un fournisseur existant (version JSON)
+     * Met à jour un fournisseur existant
      */
     @PutMapping("/{id}")
     public ResponseEntity<FournisseurDTO> updateFournisseur(
@@ -143,26 +120,7 @@ public class FournisseurController {
         response.put("status", "success");
         return ResponseEntity.ok(response);
     }
-
-    // ==================== HARD DELETE (SUPPRESSION PHYSIQUE) ====================
-
-    /**
-     * Hard delete - Suppression physique (réservé admin)
-     */
-    @DeleteMapping("/{id}/hard")
-    public ResponseEntity<Map<String, String>> hardDeleteFournisseur(@PathVariable Integer id) {
-        log.info("DELETE /api/fournisseurs/{}/hard - Suppression définitive", id);
-
-        fournisseurServices.hardDeleteFournisseur(id);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Fournisseur supprimé définitivement");
-        response.put("status", "success");
-        return ResponseEntity.ok(response);
-    }
-
     // ==================== REACTIVATION ====================
-
     /**
      * Réactive un fournisseur désactivé
      */

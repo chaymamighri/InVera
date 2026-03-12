@@ -1,6 +1,7 @@
 package org.erp.invera.service;
 
-import org.erp.invera.model.*;
+import org.erp.invera.model.client.CommandeClient;
+import org.erp.invera.model.client.FactureClient;
 import org.erp.invera.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

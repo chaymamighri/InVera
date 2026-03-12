@@ -1,4 +1,4 @@
-package org.erp.invera.dto.commandeDTo;
+package org.erp.invera.dto.commandeClientdto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

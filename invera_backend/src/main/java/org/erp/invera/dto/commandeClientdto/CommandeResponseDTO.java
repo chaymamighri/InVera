@@ -1,10 +1,10 @@
-package org.erp.invera.dto.commandeDTo;
+package org.erp.invera.dto.commandeClientdto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.erp.invera.dto.ClientDTO;
-import org.erp.invera.dto.ProduitDTO.ProduitCommandeDetailDTO;
+import org.erp.invera.dto.clientdto.ClientDTO;
+import org.erp.invera.dto.Produitdto.ProduitCommandeDetailDTO;
 import org.erp.invera.model.client.CommandeClient;
 import org.erp.invera.service.ClientService;
 import org.erp.invera.service.ProduitService;

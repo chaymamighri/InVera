@@ -1,4 +1,4 @@
-package org.erp.invera.model;
+package org.erp.invera.model.client;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

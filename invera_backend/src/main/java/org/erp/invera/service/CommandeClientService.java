@@ -1,12 +1,12 @@
 package org.erp.invera.service;
 
-import org.erp.invera.dto.CommandeRequestDTO;
-import org.erp.invera.dto.CommandeUpdateRequestDTO;
-import org.erp.invera.dto.ProduitCommandeRequestDTO;
-import org.erp.invera.dto.ProduitCommandeUpdateDTO;
-import org.erp.invera.model.CommandeClient;
-import org.erp.invera.model.Client;
-import org.erp.invera.model.LigneCommandeClient;
+import org.erp.invera.dto.commandeClientdto.CommandeRequestDTO;
+import org.erp.invera.dto.commandeClientdto.CommandeUpdateRequestDTO;
+import org.erp.invera.dto.Produitdto.ProduitCommandeRequestDTO;
+import org.erp.invera.dto.Produitdto.ProduitCommandeUpdateDTO;
+import org.erp.invera.model.client.CommandeClient;
+import org.erp.invera.model.client.Client;
+import org.erp.invera.model.client.LigneCommandeClient;
 import org.erp.invera.model.Produit;
 import org.erp.invera.repository.CommandeClientRepository;
 import org.erp.invera.repository.ClientRepository;

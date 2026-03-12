@@ -1,6 +1,8 @@
 package org.erp.invera.service;
 
-import org.erp.invera.model.*;
+import org.erp.invera.model.client.Client;
+import org.erp.invera.model.client.CommandeClient;
+import org.erp.invera.model.client.FactureClient;
 import org.erp.invera.repository.CommandeClientRepository;
 import org.erp.invera.repository.FactureClientRepository;
 import org.erp.invera.repository.ClientRepository;

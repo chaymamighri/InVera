@@ -3,7 +3,9 @@ package org.erp.invera.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.erp.invera.model.FactureClient;
+import org.erp.invera.dto.clientdto.ClientDTO;
+import org.erp.invera.dto.commandeClientdto.CommandeSimpleResponseDTO;
+import org.erp.invera.model.client.FactureClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

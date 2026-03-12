@@ -14,37 +14,15 @@ import java.util.List;
 import java.util.Optional;
 @Repository
 public interface CommandeFournisseurRepository  extends JpaRepository<CommandeFournisseur, Integer> {
+    // Pour les commandes actives (soft delete = false)
+    List<CommandeFournisseur> findByActifTrue();
 
-
-    // Recherches de base
-    List<CommandeFournisseur> findAllByOrderByDateCommandeDesc();
+    //  Pour les commandes archivées (soft delete = true)
+    List<CommandeFournisseur> findByActifFalse();
 
     Optional<CommandeFournisseur> findByNumeroCommande(String numeroCommande);
 
-    List<CommandeFournisseur> findByFournisseurOrderByDateCommandeDesc(Fournisseur fournisseur);
-
-    List<CommandeFournisseur> findByStatutOrderByDateCommandeDesc(CommandeFournisseur.StatutCommande statut);
-
     List<CommandeFournisseur> findByDateCommandeBetweenOrderByDateCommandeDesc(
             LocalDateTime debut, LocalDateTime fin);
-
-    List<CommandeFournisseur> findByFournisseurAndDateCommandeBetweenOrderByDateCommandeDesc(
-            Fournisseur fournisseur, LocalDateTime debut, LocalDateTime fin);
-
-    // Comptages
-    Long countByStatut(CommandeFournisseur.StatutCommande statut);
-
-    Long countByNumeroCommandeStartingWith(String prefix);
-
-    // Agrégations
-    @Query("SELECT SUM(c.totalTTC) FROM CommandeFournisseur c WHERE c.actif = true")
-    BigDecimal sumTotalTTCByActifTrue();
-
-    @Query("SELECT SUM(c.totalTVA) FROM CommandeFournisseur c WHERE c.actif = true")
-    BigDecimal sumTotalTVAByActifTrue();
-
-    @Query("SELECT SUM(c.totalTTC) FROM CommandeFournisseur c WHERE c.fournisseur = :fournisseur AND c.actif = true")
-    BigDecimal sumTotalTTCByFournisseurAndActifTrue(@Param("fournisseur") Fournisseur fournisseur);
-
 
 }

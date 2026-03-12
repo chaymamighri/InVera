@@ -2,7 +2,7 @@ package org.erp.invera.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.erp.invera.dto.FournisseurDTO;
+import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.erp.invera.repository.FournisseurRepository;
 import org.springframework.data.domain.Page;
