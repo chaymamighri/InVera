@@ -48,7 +48,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col md:flex-row">
-      <div className="md:w-1/2 bg-gradient-to-br from-blue-900 to-blue-800 text-white p-6 md:p-12 flex flex-col">
+      <div className="md:w-1/2 bg-gradient-to-br from-blue-700 to-blue-900 text-white p-6 md:p-12 flex flex-col">
         <div className="max-w-lg mx-auto flex-1 flex flex-col">
           <div className="mb-8">
             <div className="flex flex-col items-center">
@@ -89,24 +89,24 @@ const LoginPage = () => {
           <div className="space-y-4 mb-8 md:mb-12">
             {[
               { 
-                title: 'Gestion financière en temps réel', 
-                desc: 'Suivez vos finances avec précision',
-                icon: '💰'
+                title: 'Ventes & Facturation électronique', 
+      desc: 'Gérez vos ventes et générez facilement des factures électroniques conformes',
+      icon: '🧾'
               },
               { 
-                title: 'Analytique avancée', 
-                desc: 'Tableaux de bord prédictifs',
-                icon: '📊'
+                title: 'Gestion de stock intelligente', 
+      desc: 'Contrôlez vos niveaux de stock et évitez les ruptures',
+      icon: '📦'
               },
               { 
-                title: 'Sécurité maximale', 
-                desc: 'Données chiffrées, authentification MFA',
-                icon: '🔒'
+              title: 'Achats fournisseurs simplifiés', 
+      desc: 'Créez facilement vos commandes fournisseurs et gérez vos approvisionnements',
+      icon: '🚚'
               },
               { 
-                title: 'Mobile & Accessible', 
-                desc: 'Accès 24/7 depuis n\'importe quel appareil',
-                icon: '📱'
+                title: 'Analytique avancée & Assistant intelligent', 
+      desc: 'Analysez vos ventes et votre stock grâce à des tableaux de bord intelligents',
+      icon: '📊'
               },
             ].map((feature, index) => (
               <div key={index} className="flex items-start space-x-4 p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 backdrop-blur-sm border border-white/10">

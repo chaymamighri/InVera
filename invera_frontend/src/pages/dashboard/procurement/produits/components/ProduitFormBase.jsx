@@ -3,15 +3,12 @@ import React from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const UNITE_MESURE_OPTIONS = [
-  { value: 'pièce', label: 'Pièce' },
-  { value: 'kg', label: 'Kilogramme' },
-  { value: 'g', label: 'Gramme' },
-  { value: 'L', label: 'Litre' },
-  { value: 'ml', label: 'Millilitre' },
-  { value: 'm', label: 'Mètre' },
-  { value: 'boîte', label: 'Boîte' },
-  { value: 'carton', label: 'Carton' },
-  { value: 'palette', label: 'Palette' },
+  { value: 'PIECE', label: 'Pièce' },
+  { value: 'KILOGRAMME', label: 'Kilogramme' },
+  { value: 'GRAMME', label: 'Gramme' },
+  { value: 'LITRE', label: 'Litre' },
+  { value: 'MILLILITRE', label: 'Millilitre' },
+  { value: 'METRE', label: 'Mètre' },
 ];
 
 const ProduitFormBase = ({
