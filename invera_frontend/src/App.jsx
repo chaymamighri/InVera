@@ -24,6 +24,8 @@ import InvoicesTab from './pages/dashboard/sales/reports/tabs/InvoicesTab';
 import ClientsTab from './pages/dashboard/sales/reports/tabs/ClientsTab';
 import ReportsPage from './pages/dashboard/sales/reports/ReportsPage';
 import { SidebarProvider } from './context/SidebarContext';
+import Produits from './pages/dashboard/procurement/produits/Produits';
+import CommandesFournisseurs from './pages/dashboard/procurement/commandeFournisseur/CommandesFournisseurs';
 
 const ROLE_MAPPING = {
   ADMIN: 'admin',
@@ -220,19 +222,24 @@ function App() {
         <AdminDashboard />
       </ProtectedRoute>
     }
-  /> {/* Procurement Dashboard - SANS Layout car il a sa propre sidebar */}
-  <Route
-    path="/dashboard/procurement"
-    element={
-      <ProtectedRoute allowedRoles={['procurement']} useLayout={true}>
-        <ProcurementDashboard />
-      </ProtectedRoute>
-    }
-  />
+  /> 
 
-  {/* Sales Dashboard - AVEC Layout (utilisation du Header standard) */}
   <Route
-    path="/dashboard/sales"
+  path="/dashboard/procurement/*"
+  element={
+    <ProtectedRoute allowedRoles={['procurement']} useLayout={true}>
+      <ProcurementDashboard />
+    </ProtectedRoute>
+  }
+>
+  {/* ✅ SOUS-ROUTES */}
+  <Route index element={<Navigate to="produits" replace />} />
+  <Route path="produits" element={<Produits />} />
+  <Route path="commandes" element={<CommandesFournisseurs />} />
+</Route>
+
+  <Route
+    path="/dashboard/sales/*"
     element={
       <ProtectedRoute allowedRoles={['sales']} useLayout={true}>
         <SalesDashboard />
@@ -247,7 +254,6 @@ function App() {
           <Route path="invoices" element={<InvoicingPage />} />
           <Route path="clients" element={<ClientManagePage />} />
 
-           {/* ✅ Routes pour les rapports  */}
           <Route path="reports" element={<ReportsPage />}>
           <Route index element={<Navigate to="sales" replace />} />
           <Route path="sales" element={<SalesTab />} />

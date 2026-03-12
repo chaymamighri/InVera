@@ -3,7 +3,7 @@ package org.erp.invera.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.erp.invera.model.Client;
+import org.erp.invera.model.client.Client;
 
 @Data
 @NoArgsConstructor
