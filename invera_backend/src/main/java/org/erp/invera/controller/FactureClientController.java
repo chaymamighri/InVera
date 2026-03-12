@@ -2,7 +2,7 @@ package org.erp.invera.controller;
 
 import jakarta.transaction.Transactional;
 import org.erp.invera.dto.FactureDTO;
-import org.erp.invera.model.FactureClient;
+import org.erp.invera.model.client.FactureClient;
 import org.erp.invera.service.FactureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -10,7 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import org.springframework.web.bind.annotation.*;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

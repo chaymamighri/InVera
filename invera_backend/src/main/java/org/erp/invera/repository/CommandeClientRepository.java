@@ -1,7 +1,7 @@
 package org.erp.invera.repository;
 
 import org.erp.invera.dto.DashboardDTO;
-import org.erp.invera.model.CommandeClient;
+import org.erp.invera.model.client.CommandeClient;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

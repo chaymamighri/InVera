@@ -82,8 +82,5 @@ public class Produit {
         LITRE,
         MILLILITRE,
         METRE,
-        BOITE,
-        CARTON,
-        PALETTE
     }
 }

@@ -1,8 +1,7 @@
 package org.erp.invera.service;
 
-import org.erp.invera.dto.ClientDTO;
-import org.erp.invera.dto.NouveauClientDTO;
-import org.erp.invera.model.Client;
+import org.erp.invera.dto.clientdto.NouveauClientDTO;
+import org.erp.invera.model.client.Client;
 import org.erp.invera.repository.ClientRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional

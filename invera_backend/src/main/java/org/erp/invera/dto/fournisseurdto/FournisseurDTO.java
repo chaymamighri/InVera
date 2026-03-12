@@ -1,4 +1,4 @@
-package org.erp.invera.dto;
+package org.erp.invera.dto.fournisseurdto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

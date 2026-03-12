@@ -1,9 +1,9 @@
-package org.erp.invera.dto.commandeDTo;
+package org.erp.invera.dto.commandeClientdto;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import org.erp.invera.dto.ProduitDTO.ProduitCommandeRequestDTO;
+import org.erp.invera.dto.Produitdto.ProduitCommandeRequestDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

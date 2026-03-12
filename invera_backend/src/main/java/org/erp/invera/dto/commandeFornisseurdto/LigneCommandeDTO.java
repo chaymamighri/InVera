@@ -1,4 +1,4 @@
-package org.erp.invera.dto.commandeFornisseurDTO;
+package org.erp.invera.dto.commandeFornisseurdto;
 
 import lombok.Data;
 

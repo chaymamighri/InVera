@@ -1,8 +1,7 @@
 package org.erp.invera.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.erp.invera.dto.commandeFornisseurDTO.CommandeFournisseurDTO;
-import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
+import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.service.CommandeFournisseurService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -17,109 +16,126 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/commandes-fournisseurs")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class CommandeFournisseurController {
 
     private final CommandeFournisseurService commandeService;
 
     // ========= GET ALL =========
-
+    // ========= GET ALL =========
     @GetMapping("/all")
-    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes() {
-        return ResponseEntity.ok(commandeService.getAll());
+    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes(
+            @RequestParam(required = false, defaultValue = "true") Boolean actif) {
+
+        List<CommandeFournisseurDTO> commandes;
+
+        if (actif) {
+            commandes = commandeService.getActiveCommandes();
+        } else {
+            commandes = commandeService.getArchivedCommandes();
+        }
+
+        return ResponseEntity.ok(commandes);
     }
 
     // ========= GET BY ID =========
-
     @GetMapping("/{id}")
-    public ResponseEntity<CommandeFournisseur> getCommandeById(@PathVariable Integer id) {
+    public ResponseEntity<CommandeFournisseurDTO> getCommandeById(@PathVariable Integer id) {
         return ResponseEntity.ok(commandeService.getCommandeById(id));
     }
 
     // ========= CREATE =========
-
     @PostMapping("/add")
-    public ResponseEntity<CommandeFournisseur> createCommande(
+    public ResponseEntity<CommandeFournisseurDTO> createCommande(
             @Valid @RequestBody CommandeFournisseurDTO commandeDTO) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String utilisateur = auth.getName();
+        System.out.println("Commande créée par: " + utilisateur);
 
-        System.out.println("📝 Commande créée par: " + utilisateur);
+        CommandeFournisseurDTO commande = commandeService.creerCommande(commandeDTO);
 
-        CommandeFournisseur commande = commandeService.creerCommande(commandeDTO);
-
-        System.out.println("✅ createdBy dans la commande: " + commande.getCreatedBy());
+        // ✅ Ne pas essayer d'appeler getCreatedBy() sur le DTO
+        System.out.println("Commande créée avec succès");
 
         return new ResponseEntity<>(commande, HttpStatus.CREATED);
     }
 
     // ========= UPDATE =========
-
     @PutMapping("/update/{id}")
-    public ResponseEntity<CommandeFournisseur> updateCommande(
+    public ResponseEntity<CommandeFournisseurDTO> updateCommande(
             @PathVariable Integer id,
             @Valid @RequestBody CommandeFournisseurDTO commandeDTO) {
 
-        CommandeFournisseur commande = commandeService.modifierCommande(id, commandeDTO);
-
+        CommandeFournisseurDTO commande = commandeService.modifierCommande(id, commandeDTO);
         return ResponseEntity.ok(commande);
     }
 
     // ========= DELETE =========
-
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<Void> deleteCommande(@PathVariable Integer id) {
-
         commandeService.supprimerCommande(id);
-
         return ResponseEntity.noContent().build();
     }
 
     // ========= STATUTS =========
-
     @PutMapping("/{id}/valider")
-    public ResponseEntity<CommandeFournisseur> validerCommande(@PathVariable Integer id) {
-
+    public ResponseEntity<CommandeFournisseurDTO> validerCommande(@PathVariable Integer id) {
         return ResponseEntity.ok(commandeService.validerCommande(id));
     }
 
     @PutMapping("/{id}/envoyer")
-    public ResponseEntity<CommandeFournisseur> envoyerCommande(@PathVariable Integer id) {
-
+    public ResponseEntity<CommandeFournisseurDTO> envoyerCommande(@PathVariable Integer id) {
         return ResponseEntity.ok(commandeService.envoyerCommande(id));
     }
 
     @PutMapping("/{id}/recevoir")
-    public ResponseEntity<CommandeFournisseur> recevoirCommande(@PathVariable Integer id) {
-
+    public ResponseEntity<CommandeFournisseurDTO> recevoirCommande(@PathVariable Integer id) {
         return ResponseEntity.ok(commandeService.recevoirCommande(id));
     }
 
     @PutMapping("/{id}/annuler")
-    public ResponseEntity<CommandeFournisseur> annulerCommande(
+    public ResponseEntity<CommandeFournisseurDTO> annulerCommande(
             @PathVariable Integer id,
             @RequestParam(required = false) String raison) {
-
         return ResponseEntity.ok(commandeService.annulerCommande(id, raison));
     }
 
     // ========= RECHERCHE PAR PERIODE =========
-
     @GetMapping("/recherche/periode")
-    public ResponseEntity<List<CommandeFournisseur>> getCommandesByPeriode(
+    public ResponseEntity<List<CommandeFournisseurDTO>> getCommandesByPeriode(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime debut,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
 
-        return ResponseEntity.ok(commandeService.getCommandesByPeriode(debut, fin));
+        List<CommandeFournisseurDTO> commandes = commandeService.getCommandesByPeriode(debut, fin)
+                .stream()
+                .map(cmd -> commandeService.getCommandeById(cmd.getIdCommandeFournisseur()))
+                .toList();
+        return ResponseEntity.ok(commandes);
     }
 
     // ========= RECHERCHE PAR NUMERO =========
-
     @GetMapping("/recherche/numero")
-    public ResponseEntity<CommandeFournisseur> getCommandeByNumero(@RequestParam String numero) {
-
+    public ResponseEntity<CommandeFournisseurDTO> getCommandeByNumero(@RequestParam String numero) {
         return ResponseEntity.ok(commandeService.getCommandeByNumero(numero));
     }
+    // ========= GESTION DES ARCHIVES =========
+
+    @GetMapping("/archived")
+    public ResponseEntity<List<CommandeFournisseurDTO>> getArchivedCommandes() {
+        return ResponseEntity.ok(commandeService.getArchivedCommandes());
+    }
+
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<CommandeFournisseurDTO> restoreCommande(@PathVariable Integer id) {
+        return ResponseEntity.ok(commandeService.restoreCommande(id));
+    }
+
+    // Optionnel - Hard delete (suppression définitive)
+    @DeleteMapping("/{id}/hard-delete")
+    public ResponseEntity<Void> hardDeleteCommande(@PathVariable Integer id) {
+        commandeService.hardDeleteCommande(id);
+        return ResponseEntity.noContent().build();
+    }
+
 }
