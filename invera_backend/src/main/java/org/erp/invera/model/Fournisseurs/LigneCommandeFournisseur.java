@@ -39,13 +39,7 @@ public class LigneCommandeFournisseur {
     @Column(precision = 10, scale = 2)
     private BigDecimal sousTotal;
 
-    @Column(precision = 10, scale = 2)
-    private BigDecimal remise; // Pourcentage ou montant
-
     private Integer quantiteRecue = 0;
-
-    @Column(length = 255)
-    private String notes;
 
     @Column(nullable = false)
     private Boolean actif = true;
@@ -72,11 +66,6 @@ public class LigneCommandeFournisseur {
         if (prixUnitaire != null && quantite != null) {
             this.sousTotal = prixUnitaire.multiply(BigDecimal.valueOf(quantite));
 
-            // Appliquer remise si présente
-            if (remise != null && remise.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal montantRemise = this.sousTotal.multiply(remise.divide(BigDecimal.valueOf(100)));
-                this.sousTotal = this.sousTotal.subtract(montantRemise);
-            }
         }
     }
 
