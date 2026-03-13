@@ -123,6 +123,20 @@ class CommandeFournisseurService {
   }
 
   /**
+ * Marque une commande comme facturée
+ */
+async facturerCommande(id) {
+  try {
+    // À adapter selon votre endpoint backend
+    const response = await api.put(`/commandes-fournisseurs/${id}/facturer`);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la facturation de la commande:', error);
+    throw error;
+  }
+}
+
+  /**
    * Recherche une commande par son numéro
    */
   async searchByNumero(numero) {

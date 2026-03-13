@@ -1,3 +1,5 @@
+// hooks/useFournisseur.js - CORRIGÉ
+
 import { useState, useEffect, useCallback } from 'react';
 import fournisseurService from '../services/fournisseurService';
 
@@ -15,7 +17,7 @@ export const useFournisseur = () => {
     totalElements: 0,
     pageSize: 10
   });
-  const [allFournisseurs, setAllFournisseurs] = useState([]);
+  const [allFournisseurs, setAllFournisseurs] = useState([]); // ← À utiliser peut-être
 
   // ==================== LOADING STATE ====================
 
@@ -38,17 +40,20 @@ export const useFournisseur = () => {
   const fetchAllFournisseurs = useCallback(async () => {
     return handleAsyncOperation(async () => {
       const data = await fournisseurService.getAllFournisseurs();
-      setFournisseurs(data);
-      return data;
-    });
-  }, []);
-
-  // ✅ AJOUT: Version pour allFournisseurs
-  const fetchAllFournisseursList = useCallback(async () => {
-    return handleAsyncOperation(async () => {
-      const data = await fournisseurService.getAllFournisseurs();
-      setAllFournisseurs(data);
-      return data;
+      // Normaliser les données pour garantir les noms de propriétés
+      const normalizedData = data.map(f => ({
+        idFournisseur: f.idFournisseur,
+        nomFournisseur: f.nomFournisseur,
+        email: f.email,
+        telephone: f.telephone,
+        adresse: f.adresse,
+        ville: f.ville,
+        pays: f.pays,
+        actif: f.actif
+      }));
+      setFournisseurs(normalizedData);
+      setAllFournisseurs(normalizedData); // ← Met à jour aussi allFournisseurs
+      return normalizedData;
     });
   }, []);
 
@@ -84,12 +89,11 @@ export const useFournisseur = () => {
     return handleAsyncOperation(async () => {
       const newFournisseur = await fournisseurService.createFournisseur(fournisseurData);
       // Mettre à jour les listes
-      await fetchAllFournisseurs();
+      await fetchAllFournisseurs();  // ← Utilise fetchAllFournisseurs au lieu de fetchAllFournisseursList
       await fetchActiveFournisseurs();
-      await fetchAllFournisseursList(); // ✅ AJOUT
       return newFournisseur;
     });
-  }, [fetchAllFournisseurs, fetchActiveFournisseurs, fetchAllFournisseursList]);
+  }, [fetchAllFournisseurs, fetchActiveFournisseurs]);
 
   // ==================== UPDATE ====================
 
@@ -97,16 +101,15 @@ export const useFournisseur = () => {
     return handleAsyncOperation(async () => {
       const updated = await fournisseurService.updateFournisseur(id, fournisseurData);
       // Mettre à jour les listes
-      await fetchAllFournisseurs();
+      await fetchAllFournisseurs();  // ← Corrigé
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
-      await fetchAllFournisseursList(); // ✅ AJOUT
       if (selectedFournisseur?.idFournisseur === id) {
         setSelectedFournisseur(updated);
       }
       return updated;
     });
-  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs, fetchAllFournisseursList]);
+  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs]);
 
   // ==================== SOFT DELETE ====================
 
@@ -114,16 +117,15 @@ export const useFournisseur = () => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.softDeleteFournisseur(id);
       // Mettre à jour les listes
-      await fetchAllFournisseurs();
+      await fetchAllFournisseurs();  // ← Corrigé
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
-      await fetchAllFournisseursList(); // ✅ AJOUT
       if (selectedFournisseur?.idFournisseur === id) {
         setSelectedFournisseur(null);
       }
       return result;
     });
-  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs, fetchAllFournisseursList]);
+  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs]);
 
   // ==================== HARD DELETE ====================
 
@@ -131,16 +133,15 @@ export const useFournisseur = () => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.hardDeleteFournisseur(id);
       // Mettre à jour les listes
-      await fetchAllFournisseurs();
+      await fetchAllFournisseurs();  // ← Corrigé
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
-      await fetchAllFournisseursList(); // ✅ AJOUT
       if (selectedFournisseur?.idFournisseur === id) {
         setSelectedFournisseur(null);
       }
       return result;
     });
-  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs, fetchAllFournisseursList]);
+  }, [selectedFournisseur, fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs]);
 
   // ==================== REACTIVATE ====================
 
@@ -148,13 +149,12 @@ export const useFournisseur = () => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.reactivateFournisseur(id);
       // Mettre à jour les listes
-      await fetchAllFournisseurs();
+      await fetchAllFournisseurs();  // ← Corrigé
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
-      await fetchAllFournisseursList(); // ✅ AJOUT
       return result;
     });
-  }, [fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs, fetchAllFournisseursList]);
+  }, [fetchAllFournisseurs, fetchActiveFournisseurs, fetchInactiveFournisseurs]);
 
   // ==================== SEARCH ====================
 
@@ -195,8 +195,8 @@ export const useFournisseur = () => {
 
   useEffect(() => {
     fetchStats();
-    fetchAllFournisseursList(); // ✅ AJOUT: charger aussi allFournisseurs au démarrage
-  }, [fetchStats, fetchAllFournisseursList]);
+    fetchAllFournisseurs();  // ← Utilise fetchAllFournisseurs au lieu de fetchAllFournisseursList
+  }, [fetchStats, fetchAllFournisseurs]);
 
   return {
     // Data
@@ -211,7 +211,7 @@ export const useFournisseur = () => {
     pagination,
 
     // CRUD Operations
-    fetchAllFournisseurs,
+    fetchAllFournisseurs,      // ← C'est la même fonction partout
     fetchActiveFournisseurs,
     fetchInactiveFournisseurs,
     fetchFournisseurById,
@@ -222,7 +222,6 @@ export const useFournisseur = () => {
     reactivateFournisseur,
     searchFournisseurs,
     fetchStats,
-    fetchAllFournisseurs: fetchAllFournisseursList, // ✅ Export avec le bon nom
 
     // Utils
     clearSelectedFournisseur,

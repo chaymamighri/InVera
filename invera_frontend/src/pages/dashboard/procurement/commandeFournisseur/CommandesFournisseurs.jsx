@@ -3,8 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useCommandeFournisseur } from '../../../../hooks/useCommandeFournisseur';
-import CommandeModal from './components/commandeModal';
-import CommandeDetailsModal from './components/commandeDetailsModal';
+import CommandeModal from './components/CommandeModal';
+import CommandeDetailsModal from './components/CommandeDetailsModal';
 import StatsCartes from './components/StatsCartes';
 import BarreRecherche from './components/BarreRecherche';
 import TableauCommandes from './components/TableauCommandes';
@@ -18,7 +18,6 @@ export const StatutCommande = {
   RECUE: 'RECUE',
   FACTUREE: 'FACTUREE',
   ANNULEE: 'ANNULEE',
-  REJETEE: 'REJETEE',
 };
 
 // Fonctions de formatage exportées
@@ -66,8 +65,8 @@ const CommandesFournisseurs = () => {
     loading,
     error, 
     fetchCommandes,
-    fetchArchivedCommandes,  // ← NOUVEAU
-    restoreCommande,         // ← NOUVEAU
+    fetchArchivedCommandes, 
+    restoreCommande,         
     createCommande,
     updateCommande,
     deleteCommande,
@@ -75,6 +74,7 @@ const CommandesFournisseurs = () => {
     envoyerCommande,
     recevoirCommande,
     annulerCommande,
+    facturerCommande,
     searchByNumero,
     searchByPeriode,
   } = useCommandeFournisseur();
@@ -83,7 +83,7 @@ const CommandesFournisseurs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatut, setSelectedStatut] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [showArchives, setShowArchives] = useState(false);  // ← NOUVEAU
+  const [showArchives, setShowArchives] = useState(false); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -102,15 +102,6 @@ const CommandesFournisseurs = () => {
     }
   }, [showArchives, fetchCommandes, fetchArchivedCommandes]);
 
-  // Vérifier le token au chargement
-  useEffect(() => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    console.log('🔍 Token au chargement:', token ? 'PRÉSENT' : 'ABSENT');
-    
-    if (!token) {
-      console.error('❌ Pas de token trouvé!');
-    }
-  }, []);
 
   // Statistiques (cachées en mode archives)
   const stats = useMemo(() => {
@@ -169,36 +160,44 @@ const CommandesFournisseurs = () => {
     }
   };
 
-  const handleStatusChange = async (id, action) => {
-    try {
-      setActionInProgress(`${action}-${id}`);
-      let result;
-      switch (action) {
-        case 'valider': 
-          result = await validerCommande(id); 
-          toast.success('Commande validée avec succès');
-          break;
-        case 'envoyer': 
-          result = await envoyerCommande(id); 
-          toast.success('Commande envoyée avec succès');
-          break;
-        case 'recevoir': 
-          result = await recevoirCommande(id); 
-          toast.success('Réception enregistrée avec succès');
-          break;
-        case 'annuler': 
-          result = await annulerCommande(id); 
-          toast.success('Commande annulée avec succès');
-          break;
-      }
-      await fetchCommandes();
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
-    } finally {
-      setActionInProgress(null);
+  // CommandesFournisseurs.jsx - CORRIGÉ
+const handleStatusChange = async (id, action) => {
+  try {
+    setActionInProgress(`${action}-${id}`);
+    let result;
+    switch (action) {
+      case 'valider': 
+        result = await validerCommande(id); 
+        toast.success('Commande validée avec succès');
+        break;
+      case 'envoyer': 
+        result = await envoyerCommande(id); 
+        toast.success('Commande envoyée avec succès');
+        break;
+      case 'recevoir': 
+        result = await recevoirCommande(id); 
+        toast.success('Réception enregistrée avec succès');
+        break;
+      case 'facturer':   // ← AJOUTÉ !
+        result = await facturerCommande(id); 
+        toast.success('Commande facturée avec succès');
+        break;
+      case 'annuler': 
+        result = await annulerCommande(id); 
+        toast.success('Commande annulée avec succès');
+        break;
+      default:
+        console.warn('Action inconnue:', action);
+        return;
     }
-  };
+    await fetchCommandes();
+  } catch (error) {
+    console.error('Erreur:', error);
+    toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
+  } finally {
+    setActionInProgress(null);
+  }
+};
 
   // ✅ Restaurer une commande archivée
   const handleRestore = async (id) => {

@@ -55,28 +55,23 @@ const Produits = () => {
 
   // ========== GESTIONNAIRES ==========
   const handleAddProduit = () => {
-    console.log('➕ Ouverture formulaire création');
     setEditingProduct(null);
     setIsFormOpen(true);
   };
 
   const handleEditProduit = (produit) => {
-    console.log('✏️ Édition produit:', produit?.id, produit?.libelle);
     if (!produit) return;
     setEditingProduct(produit);
     setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
-    console.log('❌ Fermeture formulaire');
     setIsFormOpen(false);
     setEditingProduct(null);
   };
 
   // ✅ FONCTION SÉPARÉE POUR LA CRÉATION
   const handleCreateProduct = async (formData) => {
-    console.log('➕ handleCreateProduct - Création produit');
-    console.log('📦 formData type:', formData instanceof FormData ? 'FormData' : typeof formData);
     
     if (!formData) {
       console.error('❌ formData null');
@@ -103,8 +98,6 @@ const Produits = () => {
 
   // ✅ FONCTION SÉPARÉE POUR LA MODIFICATION
   const handleUpdateProduct = async (id, formData) => {
-    console.log('✏️ handleUpdateProduct - Modification produit ID:', id);
-    console.log('📦 formData type:', formData instanceof FormData ? 'FormData' : typeof formData);
     
     if (!id || !formData) {
       console.error('❌ ID ou formData manquant');

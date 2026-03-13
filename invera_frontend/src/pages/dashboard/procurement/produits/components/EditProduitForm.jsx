@@ -222,28 +222,12 @@ const handleSubmit = async (e) => {
     // Image
     if (formData.imageFile && formData.imageFile instanceof File) {
       formDataToSend.append('image', formData.imageFile);
-      console.log('✅ Image ajoutée:', formData.imageFile.name);
     }
-    
-    console.log('🔴🔴🔴 AVANT ONSAVE 🔴🔴🔴');
-console.log('🔴 produit.id:', produit?.id);
-console.log('🔴 formDataToSend existe?', !!formDataToSend);
-console.log('🔴 formDataToSend type:', formDataToSend?.constructor?.name);
-console.log('🔴 formDataToSend instanceof FormData?', formDataToSend instanceof FormData);
-
-if (formDataToSend) {
-  console.log('🔴 Nombre de champs:', [...formDataToSend.entries()].length);
-} else {
-  console.error('🔴🔴🔴 formDataToSend est NULL ou UNDEFINED !!!');
-}
 
 await onSave(produit.id, formDataToSend);
-
-    console.log('🚦 onSave réussi');
     
   } catch (error) {
-    console.error('🔥 ERREUR CRITIQUE:', error);
-    console.error('🔥 Stack:', error.stack);
+   
     toast.error('Une erreur inattendue est survenue');
     e?.preventDefault?.();
     e?.stopPropagation?.();
