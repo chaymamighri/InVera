@@ -13,32 +13,16 @@ const useProducts = (initialFilters = {}) => {
     totalPages: 0
   });
   
-  // ✅ 1. AJOUTER 'keyword' DANS L'ÉTAT INITIAL DES FILTRES
+  //  1. AJOUTER 'keyword' DANS L'ÉTAT INITIAL DES FILTRES
   const [filters, setFilters] = useState({
     actif: '',
     status: '',
     categorieId: '',
-    keyword: '',  // <-- AJOUTER CETTE LIGNE
+    keyword: '',  
     ...initialFilters
   });
 
 
-
-  // ✅ 3. MODIFIER L'EFFET DE CHARGEMENT POUR INCLURE keyword
-  useEffect(() => {
-    console.log('🔄 Filtres changés, rechargement...', filters);
-    
-    const params = {
-      page: 0,
-      size: pagination.size,
-      actif: filters.actif || undefined,
-      status: filters.status || undefined,
-      categorieId: filters.categorieId || undefined,
-      keyword: filters.keyword || undefined  
-    };
-    
-    loadProducts(0, params);
-  }, [filters.actif, filters.status, filters.categorieId, filters.keyword, pagination.size]);
 
   const getStatusLabel = (status) => {
     const labels = {

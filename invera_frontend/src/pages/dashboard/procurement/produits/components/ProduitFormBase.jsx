@@ -261,7 +261,7 @@ const ProduitFormBase = ({
             className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
             onError={(e) => {
               console.error('Erreur chargement image:', imagePreview);
-              e.target.src = '/placeholder-image.png'; // Image par défaut en cas d'erreur
+              e.target.src = '/placeholder-image.png'; 
             }}
           />
           <button

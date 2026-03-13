@@ -29,7 +29,7 @@ const formatPrice = (price) => {
   if (price === null || price === undefined) return 'N/A';
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
-    currency: 'EUR',
+    currency: 'TND',
   }).format(price);
 };
 

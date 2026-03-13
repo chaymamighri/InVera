@@ -77,9 +77,6 @@ const handleEditClick = (e) => {
   onEdit(produit);
 };
 
-// Ajoutez aussi un log au niveau du rendu
-console.log('🟢 Rendu ProduitCard pour produit:', produit?.id, produit?.libelle);
-
   // ========== GESTION DE L'AJUSTEMENT ==========
   const handleAdjustClick = (e) => {
     e.preventDefault();

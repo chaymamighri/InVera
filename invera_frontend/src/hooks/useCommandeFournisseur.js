@@ -119,6 +119,7 @@ export const useCommandeFournisseur = () => {
 
   // Effet de chargement initial
   useEffect(() => {
+    if (initialLoadDone) return;
     let mounted = true;
     
     const loadInitialData = async () => {
@@ -141,7 +142,7 @@ export const useCommandeFournisseur = () => {
     return () => {
       mounted = false;
     };
-  }, [fetchCommandes, fetchStats, checkAuth]);
+  }, [fetchCommandes, fetchStats, checkAuth , initialLoadDone]);
 
   /**
    * Réessaie de charger les données
@@ -351,6 +352,26 @@ export const useCommandeFournisseur = () => {
     }
   };
 
+
+  /**
+ * Marque une commande comme facturée
+ */
+const facturerCommande = async (id) => {
+  try {
+    setLoading(true);
+    const commande = await commandeFournisseurService.facturerCommande(id);
+    showToast('Commande facturée avec succès', 'success');
+    await fetchCommandes();
+    await fetchStats();
+    return commande;
+  } catch (err) {
+    showToast("Erreur lors de la facturation", 'error');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
   /**
    * Recherche par numéro
    */
@@ -460,6 +481,7 @@ export const useCommandeFournisseur = () => {
     envoyerCommande,
     recevoirCommande,
     annulerCommande,
+    facturerCommande,  
     
     // Recherches
     searchByNumero,

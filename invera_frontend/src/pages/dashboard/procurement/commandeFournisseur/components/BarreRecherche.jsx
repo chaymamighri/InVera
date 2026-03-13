@@ -4,7 +4,7 @@ import {
   MagnifyingGlassIcon, 
   FunnelIcon, 
   PlusIcon,
-  ArchiveBoxIcon  // ← NOUVEAU: icône pour les archives
+  ArchiveBoxIcon 
 } from '@heroicons/react/24/outline';
 
 const BarreRecherche = ({
@@ -16,8 +16,8 @@ const BarreRecherche = ({
   setShowFilters,
   onSearch,
   onNouvelleCommande,
-  onShowArchives,  // ← NOUVEAU: prop pour afficher les archives
-  showArchives,     // ← NOUVEAU: état pour savoir si on affiche les archives
+  onShowArchives,  
+  showArchives,    
   statuts,
   dateDebut,
   setDateDebut,
@@ -41,12 +41,7 @@ const BarreRecherche = ({
               className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <button
-            onClick={onSearch}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Rechercher
-          </button>
+
         </div>
 
         {/* Filtres et actions */}
