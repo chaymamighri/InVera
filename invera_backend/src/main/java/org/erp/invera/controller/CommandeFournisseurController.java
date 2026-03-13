@@ -2,6 +2,7 @@ package org.erp.invera.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
+import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.service.CommandeFournisseurService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,6 @@ public class CommandeFournisseurController {
 
     private final CommandeFournisseurService commandeService;
 
-    // ========= GET ALL =========
     // ========= GET ALL =========
     @GetMapping("/all")
     public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes(
@@ -55,7 +55,6 @@ public class CommandeFournisseurController {
 
         CommandeFournisseurDTO commande = commandeService.creerCommande(commandeDTO);
 
-        // ✅ Ne pas essayer d'appeler getCreatedBy() sur le DTO
         System.out.println("Commande créée avec succès");
 
         return new ResponseEntity<>(commande, HttpStatus.CREATED);
@@ -99,6 +98,11 @@ public class CommandeFournisseurController {
             @PathVariable Integer id,
             @RequestParam(required = false) String raison) {
         return ResponseEntity.ok(commandeService.annulerCommande(id, raison));
+    }
+
+    @PutMapping("/{id}/facturer")
+    public ResponseEntity<CommandeFournisseurDTO> facturerCommande(@PathVariable Integer id) {
+        return ResponseEntity.ok(commandeService.facturerCommande(id));
     }
 
     // ========= RECHERCHE PAR PERIODE =========

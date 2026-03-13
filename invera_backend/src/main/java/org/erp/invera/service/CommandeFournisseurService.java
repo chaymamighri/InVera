@@ -30,8 +30,6 @@ public class CommandeFournisseurService {
     private final FournisseurRepository fournisseurRepository;
     private final ProduitRepository produitRepository;
 
-    // ========= GET ALL COMMANDES =========
-
     // ========= GET ALL COMMANDES ACTIVES =========
     public List<CommandeFournisseurDTO> getAll() {
         // Ne retourner que les commandes actives (non supprimées)
@@ -59,19 +57,36 @@ public class CommandeFournisseurService {
                 .stream()
                 .map(ligneDTO -> {
 
-                    Produit produit = produitRepository.findById(ligneDTO.getProduitId())
-                            .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
-
                     LigneCommandeFournisseur ligne = new LigneCommandeFournisseur();
-
                     ligne.setCommandeFournisseur(commande);
-                    ligne.setProduit(produit);
                     ligne.setQuantite(ligneDTO.getQuantite());
                     ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
+                    // ✅ Gestion des deux types de produits
+                    if (ligneDTO.getProduitId() != null) {
+                        // Cas 1: Produit existant dans le catalogue
+                        Produit produit = produitRepository.findById(ligneDTO.getProduitId())
+                                .orElseThrow(() -> new RuntimeException(
+                                        "Produit non trouvé avec l'ID: " + ligneDTO.getProduitId()));
+                        ligne.setProduit(produit);
+
+                    } else if (ligneDTO.getProduitManuel() != null) {
+                        // Cas 2: Produit saisi manuellement
+                        ligne.setProduit(null);
+
+                        // Stocker les informations du produit manuel dans les notes
+                        String infosProduit = String.format("Produit manuel: %s (Réf: %s)",
+                                ligneDTO.getProduitManuel().getNom(),
+                                ligneDTO.getProduitManuel().getReference() != null ?
+                                        ligneDTO.getProduitManuel().getReference() : "Sans réf.");
+
+                    } else {
+                        throw new RuntimeException("Une ligne de commande doit avoir soit un produitId soit un produitManuel");
+                    }
+
+                    // Calcul du sous-total
                     BigDecimal sousTotal = ligneDTO.getPrixUnitaire()
                             .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()));
-
                     ligne.setSousTotal(sousTotal);
 
                     return ligne;
@@ -79,6 +94,23 @@ public class CommandeFournisseurService {
                 }).toList();
 
         commande.setLignesCommande(lignes);
+
+        // ✅ CALCUL DES TOTAUX GLOBAUX DE LA COMMANDE
+        BigDecimal totalHT = lignes.stream()
+                .map(LigneCommandeFournisseur::getSousTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTVA = totalHT.multiply(new BigDecimal("0.20"));
+        BigDecimal totalTTC = totalHT.add(totalTVA);
+
+        commande.setTotalHT(totalHT);
+        commande.setTotalTVA(totalTVA);
+        commande.setTotalTTC(totalTTC);
+
+        // 🔍 LOGS DE DÉBOGAGE
+        System.out.println("💰 Total HT calculé: " + totalHT);
+        System.out.println("💰 Total TVA calculé: " + totalTVA);
+        System.out.println("💰 Total TTC calculé: " + totalTTC);
 
         CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
@@ -117,7 +149,7 @@ public class CommandeFournisseurService {
         commandeRepository.save(commande);
     }
 
-    // ========= VALIDER COMMANDE =========
+    // ========= Marque une commande comme VALIDER =========
     public CommandeFournisseurDTO validerCommande(Integer id) {
 
         CommandeFournisseur commande = commandeRepository.findById(id)
@@ -129,7 +161,7 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= ENVOYER COMMANDE =========
+    // ========= Marque une commande comme ENVOYER =========
     public CommandeFournisseurDTO envoyerCommande(Integer id) {
 
         CommandeFournisseur commande = commandeRepository.findById(id)
@@ -141,7 +173,7 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= RECEVOIR COMMANDE =========
+    // ========= Marque une commande comme RECEVOIR =========
     public CommandeFournisseurDTO recevoirCommande(Integer id) {
 
         CommandeFournisseur commande = commandeRepository.findById(id)
@@ -154,7 +186,7 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= ANNULER COMMANDE =========
+    // ========= Marque une commande comme ANNULER =========
     public CommandeFournisseurDTO annulerCommande(Integer id, String raison) {
 
         CommandeFournisseur commande = commandeRepository.findById(id)
@@ -165,6 +197,22 @@ public class CommandeFournisseurService {
 
         CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
+    }
+
+    public CommandeFournisseurDTO facturerCommande(Integer id) {
+        CommandeFournisseur commande = commandeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + id));
+
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.RECUE) {
+            throw new RuntimeException(
+                    String.format("Impossible de facturer une commande au statut %s. Le statut doit être RECUE.",
+                            commande.getStatut())
+            );
+        }
+
+        commande.setStatut(CommandeFournisseur.StatutCommande.FACTUREE);
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        return convertToDTO(saved);  // ← Retourner DTO
     }
 
     // ========= RECHERCHE PAR PERIODE =========
@@ -195,9 +243,12 @@ public class CommandeFournisseurService {
         }
 
         dto.setStatut(commande.getStatut());
+
+        // ✅ VÉRIFIEZ QUE CES LIGNES SONT PRÉSENTES
         dto.setTotalHT(commande.getTotalHT());
         dto.setTotalTVA(commande.getTotalTVA());
         dto.setTotalTTC(commande.getTotalTTC());
+
         dto.setActif(commande.getActif());
 
         // Lignes de commande
@@ -209,9 +260,13 @@ public class CommandeFournisseurService {
             dto.setLignesCommande(lignes);
         }
 
+        // 🔍 AJOUTEZ CE LOG POUR DEBUG
+        System.out.println("🔄 Conversion DTO - ID: " + commande.getIdCommandeFournisseur() +
+                ", totalTTC: " + commande.getTotalTTC() +
+                " → DTO totalTTC: " + dto.getTotalTTC());
+
         return dto;
     }
-
     // ========= CONVERSION LIGNE EN DTO =========
     private LigneCommandeDTO convertLigneToDTO(LigneCommandeFournisseur ligne) {
         LigneCommandeDTO l = new LigneCommandeDTO();
@@ -227,9 +282,8 @@ public class CommandeFournisseurService {
         l.setQuantite(ligne.getQuantite());
         l.setPrixUnitaire(ligne.getPrixUnitaire());
         l.setSousTotal(ligne.getSousTotal());
-        l.setRemise(ligne.getRemise());
         l.setQuantiteRecue(ligne.getQuantiteRecue());
-        l.setNotes(ligne.getNotes());
+
 
         return l;
     }

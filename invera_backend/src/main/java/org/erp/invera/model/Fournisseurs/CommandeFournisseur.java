@@ -71,49 +71,13 @@ public class CommandeFournisseur {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public void calculerTotaux() {
-        this.totalHT = lignesCommande.stream()
-                .map(LigneCommandeFournisseur::getSousTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Exemple avec TVA 20% (à adapter selon votre logique)
-        this.totalTVA = totalHT.multiply(new BigDecimal("0.20"));
-        this.totalTTC = totalHT.add(totalTVA);
-    }
-
-    public void validerCommande() {
-        if (statut == StatutCommande.BROUILLON) {
-            this.statut = StatutCommande.VALIDEE;
-        }
-    }
-
-    public void envoyerCommande() {
-        if (statut == StatutCommande.VALIDEE) {
-            this.statut = StatutCommande.ENVOYEE;
-        }
-    }
-
-    public void enregistrerReception() {
-        if (statut == StatutCommande.ENVOYEE) {
-            this.statut = StatutCommande.RECUE;
-            this.dateLivraisonReelle = LocalDateTime.now();
-        }
-    }
-
-    public void annulerCommande() {
-        if (statut != StatutCommande.RECUE && statut != StatutCommande.FACTUREE) {
-            this.statut = StatutCommande.ANNULEE;
-        }
-    }
-
     public enum StatutCommande {
         BROUILLON("Brouillon"),
         VALIDEE("Validée"),
         ENVOYEE("Envoyée au fournisseur"),
         RECUE("Reçue"),
         FACTUREE("Facturée"),
-        ANNULEE("Annulée"),
-        REJETEE("Rejetée");
+        ANNULEE("Annulée");
 
         private final String libelle;
 
@@ -121,8 +85,5 @@ public class CommandeFournisseur {
             this.libelle = libelle;
         }
 
-        public String getLibelle() {
-            return libelle;
-        }
     }
 }

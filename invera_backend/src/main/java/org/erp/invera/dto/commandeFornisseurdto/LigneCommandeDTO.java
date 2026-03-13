@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 public class LigneCommandeDTO {
     private Integer idLigneCommandeFournisseur;
     private Integer produitId;
+    private ProduitManuelDTO produitManuel;
     private String produitLibelle;
     private String produitReference;
     private Integer quantite;
