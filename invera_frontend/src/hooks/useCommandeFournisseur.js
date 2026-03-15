@@ -1,4 +1,4 @@
-// hooks/useCommandeFournisseur.js
+// hooks/useCommandeFournisseur.js - Version sans statistiques
 import { useState, useEffect, useCallback } from 'react';
 import commandeFournisseurService from '../services/commandeFournisseurService';
 
@@ -13,7 +13,6 @@ export const useCommandeFournisseur = () => {
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   /**
@@ -99,24 +98,6 @@ export const useCommandeFournisseur = () => {
     }
   }, [checkAuth]);
 
-  /**
-   * Charge les statistiques
-   */
-  const fetchStats = useCallback(async () => {
-    // Ne pas essayer de charger les stats si non authentifié
-    if (!checkAuth()) {
-      return;
-    }
-
-    try {
-      const data = await commandeFournisseurService.getStats();
-      setStats(data || null);
-    } catch (err) {
-      console.error('⚠️ Erreur stats (non bloquante):', err);
-  
-    }
-  }, [checkAuth]);
-
   // Effet de chargement initial
   useEffect(() => {
     if (initialLoadDone) return;
@@ -132,9 +113,7 @@ export const useCommandeFournisseur = () => {
       }
       
       await fetchCommandes(false); 
-      if (mounted) {
-        await fetchStats();
-      }
+      // ❌ SUPPRIMÉ : fetchStats()
     };
     
     loadInitialData();
@@ -142,7 +121,7 @@ export const useCommandeFournisseur = () => {
     return () => {
       mounted = false;
     };
-  }, [fetchCommandes, fetchStats, checkAuth , initialLoadDone]);
+  }, [fetchCommandes, checkAuth, initialLoadDone]);
 
   /**
    * Réessaie de charger les données
@@ -150,16 +129,16 @@ export const useCommandeFournisseur = () => {
   const retry = useCallback(() => {
     setError(null);
     fetchCommandes(true);
-    fetchStats();
-  }, [fetchCommandes, fetchStats]);
+    // ❌ SUPPRIMÉ : fetchStats()
+  }, [fetchCommandes]);
 
   /**
    * Rafraîchit les données
    */
   const refresh = useCallback(() => {
     fetchCommandes(true);
-    fetchStats();
-  }, [fetchCommandes, fetchStats]);
+    // ❌ SUPPRIMÉ : fetchStats()
+  }, [fetchCommandes]);
 
   /**
    * Crée une nouvelle commande
@@ -352,25 +331,29 @@ export const useCommandeFournisseur = () => {
     }
   };
 
-
   /**
- * Marque une commande comme facturée
- */
-const facturerCommande = async (id) => {
-  try {
-    setLoading(true);
-    const commande = await commandeFournisseurService.facturerCommande(id);
-    showToast('Commande facturée avec succès', 'success');
-    await fetchCommandes();
-    await fetchStats();
-    return commande;
-  } catch (err) {
-    showToast("Erreur lors de la facturation", 'error');
-    throw err;
-  } finally {
-    setLoading(false);
-  }
-};
+   * Marque une commande comme facturée
+   */
+  const facturerCommande = async (id) => {
+    if (!checkAuth()) {
+      showToast('Session expirée', 'error');
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      setLoading(true);
+      const commande = await commandeFournisseurService.facturerCommande(id);
+      showToast('Commande facturée avec succès', 'success');
+      await refresh();
+      return commande;
+    } catch (err) {
+      console.error('❌ Erreur facturation:', err);
+      showToast("Erreur lors de la facturation", 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * Recherche par numéro
@@ -418,7 +401,7 @@ const facturerCommande = async (id) => {
     }
   };
 
-    // Fonction pour charger les commandes archivées (soft delete)
+  // Fonction pour charger les commandes archivées (soft delete)
   const fetchArchivedCommandes = useCallback(async () => {
     if (!checkAuth()) {
       return;
@@ -430,7 +413,7 @@ const facturerCommande = async (id) => {
       setCommandes(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Erreur chargement archives:', err);
-      toast.error('Erreur lors du chargement des archives');
+      // ❌ Supprimé l'appel à toast.error (non défini)
     } finally {
       setLoading(false);
     }
@@ -439,19 +422,18 @@ const facturerCommande = async (id) => {
   // Fonction pour restaurer une commande
   const restoreCommande = useCallback(async (id) => {
     if (!checkAuth()) {
-      toast.error('Session expirée');
+      showToast('Session expirée', 'error');
       throw new Error('Non authentifié');
     }
 
     try {
       setLoading(true);
-      // À implémenter selon votre API backend
       const result = await commandeFournisseurService.restoreCommande(id);
-      toast.success('Commande restaurée avec succès');
+      showToast('Commande restaurée avec succès', 'success');
       return result;
     } catch (err) {
       console.error('Erreur restauration:', err);
-      toast.error('Erreur lors de la restauration');
+      showToast('Erreur lors de la restauration', 'error');
       throw err;
     } finally {
       setLoading(false);
@@ -463,7 +445,6 @@ const facturerCommande = async (id) => {
     commandes,
     loading,
     error,
-    stats,
     initialLoadDone,
     
     // Actions
@@ -488,10 +469,9 @@ const facturerCommande = async (id) => {
     searchByPeriode,
     
     // Utilitaires
-    fetchStats,
     checkAuth,
     
-    //Archive commande (commande qui sont avec "active = false" )
+    // Archive commande
     fetchArchivedCommandes,
     restoreCommande,
   };

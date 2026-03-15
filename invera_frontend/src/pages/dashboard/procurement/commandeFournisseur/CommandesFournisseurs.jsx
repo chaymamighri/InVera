@@ -63,10 +63,10 @@ const CommandesFournisseurs = () => {
   const {
     commandes,
     loading,
-    error, 
+    error,
     fetchCommandes,
-    fetchArchivedCommandes, 
-    restoreCommande,         
+    fetchArchivedCommandes,
+    restoreCommande,
     createCommande,
     updateCommande,
     deleteCommande,
@@ -83,7 +83,7 @@ const CommandesFournisseurs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatut, setSelectedStatut] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [showArchives, setShowArchives] = useState(false); 
+  const [showArchives, setShowArchives] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -117,7 +117,7 @@ const CommandesFournisseurs = () => {
   // Filtrage
   const filteredCommandes = useMemo(() => {
     return commandes.filter(commande => {
-      const matchesSearch = 
+      const matchesSearch =
         commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -161,43 +161,43 @@ const CommandesFournisseurs = () => {
   };
 
   // CommandesFournisseurs.jsx - CORRIGÉ
-const handleStatusChange = async (id, action) => {
-  try {
-    setActionInProgress(`${action}-${id}`);
-    let result;
-    switch (action) {
-      case 'valider': 
-        result = await validerCommande(id); 
-        toast.success('Commande validée avec succès');
-        break;
-      case 'envoyer': 
-        result = await envoyerCommande(id); 
-        toast.success('Commande envoyée avec succès');
-        break;
-      case 'recevoir': 
-        result = await recevoirCommande(id); 
-        toast.success('Réception enregistrée avec succès');
-        break;
-      case 'facturer':   // ← AJOUTÉ !
-        result = await facturerCommande(id); 
-        toast.success('Commande facturée avec succès');
-        break;
-      case 'annuler': 
-        result = await annulerCommande(id); 
-        toast.success('Commande annulée avec succès');
-        break;
-      default:
-        console.warn('Action inconnue:', action);
-        return;
+  const handleStatusChange = async (id, action) => {
+    try {
+      setActionInProgress(`${action}-${id}`);
+      let result;
+      switch (action) {
+        case 'valider':
+          result = await validerCommande(id);
+          toast.success('Commande validée avec succès');
+          break;
+        case 'envoyer':
+          result = await envoyerCommande(id);
+          toast.success('Commande envoyée avec succès');
+          break;
+        case 'recevoir':
+          result = await recevoirCommande(id);
+          toast.success('Réception enregistrée avec succès');
+          break;
+        case 'facturer':   // ← AJOUTÉ !
+          result = await facturerCommande(id);
+          toast.success('Commande facturée avec succès');
+          break;
+        case 'annuler':
+          result = await annulerCommande(id);
+          toast.success('Commande annulée avec succès');
+          break;
+        default:
+          console.warn('Action inconnue:', action);
+          return;
+      }
+      await fetchCommandes();
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
+    } finally {
+      setActionInProgress(null);
     }
-    await fetchCommandes();
-  } catch (error) {
-    console.error('Erreur:', error);
-    toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
-  } finally {
-    setActionInProgress(null);
-  }
-};
+  };
 
   // ✅ Restaurer une commande archivée
   const handleRestore = async (id) => {
@@ -222,19 +222,19 @@ const handleStatusChange = async (id, action) => {
       toast.info('Utilisez le bouton de restauration pour réactiver la commande');
       return;
     }
-    
+
     if (commande.statut !== StatutCommande.BROUILLON) {
       toast.error('Seules les commandes en brouillon peuvent être supprimées');
       return;
     }
-    
+
     setSelectedCommande(commande);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedCommande) return;
-    
+
     try {
       setActionInProgress('delete');
       await deleteCommande(selectedCommande.idCommandeFournisseur);

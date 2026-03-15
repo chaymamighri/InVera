@@ -124,10 +124,10 @@ const TableauCommandes = ({
             {commandes.map((commande) => {
               // ✅ En mode archive : tous les boutons sauf Voir sont CACHÉS
               const isArchived = showArchives || statutsArchives.includes(commande.statut);
-              
+
               return (
-                <tr 
-                  key={commande.idCommandeFournisseur} 
+                <tr
+                  key={commande.idCommandeFournisseur}
                   className={`hover:bg-gray-50 ${isArchived ? 'opacity-75 bg-gray-50' : ''}`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -155,7 +155,7 @@ const TableauCommandes = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      
+
                       {/* BROUILLON - UNIQUEMENT si NON archivé et si onStatusChange est défini */}
                       {commande.statut === statuts.BROUILLON && !isArchived && onStatusChange && (
                         <>
