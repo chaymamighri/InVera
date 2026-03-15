@@ -41,6 +41,10 @@ public class LigneCommandeFournisseur {
 
     private Integer quantiteRecue = 0;
 
+    // CHAMP POUR LES NOTES (produits manuels)
+    @Column(name = "notes", length = 500)
+    private String notes;
+
     @Column(nullable = false)
     private Boolean actif = true;
 
@@ -61,25 +65,20 @@ public class LigneCommandeFournisseur {
         calculerSousTotal();
     }
 
+    // ✅ NOUVEAU CONSTRUCTEUR pour produit manuel
+    public LigneCommandeFournisseur(Integer quantite, BigDecimal prixUnitaire, String notes) {
+        this.produit = null;  // Pas de produit en base
+        this.quantite = quantite;
+        this.prixUnitaire = prixUnitaire;
+        this.notes = notes;
+        this.actif = true;
+        calculerSousTotal();
+    }
+
     // Méthodes métier
     public void calculerSousTotal() {
         if (prixUnitaire != null && quantite != null) {
             this.sousTotal = prixUnitaire.multiply(BigDecimal.valueOf(quantite));
-
         }
-    }
-
-    public void mettreAJourPrix(BigDecimal nouveauPrix) {
-        this.prixUnitaire = nouveauPrix;
-        calculerSousTotal();
-    }
-
-    public void mettreAJourQuantite(Integer nouvelleQuantite) {
-        this.quantite = nouvelleQuantite;
-        calculerSousTotal();
-    }
-
-    public void enregistrerReceptionPartielle(Integer quantiteRecue) {
-        this.quantiteRecue = quantiteRecue;
     }
 }
