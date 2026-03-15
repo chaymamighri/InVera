@@ -1,14 +1,18 @@
 package org.erp.invera.dto.commandeFornisseurdto;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Data
+@Getter
+@Setter
 public class LigneCommandeDTO {
     private Integer idLigneCommandeFournisseur;
     private Integer produitId;
-    private ProduitManuelDTO produitManuel;
+    private Boolean isManual;
     private String produitLibelle;
     private String produitReference;
     private Integer quantite;

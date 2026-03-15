@@ -3,6 +3,7 @@ package org.erp.invera.service;
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.commandeFornisseurdto.LigneCommandeDTO;
+import org.erp.invera.dto.commandeFornisseurdto.ProduitManuelDTO;
 import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,7 +40,7 @@ public class CommandeFournisseurService {
     }
 
     // ========= CREATE =========
-
+    // ========= CREATE =========
     public CommandeFournisseurDTO creerCommande(CommandeFournisseurDTO dto) {
 
         Fournisseur fournisseur = fournisseurRepository.findById(dto.getFournisseur().getIdFournisseur())
@@ -46,7 +48,9 @@ public class CommandeFournisseurService {
 
         CommandeFournisseur commande = new CommandeFournisseur();
 
-        commande.setNumeroCommande("CMD-" + System.currentTimeMillis());
+        // ✅ Générer le numéro de commande au format CMD-202603-0005
+        commande.setNumeroCommande(genererNumeroCommande());
+
         commande.setDateCommande(LocalDateTime.now());
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setFournisseur(fournisseur);
@@ -62,6 +66,9 @@ public class CommandeFournisseurService {
                     ligne.setQuantite(ligneDTO.getQuantite());
                     ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
+                    // 🔍 LOG
+                    System.out.println("📦 Traitement ligne DTO - produitLibelle: " + ligneDTO.getProduitLibelle());
+
                     // ✅ Gestion des deux types de produits
                     if (ligneDTO.getProduitId() != null) {
                         // Cas 1: Produit existant dans le catalogue
@@ -69,19 +76,28 @@ public class CommandeFournisseurService {
                                 .orElseThrow(() -> new RuntimeException(
                                         "Produit non trouvé avec l'ID: " + ligneDTO.getProduitId()));
                         ligne.setProduit(produit);
-
-                    } else if (ligneDTO.getProduitManuel() != null) {
-                        // Cas 2: Produit saisi manuellement
-                        ligne.setProduit(null);
-
-                        // Stocker les informations du produit manuel dans les notes
-                        String infosProduit = String.format("Produit manuel: %s (Réf: %s)",
-                                ligneDTO.getProduitManuel().getNom(),
-                                ligneDTO.getProduitManuel().getReference() != null ?
-                                        ligneDTO.getProduitManuel().getReference() : "Sans réf.");
+                        System.out.println("✅ Produit catalogue ajouté: " + produit.getLibelle());
 
                     } else {
-                        throw new RuntimeException("Une ligne de commande doit avoir soit un produitId soit un produitManuel");
+                        // ✅ Cas 2: Produit saisi manuellement
+                        // Utiliser produitLibelle du DTO
+                        String nomProduit = ligneDTO.getProduitLibelle();
+                        if (nomProduit == null || nomProduit.isEmpty()) {
+                            nomProduit = "Produit sans nom";
+                        }
+
+                        // Stocker les informations du produit manuel dans les notes
+                        String infosProduit = String.format("Produit manuel: %s", nomProduit);
+
+                        // Ajouter la référence si elle existe
+                        if (ligneDTO.getProduitReference() != null && !ligneDTO.getProduitReference().isEmpty()) {
+                            infosProduit += String.format(" (Réf: %s)", ligneDTO.getProduitReference());
+                        }
+
+                        ligne.setNotes(infosProduit);
+                        ligne.setProduit(null);  // Pas de produit en base
+
+                        System.out.println("✅ Produit manuel ajouté: " + infosProduit);
                     }
 
                     // Calcul du sous-total
@@ -107,13 +123,28 @@ public class CommandeFournisseurService {
         commande.setTotalTVA(totalTVA);
         commande.setTotalTTC(totalTTC);
 
-        // 🔍 LOGS DE DÉBOGAGE
-        System.out.println("💰 Total HT calculé: " + totalHT);
-        System.out.println("💰 Total TVA calculé: " + totalTVA);
-        System.out.println("💰 Total TTC calculé: " + totalTTC);
-
         CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
+    }
+
+    // method pour génere le num de commande de fournisseur
+    private String genererNumeroCommande() {
+        // Format: CMD-YYYYMM-XXXX
+        // Exemple: CMD-202603-0005
+
+        LocalDateTime now = LocalDateTime.now();
+        String prefix = "CMD";
+        String anneeMois = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
+
+        // Récupérer le dernier compteur pour le mois en cours
+        String pattern = prefix + "-" + anneeMois + "-%";
+        Long count = commandeRepository.countByNumeroCommandeStartingWith(prefix + "-" + anneeMois);
+
+        // Générer le numéro avec 4 chiffres (ex: 0001, 0002, ...)
+        int nextNum = count != null ? count.intValue() + 1 : 1;
+        String numero = String.format("%s-%s-%04d", prefix, anneeMois, nextNum);
+
+        return numero;
     }
 
     // ========= GET BY ID =========
@@ -132,7 +163,6 @@ public class CommandeFournisseurService {
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
-        // Ajoutez d'autres champs modifiables si nécessaire
 
         CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
@@ -173,18 +203,33 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= Marque une commande comme RECEVOIR =========
+    /**
+     *  Enregistrer la réception d'une commande
+     * C'est ici que la date de livraison réelle est définie
+     */
     public CommandeFournisseurDTO recevoirCommande(Integer id) {
-
+        // 1. Récupérer la commande
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
+        // 2. Vérifier que la commande peut être reçue (statut ENVOYEE)
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.ENVOYEE) {
+            throw new RuntimeException("Seules les commandes envoyées peuvent être reçues");
+        }
+
+        // 3. ÉFINIR LA DATE DE LIVRAISON RÉELLE (MAINTENANT)
         commande.setDateLivraisonReelle(LocalDateTime.now());
 
-        CommandeFournisseur saved = commandeRepository.save(commande);
-        return convertToDTO(saved);
+        // 4. Changer le statut
+        commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
+
+        // 5. Sauvegarder
+        CommandeFournisseur savedCommande = commandeRepository.save(commande);
+
+        // 6. Retourner le DTO
+        return convertToDTO(savedCommande);
     }
+
 
     // ========= Marque une commande comme ANNULER =========
     public CommandeFournisseurDTO annulerCommande(Integer id, String raison) {
@@ -193,7 +238,6 @@ public class CommandeFournisseurService {
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
         commande.setStatut(CommandeFournisseur.StatutCommande.ANNULEE);
-        // Si vous avez un champ pour stocker la raison d'annulation, ajoutez-le ici
 
         CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
@@ -212,7 +256,7 @@ public class CommandeFournisseurService {
 
         commande.setStatut(CommandeFournisseur.StatutCommande.FACTUREE);
         CommandeFournisseur saved = commandeRepository.save(commande);
-        return convertToDTO(saved);  // ← Retourner DTO
+        return convertToDTO(saved);
     }
 
     // ========= RECHERCHE PAR PERIODE =========
@@ -267,23 +311,67 @@ public class CommandeFournisseurService {
 
         return dto;
     }
-    // ========= CONVERSION LIGNE EN DTO =========
+
+
     private LigneCommandeDTO convertLigneToDTO(LigneCommandeFournisseur ligne) {
         LigneCommandeDTO l = new LigneCommandeDTO();
 
         l.setIdLigneCommandeFournisseur(ligne.getIdLigneCommandeFournisseur());
-
-        if (ligne.getProduit() != null) {
-            l.setProduitId(ligne.getProduit().getIdProduit());
-            l.setProduitLibelle(ligne.getProduit().getLibelle());
-            l.setProduitReference(String.valueOf(ligne.getProduit().getIdProduit()));
-        }
-
         l.setQuantite(ligne.getQuantite());
         l.setPrixUnitaire(ligne.getPrixUnitaire());
         l.setSousTotal(ligne.getSousTotal());
         l.setQuantiteRecue(ligne.getQuantiteRecue());
+        l.setNotes(ligne.getNotes());
 
+        // 🔍 LOG POUR DEBUG
+        System.out.println("🔄 Conversion ligne ID: " + ligne.getIdLigneCommandeFournisseur());
+        System.out.println("   Produit: " + (ligne.getProduit() != null ? ligne.getProduit().getLibelle() : "null"));
+        System.out.println("   Notes: " + ligne.getNotes());
+
+        // ✅ CAS 1: Produit du catalogue
+        if (ligne.getProduit() != null) {
+            l.setProduitId(ligne.getProduit().getIdProduit());
+            l.setProduitLibelle(ligne.getProduit().getLibelle());
+            l.setProduitReference("REF-" + ligne.getProduit().getIdProduit()); // Ou utilisez l'ID comme référence
+            l.setIsManual(false);
+            System.out.println("✅ Produit catalogue: " + ligne.getProduit().getLibelle());
+        }
+        // ✅ CAS 2: Produit manuel (depuis les notes)
+        else if (ligne.getNotes() != null && ligne.getNotes().startsWith("Produit manuel:")) {
+            String notes = ligne.getNotes();
+            System.out.println("📝 Traitement notes produit manuel: " + notes);
+
+            // Extraire les informations du format "Produit manuel: Nom (Réf: REF123)"
+            String contenu = notes.substring("Produit manuel:".length()).trim();
+
+            String nom = contenu;
+            String reference = "";
+
+            if (contenu.contains("(Réf:")) {
+                String[] parts = contenu.split("\\(Réf:");
+                nom = parts[0].trim();
+                reference = parts[1].replace(")", "").trim();
+            }
+
+            l.setProduitLibelle(nom);
+            l.setProduitReference(reference);
+            l.setIsManual(true);
+            l.setProduitId(null);
+
+            System.out.println("✅ Produit manuel extrait - Nom: '" + nom + "', Réf: '" + reference + "'");
+        }
+        // ✅ CAS 3: Notes simples (fallback)
+        else if (ligne.getNotes() != null && !ligne.getNotes().isEmpty()) {
+            l.setProduitLibelle(ligne.getNotes());
+            l.setIsManual(true);
+            System.out.println("📝 Produit depuis notes simples: " + ligne.getNotes());
+        }
+        // ✅ CAS 4: Aucune information
+        else {
+            l.setProduitLibelle("Produit sans nom");
+            l.setIsManual(true);
+            System.out.println("⚠️ Produit sans informations");
+        }
 
         return l;
     }
