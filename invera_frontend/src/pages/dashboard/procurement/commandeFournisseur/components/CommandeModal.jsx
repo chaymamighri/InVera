@@ -1,8 +1,7 @@
-// components/commandeModal.jsx - Version avec spinner puis grille + recherche
+// components/commandeModal.jsx - Version simplifiée (saisie manuelle uniquement)
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
-import useProducts from '../../../../../hooks/useProducts'; 
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -12,266 +11,190 @@ const formatPrice = (price) => {
 };
 
 const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
-  // Récupération des fournisseurs
+  // Récupération des fournisseurs uniquement (plus de produits)
   const { fournisseurs, fetchAllFournisseurs, loading: loadingFournisseurs } = useFournisseur();
-  
-  // Récupération des produits existants
-  const { products, loadProducts, loading: loadingProducts } = useProducts();
-  
+
   // États du formulaire
   const [formData, setFormData] = useState({
     fournisseur: { idFournisseur: '', nomFournisseur: '', email: '' },
     dateLivraisonPrevue: '',
+    adresseLivraison: ''
   });
 
   const [lignes, setLignes] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [quantite, setQuantite] = useState(1);
-  const [prixUnitaire, setPrixUnitaire] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [productsFiltres, setProductsFiltres] = useState([]);
-  const [searchProductTerm, setSearchProductTerm] = useState('');
-  
-  // ✅ Mode de saisie manuelle
-  const [isManualEntry, setIsManualEntry] = useState(false);
+
+  // États pour la saisie manuelle (simplifiée)
   const [manualProductName, setManualProductName] = useState('');
   const [manualProductRef, setManualProductRef] = useState('');
+  const [manualProductTVA, setManualProductTVA] = useState(20);
+  const [quantite, setQuantite] = useState(1);
+  const [prixUnitaire, setPrixUnitaire] = useState(0);
 
-  // ✅ État pour la grille de produits
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [showCatalogGrid, setShowCatalogGrid] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-
-  // ✅ Chargement initial UNE SEULE FOIS
+  // Chargement initial
   useEffect(() => {
     fetchAllFournisseurs();
-    loadProducts();
-  }, []); // ← Ne dépend de rien
+  }, []);
 
-  // ✅ Gestion de l'ouverture du modal
+  // Gestion de l'ouverture du modal
   useEffect(() => {
     if (isOpen) {
-
-      
       if (commande) {
         setFormData({
           fournisseur: commande.fournisseur || { idFournisseur: '', nomFournisseur: '', email: '' },
           dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
+          adresseLivraison: commande.adresseLivraison || ''
         });
         setLignes(commande.lignesCommande || []);
       } else {
         setFormData({
           fournisseur: { idFournisseur: '', nomFournisseur: '', email: '' },
           dateLivraisonPrevue: '',
+          adresseLivraison: ''
         });
         setLignes([]);
-        resetProductFields();
+        resetForm();
       }
     }
   }, [isOpen, commande]);
 
-  // ✅ Filtrer les produits quand le fournisseur change
-  useEffect(() => {
-    if (formData.fournisseur?.idFournisseur && products.length > 0) {
-      const produitsDuFournisseur = products.filter(
-        p => p.fournisseur?.idFournisseur === formData.fournisseur.idFournisseur
-      );
-      setProductsFiltres(produitsDuFournisseur);
-      setCatalogProducts(produitsDuFournisseur);
-    } else {
-      setProductsFiltres([]);
-      setCatalogProducts([]);
-    }
-  }, [formData.fournisseur, products]);
-
-  // ✅ Filtrer les produits par recherche (pour la grille)
-  const produitsFiltresEtRecherches = catalogProducts.filter(p => 
-    (p.nom || p.libelle || '').toLowerCase().includes(searchProductTerm.toLowerCase()) ||
-    (p.reference || '').toLowerCase().includes(searchProductTerm.toLowerCase())
-  );
-
-  const resetProductFields = () => {
-    setSelectedProduct('');
-    setQuantite(1);
-    setPrixUnitaire(0);
-    setSearchProductTerm('');
-    setIsManualEntry(false);
+  const resetForm = () => {
     setManualProductName('');
     setManualProductRef('');
-    setShowCatalogGrid(false);
+    setManualProductTVA(20);
+    setQuantite(1);
+    setPrixUnitaire(0);
   };
 
   const handleFournisseurChange = (e) => {
     const fournisseurId = parseInt(e.target.value);
     const selected = fournisseurs.find(f => f.idFournisseur === fournisseurId);
-    setFormData({ 
-      ...formData, 
-      fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' } 
+    setFormData({
+      ...formData,
+      fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' }
     });
-    resetProductFields();
   };
 
-  const handleProductSelect = (product) => {
-    setSelectedProduct(product.idProduit || product.id);
-    setPrixUnitaire(product?.prixAchat || 0);
-    setSearchProductTerm('');
-    setShowCatalogGrid(false);
-    setIsManualEntry(false);
-  };
-
-  const toggleManualEntry = () => {
-    setIsManualEntry(!isManualEntry);
-    setShowCatalogGrid(false);
-    setSelectedProduct('');
-    setSearchProductTerm('');
-  };
-
-  const toggleCatalogGrid = () => {
-    if (!showCatalogGrid) {
-      // Afficher le spinner immédiatement
-      setCatalogLoading(true);
-      setShowCatalogGrid(true);
-      setIsManualEntry(false);
-      setSelectedProduct('');
-      
-      // Simuler un délai de chargement (ou utiliser un vrai chargement)
-      setTimeout(() => {
-        setCatalogLoading(false);
-      }, 800); // 800ms de chargement
-    } else {
-      setShowCatalogGrid(false);
+  // ✅ Ajout d'un produit manuel
+  const ajouterProduitManuel = () => {
+    // Validations
+    if (!manualProductName.trim()) {
+      alert('Veuillez saisir un nom de produit');
+      return;
     }
-  };
 
-  const ajouterLigne = () => {
-    // Validation
+    if (!manualProductRef.trim()) {
+      alert('La référence est obligatoire');
+      return;
+    }
+
     if (quantite <= 0) {
       alert('La quantité doit être supérieure à 0');
       return;
     }
+
     if (prixUnitaire <= 0) {
       alert('Le prix unitaire doit être supérieur à 0');
       return;
     }
 
-    // Mode saisie manuelle
-    if (isManualEntry) {
-      if (!manualProductName.trim()) {
-        alert('Veuillez saisir un nom de produit');
-        return;
-      }
+    // Calculs avec TVA
+    const sousTotalHT = quantite * prixUnitaire;
+    const montantTVA = sousTotalHT * (manualProductTVA / 100);
+    const sousTotalTTC = sousTotalHT + montantTVA;
 
-      const nouvelleLigne = {
-        produit: {
-          nom: manualProductName,
-          reference: manualProductRef || 'Nouveau produit',
-          idProduit: `manual-${Date.now()}`
-        },
-        quantite,
-        prixUnitaire,
-        sousTotal: quantite * prixUnitaire,
-        idProduit: `manual-${Date.now()}`,
-        isManual: true
-      };
-      setLignes([...lignes, nouvelleLigne]);
-      resetProductFields();
-    } 
-    // Mode sélection catalogue
-    else {
-      if (!selectedProduct) {
-        alert('Veuillez sélectionner un produit');
-        return;
-      }
-      
-      const product = products.find(p => p.idProduit === selectedProduct || p.id === selectedProduct);
-      
-      const existeDeja = lignes.some(l => l.idProduit === selectedProduct);
-      if (existeDeja) {
-        alert('Ce produit est déjà dans la liste');
-        return;
-      }
+    // Création de la ligne
+    const nouvelleLigne = {
+      id: Date.now(), // ID temporaire unique
+      produitLibelle: manualProductName,
+      produitReference: manualProductRef,
+      quantite,
+      prixUnitaire,
+      tva: manualProductTVA,
+      sousTotalHT,
+      montantTVA,
+      sousTotalTTC,
+      isManual: true
+    };
 
-      const nouvelleLigne = {
-        produit: product,
-        quantite,
-        prixUnitaire,
-        sousTotal: quantite * prixUnitaire,
-        idProduit: selectedProduct,
-        isManual: false
-      };
-      setLignes([...lignes, nouvelleLigne]);
-      resetProductFields();
-    }
+    // Ajout à la liste
+    setLignes([...lignes, nouvelleLigne]);
+    
+    // Réinitialisation du formulaire
+    resetForm();
   };
 
-  const supprimerLigne = (index) => {
-    setLignes(lignes.filter((_, i) => i !== index));
+  const supprimerLigne = (id) => {
+    setLignes(lignes.filter(l => l.id !== id));
   };
 
+  // Calcul des totaux
   const calculerTotaux = () => {
-    const totalHT = lignes.reduce((acc, l) => acc + l.sousTotal, 0);
-    const totalTVA = totalHT * 0.2;
-    return { totalHT, totalTVA, totalTTC: totalHT + totalTVA };
+    const totalHT = lignes.reduce((acc, l) => acc + l.sousTotalHT, 0);
+    const totalTVA = lignes.reduce((acc, l) => acc + l.montantTVA, 0);
+    const totalTTC = lignes.reduce((acc, l) => acc + l.sousTotalTTC, 0);
+    
+    return { totalHT, totalTVA, totalTTC };
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validations
     if (!formData.fournisseur.idFournisseur) {
       alert('Veuillez sélectionner un fournisseur');
       return;
     }
+
     if (lignes.length === 0) {
       alert('Veuillez ajouter au moins un article');
       return;
     }
+
     if (!formData.dateLivraisonPrevue) {
       alert('Veuillez saisir une date de livraison prévue');
       return;
     }
 
-    const { totalHT, totalTVA, totalTTC } = calculerTotaux();
-    
-    const lignesCommande = lignes.map(l => {
-      if (l.isManual) {
-        return {
-          produitManuel: {
-            nom: l.produit.nom,
-            reference: l.produit.reference
-          },
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-        };
-      } else {
-        return {
-          produitId: l.idProduit,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-        };
-      }
-    });
+    if (!formData.adresseLivraison.trim()) {
+      alert('Veuillez saisir une adresse de livraison');
+      return;
+    }
 
+    // Construction des données pour le backend
     const commandeData = {
-      fournisseur: { idFournisseur: formData.fournisseur.idFournisseur },
-      dateCommande: new Date().toISOString(),
+      fournisseur: {
+        idFournisseur: formData.fournisseur.idFournisseur
+      },
       dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
-      lignesCommande,
-      totalHT,
-      totalTVA,
-      totalTTC,
+      adresseLivraison: formData.adresseLivraison,
+      lignesCommande: lignes.map(l => ({
+        produitLibelle: l.produitLibelle,
+        produitReference: l.produitReference,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva
+      }))
     };
+
+    console.log('📤 Données envoyées au backend:', JSON.stringify(commandeData, null, 2));
 
     try {
       setLoading(true);
+
       if (commande) {
         await onSave(commande.idCommandeFournisseur, commandeData);
       } else {
         await onSave(commandeData);
       }
+
       await onSuccess();
       onClose();
+
     } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la sauvegarde');
+      console.error('❌ Erreur:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur inconnue';
+      alert(`Erreur: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -280,14 +203,14 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   if (!isOpen) return null;
 
   const totaux = calculerTotaux();
-  const isLoading = loadingFournisseurs || loadingProducts || loading;
+  const isLoading = loadingFournisseurs || loading;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-          
+
           {/* En-tête */}
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700">
             <h3 className="text-lg font-semibold text-white">
@@ -301,7 +224,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           {isLoading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-500">Chargement des données...</p>
+              <p className="mt-2 text-gray-500">Chargement des fournisseurs...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -323,228 +246,160 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 </select>
               </div>
 
-              {/* Date de livraison */}
+              {/* Date et adresse de livraison */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">2. Date de livraison prévue</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">2. Date et adresse de livraison</h4>
+                
                 <input
                   type="date"
                   value={formData.dateLivraisonPrevue}
                   onChange={(e) => setFormData({ ...formData, dateLivraisonPrevue: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-3"
                   min={new Date().toISOString().split('T')[0]}
+                  required
+                />
+                
+                <textarea
+                  value={formData.adresseLivraison}
+                  onChange={(e) => setFormData({ ...formData, adresseLivraison: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Saisir l'adresse de livraison..."
+                  rows="3"
                   required
                 />
               </div>
 
-              {/* Ajout d'articles */}
+              {/* Ajout d'articles - SAISIE MANUELLE UNIQUEMENT */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">3. Ajouter des articles</h4>
-                
+                <h4 className="text-sm font-medium text-gray-700 mb-3">3. Ajouter un produit</h4>
+
                 {!formData.fournisseur.idFournisseur ? (
                   <div className="text-center py-4 text-gray-500">
                     Veuillez d'abord sélectionner un fournisseur
                   </div>
                 ) : (
-                  <>
-                    {/* Switch entre catalogue et saisie manuelle */}
-                    <div className="flex gap-4 mb-4">
-                      <button
-                        type="button"
-                        onClick={toggleCatalogGrid}
-                        className={`flex-1 py-2 px-4 rounded-lg border ${
-                          showCatalogGrid && !isManualEntry
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        📦 Catalogue produits
-                      </button>
-                      <button
-                        type="button"
-                        onClick={toggleManualEntry}
-                        className={`flex-1 py-2 px-4 rounded-lg border ${
-                          isManualEntry 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        ✏️ Nouveau produit
-                      </button>
+                  <div className="space-y-4">
+                    {/* Ligne 1: Nom et Référence */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Nom du produit <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manualProductName}
+                          onChange={(e) => setManualProductName(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex: Clavier mécanique"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Référence <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manualProductRef}
+                          onChange={(e) => setManualProductRef(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex: REF-001"
+                        />
+                      </div>
                     </div>
 
-                    {isManualEntry ? (
-                      /* Formulaire de saisie manuelle */
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Nom du produit <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={manualProductName}
-                            onChange={(e) => setManualProductName(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Ex: Produit spécial hors catalogue"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Référence (optionnel)
-                          </label>
-                          <input
-                            type="text"
-                            value={manualProductRef}
-                            onChange={(e) => setManualProductRef(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Ex: REF-MANU-001"
-                          />
-                        </div>
+                    {/* Ligne 2: Quantité, Prix, TVA */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Quantité <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={quantite}
+                          onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
                       </div>
-                    ) : showCatalogGrid ? (
-                      /* Grille du catalogue */
-                      <div className="mb-4">
-                        {catalogLoading ? (
-                          /* 🔵 SPINNER UNIQUEMENT */
-                          <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent"></div>
-                          </div>
-                        ) : (
-                          /* Grille de produits avec recherche */
-                          <>
-                            {/* Barre de recherche */}
-                            <div className="relative mb-4">
-                              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                              <input
-                                type="text"
-                                value={searchProductTerm}
-                                onChange={(e) => setSearchProductTerm(e.target.value)}
-                                placeholder="Rechercher dans le catalogue..."
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Prix unitaire (TND) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={prixUnitaire}
+                          onChange={(e) => setPrixUnitaire(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="0.000"
+                        />
+                      </div>
 
-                            {/* Grille de produits */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-2 border rounded-lg">
-                              {produitsFiltresEtRecherches.length > 0 ? (
-                                produitsFiltresEtRecherches.map(product => (
-                                  <button
-                                    key={product.idProduit || product.id}
-                                    type="button"
-                                    onClick={() => handleProductSelect(product)}
-                                    className={`p-3 text-left border rounded-lg transition-all ${
-                                      selectedProduct === (product.idProduit || product.id)
-                                        ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-200'
-                                        : 'hover:bg-gray-50 border-gray-200'
-                                    }`}
-                                  >
-                                    <div className="font-medium text-gray-900 truncate">
-                                      {product.nom || product.libelle}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {product.reference || 'Sans réf.'}
-                                    </div>
-                                    <div className="text-sm font-semibold text-blue-600 mt-2">
-                                      {formatPrice(product.prixAchat || 0)}
-                                    </div>
-                                    {product.stock !== undefined && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Stock: {product.stock}
-                                      </div>
-                                    )}
-                                  </button>
-                                ))
-                              ) : (
-                                <div className="col-span-3 text-center py-8 text-gray-500">
-                                  Aucun produit trouvé pour ce fournisseur
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          TVA (%) <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={manualProductTVA}
+                          onChange={(e) => setManualProductTVA(parseFloat(e.target.value))}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="20">20% (Standard)</option>
+                          <option value="10">10% (Réduit)</option>
+                          <option value="5.5">5.5% (Super réduit)</option>
+                          <option value="0">0% (Exonéré)</option>
+                        </select>
                       </div>
-                    ) : null}
-
-                    {/* Quantité et prix (affichés si un produit est sélectionné) */}
-                    {(selectedProduct || isManualEntry) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Quantité <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={quantite}
-                            onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Prix unitaire (TND) <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.001"
-                            value={prixUnitaire}
-                            onChange={(e) => setPrixUnitaire(parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    </div>
 
                     {/* Bouton d'ajout */}
-                    {(selectedProduct || isManualEntry) && (
-                      <button
-                        type="button"
-                        onClick={ajouterLigne}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        Ajouter à la commande
-                      </button>
-                    )}
-                  </>
+                    <button
+                      type="button"
+                      onClick={ajouterProduitManuel}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      Ajouter le produit à la commande
+                    </button>
+                  </div>
                 )}
 
                 {/* Tableau des articles */}
                 {lignes.length > 0 ? (
-                  <div className="mt-4 border rounded-lg overflow-hidden">
+                  <div className="mt-6 border rounded-lg overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Produit</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Qté</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prix unitaire</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prix unit.</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">TVA</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total HT</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total TTC</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {lignes.map((ligne, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
+                        {lignes.map((ligne) => (
+                          <tr key={ligne.id} className="hover:bg-gray-50">
                             <td className="px-4 py-2">
-                              <div className="font-medium">
-                                {ligne.produit?.nom || ligne.produit?.libelle}
-                                {ligne.isManual && (
-                                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                                    Nouveau
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {ligne.produit?.reference || 'Sans référence'}
-                              </div>
+                              <div className="font-medium">{ligne.produitLibelle}</div>
+                              <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
                             </td>
                             <td className="px-4 py-2 text-right">{ligne.quantite}</td>
                             <td className="px-4 py-2 text-right">{formatPrice(ligne.prixUnitaire)}</td>
-                            <td className="px-4 py-2 text-right font-medium text-blue-600">{formatPrice(ligne.sousTotal)}</td>
+                            <td className="px-4 py-2 text-right">{ligne.tva}%</td>
+                            <td className="px-4 py-2 text-right">{formatPrice(ligne.sousTotalHT)}</td>
+                            <td className="px-4 py-2 text-right font-medium text-blue-600">
+                              {formatPrice(ligne.sousTotalTTC)}
+                            </td>
                             <td className="px-4 py-2 text-center">
                               <button
                                 type="button"
-                                onClick={() => supprimerLigne(index)}
+                                onClick={() => supprimerLigne(ligne.id)}
                                 className="text-red-600 hover:text-red-800"
                                 title="Supprimer"
                               >
@@ -557,7 +412,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-center text-gray-500 py-4">Aucun article ajouté</p>
+                  <p className="text-center text-gray-500 py-4 mt-4">Aucun article ajouté</p>
                 )}
               </div>
 
@@ -572,7 +427,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                         <span className="font-medium">{formatPrice(totaux.totalHT)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">TVA (20%)</span>
+                        <span className="text-gray-600">TVA</span>
                         <span className="font-medium">{formatPrice(totaux.totalTVA)}</span>
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-2">

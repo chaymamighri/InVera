@@ -1,26 +1,30 @@
-// ProcurementDashboard.jsx - Version avec la même logique que SalesDashboard
+// src/pages/dashboard/sales/SalesDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../../../context/SidebarContext';
 import Footer from '../../../components/Footer';
 
-// Icônes (gardées pour la cohérence)
+// Icônes Heroicons pour le sales
 import {
+  ChartBarIcon,
   CubeIcon,
   ShoppingCartIcon,
-  ChartBarIcon,
+  CurrencyDollarIcon,
+  UsersIcon,
+  DocumentTextIcon,
+  PresentationChartLineIcon,
 } from '@heroicons/react/24/outline';
 
-const ProcurementDashboard = () => {
+const SalesDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { collapsed, toggleSidebar } = useSidebar();
   
   const [currentUser, setCurrentUser] = useState({
-    name: 'Responsable Achats',
-    role: 'Responsable Achats',
-    email: 'achats@invera.com',
-    initials: 'RA'
+    name: 'Responsable Commercial',
+    role: 'Responsable Ventes',
+    email: 'commercial@invera.com',
+    initials: 'RC'
   });
 
   // ========== CHARGEMENT DES INFOS UTILISATEUR ==========
@@ -40,9 +44,9 @@ const ProcurementDashboard = () => {
         initials
       });
     } else {
-      const userName = localStorage.getItem('userName') || 'Responsable Achats';
-      const userEmail = localStorage.getItem('userEmail') || 'achats@invera.com';
-      const userRole = localStorage.getItem('userRole') || 'Responsable Achats';
+      const userName = localStorage.getItem('userName') || 'Responsable Commercial';
+      const userEmail = localStorage.getItem('userEmail') || 'commercial@invera.com';
+      const userRole = localStorage.getItem('userRole') || 'Responsable Ventes';
       const initials = userName
         .split(' ')
         .map(word => word[0])
@@ -62,80 +66,142 @@ const ProcurementDashboard = () => {
   // ========== FONCTIONS UTILITAIRES ==========
   const getFirstName = (fullName) => fullName.split(' ')[0];
 
-  // ========== STRUCTURE DE NAVIGATION ==========
-  const menuItems = [
-    { 
-      id: 'stats', 
-      title: 'Statistiques', 
-      icon: <ChartBarIcon className="w-5 h-5" />, 
-      badge: null 
+  // ========== STRUCTURE DE NAVIGATION - CORRESPOND À VOS ROUTES ==========
+  const sections = [
+    {
+      title: 'TABLEAU DE BORD',
+      items: [
+        { 
+          id: 'dashboard', 
+          label: 'Tableau de bord', 
+          icon: ChartBarIcon,
+          path: 'dashboard'
+        },
+      ]
     },
-    { 
-      id: 'produits', 
-      title: 'Catalogue produits', 
-      icon: <CubeIcon className="w-5 h-5" />,
-      badge: null 
+    {
+      title: 'GESTION COMMERCIALE',
+      items: [
+        { 
+          id: 'products', 
+          label: 'Catalogue produits', 
+          icon: CubeIcon,
+          path: 'products'
+        },
+        { 
+          id: 'clients', 
+          label: 'Clients', 
+          icon: UsersIcon,
+          path: 'clients'
+        },
+      ]
     },
-    { 
-      id: 'commandes', 
-      title: 'Bons de commande', 
-      icon: <ShoppingCartIcon className="w-5 h-5" />,
-      badge: null 
+    {
+      title: 'TRANSACTIONS',
+      items: [
+        { 
+          id: 'orders', 
+          label: 'Commandes clients', 
+          icon: ShoppingCartIcon,
+          path: 'orders'
+        },
+        { 
+          id: 'sales', 
+          label: 'Ventes', 
+          icon: CurrencyDollarIcon,
+          path: 'sales'
+        },
+        { 
+          id: 'invoices', 
+          label: 'Facturation', 
+          icon: DocumentTextIcon,
+          path: 'invoices'
+        },
+      ]
     },
+    {
+      title: 'ANALYSE',
+      items: [
+        { 
+          id: 'reports', 
+          label: 'Rapports', 
+          icon: PresentationChartLineIcon,
+          path: 'reports'
+        },
+      ]
+    }
   ];
 
   // ========== FONCTION POUR VÉRIFIER SI UNE PAGE EST ACTIVE ==========
-  const isActive = (itemId) => {
+  const isActive = (itemPath) => {
     const currentPath = location.pathname;
     
-    // Page d'accueil (stats par défaut)
-    if (itemId === 'stats') {
-      return currentPath === '/dashboard/procurement' || 
-             currentPath === '/dashboard/procurement/' ||
-             currentPath === '/dashboard/procurement/stats';
+    // Cas spécial pour la racine
+    if (itemPath === 'dashboard') {
+      return currentPath === '/dashboard/sales/dashboard' || 
+             currentPath === '/dashboard/sales';
     }
     
-    // Autres pages
-    return currentPath === `/dashboard/procurement/${itemId}` || 
-           currentPath.startsWith(`/dashboard/procurement/${itemId}/`);
+    // Pour les autres pages
+    return currentPath === `/dashboard/sales/${itemPath}` || 
+           currentPath.startsWith(`/dashboard/sales/${itemPath}/`);
   };
 
   // ========== TITRE DYNAMIQUE BASÉ SUR L'URL ==========
   const getPageTitle = () => {
     const currentPath = location.pathname;
     
-    if (currentPath === '/dashboard/procurement' || 
-        currentPath === '/dashboard/procurement/') {
-      return 'Statistiques Achats';
+    if (currentPath === '/dashboard/sales' || 
+        currentPath === '/dashboard/sales/') {
+      return 'Tableau de bord';
     }
     
-    const currentItem = menuItems.find(item => {
-      return currentPath === `/dashboard/procurement/${item.id}` || 
-             currentPath.startsWith(`/dashboard/procurement/${item.id}/`);
-    });
+    if (currentPath.includes('/dashboard')) return 'Tableau de bord';
+    if (currentPath.includes('/products')) return 'Catalogue produits';
+    if (currentPath.includes('/clients')) return 'Gestion des clients';
+    if (currentPath.includes('/orders')) return 'Commandes clients';
+    if (currentPath.includes('/sales')) return 'Ventes';
+    if (currentPath.includes('/invoices')) return 'Facturation';
+    if (currentPath.includes('/reports')) return 'Rapports';
     
-    return currentItem?.title || 'Tableau de Bord Achats';
+    return 'Tableau de Bord Commercial';
   };
 
   // ========== DESCRIPTION DYNAMIQUE BASÉE SUR L'URL ==========
   const getPageDescription = () => {
     const currentPath = location.pathname;
     
-    if (currentPath === '/dashboard/procurement' || 
-        currentPath === '/dashboard/procurement/' || 
-        currentPath === '/dashboard/procurement/stats') {
-      return 'Indicateurs de performance achats';
+    if (currentPath === '/dashboard/sales' || 
+        currentPath === '/dashboard/sales/' ||
+        currentPath.includes('/dashboard')) {
+      return 'Statistiques et indicateurs de performance';
     }
     
-    if (currentPath.includes('/produits')) {
-      return 'Gérez votre catalogue produits';
+    if (currentPath.includes('/products')) {
+      return 'Gérez votre catalogue de produits';
     }
     
-    if (currentPath.includes('/commandes')) {
-      return 'Gérez vos bons de commande fournisseurs';
+    if (currentPath.includes('/clients')) {
+      return 'Gérez vos clients et leurs informations';
     }
     
-    return 'Gestion des achats et approvisionnements';
+    if (currentPath.includes('/orders')) {
+      return 'Consultez et gérez les commandes clients';
+    }
+    
+    if (currentPath.includes('/sales')) {
+      return 'Suivez les ventes réalisées';
+    }
+    
+    if (currentPath.includes('/invoices')) {
+      return 'Gérez la facturation clients';
+    }
+    
+    if (currentPath.includes('/reports')) {
+      return 'Analysez les performances commerciales';
+    }
+    
+    return 'Gestion commerciale et suivi des opérations';
   };
 
   return (
@@ -151,10 +217,10 @@ const ProcurementDashboard = () => {
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Achats
+                  Tableau de Bord Commercial
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                  Stocks et commandes
+                   Suivi des ventes et gestion des produits
                 </p>
               </div>
             )}
@@ -171,52 +237,50 @@ const ProcurementDashboard = () => {
         {/* ========== NAVIGATION ========== */}
         <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
           <ul className="space-y-1 flex-1 overflow-y-auto">
-            {menuItems.map((item) => (
-              <li key={item.id}>
-                <Link
-                  to={`/dashboard/procurement/${item.id === 'stats' ? '' : item.id}`}
-                  className={`w-full flex items-center ${
-                    collapsed ? 'justify-center px-3 py-3' : 'px-4 py-3'
-                  } rounded-lg transition-all duration-200 relative group ${
-                    isActive(item.id)
-                      ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold border-l-3 border-blue-500'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                  title={collapsed ? item.title : ''}
-                >
-                  <span className={`flex-shrink-0 ${
-                    isActive(item.id) ? 'text-blue-600' : 'text-gray-500'
-                  }`}>
-                    {item.icon}
-                  </span>
-                  
-                  {!collapsed && (
-                    <>
-                      <span className="ml-3 flex-1 text-left text-sm">{item.title}</span>
-                      {item.badge && (
-                        <span className={`${
-                          isActive(item.id) 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-100 text-gray-700'
-                        } text-xs px-2 py-1 rounded-full ml-2 flex-shrink-0`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Tooltip pour version réduite */}
-                  {collapsed && (
-                    <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
-                      {item.title}
-                      {item.badge && (
-                        <span className="ml-2 bg-white text-gray-800 text-xs px-1.5 py-0.5 rounded-full">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </Link>
+            {sections.map((section) => (
+              <li key={section.title}>
+                {!collapsed && (
+                  <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {section.title}
+                  </h3>
+                )}
+                <ul className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path);
+
+                    return (
+                      <li key={item.id}>
+                        <Link
+                          to={`/dashboard/sales/${item.path}`}
+                          className={`w-full flex items-center ${
+                            collapsed ? 'justify-center px-3 py-3' : 'px-4 py-3'
+                          } rounded-lg transition-all duration-200 relative group ${
+                            active
+                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold border-l-3 border-blue-500'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                          title={collapsed ? item.label : ''}
+                        >
+                          <Icon className={`w-5 h-5 flex-shrink-0 ${
+                            active ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
+                          }`} />
+                          
+                          {!collapsed && (
+                            <span className="ml-3 flex-1 text-left text-sm">{item.label}</span>
+                          )}
+                          
+                          {/* Tooltip pour version réduite */}
+                          {collapsed && (
+                            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+                              {item.label}
+                            </div>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
               </li>
             ))}
           </ul>
@@ -291,4 +355,4 @@ const ProcurementDashboard = () => {
   );
 };
 
-export default ProcurementDashboard;
+export default SalesDashboard;
