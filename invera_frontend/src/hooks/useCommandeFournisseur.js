@@ -1,4 +1,4 @@
-// hooks/useCommandeFournisseur.js - Version sans statistiques
+// hooks/useCommandeFournisseur.js
 import { useState, useEffect, useCallback } from 'react';
 import commandeFournisseurService from '../services/commandeFournisseurService';
 
@@ -24,10 +24,9 @@ export const useCommandeFournisseur = () => {
   }, []);
 
   /**
-   * Charge toutes les commandes avec gestion d'erreur améliorée
+   * Charge toutes les commandes
    */
   const fetchCommandes = useCallback(async (showErrorToast = true) => {
-    // Vérifier l'authentification avant de faire l'appel
     if (!checkAuth()) {
       console.warn('⚠️ Utilisateur non authentifié');
       setError('Session expirée. Veuillez vous reconnecter.');
@@ -48,15 +47,12 @@ export const useCommandeFournisseur = () => {
       console.log('✅ Commandes chargées:', data?.length || 0);
       
       setCommandes(Array.isArray(data) ? data : []);
-      setError(null);
     } catch (err) {
       console.error('❌ Erreur fetchCommandes:', err);
       
-      // Gestion fine des erreurs
       let errorMessage = 'Erreur lors du chargement des commandes';
       
       if (err.response) {
-        // Erreur avec réponse du serveur
         switch (err.response.status) {
           case 401:
             errorMessage = 'Session expirée. Veuillez vous reconnecter.';
@@ -74,21 +70,17 @@ export const useCommandeFournisseur = () => {
             errorMessage = `Erreur ${err.response.status}: ${err.response.data?.message || 'Inconnue'}`;
         }
       } else if (err.request) {
-        // Pas de réponse du serveur
         errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
       } else {
-        // Erreur de configuration
         errorMessage = err.message || 'Une erreur est survenue';
       }
       
       setError(errorMessage);
       
-      // Ne pas afficher de toast pour les erreurs 401 (redirection gérée ailleurs)
       if (showErrorToast && err.response?.status !== 401) {
         showToast(errorMessage, 'error');
       }
       
-      // En cas d'erreur 401, on vide les commandes
       if (err.response?.status === 401) {
         setCommandes([]);
       }
@@ -98,29 +90,20 @@ export const useCommandeFournisseur = () => {
     }
   }, [checkAuth]);
 
-  // Effet de chargement initial
+  // Chargement initial
   useEffect(() => {
     if (initialLoadDone) return;
-    let mounted = true;
     
     const loadInitialData = async () => {
       if (!checkAuth()) {
-        if (mounted) {
-          setError('Session expirée. Veuillez vous reconnecter.');
-          setInitialLoadDone(true);
-        }
+        setError('Session expirée. Veuillez vous reconnecter.');
+        setInitialLoadDone(true);
         return;
       }
-      
-      await fetchCommandes(false); 
-      // ❌ SUPPRIMÉ : fetchStats()
+      await fetchCommandes(false);
     };
     
     loadInitialData();
-    
-    return () => {
-      mounted = false;
-    };
   }, [fetchCommandes, checkAuth, initialLoadDone]);
 
   /**
@@ -129,7 +112,6 @@ export const useCommandeFournisseur = () => {
   const retry = useCallback(() => {
     setError(null);
     fetchCommandes(true);
-    // ❌ SUPPRIMÉ : fetchStats()
   }, [fetchCommandes]);
 
   /**
@@ -137,7 +119,6 @@ export const useCommandeFournisseur = () => {
    */
   const refresh = useCallback(() => {
     fetchCommandes(true);
-    // ❌ SUPPRIMÉ : fetchStats()
   }, [fetchCommandes]);
 
   /**
@@ -205,7 +186,7 @@ export const useCommandeFournisseur = () => {
   };
 
   /**
-   * Supprime une commande
+   * Supprime une commande (soft delete)
    */
   const deleteCommande = async (id) => {
     if (!checkAuth()) {
@@ -401,7 +382,9 @@ export const useCommandeFournisseur = () => {
     }
   };
 
-  // Fonction pour charger les commandes archivées (soft delete)
+  /**
+   * Charge les commandes archivées
+   */
   const fetchArchivedCommandes = useCallback(async () => {
     if (!checkAuth()) {
       return;
@@ -411,15 +394,18 @@ export const useCommandeFournisseur = () => {
       setLoading(true);
       const data = await commandeFournisseurService.getArchivedCommandes();
       setCommandes(Array.isArray(data) ? data : []);
+      showToast(`${data?.length || 0} commande(s) archivée(s)`, 'info');
     } catch (err) {
       console.error('Erreur chargement archives:', err);
-      // ❌ Supprimé l'appel à toast.error (non défini)
+      showToast('Erreur lors du chargement des archives', 'error');
     } finally {
       setLoading(false);
     }
   }, [checkAuth]);
 
-  // Fonction pour restaurer une commande
+  /**
+   * Restaure une commande archivée
+   */
   const restoreCommande = useCallback(async (id) => {
     if (!checkAuth()) {
       showToast('Session expirée', 'error');
@@ -430,6 +416,7 @@ export const useCommandeFournisseur = () => {
       setLoading(true);
       const result = await commandeFournisseurService.restoreCommande(id);
       showToast('Commande restaurée avec succès', 'success');
+      await refresh();
       return result;
     } catch (err) {
       console.error('Erreur restauration:', err);
@@ -438,7 +425,7 @@ export const useCommandeFournisseur = () => {
     } finally {
       setLoading(false);
     }
-  }, [checkAuth]);
+  }, [checkAuth, refresh]);
 
   return {
     // Données
