@@ -7,18 +7,26 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Data
-@Getter
-@Setter
 public class LigneCommandeDTO {
     private Integer idLigneCommandeFournisseur;
+
+    // Produit du catalogue uniquement (obligatoire)
     private Integer produitId;
-    private Boolean isManual;
+
+    // Informations produit (en lecture seule)
     private String produitLibelle;
     private String produitReference;
+
+    // Quantités et prix
     private Integer quantite;
     private BigDecimal prixUnitaire;
-    private BigDecimal sousTotal;
-    private BigDecimal remise;
+
+    // Totaux calculés
+    private BigDecimal sousTotalHT;
+    private BigDecimal montantTVA;
+    private BigDecimal sousTotalTTC;
+
+    // Suivi de réception
     private Integer quantiteRecue;
     private String notes;
 }

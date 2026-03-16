@@ -37,24 +37,36 @@ public class CommandeFournisseur {
 
     private LocalDateTime dateLivraisonReelle;
 
+    //Adresse de livraison
+    @Column(name = "adresse_livraison", length = 500)
+    private String adresseLivraison;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private StatutCommande statut;
 
-    @Column(length = 50)
+    @Column(length = 50, unique = true)
     private String numeroCommande;
 
-    @Column(precision = 10, scale = 2)
+    //Passage à scale = 3 pour plus de précision
+    @Column(precision = 10, scale = 3)
     private BigDecimal totalHT;
 
-    @Column(precision = 10, scale = 2)
+    @Column(precision = 10, scale = 3)
     private BigDecimal totalTVA;
 
-    @Column(precision = 10, scale = 2)
+    @Column(precision = 10, scale = 3)
     private BigDecimal totalTTC;
+
+    //Taux de TVA appliqué à la commande
+    @Column(name = "taux_tva", precision = 5, scale = 2)
+    private BigDecimal tauxTVA;
 
     @Column(nullable = false)
     private Boolean actif = true;
+
+    @Column(name = "notes", length = 1000)
+    private String notes;
 
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
@@ -64,7 +76,7 @@ public class CommandeFournisseur {
     private LocalDateTime createdAt;
 
     @CreatedBy
-    @JoinColumn(name = "created_by", nullable = false,  updatable = false)
+    @JoinColumn(name = "created_by", nullable = false, updatable = false)
     private String createdBy;
 
     @UpdateTimestamp
@@ -85,5 +97,58 @@ public class CommandeFournisseur {
             this.libelle = libelle;
         }
 
+        public String getLibelle() {
+            return libelle;
+        }
+    }
+
+    // ✅ METHODES UTILITAIRES
+
+    /**
+     * Calcule les totaux de la commande à partir des lignes
+     */
+    public void calculerTotaux() {
+        if (lignesCommande != null && !lignesCommande.isEmpty()) {
+            this.totalHT = lignesCommande.stream()
+                    .map(LigneCommandeFournisseur::getSousTotalHT)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+
+            this.totalTVA = lignesCommande.stream()
+                    .map(LigneCommandeFournisseur::getMontantTVA)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+
+            this.totalTTC = lignesCommande.stream()
+                    .map(LigneCommandeFournisseur::getSousTotalTTC)
+                    .filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+        }
+    }
+
+    /**
+     * Vérifie si la commande est modifiable
+     */
+    public boolean isModifiable() {
+        return this.statut == StatutCommande.BROUILLON;
+    }
+
+    /**
+     * Vérifie si la commande peut être annulée
+     */
+    public boolean isAnnulable() {
+        return this.statut != StatutCommande.FACTUREE &&
+                this.statut != StatutCommande.RECUE;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("CommandeFournisseur{id=%d, numero='%s', fournisseur=%s, totalTTC=%s, statut=%s}",
+                idCommandeFournisseur, numeroCommande,
+                fournisseur != null ? fournisseur.getNomFournisseur() : "null",
+                totalTTC, statut);
     }
 }
