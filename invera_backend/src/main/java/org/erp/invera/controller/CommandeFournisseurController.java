@@ -23,19 +23,9 @@ public class CommandeFournisseurController {
     private final CommandeFournisseurService commandeService;
 
     // ========= GET ALL =========
-    @GetMapping("/all")
-    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes(
-            @RequestParam(required = false, defaultValue = "true") Boolean actif) {
-
-        List<CommandeFournisseurDTO> commandes;
-
-        if (actif) {
-            commandes = commandeService.getActiveCommandes();
-        } else {
-            commandes = commandeService.getArchivedCommandes();
-        }
-
-        return ResponseEntity.ok(commandes);
+    @GetMapping("/All")
+    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes() {
+        return ResponseEntity.ok(commandeService.getAll());
     }
 
     // ========= GET BY ID =========
@@ -133,13 +123,6 @@ public class CommandeFournisseurController {
     @PutMapping("/{id}/restore")
     public ResponseEntity<CommandeFournisseurDTO> restoreCommande(@PathVariable Integer id) {
         return ResponseEntity.ok(commandeService.restoreCommande(id));
-    }
-
-    // Optionnel - Hard delete (suppression définitive)
-    @DeleteMapping("/{id}/hard-delete")
-    public ResponseEntity<Void> hardDeleteCommande(@PathVariable Integer id) {
-        commandeService.hardDeleteCommande(id);
-        return ResponseEntity.noContent().build();
     }
 
 }

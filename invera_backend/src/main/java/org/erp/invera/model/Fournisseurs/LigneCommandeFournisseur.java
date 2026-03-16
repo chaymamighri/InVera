@@ -33,15 +33,25 @@ public class LigneCommandeFournisseur {
     @Column(nullable = false)
     private Integer quantite;
 
-    @Column(precision = 10, scale = 2)
+    @Column(precision = 10, scale = 3)
     private BigDecimal prixUnitaire;
 
+    // ✅ AJOUTER CES CHAMPS MANQUANTS
+    @Column(name = "sous_total_ht", precision = 10, scale = 3)
+    private BigDecimal sousTotalHT;
+
+    @Column(name = "montant_tva", precision = 10, scale = 3)
+    private BigDecimal montantTVA;
+
+    @Column(name = "sous_total_ttc", precision = 10, scale = 3)
+    private BigDecimal sousTotalTTC;
+
+    // Ancien champ sousTotal (à garder pour compatibilité ou supprimer)
     @Column(precision = 10, scale = 2)
     private BigDecimal sousTotal;
 
     private Integer quantiteRecue = 0;
 
-    // CHAMP POUR LES NOTES (produits manuels)
     @Column(name = "notes", length = 500)
     private String notes;
 
@@ -62,23 +72,23 @@ public class LigneCommandeFournisseur {
         this.quantite = quantite;
         this.prixUnitaire = prixUnitaire;
         this.actif = true;
-        calculerSousTotal();
     }
 
-    // ✅ NOUVEAU CONSTRUCTEUR pour produit manuel
-    public LigneCommandeFournisseur(Integer quantite, BigDecimal prixUnitaire, String notes) {
-        this.produit = null;  // Pas de produit en base
-        this.quantite = quantite;
-        this.prixUnitaire = prixUnitaire;
-        this.notes = notes;
-        this.actif = true;
-        calculerSousTotal();
-    }
-
-    // Méthodes métier
-    public void calculerSousTotal() {
+    // Méthode pour calculer tous les totaux
+    public void calculerTotaux(BigDecimal tauxTVA) {
         if (prixUnitaire != null && quantite != null) {
-            this.sousTotal = prixUnitaire.multiply(BigDecimal.valueOf(quantite));
+            // Calculs avec 3 décimales
+            this.sousTotalHT = prixUnitaire.multiply(BigDecimal.valueOf(quantite))
+                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+
+            this.montantTVA = sousTotalHT.multiply(tauxTVA)
+                    .divide(new BigDecimal("100"), 3, BigDecimal.ROUND_HALF_UP);
+
+            this.sousTotalTTC = sousTotalHT.add(montantTVA)
+                    .setScale(3, BigDecimal.ROUND_HALF_UP);
+
+            // Pour compatibilité avec l'ancien champ
+            this.sousTotal = sousTotalHT.setScale(2, BigDecimal.ROUND_HALF_UP);
         }
     }
 }
