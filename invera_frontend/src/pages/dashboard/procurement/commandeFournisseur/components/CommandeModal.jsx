@@ -1,7 +1,8 @@
-// components/commandeModal.jsx - Version simplifiée (saisie manuelle uniquement)
-import React, { useState, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+// components/commandeModal.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
+import useProducts from '../../../../../hooks/useProducts';
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -10,58 +11,115 @@ const formatPrice = (price) => {
   }).format(price);
 };
 
-const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
-  // Récupération des fournisseurs uniquement (plus de produits)
-  const { fournisseurs, fetchAllFournisseurs, loading: loadingFournisseurs } = useFournisseur();
+// ✅ Fonction pour déterminer le statut actif d'un produit
+const getProductStatus = (produit) => {
+  if (!produit) return false;
+  if (produit.actif !== undefined) return produit.actif;
+  if (produit.estActif !== undefined) return produit.estActif;
+  if (produit.active !== undefined) return produit.active;
+  if (produit.isActive !== undefined) return produit.isActive;
+  return true;
+};
 
-  // États du formulaire
+// ✅ Fonction pour récupérer le taux TVA depuis la catégorie
+const getTauxTVA = (produit) => {
+  if (!produit) return 19;
+  
+  // Récupérer la TVA depuis la catégorie du produit
+  if (produit.categorie?.tauxTVA) {
+    return produit.categorie.tauxTVA;
+  }
+  
+  // Fallback
+  return 19;
+};
+
+const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
+  // Hooks
+  const { fournisseurs, fetchAllFournisseurs, loading: loadingFournisseurs } = useFournisseur();
+  
+  const { 
+    products: produitsBruts,           
+    loading: loadingProduits,
+    loadProducts,
+  } = useProducts();
+
+  // ✅ Normaliser les produits avec statut ET taux TVA
+  const produits = useMemo(() => {
+    if (!produitsBruts) return [];
+    return produitsBruts.map(p => ({
+      ...p,
+      estActif: getProductStatus(p),
+      tauxTVA: getTauxTVA(p)
+    }));
+  }, [produitsBruts]);
+
+  // États
   const [formData, setFormData] = useState({
     fournisseur: { idFournisseur: '', nomFournisseur: '', email: '' },
     dateLivraisonPrevue: '',
-    adresseLivraison: ''
+    adresseLivraison: '',
   });
 
   const [lignes, setLignes] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // États pour la saisie manuelle (simplifiée)
-  const [manualProductName, setManualProductName] = useState('');
-  const [manualProductRef, setManualProductRef] = useState('');
-  const [manualProductTVA, setManualProductTVA] = useState(20);
+  
+  const [produitSelectionne, setProduitSelectionne] = useState(null);
   const [quantite, setQuantite] = useState(1);
   const [prixUnitaire, setPrixUnitaire] = useState(0);
+  const [afficherInactifs, setAfficherInactifs] = useState(false);
+
+  // Groupes de produits
+  const produitsGroupes = useMemo(() => {
+    if (!produits) return { actifs: [], inactifs: [] };
+    return {
+      actifs: produits.filter(p => p.estActif === true),
+      inactifs: produits.filter(p => p.estActif === false)
+    };
+  }, [produits]);
+
+  const produitsAffiches = useMemo(() => {
+    if (afficherInactifs) return produits;
+    return produitsGroupes.actifs;
+  }, [produits, produitsGroupes, afficherInactifs]);
 
   // Chargement initial
   useEffect(() => {
     fetchAllFournisseurs();
+    loadProducts(0, {});
   }, []);
 
-  // Gestion de l'ouverture du modal
+  // Gestion ouverture modal
   useEffect(() => {
     if (isOpen) {
       if (commande) {
         setFormData({
           fournisseur: commande.fournisseur || { idFournisseur: '', nomFournisseur: '', email: '' },
           dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
-          adresseLivraison: commande.adresseLivraison || ''
+          adresseLivraison: commande.adresseLivraison || '',
         });
         setLignes(commande.lignesCommande || []);
       } else {
-        setFormData({
-          fournisseur: { idFournisseur: '', nomFournisseur: '', email: '' },
-          dateLivraisonPrevue: '',
-          adresseLivraison: ''
-        });
-        setLignes([]);
         resetForm();
       }
     }
   }, [isOpen, commande]);
 
   const resetForm = () => {
-    setManualProductName('');
-    setManualProductRef('');
-    setManualProductTVA(20);
+    setFormData({
+      fournisseur: { idFournisseur: '', nomFournisseur: '', email: '' },
+      dateLivraisonPrevue: '',
+      adresseLivraison: '',
+    });
+    setLignes([]);
+    setProduitSelectionne(null);
+    setQuantite(1);
+    setPrixUnitaire(0);
+    setAfficherInactifs(false);
+  };
+
+  const resetProductSelection = () => {
+    setProduitSelectionne(null);
     setQuantite(1);
     setPrixUnitaire(0);
   };
@@ -69,22 +127,46 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   const handleFournisseurChange = (e) => {
     const fournisseurId = parseInt(e.target.value);
     const selected = fournisseurs.find(f => f.idFournisseur === fournisseurId);
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' }
-    });
+    }));
+    resetProductSelection();
   };
 
-  // ✅ Ajout d'un produit manuel
-  const ajouterProduitManuel = () => {
-    // Validations
-    if (!manualProductName.trim()) {
-      alert('Veuillez saisir un nom de produit');
+  // Sélection produit
+  const handleProductSelect = (e) => {
+    const productId = parseInt(e.target.value);
+    if (!productId) {
+      setProduitSelectionne(null);
       return;
     }
+    
+    const produit = produits.find(p => p.id === productId);
+    setProduitSelectionne(produit);
+    
+    if (produit) {
+      setPrixUnitaire(produit.prixAchat || produit.prix || 0);
+      
+      if (!produit.estActif) {
+        const confirm = window.confirm(
+          `⚠️ Le produit "${produit.nom || produit.libelle}" est actuellement inactif.\n\n` +
+          `Il pourra être commandé mais restera inactif jusqu'à la RÉCEPTION de la commande.\n\n` +
+          `Voulez-vous continuer ?`
+        );
+        
+        if (!confirm) {
+          setProduitSelectionne(null);
+          e.target.value = '';
+        }
+      }
+    }
+  };
 
-    if (!manualProductRef.trim()) {
-      alert('La référence est obligatoire');
+  // Ajout produit avec TVA depuis catégorie
+  const ajouterProduit = () => {
+    if (!produitSelectionne) {
+      alert('Veuillez sélectionner un produit');
       return;
     }
 
@@ -98,44 +180,62 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       return;
     }
 
-    // Calculs avec TVA
+    if (produitSelectionne.stock > 0 && quantite > produitSelectionne.stock) {
+      const confirm = window.confirm(
+        `⚠️ La quantité commandée (${quantite}) est supérieure au stock actuel (${produitSelectionne.stock}).\n\n` +
+        `Voulez-vous continuer ?`
+      );
+      if (!confirm) return;
+    }
+
+    // ✅ Calcul avec la TVA du produit (depuis catégorie)
+    const tauxTVA = produitSelectionne.tauxTVA || 19;
     const sousTotalHT = quantite * prixUnitaire;
-    const montantTVA = sousTotalHT * (manualProductTVA / 100);
+    const montantTVA = sousTotalHT * (tauxTVA / 100);
     const sousTotalTTC = sousTotalHT + montantTVA;
 
-    // Création de la ligne
     const nouvelleLigne = {
-      id: Date.now(), // ID temporaire unique
-      produitLibelle: manualProductName,
-      produitReference: manualProductRef,
+      id: Date.now(),
+      produitId: produitSelectionne.id,
+      produitLibelle: produitSelectionne.nom || produitSelectionne.libelle,
+      produitReference: produitSelectionne.reference || `REF-${produitSelectionne.id}`,
       quantite,
       prixUnitaire,
-      tva: manualProductTVA,
+      tauxTVA, // ✅ Stocké pour chaque ligne
       sousTotalHT,
       montantTVA,
       sousTotalTTC,
-      isManual: true
+      estInactif: !produitSelectionne.estActif,
+      categorie: produitSelectionne.categorie?.nomCategorie
     };
 
-    // Ajout à la liste
-    setLignes([...lignes, nouvelleLigne]);
-    
-    // Réinitialisation du formulaire
-    resetForm();
+    setLignes(prev => [...prev, nouvelleLigne]);
+    resetProductSelection();
   };
 
   const supprimerLigne = (id) => {
-    setLignes(lignes.filter(l => l.id !== id));
+    setLignes(prev => prev.filter(l => l.id !== id));
   };
 
-  // Calcul des totaux
-  const calculerTotaux = () => {
+  // Calcul des totaux avec détail par taux
+  const totaux = useMemo(() => {
     const totalHT = lignes.reduce((acc, l) => acc + l.sousTotalHT, 0);
     const totalTVA = lignes.reduce((acc, l) => acc + l.montantTVA, 0);
     const totalTTC = lignes.reduce((acc, l) => acc + l.sousTotalTTC, 0);
     
-    return { totalHT, totalTVA, totalTTC };
-  };
+    // Détail par taux pour affichage
+    const detailParTaux = lignes.reduce((acc, l) => {
+      const taux = l.tauxTVA || 19;
+      if (!acc[taux]) {
+        acc[taux] = { ht: 0, tva: 0 };
+      }
+      acc[taux].ht += l.sousTotalHT;
+      acc[taux].tva += l.montantTVA;
+      return acc;
+    }, {});
+    
+    return { totalHT, totalTVA, totalTTC, detailParTaux };
+  }, [lignes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -161,7 +261,17 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       return;
     }
 
-    // Construction des données pour le backend
+    const produitsInactifs = lignes.filter(l => l.estInactif);
+    if (produitsInactifs.length > 0) {
+      const confirm = window.confirm(
+        `⚠️ Cette commande contient ${produitsInactifs.length} produit(s) inactif(s).\n\n` +
+        `Ils seront automatiquement réactivés à la réception.\n\n` +
+        `Voulez-vous continuer ?`
+      );
+      if (!confirm) return;
+    }
+
+    // ✅ Envoi des données avec TVA par ligne
     const commandeData = {
       fournisseur: {
         idFournisseur: formData.fournisseur.idFournisseur
@@ -169,32 +279,26 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
       adresseLivraison: formData.adresseLivraison,
       lignesCommande: lignes.map(l => ({
-        produitLibelle: l.produitLibelle,
-        produitReference: l.produitReference,
+        produitId: l.produitId,
         quantite: l.quantite,
         prixUnitaire: l.prixUnitaire,
-        tva: l.tva
+        tauxTVA: l.tauxTVA // ✅ TVA par ligne
       }))
     };
 
-    console.log('📤 Données envoyées au backend:', JSON.stringify(commandeData, null, 2));
-
     try {
       setLoading(true);
-
       if (commande) {
         await onSave(commande.idCommandeFournisseur, commandeData);
       } else {
         await onSave(commandeData);
       }
-
       await onSuccess();
       onClose();
-
+      resetForm();
     } catch (error) {
       console.error('❌ Erreur:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Erreur inconnue';
-      alert(`Erreur: ${errorMessage}`);
+      alert(error.response?.data?.message || error.message || 'Erreur inconnue');
     } finally {
       setLoading(false);
     }
@@ -202,8 +306,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
 
   if (!isOpen) return null;
 
-  const totaux = calculerTotaux();
-  const isLoading = loadingFournisseurs || loading;
+  const isLoading = loadingFournisseurs || loadingProduits || loading;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -212,7 +315,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
 
           {/* En-tête */}
-          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700">
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
             <h3 className="text-lg font-semibold text-white">
               {commande ? 'Modifier la commande' : 'Nouvelle commande fournisseur'}
             </h3>
@@ -224,150 +327,213 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           {isLoading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-500">Chargement des fournisseurs...</p>
+              <p className="mt-2 text-gray-500">
+                {loadingFournisseurs ? 'Chargement des fournisseurs...' : 'Chargement des produits...'}
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Sélection du fournisseur */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">1. Sélectionner un fournisseur</h4>
+              {/* Section Fournisseur */}
+              <section className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">1. Fournisseur</h4>
                 <select
                   value={formData.fournisseur.idFournisseur || ''}
                   onChange={handleFournisseurChange}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="">Choisir un fournisseur...</option>
+                  <option value="">Sélectionner un fournisseur...</option>
                   {fournisseurs.map(f => (
                     <option key={f.idFournisseur} value={f.idFournisseur}>
                       {f.nomFournisseur} - {f.email}
                     </option>
                   ))}
                 </select>
-              </div>
+              </section>
 
-              {/* Date et adresse de livraison */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">2. Date et adresse de livraison</h4>
+              {/* Section Livraison - Sans TVA globale */}
+              <section className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">2. Livraison</h4>
                 
-                <input
-                  type="date"
-                  value={formData.dateLivraisonPrevue}
-                  onChange={(e) => setFormData({ ...formData, dateLivraisonPrevue: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-3"
-                  min={new Date().toISOString().split('T')[0]}
-                  required
-                />
+                <div className="grid grid-cols-1 gap-4 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Date prévue <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dateLivraisonPrevue}
+                      onChange={(e) => setFormData(prev => ({ ...prev, dateLivraisonPrevue: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                </div>
                 
                 <textarea
                   value={formData.adresseLivraison}
-                  onChange={(e) => setFormData({ ...formData, adresseLivraison: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, adresseLivraison: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Saisir l'adresse de livraison..."
+                  placeholder="Adresse de livraison..."
                   rows="3"
                   required
                 />
-              </div>
+              </section>
 
-              {/* Ajout d'articles - SAISIE MANUELLE UNIQUEMENT */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">3. Ajouter un produit</h4>
+              {/* Section Produits */}
+              <section className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-medium text-gray-700">3. Produits</h4>
+                  
+                  {produitsGroupes.inactifs.length > 0 && (
+                    <label className="flex items-center text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={afficherInactifs}
+                        onChange={(e) => setAfficherInactifs(e.target.checked)}
+                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Afficher les produits inactifs ({produitsGroupes.inactifs.length})
+                    </label>
+                  )}
+                </div>
 
                 {!formData.fournisseur.idFournisseur ? (
-                  <div className="text-center py-4 text-gray-500">
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     Veuillez d'abord sélectionner un fournisseur
+                  </div>
+                ) : !produitsAffiches?.length ? (
+                  <div className="text-center py-8 text-yellow-600 bg-yellow-50 rounded-lg">
+                    {afficherInactifs ? '📭 Aucun produit trouvé' : '📦 Aucun produit actif trouvé'}
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Ligne 1: Nom et Référence */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Nom du produit <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={manualProductName}
-                          onChange={(e) => setManualProductName(e.target.value)}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                          placeholder="Ex: Clavier mécanique"
-                        />
-                      </div>
+                    {/* Sélection du produit */}
+                    <select
+                      value={produitSelectionne?.id || ''}
+                      onChange={handleProductSelect}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Sélectionner un produit...</option>
                       
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Référence <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={manualProductRef}
-                          onChange={(e) => setManualProductRef(e.target.value)}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                          placeholder="Ex: REF-001"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Ligne 2: Quantité, Prix, TVA */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Quantité <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={quantite}
-                          onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
+                      {produitsGroupes.actifs.length > 0 && (
+                        <optgroup label="📦 Produits actifs">
+                          {produitsGroupes.actifs.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                       
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Prix unitaire (TND) <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={prixUnitaire}
-                          onChange={(e) => setPrixUnitaire(parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                          placeholder="0.000"
-                        />
-                      </div>
+                      {afficherInactifs && produitsGroupes.inactifs.length > 0 && (
+                        <optgroup label="⚠️ Produits inactifs">
+                          {produitsGroupes.inactifs.map(p => (
+                            <option key={p.id} value={p.id} className="text-orange-600">
+                              {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0} (INACTIF)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          TVA (%) <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={manualProductTVA}
-                          onChange={(e) => setManualProductTVA(parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="20">20% (Standard)</option>
-                          <option value="10">10% (Réduit)</option>
-                          <option value="5.5">5.5% (Super réduit)</option>
-                          <option value="0">0% (Exonéré)</option>
-                        </select>
+                    {/* Carte d'information produit */}
+                    {produitSelectionne && (
+                      <div className={`p-4 rounded-lg border ${
+                        !produitSelectionne.estActif ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          {!produitSelectionne.estActif ? (
+                            <ExclamationTriangleIcon className="w-5 h-5 text-orange-500 mt-0.5" />
+                          ) : (
+                            <CheckCircleIcon className="w-5 h-5 text-green-500 mt-0.5" />
+                          )}
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`font-medium ${!produitSelectionne.estActif ? 'text-orange-800' : 'text-green-800'}`}>
+                                {!produitSelectionne.estActif ? 'Produit inactif' : 'Produit actif'}
+                              </span>
+                              {!produitSelectionne.estActif && (
+                                <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
+                                  Réactivation auto
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-3 text-sm">
+                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                                <span className="text-gray-600">Stock:</span>
+                                <span className="ml-2 font-medium">{produitSelectionne.stock || 0}</span>
+                              </div>
+                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                                <span className="text-gray-600">TVA:</span>
+                                <span className="ml-2 font-medium">{produitSelectionne.tauxTVA || 19}%</span>
+                              </div>
+                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                                <span className="text-gray-600">Prix:</span>
+                                <span className="ml-2 font-medium">{formatPrice(produitSelectionne.prixAchat || 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Quantité et Prix */}
+                    {produitSelectionne && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Quantité <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={quantite}
+                            onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                          />
+                          {quantite > (produitSelectionne.stock || 0) && (
+                            <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                              <ExclamationTriangleIcon className="w-3 h-3" />
+                              La quantité dépasse le stock actuel
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Prix unitaire (TND) <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={prixUnitaire}
+                            onChange={(e) => setPrixUnitaire(parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="0.000"
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Bouton d'ajout */}
                     <button
                       type="button"
-                      onClick={ajouterProduitManuel}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                      onClick={ajouterProduit}
+                      disabled={!produitSelectionne}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       <PlusIcon className="w-4 h-4" />
-                      Ajouter le produit à la commande
+                      Ajouter à la commande
                     </button>
                   </div>
                 )}
 
-                {/* Tableau des articles */}
+                {/* Tableau des articles avec TVA affichée */}
                 {lignes.length > 0 ? (
                   <div className="mt-6 border rounded-lg overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -376,7 +542,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Produit</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Qté</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prix unit.</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">TVA</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">TVA</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total HT</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total TTC</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Action</th>
@@ -384,14 +550,29 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {lignes.map((ligne) => (
-                          <tr key={ligne.id} className="hover:bg-gray-50">
+                          <tr 
+                            key={ligne.id} 
+                            className={`hover:bg-gray-50 ${ligne.estInactif ? 'bg-orange-50' : ''}`}
+                          >
                             <td className="px-4 py-2">
-                              <div className="font-medium">{ligne.produitLibelle}</div>
+                              <div className="font-medium flex items-center gap-1">
+                                {ligne.estInactif && (
+                                  <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" title="Produit inactif" />
+                                )}
+                                {ligne.produitLibelle}
+                              </div>
                               <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
+                              {ligne.categorie && (
+                                <div className="text-xs text-gray-400">{ligne.categorie}</div>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-right">{ligne.quantite}</td>
                             <td className="px-4 py-2 text-right">{formatPrice(ligne.prixUnitaire)}</td>
-                            <td className="px-4 py-2 text-right">{ligne.tva}%</td>
+                            <td className="px-4 py-2 text-center">
+                              <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                                {ligne.tauxTVA}%
+                              </span>
+                            </td>
                             <td className="px-4 py-2 text-right">{formatPrice(ligne.sousTotalHT)}</td>
                             <td className="px-4 py-2 text-right font-medium text-blue-600">
                               {formatPrice(ligne.sousTotalTTC)}
@@ -414,12 +595,26 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 ) : (
                   <p className="text-center text-gray-500 py-4 mt-4">Aucun article ajouté</p>
                 )}
-              </div>
+              </section>
 
-              {/* Totaux */}
+              {/* Section Totaux avec détail TVA */}
               {lignes.length > 0 && (
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <section className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">4. Récapitulatif</h4>
+                  
+                  {/* Détail par taux TVA */}
+                  {Object.entries(totaux.detailParTaux).length > 0 && (
+                    <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {Object.entries(totaux.detailParTaux).map(([taux, valeurs]) => (
+                        <div key={taux} className="bg-white p-3 rounded-lg border">
+                          <p className="text-xs text-gray-500">TVA {taux}%</p>
+                          <p className="text-sm font-medium">{formatPrice(valeurs.tva)}</p>
+                          <p className="text-xs text-gray-400">Base: {formatPrice(valeurs.ht)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="flex justify-end">
                     <div className="w-64 space-y-2">
                       <div className="flex justify-between text-sm">
@@ -427,7 +622,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                         <span className="font-medium">{formatPrice(totaux.totalHT)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">TVA</span>
+                        <span className="text-gray-600">Total TVA</span>
                         <span className="font-medium">{formatPrice(totaux.totalTVA)}</span>
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-2">
@@ -436,11 +631,11 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Boutons */}
-              <div className="flex justify-end gap-3 border-t pt-4">
+              {/* Boutons d'action */}
+              <div className="flex justify-end gap-3 border-t pt-4 sticky bottom-0 bg-white">
                 <button
                   type="button"
                   onClick={onClose}
@@ -451,10 +646,16 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center"
                 >
-                  {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  {commande ? 'Modifier la commande' : 'Créer la commande'}
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>En cours...</span>
+                    </>
+                  ) : (
+                    commande ? 'Modifier' : 'Créer'
+                  )}
                 </button>
               </div>
             </form>

@@ -124,12 +124,6 @@ const loadProducts = useCallback(async (page = 0, customFilters = {}) => {
   setError(null);
   
   try {
-    // ========== LOGS DÉTAILLÉS ==========
-    console.log('🟦 ====== LOAD PRODUCTS DÉBUT ======');
-    console.log('📌 Page reçue:', page);
-    console.log('📌 customFilters reçus:', customFilters);
-    console.log('📌 filters (état du hook):', filters);
-    console.log('📌 pagination.size:', pagination.size);
     
     // ✅ 1. Fusionner les paramètres
     const rawParams = {

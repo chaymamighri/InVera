@@ -1,4 +1,4 @@
-// components/TableauCommandes.jsx - Version CORRIGÉE
+// components/TableauCommandes.jsx - Version CORRIGÉE avec onRecevoir
 import React from 'react';
 import {
   CheckCircleIcon,
@@ -69,6 +69,7 @@ const TableauCommandes = ({
   onEdit,
   onDelete,
   onStatusChange,
+  onRecevoir, // ✅ NOUVEAU prop pour la réception
   actionInProgress,
   statuts = StatutCommande,
   onNouvelleCommande,
@@ -210,25 +211,30 @@ const TableauCommandes = ({
                         </>
                       )}
 
-                      {/* ENVOYEE - UNIQUEMENT si NON archivé et si onStatusChange est défini */}
-                      {commande.statut === statuts.ENVOYEE && !isArchived && onStatusChange && (
+                      {/* ENVOYEE - UNIQUEMENT si NON archivé */}
+                      {commande.statut === statuts.ENVOYEE && !isArchived && (
                         <>
-                          <button
-                            onClick={() => onStatusChange(commande.idCommandeFournisseur, 'recevoir')}
-                            disabled={actionInProgress === `recevoir-${commande.idCommandeFournisseur}`}
-                            className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded disabled:opacity-50"
-                            title="Recevoir"
-                          >
-                            <TruckIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
-                            disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
-                            className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded disabled:opacity-50"
-                            title="Annuler"
-                          >
-                            <XCircleIcon className="w-4 h-4" />
-                          </button>
+                          {/* ✅ Utilisation de onRecevoir au lieu de onStatusChange */}
+                          {onRecevoir && (
+                            <button
+                              onClick={() => onRecevoir(commande)}
+                              disabled={actionInProgress === `recevoir-${commande.idCommandeFournisseur}`}
+                              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded disabled:opacity-50"
+                              title="Réceptionner"
+                            >
+                              <TruckIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                          {onStatusChange && (
+                            <button
+                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
+                              disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
+                              className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded disabled:opacity-50"
+                              title="Annuler"
+                            >
+                              <XCircleIcon className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
 
