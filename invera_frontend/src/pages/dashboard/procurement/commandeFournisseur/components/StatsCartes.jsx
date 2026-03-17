@@ -1,6 +1,6 @@
 // components/StatsCartes.jsx
 import React from 'react';
-import { formatPrice } from '../CommandesFournisseurs'; 
+import { formatPrice } from '../CommandesFournisseurs';
 
 const StatsCartes = ({ stats }) => {
   if (!stats) return null;

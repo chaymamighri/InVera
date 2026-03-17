@@ -1,10 +1,10 @@
 // components/BarreRecherche.jsx
 import React from 'react';
-import { 
-  MagnifyingGlassIcon, 
-  FunnelIcon, 
+import {
+  MagnifyingGlassIcon,
+  FunnelIcon,
   PlusIcon,
-  ArchiveBoxIcon 
+  ArchiveBoxIcon
 } from '@heroicons/react/24/outline';
 
 const BarreRecherche = ({
@@ -16,8 +16,8 @@ const BarreRecherche = ({
   setShowFilters,
   onSearch,
   onNouvelleCommande,
-  onShowArchives,  
-  showArchives,    
+  onShowArchives,
+  showArchives,
   statuts,
   dateDebut,
   setDateDebut,
@@ -59,9 +59,8 @@ const BarreRecherche = ({
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
-              showFilters ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${showFilters ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
+              }`}
           >
             <FunnelIcon className="w-5 h-5" />
             Filtres
@@ -70,11 +69,10 @@ const BarreRecherche = ({
           {/* ✅ NOUVEAU: Bouton Archives */}
           <button
             onClick={onShowArchives}
-            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${
-              showArchives 
-                ? 'bg-purple-100 text-purple-700 border-purple-300' 
+            className={`px-4 py-2 border rounded-lg flex items-center gap-2 ${showArchives
+                ? 'bg-purple-100 text-purple-700 border-purple-300'
                 : 'text-gray-700 hover:bg-gray-50'
-            }`}
+              }`}
             title={showArchives ? "Masquer les archives" : "Afficher les commandes supprimées"}
           >
             <ArchiveBoxIcon className="w-5 h-5" />

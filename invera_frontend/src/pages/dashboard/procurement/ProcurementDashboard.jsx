@@ -1,10 +1,12 @@
-// ProcurementDashboard.jsx - Version avec Outlet
+// ProcurementDashboard.jsx - Version avec Réceptions
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'; // ← AJOUTER Outlet
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   CubeIcon,
   ShoppingCartIcon,
   ChartBarIcon,
+  TruckIcon, // ← NOUVEAU : pour les réceptions
+  ClipboardDocumentCheckIcon, // ← NOUVEAU : pour les réceptions
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -14,7 +16,7 @@ const ProcurementDashboard = () => {
   const { getCurrentUser } = useAuth(); 
   const admin = getCurrentUser(); 
   const navigate = useNavigate(); 
-  const location = useLocation(); // ← AJOUTER
+  const location = useLocation();
   const { collapsed, toggleSidebar } = useSidebar(); 
 
   const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
@@ -40,13 +42,14 @@ const ProcurementDashboard = () => {
   const getActivePage = () => {
     const path = location.pathname;
     if (path.includes('/commandes')) return 'commandes';
+    if (path.includes('/receptions')) return 'receptions'; // ← NOUVEAU
     if (path.includes('/stats')) return 'stats';
-    return 'produits'; // par défaut
+    return 'produits';
   };
 
   const activePage = getActivePage();
 
-  // ========== STRUCTURE DE NAVIGATION ==========
+  // ========== STRUCTURE DE NAVIGATION MISE À JOUR ==========
   const sections = [
     {
       title: 'TABLEAU DE BORD',
@@ -64,18 +67,28 @@ const ProcurementDashboard = () => {
       title: 'APPROVISIONNEMENT',
       items: [
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
+        { id: 'receptions', label: 'Réceptions', icon: TruckIcon },
       ]
     },
   ];
 
-  // ========== NAVIGATION ==========
+  // ========== NAVIGATION MISE À JOUR ==========
   const handleSetActivePage = (pageId) => {
-    if (pageId === 'produits') {
-      navigate('/dashboard/procurement/produits');
-    } else if (pageId === 'commandes') {
-      navigate('/dashboard/procurement/commandes');
-    } else if (pageId === 'stats') {
-      navigate('/dashboard/procurement/stats');
+    switch(pageId) {
+      case 'produits':
+        navigate('/dashboard/procurement/produits');
+        break;
+      case 'commandes':
+        navigate('/dashboard/procurement/commandes');
+        break;
+      case 'receptions': // ← NOUVEAU
+        navigate('/dashboard/procurement/receptions');
+        break;
+      case 'stats':
+        navigate('/dashboard/procurement/stats');
+        break;
+      default:
+        navigate('/dashboard/procurement/produits');
     }
   };
 
@@ -85,6 +98,7 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Statistiques Achats';
       case 'produits': return 'Gestion des Produits';
       case 'commandes': return 'Bons de commande fournisseurs';
+      case 'receptions': return 'Réceptions de marchandises'; // ← NOUVEAU
       default: return 'Tableau de bord';
     }
   };
@@ -94,13 +108,14 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Indicateurs de performance achats';
       case 'produits': return 'Gérez votre catalogue produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
+      case 'receptions': return 'Suivez et enregistrez les réceptions'; // ← NOUVEAU
       default: return '';
     }
   };
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar - MÊME STRUCTURE MAIS AVEC NAVIGATION */}
+      {/* Sidebar - identique mais avec le nouvel item */}
       <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
         collapsed ? 'w-20' : 'w-64'
       }`}>
@@ -114,7 +129,7 @@ const ProcurementDashboard = () => {
                   Tableau de Bord Gestion Achats
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                  Stocks et commandes
+                  Stocks, commandes et réceptions
                 </p>
               </div>
             )}
@@ -127,7 +142,7 @@ const ProcurementDashboard = () => {
           </div>
         </div>
 
-        {/* Navigation - MÊME STRUCTURE MAIS AVEC isActive BASÉ SUR URL */}
+        {/* Navigation avec le nouvel item */}
         <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
           <ul className="space-y-1 flex-1 overflow-y-auto">
             {sections.map((section) => (
@@ -140,7 +155,7 @@ const ProcurementDashboard = () => {
                 <ul className="space-y-1">
                   {section.items.map((item) => {
                     const Icon = item.icon;
-                    const isActive = activePage === item.id; // ← Utilise l'URL
+                    const isActive = activePage === item.id;
 
                     return (
                       <li key={item.id}>
@@ -221,13 +236,21 @@ const ProcurementDashboard = () => {
                   {getPageDescription()}
                 </p>
               </div>
+              
+              {/* Badge pour les réceptions en attente (optionnel) */}
+              {activePage === 'receptions' && (
+                <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg flex items-center gap-2">
+                  <ClipboardDocumentCheckIcon className="w-5 h-5" />
+                  <span className="font-medium">3 réceptions en attente</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ========== CONTENU AVEC OUTLET ========== */}
+        {/* Contenu avec Outlet */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-          <Outlet /> {/* ← C'EST LA CLÉ ! */}
+          <Outlet />
         </div>
 
         <Footer />
