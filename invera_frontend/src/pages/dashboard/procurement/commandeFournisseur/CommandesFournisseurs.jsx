@@ -1,10 +1,11 @@
-// CommandesFournisseurs.jsx - VERSION AVEC ARCHIVES
+// CommandesFournisseurs.jsx - VERSION AVEC MODAL DE RÉCEPTION
 import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useCommandeFournisseur } from '../../../../hooks/useCommandeFournisseur';
 import CommandeModal from './components/CommandeModal';
 import CommandeDetailsModal from './components/CommandeDetailsModal';
+import ReceptionModal from './components/ReceptionModal'; // ✅ NOUVEAU
 import StatsCartes from './components/StatsCartes';
 import BarreRecherche from './components/BarreRecherche';
 import TableauCommandes from './components/TableauCommandes';
@@ -50,7 +51,6 @@ export const getStatusBadge = (statut) => {
     [StatutCommande.RECUE]: 'bg-green-100 text-green-800',
     [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800',
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
-    [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[statut]}`}>
@@ -63,16 +63,16 @@ const CommandesFournisseurs = () => {
   const {
     commandes,
     loading,
-    error, 
+    error,
     fetchCommandes,
-    fetchArchivedCommandes, 
-    restoreCommande,         
+    fetchArchivedCommandes,
+    restoreCommande,
     createCommande,
     updateCommande,
     deleteCommande,
     validerCommande,
     envoyerCommande,
-    recevoirCommande,
+    recevoirCommande, // ✅ Gardé mais on va l'utiliser différemment
     annulerCommande,
     facturerCommande,
     searchByNumero,
@@ -83,9 +83,10 @@ const CommandesFournisseurs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatut, setSelectedStatut] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [showArchives, setShowArchives] = useState(false); 
+  const [showArchives, setShowArchives] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isReceptionModalOpen, setIsReceptionModalOpen] = useState(false); // ✅ NOUVEAU
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [dateDebut, setDateDebut] = useState('');
@@ -102,7 +103,6 @@ const CommandesFournisseurs = () => {
     }
   }, [showArchives, fetchCommandes, fetchArchivedCommandes]);
 
-
   // Statistiques (cachées en mode archives)
   const stats = useMemo(() => {
     if (!commandes.length || showArchives) return null;
@@ -117,7 +117,7 @@ const CommandesFournisseurs = () => {
   // Filtrage
   const filteredCommandes = useMemo(() => {
     return commandes.filter(commande => {
-      const matchesSearch = 
+      const matchesSearch =
         commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -160,44 +160,63 @@ const CommandesFournisseurs = () => {
     }
   };
 
-  // CommandesFournisseurs.jsx - CORRIGÉ
-const handleStatusChange = async (id, action) => {
-  try {
-    setActionInProgress(`${action}-${id}`);
-    let result;
-    switch (action) {
-      case 'valider': 
-        result = await validerCommande(id); 
-        toast.success('Commande validée avec succès');
-        break;
-      case 'envoyer': 
-        result = await envoyerCommande(id); 
-        toast.success('Commande envoyée avec succès');
-        break;
-      case 'recevoir': 
-        result = await recevoirCommande(id); 
-        toast.success('Réception enregistrée avec succès');
-        break;
-      case 'facturer':   // ← AJOUTÉ !
-        result = await facturerCommande(id); 
-        toast.success('Commande facturée avec succès');
-        break;
-      case 'annuler': 
-        result = await annulerCommande(id); 
-        toast.success('Commande annulée avec succès');
-        break;
-      default:
-        console.warn('Action inconnue:', action);
-        return;
+  // ✅ NOUVEAU Handler pour ouvrir le modal de réception
+  const handleRecevoirClick = (commande) => {
+    setSelectedCommande(commande);
+    setIsReceptionModalOpen(true);
+  };
+
+  // ✅ NOUVEAU Handler pour confirmer la réception
+  const handleReceptionConfirm = async (receptionData) => {
+    try {
+      setActionInProgress(`reception-${selectedCommande.idCommandeFournisseur}`);
+      await recevoirCommande(selectedCommande.idCommandeFournisseur, receptionData);
+      toast.success('Réception enregistrée avec succès');
+      setIsReceptionModalOpen(false);
+      await fetchCommandes();
+    } catch (error) {
+      console.error('Erreur réception:', error);
+      toast.error('Erreur lors de la réception');
+    } finally {
+      setActionInProgress(null);
     }
-    await fetchCommandes();
-  } catch (error) {
-    console.error('Erreur:', error);
-    toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
-  } finally {
-    setActionInProgress(null);
-  }
-};
+  };
+
+  // ✅ Handlers pour les changements de statut (SANS recevoir ici)
+  const handleStatusChange = async (id, action) => {
+    try {
+      setActionInProgress(`${action}-${id}`);
+      let result;
+      switch (action) {
+        case 'valider':
+          result = await validerCommande(id);
+          toast.success('Commande validée avec succès');
+          break;
+        case 'envoyer':
+          result = await envoyerCommande(id);
+          toast.success('Commande envoyée avec succès');
+          break;
+        // ⚠️ 'recevoir' n'est plus géré ici - on utilise le modal
+        case 'facturer':
+          result = await facturerCommande(id);
+          toast.success('Commande facturée avec succès');
+          break;
+        case 'annuler':
+          result = await annulerCommande(id);
+          toast.success('Commande annulée avec succès');
+          break;
+        default:
+          console.warn('Action inconnue:', action);
+          return;
+      }
+      await fetchCommandes();
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
 
   // ✅ Restaurer une commande archivée
   const handleRestore = async (id) => {
@@ -222,19 +241,19 @@ const handleStatusChange = async (id, action) => {
       toast.info('Utilisez le bouton de restauration pour réactiver la commande');
       return;
     }
-    
+
     if (commande.statut !== StatutCommande.BROUILLON) {
       toast.error('Seules les commandes en brouillon peuvent être supprimées');
       return;
     }
-    
+
     setSelectedCommande(commande);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedCommande) return;
-    
+
     try {
       setActionInProgress('delete');
       await deleteCommande(selectedCommande.idCommandeFournisseur);
@@ -350,6 +369,7 @@ const handleStatusChange = async (id, action) => {
         onDelete={handleDelete}
         onRestore={showArchives ? handleRestore : undefined}
         onStatusChange={!showArchives ? handleStatusChange : undefined}
+        onRecevoir={!showArchives ? handleRecevoirClick : undefined} // ✅ NOUVEAU prop
         actionInProgress={actionInProgress}
         statuts={StatutCommande}
         onNouvelleCommande={() => {
@@ -367,11 +387,21 @@ const handleStatusChange = async (id, action) => {
         onSave={selectedCommande ? updateCommande : createCommande}
         onSuccess={fetchCommandes}
       />
+      
       <CommandeDetailsModal
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         commande={selectedCommande}
       />
+      
+      {/* ✅ NOUVEAU Modal de réception */}
+      <ReceptionModal
+        isOpen={isReceptionModalOpen}
+        onClose={() => setIsReceptionModalOpen(false)}
+        commande={selectedCommande}
+        onConfirm={handleReceptionConfirm}
+      />
+      
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

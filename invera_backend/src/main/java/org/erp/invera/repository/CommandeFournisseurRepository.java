@@ -17,6 +17,8 @@ public interface CommandeFournisseurRepository  extends JpaRepository<CommandeFo
     // Pour les commandes actives (soft delete = false)
     List<CommandeFournisseur> findByActifTrue();
 
+    Long countByNumeroCommandeStartingWith(String prefix);
+
     //  Pour les commandes archivées (soft delete = true)
     List<CommandeFournisseur> findByActifFalse();
 

@@ -3,11 +3,11 @@ import api from './api';
 
 class CommandeFournisseurService {
   /**
-   * Récupère toutes les commandes
+   * Récupère toutes les commandes - GET /All
    */
   async getAllCommandes() {
     try {
-      const response = await api.get('/commandes-fournisseurs/all');
+      const response = await api.get('/commandes-fournisseurs/All');
       return response.data;
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error);
@@ -16,7 +16,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Récupère une commande par son ID avec tous ses détails
+   * Récupère une commande par son ID - GET /{id}
    */
   async getCommandeById(id) {
     try {
@@ -29,7 +29,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Crée une nouvelle commande
+   * Crée une nouvelle commande - POST /add
    */
   async createCommande(commandeData) {
     try {
@@ -42,7 +42,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Met à jour une commande
+   * Met à jour une commande - PUT /update/{id}
    */
   async updateCommande(id, commandeData) {
     try {
@@ -55,7 +55,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Supprime une commande
+   * Supprime une commande (soft delete) - DELETE /delete/{id}
    */
   async deleteCommande(id) {
     try {
@@ -68,7 +68,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Valide une commande
+   * Valide une commande - PUT /{id}/valider
    */
   async validerCommande(id) {
     try {
@@ -81,7 +81,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Envoie une commande au fournisseur
+   * Envoie une commande au fournisseur - PUT /{id}/envoyer
    */
   async envoyerCommande(id) {
     try {
@@ -94,7 +94,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Enregistre la réception d'une commande
+   * Enregistre la réception d'une commande - PUT /{id}/recevoir
    */
   async recevoirCommande(id) {
     try {
@@ -107,7 +107,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Annule une commande
+   * Annule une commande - PUT /{id}/annuler?raison=
    */
   async annulerCommande(id, raison) {
     try {
@@ -123,25 +123,24 @@ class CommandeFournisseurService {
   }
 
   /**
- * Marque une commande comme facturée
- */
-async facturerCommande(id) {
-  try {
-    // À adapter selon votre endpoint backend
-    const response = await api.put(`/commandes-fournisseurs/${id}/facturer`);
-    return response.data;
-  } catch (error) {
-    console.error('Erreur lors de la facturation de la commande:', error);
-    throw error;
+   * Marque une commande comme facturée - PUT /{id}/facturer
+   */
+  async facturerCommande(id) {
+    try {
+      const response = await api.put(`/commandes-fournisseurs/${id}/facturer`);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la facturation de la commande:', error);
+      throw error;
+    }
   }
-}
 
   /**
-   * Recherche une commande par son numéro
+   * Recherche une commande par son numéro - GET /recherche/numero?numero=
    */
   async searchByNumero(numero) {
     try {
-      const response = await api.get(`/commandes-fournisseurs/recherche/numero`, {
+      const response = await api.get('/commandes-fournisseurs/recherche/numero', {
         params: { numero }
       });
       return response.data;
@@ -152,7 +151,7 @@ async facturerCommande(id) {
   }
 
   /**
-   * Recherche des commandes par période
+   * Recherche des commandes par période - GET /recherche/periode?debut=&fin=
    */
   async searchByPeriode(debut, fin) {
     try {
@@ -170,11 +169,10 @@ async facturerCommande(id) {
   }
 
   /**
-   * Récupère les commandes archivées (soft delete)
+   * Récupère les commandes archivées - GET /archived
    */
   async getArchivedCommandes() {
     try {
-      // À adapter selon votre endpoint backend
       const response = await api.get('/commandes-fournisseurs/archived');
       return response.data;
     } catch (error) {
@@ -184,19 +182,17 @@ async facturerCommande(id) {
   }
 
   /**
-   * Restaure une commande archivée
+   * Restaure une commande archivée - PUT /{id}/restore
    */
   async restoreCommande(id) {
     try {
-      // À adapter selon votre endpoint backend
       const response = await api.put(`/commandes-fournisseurs/${id}/restore`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la restauration:', error);
       throw error;
     }
-  };
-
+  }
 }
 
 export default new CommandeFournisseurService();
