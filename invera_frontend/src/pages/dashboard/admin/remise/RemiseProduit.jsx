@@ -1,6 +1,10 @@
+
+
 import React, { useState, useEffect, useMemo } from "react";
 import useClients from "../../../../hooks/useClient";
 import useProducts from "../../../../hooks/useProducts";
+
+const SUPPORTED_CLIENT_DISCOUNT_TYPES = ["VIP", "FIDELE", "PROFESSIONNEL"];
 
 const Remise = () => {
   // Tab state: "clients" or "products"
@@ -37,6 +41,11 @@ const Remise = () => {
     updateProduct,
   } = useProducts({ search: productSearch });
 
+  const configurableClientTypes = useMemo(
+    () => clientTypes.filter((type) => SUPPORTED_CLIENT_DISCOUNT_TYPES.includes(type)),
+    [clientTypes]
+  );
+
   // Debounce client search
   useEffect(() => {
     const t = setTimeout(() => {
@@ -60,12 +69,12 @@ const Remise = () => {
   // Load client type discounts
   useEffect(() => {
     const loadDiscounts = async () => {
-      if (!clientTypes.length) return;
+      if (!configurableClientTypes.length) return;
       const newDiscounts = {};
-      for (const type of clientTypes) {
+      for (const type of configurableClientTypes) {
         try {
           const res = await getRemiseForType(type);
-          newDiscounts[type] = res?.remise ?? 0;
+          newDiscounts[type] = Number(res?.remise ?? 0);
         } catch (err) {
           console.error(`Failed to load discount for ${type}`);
         }
@@ -73,7 +82,7 @@ const Remise = () => {
       setClientDiscounts(newDiscounts);
     };
     loadDiscounts();
-  }, [clientTypes, getRemiseForType]);
+  }, [configurableClientTypes, getRemiseForType]);
 
   // Filter clients by type
   const filteredClients = useMemo(() => {
@@ -89,11 +98,22 @@ const Remise = () => {
   // Save client type discount
   const saveClientTypeDiscount = async (type) => {
     try {
-      await updateTypeDiscount(type, clientDiscounts[type]);
+      const discount = Number(clientDiscounts[type] ?? 0);
+      await updateTypeDiscount(type, discount);
+      const refreshedDiscount = await getRemiseForType(type);
+
+      setClientDiscounts((prev) => ({
+        ...prev,
+        [type]: Number(refreshedDiscount?.remise ?? discount),
+      }));
+
+      await fetchClients();
     } catch (err) {
       // Error already toasted in hook
     }
   };
+
+  const getClientDiscount = (type) => Number(clientDiscounts[type] ?? 0);
 
   // ---- Product discount inline editing with confirmation button ----
   const handleSaveDiscount = async (productId) => {
@@ -283,10 +303,12 @@ const Remise = () => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {filteredClients.map((client, index) => (
-            <tr key={client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+            <tr key={client.idClient || client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
               index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
             }`}>
-              <td className="px-4 py-3 font-medium text-gray-900">{client.nom || client.name || "-"}</td>
+              <td className="px-4 py-3 font-medium text-gray-900">
+                {[client.prenom, client.nom || client.name].filter(Boolean).join(" ") || "-"}
+              </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +323,7 @@ const Remise = () => {
                 </span>
               </td>
               <td className="px-4 py-3">
-                <span className="font-medium text-gray-900">{client.remise ?? 0}%</span>
+                <span className="font-medium text-gray-900">{getClientDiscount(client.typeClient)}%</span>
               </td>
             </tr>
           ))}
@@ -312,11 +334,11 @@ const Remise = () => {
 )}
 
           {/* Client Type Discount Configuration */}
-        {clientTypes.length > 0 && (
+        {configurableClientTypes.length > 0 && (
   <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
     <h3 className="text-sm font-medium text-gray-700 mb-4">Remises par type de client</h3>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      {clientTypes.map((type) => (
+      {configurableClientTypes.map((type) => (
         <div
           key={type}
           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-teal-200 transition-all"
@@ -328,11 +350,11 @@ const Remise = () => {
                 type="number"
                 min="0"
                 max="100"
-                value={clientDiscounts[type] || 0}
+                value={clientDiscounts[type] ?? 0}
                 onChange={(e) =>
                   handleClientDiscountChange(
                     type,
-                    parseInt(e.target.value) || 0
+                    parseFloat(e.target.value) || 0
                   )
                 }
                 className="w-16 px-2 py-1.5 text-sm border-0 focus:ring-0 text-right"
