@@ -24,6 +24,27 @@ const Settings = () => {
     phone: '+216 12 345 678',
   });
 
+  const profileDetails = [
+    {
+      label: 'Membre depuis',
+      value: 'Janvier 2024',
+      helper: '12 mois sur la plateforme',
+      tone: 'blue',
+    },
+    {
+      label: 'Derniere connexion',
+      value: 'Aujourd\'hui, 09:24',
+      helper: 'Depuis le tableau de bord admin',
+      tone: 'purple',
+    },
+    {
+      label: 'Sessions cette semaine',
+      value: '18',
+      helper: 'Connexions sur les 7 derniers jours',
+      tone: 'teal',
+    },
+  ];
+
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: false,
@@ -52,6 +73,17 @@ const Settings = () => {
           onToggle={() => toggleExpand('account')}
         >
           <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {profileDetails.map((detail) => (
+                <ProfileDetailCard
+                  key={detail.label}
+                  label={detail.label}
+                  value={detail.value}
+                  helper={detail.helper}
+                  tone={detail.tone}
+                />
+              ))}
+            </div>
             <InputField label="Nom" value={profile.name} onChange={(val) => updateProfile('name', val)} />
             <InputField label="Email" value={profile.email} onChange={(val) => updateProfile('email', val)} />
             <InputField label="Role" value={profile.role} disabled />
@@ -184,6 +216,33 @@ const InputField = ({ label, value, onChange, disabled }) => (
     />
   </div>
 );
+
+const detailCardStyles = {
+  blue: {
+    wrapper: 'border-blue-100 bg-gradient-to-br from-blue-50 to-white',
+    label: 'text-blue-600',
+  },
+  purple: {
+    wrapper: 'border-purple-100 bg-gradient-to-br from-purple-50 to-white',
+    label: 'text-purple-600',
+  },
+  teal: {
+    wrapper: 'border-teal-100 bg-gradient-to-br from-teal-50 to-white',
+    label: 'text-teal-600',
+  },
+};
+
+const ProfileDetailCard = ({ label, value, helper, tone = 'blue' }) => {
+  const styles = detailCardStyles[tone] || detailCardStyles.blue;
+
+  return (
+    <div className={`rounded-xl border p-4 ${styles.wrapper}`}>
+      <p className={`text-sm font-medium ${styles.label}`}>{label}</p>
+      <p className="mt-2 text-xl font-semibold text-gray-900">{value}</p>
+      <p className="mt-1 text-xs text-gray-500">{helper}</p>
+    </div>
+  );
+};
 
 const ToggleSetting = ({ label, checked, onChange }) => (
   <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">

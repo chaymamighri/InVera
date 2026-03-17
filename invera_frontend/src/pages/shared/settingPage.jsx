@@ -204,7 +204,7 @@ const SettingsPage = () => {
         prenom: profileForm.prenom.trim()
       });
 
-      const res = await authService.getCurrentUser();
+      const res = await authService.getCurrentUser({ force: true });
       const data = res?.data;
       setMe(data);
 

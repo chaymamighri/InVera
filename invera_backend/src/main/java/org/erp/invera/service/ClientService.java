@@ -50,13 +50,12 @@ public class ClientService {
         client.setPrenom(clientDTO.getPrenom());
         client.setTelephone(clientDTO.getTelephone());
         client.setAdresse(clientDTO.getAdresse());
-        client.setTypeClient(Client.TypeClient.valueOf(clientDTO.getType().toUpperCase()));
+        Client.TypeClient clientType = Client.TypeClient.valueOf(clientDTO.getType().toUpperCase());
+        client.setTypeClient(clientType);
         client.setEmail(clientDTO.getEmail());
 
-        // Initialiser les remises à null (nullable)
-        client.setRemiseClientFidele(null);
-        client.setRemiseClientVIP(null);
-        client.setRemiseClientProfessionnelle(null);
+        resetTypeDiscountFields(client);
+        applyConfiguredTypeDiscount(client, clientType);
 
         // ✅ AJOUTER CES LIGNES POUR LES CHAMPS D'AUDIT
         client.setCreatedAt(LocalDateTime.now());  // Date et heure actuelles
@@ -150,6 +149,8 @@ public class ClientService {
         if (clientDTO.getType() != null) {
             Client.TypeClient nouveauType = Client.TypeClient.valueOf(clientDTO.getType().toUpperCase());
             client.setTypeClient(nouveauType);
+            resetTypeDiscountFields(client);
+            applyConfiguredTypeDiscount(client, nouveauType);
         }
 
         // Sauvegarde
@@ -190,6 +191,67 @@ public class ClientService {
             }
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    public Double updateRemiseForClientType(String typeClient, Double remise) {
+        if (typeClient == null || typeClient.isBlank()) {
+            throw new IllegalArgumentException("Le type client est obligatoire");
+        }
+        if (remise == null || remise < 0 || remise > 100) {
+            throw new IllegalArgumentException("La remise doit être comprise entre 0 et 100");
+        }
+
+        Client.TypeClient type = Client.TypeClient.valueOf(typeClient.toUpperCase());
+        if (!isTypeDiscountSupported(type)) {
+            throw new IllegalArgumentException("La remise n'est configurable que pour VIP, FIDELE et PROFESSIONNEL");
+        }
+
+        List<Client> clients = clientRepository.findByTypeClient(type);
+        if (clients.isEmpty()) {
+            throw new IllegalStateException("Aucun client trouvé pour le type " + type.name());
+        }
+
+        for (Client client : clients) {
+            applyTypeDiscount(client, type, remise);
+        }
+
+        clientRepository.saveAll(clients);
+        return getRemiseForClientType(type.name());
+    }
+
+    private boolean isTypeDiscountSupported(Client.TypeClient type) {
+        return type == Client.TypeClient.VIP
+                || type == Client.TypeClient.FIDELE
+                || type == Client.TypeClient.PROFESSIONNEL;
+    }
+
+    private void resetTypeDiscountFields(Client client) {
+        client.setRemiseClientFidele(null);
+        client.setRemiseClientVIP(null);
+        client.setRemiseClientProfessionnelle(null);
+    }
+
+    private void applyConfiguredTypeDiscount(Client client, Client.TypeClient type) {
+        Double configuredDiscount = getRemiseForClientType(type.name());
+        if (configuredDiscount != null) {
+            applyTypeDiscount(client, type, configuredDiscount);
+        }
+    }
+
+    private void applyTypeDiscount(Client client, Client.TypeClient type, Double remise) {
+        switch (type) {
+            case VIP:
+                client.setRemiseClientVIP(remise);
+                break;
+            case FIDELE:
+                client.setRemiseClientFidele(remise);
+                break;
+            case PROFESSIONNEL:
+                client.setRemiseClientProfessionnelle(remise);
+                break;
+            default:
+                break;
         }
     }
 

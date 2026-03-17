@@ -1,11 +1,13 @@
 package org.erp.invera.controller;
 
 import org.erp.invera.dto.clientdto.ClientDTO;
+import org.erp.invera.dto.clientdto.ClientTypeRemiseUpdateDTO;
 import org.erp.invera.dto.clientdto.NouveauClientDTO;
 import org.erp.invera.model.client.Client;
 import org.erp.invera.service.ClientService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -228,6 +230,39 @@ public class ClientController {
             errorResponse.put("success", false);
             errorResponse.put("message", "Type de client invalide: " + typeClient);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    @PutMapping("/type/{typeClient}/remise")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> updateRemiseForType(
+            @PathVariable String typeClient,
+            @RequestBody ClientTypeRemiseUpdateDTO request) {
+        try {
+            Double remise = clientService.updateRemiseForClientType(typeClient, request.getRemise());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("type", typeClient);
+            response.put("remise", remise);
+            response.put("message", "Remise mise à jour avec succès");
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (IllegalStateException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }
