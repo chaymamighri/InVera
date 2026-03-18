@@ -2,7 +2,9 @@ package org.erp.invera.service;
 
 import org.erp.invera.dto.clientdto.NouveauClientDTO;
 import org.erp.invera.model.client.Client;
+import org.erp.invera.model.client.ClientTypeDiscount;
 import org.erp.invera.repository.ClientRepository;
+import org.erp.invera.repository.ClientTypeDiscountRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -17,9 +19,12 @@ import java.util.Optional;
 public class ClientService {
 
     private final ClientRepository clientRepository;
+    private final ClientTypeDiscountRepository clientTypeDiscountRepository;
 
-    public ClientService(ClientRepository clientRepository) {
+    public ClientService(ClientRepository clientRepository,
+                         ClientTypeDiscountRepository clientTypeDiscountRepository) {
         this.clientRepository = clientRepository;
+        this.clientTypeDiscountRepository = clientTypeDiscountRepository;
     }
 
 
@@ -170,25 +175,12 @@ public class ClientService {
 
         try {
             Client.TypeClient type = Client.TypeClient.valueOf(typeClient.toUpperCase());
-
-            switch (type) {
-                case VIP:
-                    return clientRepository.findAverageRemiseVIP();
-
-                case FIDELE:
-                    return clientRepository.findAverageRemiseFidele();
-
-                case PROFESSIONNEL:
-                    return clientRepository.findAverageRemiseProfessionnelle();
-
-                case ENTREPRISE:
-                    // Pour ENTREPRISE, pas de colonne dédiée, retourner null
-                    return null;
-
-                case PARTICULIER:
-                default:
-                    return null; // Les particuliers n'ont pas de remise par défaut
+            Optional<ClientTypeDiscount> configuredDiscount = clientTypeDiscountRepository.findById(type);
+            if (configuredDiscount.isPresent()) {
+                return configuredDiscount.get().getRemise();
             }
+
+            return getLegacyClientAverageDiscount(type);
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -207,17 +199,17 @@ public class ClientService {
             throw new IllegalArgumentException("La remise n'est configurable que pour VIP, FIDELE et PROFESSIONNEL");
         }
 
+        clientTypeDiscountRepository.save(new ClientTypeDiscount(type, remise));
+
         List<Client> clients = clientRepository.findByTypeClient(type);
-        if (clients.isEmpty()) {
-            throw new IllegalStateException("Aucun client trouvé pour le type " + type.name());
+        if (!clients.isEmpty()) {
+            for (Client client : clients) {
+                applyTypeDiscount(client, type, remise);
+            }
+            clientRepository.saveAll(clients);
         }
 
-        for (Client client : clients) {
-            applyTypeDiscount(client, type, remise);
-        }
-
-        clientRepository.saveAll(clients);
-        return getRemiseForClientType(type.name());
+        return remise;
     }
 
     private boolean isTypeDiscountSupported(Client.TypeClient type) {
@@ -236,6 +228,21 @@ public class ClientService {
         Double configuredDiscount = getRemiseForClientType(type.name());
         if (configuredDiscount != null) {
             applyTypeDiscount(client, type, configuredDiscount);
+        }
+    }
+
+    private Double getLegacyClientAverageDiscount(Client.TypeClient type) {
+        switch (type) {
+            case VIP:
+                return clientRepository.findAverageRemiseVIP();
+            case FIDELE:
+                return clientRepository.findAverageRemiseFidele();
+            case PROFESSIONNEL:
+                return clientRepository.findAverageRemiseProfessionnelle();
+            case ENTREPRISE:
+            case PARTICULIER:
+            default:
+                return null;
         }
     }
 

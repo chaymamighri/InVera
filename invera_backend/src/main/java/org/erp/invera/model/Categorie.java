@@ -27,8 +27,7 @@ public class Categorie {
     @Column(name = "description")
     private String description;
 
-    // Nouveau champ pour le taux de TVA
-    @Column(name = "taux_tva", nullable = false, precision = 5, scale = 2)
+    @Column(name = "taux_tva", precision = 5, scale = 2)
     private BigDecimal tauxTVA;
 
     @OneToMany(mappedBy = "categorie")

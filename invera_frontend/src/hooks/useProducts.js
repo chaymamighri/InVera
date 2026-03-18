@@ -24,7 +24,7 @@ const useProducts = (initialFilters = {}) => {
 
 
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = useCallback((status) => {
     const labels = {
       'EN_STOCK': 'En stock',
       'FAIBLE': 'Stock faible',
@@ -32,9 +32,9 @@ const useProducts = (initialFilters = {}) => {
       'RUPTURE': 'Rupture'
     };
     return labels[status] || status;
-  };
+  }, []);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     const colors = {
       'EN_STOCK': 'green',
       'FAIBLE': 'yellow',
@@ -42,7 +42,7 @@ const useProducts = (initialFilters = {}) => {
       'RUPTURE': 'red'
     };
     return colors[status] || 'gray';
-  };
+  }, []);
 
   // ========== 2. FONCTIONS DE NORMALISATION ==========
 
