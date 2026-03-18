@@ -14,6 +14,7 @@ const Remise = () => {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientType, setSelectedClientType] = useState("TOUS");
   const [clientDiscounts, setClientDiscounts] = useState({}); // { type: discount }
+  const [draftClientDiscounts, setDraftClientDiscounts] = useState({}); // { type: draftDiscount }
 
   // Products state
   const [productSearch, setProductSearch] = useState("");
@@ -56,15 +57,17 @@ const Remise = () => {
 
   // Debounce product search
   useEffect(() => {
+    if (activeTab !== "products") return;
+
     const t = setTimeout(() => {
       if (productSearch) {
-        searchProducts(productSearch);
+        searchProducts({ keyword: productSearch });
       } else {
         loadProducts();
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [productSearch, searchProducts, loadProducts]);
+  }, [activeTab, productSearch, searchProducts, loadProducts]);
 
   // Load client type discounts
   useEffect(() => {
@@ -80,6 +83,7 @@ const Remise = () => {
         }
       }
       setClientDiscounts(newDiscounts);
+      setDraftClientDiscounts(newDiscounts);
     };
     loadDiscounts();
   }, [configurableClientTypes, getRemiseForType]);
@@ -92,19 +96,24 @@ const Remise = () => {
 
   // Handle client discount change
   const handleClientDiscountChange = (type, value) => {
-    setClientDiscounts((prev) => ({ ...prev, [type]: value }));
+    setDraftClientDiscounts((prev) => ({ ...prev, [type]: value }));
   };
 
   // Save client type discount
   const saveClientTypeDiscount = async (type) => {
     try {
-      const discount = Number(clientDiscounts[type] ?? 0);
+      const discount = Number(draftClientDiscounts[type] ?? 0);
       await updateTypeDiscount(type, discount);
       const refreshedDiscount = await getRemiseForType(type);
+      const savedDiscount = Number(refreshedDiscount?.remise ?? discount);
 
       setClientDiscounts((prev) => ({
         ...prev,
-        [type]: Number(refreshedDiscount?.remise ?? discount),
+        [type]: savedDiscount,
+      }));
+      setDraftClientDiscounts((prev) => ({
+        ...prev,
+        [type]: savedDiscount,
       }));
 
       await fetchClients();
@@ -346,14 +355,14 @@ const Remise = () => {
           <span className="text-sm font-medium text-gray-700">{type}</span>
           <div className="flex items-center gap-2">
             <div className="flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={clientDiscounts[type] ?? 0}
-                onChange={(e) =>
-                  handleClientDiscountChange(
-                    type,
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={draftClientDiscounts[type] ?? clientDiscounts[type] ?? 0}
+                  onChange={(e) =>
+                    handleClientDiscountChange(
+                      type,
                     parseFloat(e.target.value) || 0
                   )
                 }
