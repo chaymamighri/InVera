@@ -36,6 +36,8 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
     @Query("SELECT AVG(c.remiseClientProfessionnelle) FROM Client c WHERE c.typeClient = 'PROFESSIONNEL'")
     Double findAverageRemiseProfessionnelle();
 
+    List<Client> findByTypeClient(Client.TypeClient typeClient);
+
     // ========================
     // RECHERCHES AVANCÉES
     // ========================

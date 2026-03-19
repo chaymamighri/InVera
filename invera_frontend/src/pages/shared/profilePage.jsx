@@ -11,6 +11,33 @@ import {
 import { authService } from '../../services/authService';
 import Header from '../../components/Header';
 
+// Helper to format dates in French style
+const formatDate = (dateString) => {
+  if (!dateString) return 'Non renseigné';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+// Helper to display last login as "Aujourd'hui", "Hier", or full date
+const formatLastLogin = (dateString) => {
+  if (!dateString) return 'Jamais';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
+  if (date.toDateString() === yesterday.toDateString()) return 'Hier';
+  return date.toLocaleDateString('fr-FR');
+};
+
 const ProfilePage = () => {
   const [userData, setUserData] = useState({
     nom: '',
@@ -18,10 +45,12 @@ const ProfilePage = () => {
     email: '',
     telephone: 'Non renseigné',
     departement: 'Non renseigné',
-    dateCreation: '',
     role: '',
-    photo: null,
-    active: true
+    active: true,
+    // New fields from backend
+    memberSince: null,
+    lastLogin: null,
+    sessionsThisWeek: 0
   });
 
   const [loading, setLoading] = useState(true);
@@ -33,50 +62,46 @@ const ProfilePage = () => {
       setError('');
 
       try {
-        // ✅ Real info from backend: /api/auth/me
         const res = await authService.getCurrentUser();
         const me = res?.data;
 
-        const mapped = {
-          nom: me?.lastName || me?.nom || '',
-          prenom: me?.firstName || me?.prenom || '',
+        setUserData({
+          nom: me?.nom || me?.lastName || '',
+          prenom: me?.prenom || me?.firstName || '',
           email: me?.email || '',
           role: me?.role || '',
           active: me?.active !== false,
-
-          // optional fields (not returned by /me in your backend)
           telephone: localStorage.getItem('userPhone') || 'Non renseigné',
           departement: localStorage.getItem('userDepartement') || 'Non renseigné',
-          dateCreation: localStorage.getItem('userCreatedAt') || '',
-          photo: localStorage.getItem('userPhoto')
-        };
+          // New fields from backend
+          memberSince: me?.memberSince || null,
+          lastLogin: me?.lastLogin || null,
+          sessionsThisWeek: me?.sessionsThisWeek || 0
+        });
 
-        setUserData(mapped);
-
-        // ✅ keep storage consistent for the whole app
-        const fullName = `${mapped.nom} ${mapped.prenom}`.trim();
-        if (mapped.role) localStorage.setItem('userRole', mapped.role);
+        // Keep localStorage consistent for other parts of the app
+        const fullName = `${me?.nom || ''} ${me?.prenom || ''}`.trim();
+        if (me?.role) localStorage.setItem('userRole', me.role);
         if (fullName) localStorage.setItem('userName', fullName);
-        if (mapped.email) localStorage.setItem('userEmail', mapped.email);
+        if (me?.email) localStorage.setItem('userEmail', me.email);
       } catch (e) {
-        // 401/403 handled by interceptor (logout + redirect)
         setError(
           e?.message || "Impossible de charger votre profil. Veuillez réessayer."
         );
 
-        // fallback from localStorage
-        const fallback = {
+        // Fallback from localStorage (doesn't include new fields)
+        setUserData({
           nom: localStorage.getItem('userNom') || '',
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
           telephone: localStorage.getItem('userPhone') || 'Non renseigné',
           departement: localStorage.getItem('userDepartement') || 'Non renseigné',
-          dateCreation: localStorage.getItem('userCreatedAt') || '',
           role: localStorage.getItem('userRole') || '',
-          photo: localStorage.getItem('userPhoto'),
-          active: true
-        };
-        setUserData(fallback);
+          active: true,
+          memberSince: null,
+          lastLogin: null,
+          sessionsThisWeek: 0
+        });
       } finally {
         setLoading(false);
       }
@@ -141,6 +166,28 @@ const ProfilePage = () => {
 
   const initials = getInitials(userData.nom, userData.prenom);
   const avatarColor = getRandomColor(`${userData.nom}${userData.prenom}`);
+
+  // Build profile highlights with real data
+  const profileHighlights = [
+    {
+      label: 'Membre depuis',
+      value: userData.memberSince ? formatDate(userData.memberSince) : 'Non renseigné',
+      helper: userData.memberSince ? 'Date de création du compte' : 'Date non disponible',
+      tone: 'blue'
+    },
+    {
+      label: 'Sessions cette semaine',
+      value: userData.sessionsThisWeek.toString(),
+      helper: 'Activité récente sur les 7 derniers jours',
+      tone: 'green'
+    },
+    {
+      label: 'Dernière connexion',
+      value: formatLastLogin(userData.lastLogin),
+      helper: userData.lastLogin ? 'Dernière activité' : 'Aucune connexion enregistrée',
+      tone: 'purple'
+    }
+  ];
 
   return (
     <>
@@ -258,18 +305,13 @@ const ProfilePage = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center">
-                      <div className="w-32 text-gray-500">Département</div>
-                      <div className="font-medium text-gray-800">
-                        {userData.departement}
-                      </div>
-                    </div>
+                    
 
                     <div className="flex items-center">
                       <div className="w-32 text-gray-500">Membre depuis</div>
                       <div className="font-medium text-gray-800 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-gray-400" />
-                        {userData.dateCreation || '—'}
+                        {userData.memberSince ? formatDate(userData.memberSince) : '—'}
                       </div>
                     </div>
                   </div>
@@ -277,29 +319,48 @@ const ProfilePage = () => {
               </div>
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-100">
-                  <div className="text-sm text-blue-600 font-medium">Activité ce mois</div>
-                  <div className="text-2xl font-bold text-gray-800 mt-2">48</div>
-                  <div className="text-sm text-gray-500">Actions réalisées</div>
-                </div>
-
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
-                  <div className="text-sm text-green-600 font-medium">Sessions</div>
-                  <div className="text-2xl font-bold text-gray-800 mt-2">24</div>
-                  <div className="text-sm text-gray-500">Cette semaine</div>
-                </div>
-
-                <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-6 border border-purple-100">
-                  <div className="text-sm text-purple-600 font-medium">Dernière connexion</div>
-                  <div className="text-2xl font-bold text-gray-800 mt-2">Aujourd&apos;hui</div>
-                  <div className="text-sm text-gray-500">—</div>
-                </div>
+                {profileHighlights.map((item) => (
+                  <ProfileHighlightCard
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                    helper={item.helper}
+                    tone={item.tone}
+                  />
+                ))}
               </div>
             </div>
           </div>
         </div>
       </div>
     </>
+  );
+};
+
+const highlightCardStyles = {
+  blue: {
+    wrapper: 'border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50',
+    label: 'text-blue-600'
+  },
+  green: {
+    wrapper: 'border-green-100 bg-gradient-to-r from-green-50 to-emerald-50',
+    label: 'text-green-600'
+  },
+  purple: {
+    wrapper: 'border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50',
+    label: 'text-purple-600'
+  }
+};
+
+const ProfileHighlightCard = ({ label, value, helper, tone = 'blue' }) => {
+  const styles = highlightCardStyles[tone] || highlightCardStyles.blue;
+
+  return (
+    <div className={`rounded-xl border p-6 ${styles.wrapper}`}>
+      <div className={`text-sm font-medium ${styles.label}`}>{label}</div>
+      <div className="text-2xl font-bold text-gray-800 mt-2">{value}</div>
+      <div className="text-sm text-gray-500 mt-2">{helper}</div>
+    </div>
   );
 };
 

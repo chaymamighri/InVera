@@ -123,7 +123,7 @@ const useClients = (filters = {}) => {
   };
 
   // Get discount for a type
-  const getRemiseForType = async (typeClient) => {
+  const getRemiseForType = useCallback(async (typeClient) => {
     try {
       const response = await clientService.getRemiseByType(typeClient);
       return response;
@@ -131,10 +131,10 @@ const useClients = (filters = {}) => {
       console.error(`Erreur récupération remise ${typeClient}:`, error);
       throw error;
     }
-  };
+  }, []);
 
   // Update type discount (admin only)
-  const updateTypeDiscount = async (type, discount) => {
+  const updateTypeDiscount = useCallback(async (type, discount) => {
     try {
       const response = await clientService.updateTypeDiscount(type, discount);
       if (response?.success) {
@@ -145,7 +145,7 @@ const useClients = (filters = {}) => {
       toast.error('Erreur lors de la mise à jour de la remise');
       throw err;
     }
-  };
+  }, []);
 
   // Delete client
   const deleteClient = async (id) => {

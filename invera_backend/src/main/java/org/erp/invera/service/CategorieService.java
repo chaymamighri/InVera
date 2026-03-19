@@ -6,11 +6,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @Transactional
 public class CategorieService {
+
+    private static final BigDecimal DEFAULT_TAUX_TVA = BigDecimal.valueOf(19);
 
     @Autowired
     private CategorieRepository categorieRepository;
@@ -20,6 +23,9 @@ public class CategorieService {
         // Vérifier si le nom existe déjà
         if (categorieRepository.findByNomCategorieIgnoreCase(categorie.getNomCategorie()).isPresent()) {
             throw new RuntimeException("Une catégorie avec ce nom existe déjà");
+        }
+        if (categorie.getTauxTVA() == null) {
+            categorie.setTauxTVA(DEFAULT_TAUX_TVA);
         }
         return categorieRepository.save(categorie);
     }
@@ -48,6 +54,12 @@ public class CategorieService {
 
         categorie.setNomCategorie(categorieDetails.getNomCategorie());
         categorie.setDescription(categorieDetails.getDescription());
+
+        if (categorieDetails.getTauxTVA() != null) {
+            categorie.setTauxTVA(categorieDetails.getTauxTVA());
+        } else if (categorie.getTauxTVA() == null) {
+            categorie.setTauxTVA(DEFAULT_TAUX_TVA);
+        }
 
         return categorieRepository.save(categorie);
     }

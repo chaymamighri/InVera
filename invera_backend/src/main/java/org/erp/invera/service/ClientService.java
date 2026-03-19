@@ -2,7 +2,9 @@ package org.erp.invera.service;
 
 import org.erp.invera.dto.clientdto.NouveauClientDTO;
 import org.erp.invera.model.client.Client;
+import org.erp.invera.model.client.ClientTypeDiscount;
 import org.erp.invera.repository.ClientRepository;
+import org.erp.invera.repository.ClientTypeDiscountRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -17,9 +19,12 @@ import java.util.Optional;
 public class ClientService {
 
     private final ClientRepository clientRepository;
+    private final ClientTypeDiscountRepository clientTypeDiscountRepository;
 
-    public ClientService(ClientRepository clientRepository) {
+    public ClientService(ClientRepository clientRepository,
+                         ClientTypeDiscountRepository clientTypeDiscountRepository) {
         this.clientRepository = clientRepository;
+        this.clientTypeDiscountRepository = clientTypeDiscountRepository;
     }
 
 
@@ -50,13 +55,12 @@ public class ClientService {
         client.setPrenom(clientDTO.getPrenom());
         client.setTelephone(clientDTO.getTelephone());
         client.setAdresse(clientDTO.getAdresse());
-        client.setTypeClient(Client.TypeClient.valueOf(clientDTO.getType().toUpperCase()));
+        Client.TypeClient clientType = normalizeClientType(clientDTO.getType());
+        client.setTypeClient(clientType);
         client.setEmail(clientDTO.getEmail());
 
-        // Initialiser les remises à null (nullable)
-        client.setRemiseClientFidele(null);
-        client.setRemiseClientVIP(null);
-        client.setRemiseClientProfessionnelle(null);
+        resetTypeDiscountFields(client);
+        applyConfiguredTypeDiscount(client, clientType);
 
         // ✅ AJOUTER CES LIGNES POUR LES CHAMPS D'AUDIT
         client.setCreatedAt(LocalDateTime.now());  // Date et heure actuelles
@@ -110,7 +114,6 @@ public class ClientService {
         return List.of(
                 Client.TypeClient.PARTICULIER.name(),
                 Client.TypeClient.VIP.name(),
-                Client.TypeClient.PROFESSIONNEL.name(),
                 Client.TypeClient.ENTREPRISE.name(),
                 Client.TypeClient.FIDELE.name()
         );
@@ -148,8 +151,10 @@ public class ClientService {
 
         // Conversion et mise à jour du type de client
         if (clientDTO.getType() != null) {
-            Client.TypeClient nouveauType = Client.TypeClient.valueOf(clientDTO.getType().toUpperCase());
+            Client.TypeClient nouveauType = normalizeClientType(clientDTO.getType());
             client.setTypeClient(nouveauType);
+            resetTypeDiscountFields(client);
+            applyConfiguredTypeDiscount(client, nouveauType);
         }
 
         // Sauvegarde
@@ -168,28 +173,104 @@ public class ClientService {
         if (typeClient == null) return null;
 
         try {
-            Client.TypeClient type = Client.TypeClient.valueOf(typeClient.toUpperCase());
-
-            switch (type) {
-                case VIP:
-                    return clientRepository.findAverageRemiseVIP();
-
-                case FIDELE:
-                    return clientRepository.findAverageRemiseFidele();
-
-                case PROFESSIONNEL:
-                    return clientRepository.findAverageRemiseProfessionnelle();
-
-                case ENTREPRISE:
-                    // Pour ENTREPRISE, pas de colonne dédiée, retourner null
-                    return null;
-
-                case PARTICULIER:
-                default:
-                    return null; // Les particuliers n'ont pas de remise par défaut
+            Client.TypeClient type = normalizeClientType(typeClient);
+            if (type == Client.TypeClient.PARTICULIER) {
+                return 0.0;
             }
+            Optional<ClientTypeDiscount> configuredDiscount = clientTypeDiscountRepository.findById(type);
+            if (configuredDiscount.isPresent()) {
+                return configuredDiscount.get().getRemise();
+            }
+
+            return getLegacyClientAverageDiscount(type);
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    public Double updateRemiseForClientType(String typeClient, Double remise) {
+        if (typeClient == null || typeClient.isBlank()) {
+            throw new IllegalArgumentException("Le type client est obligatoire");
+        }
+        if (remise == null || remise < 0 || remise > 100) {
+            throw new IllegalArgumentException("La remise doit être comprise entre 0 et 100");
+        }
+
+        Client.TypeClient type = normalizeClientType(typeClient);
+        if (type == Client.TypeClient.PARTICULIER) {
+            clientTypeDiscountRepository.deleteById(type);
+            if (Double.compare(remise, 0.0) != 0) {
+                throw new IllegalArgumentException("Le type PARTICULIER doit conserver une remise de 0%");
+            }
+            return 0.0;
+        }
+
+        clientTypeDiscountRepository.save(new ClientTypeDiscount(type, remise));
+
+        List<Client> clients = clientRepository.findByTypeClient(type);
+        if (!clients.isEmpty()) {
+            for (Client client : clients) {
+                applyTypeDiscount(client, type, remise);
+            }
+            clientRepository.saveAll(clients);
+        }
+
+        return remise;
+    }
+
+    private void resetTypeDiscountFields(Client client) {
+        client.setRemiseClientFidele(null);
+        client.setRemiseClientVIP(null);
+        client.setRemiseClientProfessionnelle(null);
+    }
+
+    private Client.TypeClient normalizeClientType(String typeClient) {
+        if (typeClient == null || typeClient.isBlank()) {
+            throw new IllegalArgumentException("Le type client est obligatoire");
+        }
+
+        Client.TypeClient parsedType = Client.TypeClient.valueOf(typeClient.toUpperCase());
+        if (parsedType == Client.TypeClient.PROFESSIONNEL) {
+            return Client.TypeClient.ENTREPRISE;
+        }
+        return parsedType;
+    }
+
+    private void applyConfiguredTypeDiscount(Client client, Client.TypeClient type) {
+        Double configuredDiscount = getRemiseForClientType(type.name());
+        if (configuredDiscount != null) {
+            applyTypeDiscount(client, type, configuredDiscount);
+        }
+    }
+
+    private Double getLegacyClientAverageDiscount(Client.TypeClient type) {
+        switch (type) {
+            case VIP:
+                return clientRepository.findAverageRemiseVIP();
+            case FIDELE:
+                return clientRepository.findAverageRemiseFidele();
+            case PROFESSIONNEL:
+                return clientRepository.findAverageRemiseProfessionnelle();
+            case ENTREPRISE:
+            case PARTICULIER:
+            default:
+                return null;
+        }
+    }
+
+    private void applyTypeDiscount(Client client, Client.TypeClient type, Double remise) {
+        switch (type) {
+            case VIP:
+                client.setRemiseClientVIP(remise);
+                break;
+            case FIDELE:
+                client.setRemiseClientFidele(remise);
+                break;
+            case PROFESSIONNEL:
+                client.setRemiseClientProfessionnelle(remise);
+                break;
+            default:
+                break;
         }
     }
 

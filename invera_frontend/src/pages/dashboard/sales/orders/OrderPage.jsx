@@ -94,11 +94,11 @@ const OrdersPage = () => {
       if (response.success && response.types) {
         setClientTypes(response.types);
       } else {
-        setClientTypes(['VIP', 'ENTREPRISE', 'PROFESSIONNEL', 'FIDELE', 'PARTICULIER']);
+        setClientTypes(['VIP', 'ENTREPRISE', 'FIDELE', 'PARTICULIER']);
       }
     } catch (error) {
       console.error('Erreur lors du chargement des types de client:', error);
-      setClientTypes(['VIP', 'ENTREPRISE', 'PROFESSIONNEL', 'FIDELE', 'PARTICULIER']);
+      setClientTypes(['VIP', 'ENTREPRISE', 'FIDELE', 'PARTICULIER']);
     }
   }, []);
 

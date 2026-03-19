@@ -181,7 +181,7 @@ const OrderRecapModal = ({
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     selectedClient?.typeClient === 'VIP' ? 'bg-purple-100 text-purple-800' :
                     selectedClient?.typeClient === 'ENTREPRISE' ? 'bg-blue-100 text-blue-800' :
-                    selectedClient?.typeClient === 'PROFESSIONNEL' ? 'bg-green-100 text-green-800' :
+                    selectedClient?.typeClient === 'PROFESSIONNEL' ? 'bg-blue-100 text-blue-800' :
                     selectedClient?.typeClient === 'FIDELE' ? 'bg-yellow-100 text-yellow-800' :
                     selectedClient?.typeClient === 'PARTICULIER' ? 'bg-indigo-100 text-indigo-800' :
                     'bg-gray-100 text-gray-800'

@@ -140,7 +140,7 @@ const ClientManagePage = () => {
     const labels = {
       'PARTICULIER': 'Particulier',
       'VIP': 'VIP',
-      'PROFESSIONNEL': 'Professionnel',
+      'PROFESSIONNEL': 'Entreprise',
       'ENTREPRISE': 'Entreprise',
       'FIDELE': 'Fidèle'
     };
@@ -151,7 +151,7 @@ const ClientManagePage = () => {
     const classes = {
       'PARTICULIER': 'bg-gray-100 text-gray-800',
       'VIP': 'bg-purple-100 text-purple-800',
-      'PROFESSIONNEL': 'bg-blue-100 text-blue-800',
+      'PROFESSIONNEL': 'bg-indigo-100 text-indigo-800',
       'ENTREPRISE': 'bg-indigo-100 text-indigo-800',
       'FIDELE': 'bg-green-100 text-green-800'
     };

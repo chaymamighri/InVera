@@ -115,6 +115,11 @@ const getRoleColor = (role) => {
   }
 };
 
+const ASSIGNABLE_ROLE_OPTIONS = [
+  { label: 'Commercial', value: 'sales' },
+  { label: 'Responsable Achat', value: 'procurement' }
+];
+
 const GestionUsers = () => {
   const {
     loading,
@@ -168,6 +173,10 @@ const GestionUsers = () => {
   const handleEditUser = async () => {
     if (!editingUser?.name?.trim() || !editingUser?.email?.trim()) {
       toast.error("Nom et email requis.");
+      return;
+    }
+    if (editingUser?.role === 'admin') {
+      toast.error("Le compte administrateur principal ne peut pas etre modifie ici.");
       return;
     }
     try {
@@ -358,9 +367,13 @@ const GestionUsers = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => { setEditingUser(user); setEditModalOpen(true); }}
-                        className="p-1.5 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-md transition-colors"
-                        disabled={loading}
-                        title="Modifier"
+                        className={`p-1.5 rounded-md transition-colors ${
+                          user.role === 'admin'
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600'
+                        }`}
+                        disabled={loading || user.role === 'admin'}
+                        title={user.role === 'admin' ? "Le role administrateur n'est pas modifiable" : "Modifier"}
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
@@ -415,12 +428,11 @@ const GestionUsers = () => {
             label="Rôle"
             value={newUser.role}
             onChange={val => setNewUser({ ...newUser, role: val })}
-            options={[
-              { label: 'Commercial', value: 'sales' },
-              { label: 'Responsable Achat', value: 'procurement' },
-              { label: 'Administrateur', value: 'admin' }
-            ]}
+            options={ASSIGNABLE_ROLE_OPTIONS}
           />
+          <p className="text-xs text-gray-500">
+            Vous pouvez creer uniquement des comptes Commercial ou Responsable Achat.
+          </p>
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleAddUser}
@@ -465,11 +477,7 @@ const GestionUsers = () => {
               label="Rôle"
               value={editingUser.role}
               onChange={val => setEditingUser({ ...editingUser, role: val })}
-              options={[
-                { label: 'Commercial', value: 'sales' },
-                { label: 'Responsable Achat', value: 'procurement' },
-                { label: 'Administrateur', value: 'admin' }
-              ]}
+              options={ASSIGNABLE_ROLE_OPTIONS}
             />
             <div className="flex gap-3 pt-4">
               <button

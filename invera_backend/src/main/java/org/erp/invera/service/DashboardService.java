@@ -139,6 +139,9 @@ public class DashboardService {
 
         // Ajouter tous les types d'enum avec des valeurs par défaut
         for (Client.TypeClient type : Client.TypeClient.values()) {
+            if (type == Client.TypeClient.PROFESSIONNEL) {
+                continue;
+            }
             DashboardDTO.ClientTypeData data = new DashboardDTO.ClientTypeData();
             data.setType(type.name());
             data.setMontant(BigDecimal.ZERO);
@@ -173,7 +176,9 @@ public class DashboardService {
             for (Object[] row : results) {
                 try {
                     Client.TypeClient typeEnum = (Client.TypeClient) row[0];
-                    String typeName = typeEnum.name();
+                    String typeName = typeEnum == Client.TypeClient.PROFESSIONNEL
+                            ? Client.TypeClient.ENTREPRISE.name()
+                            : typeEnum.name();
 
                     Long nombre = ((Number) row[1]).longValue();  // Maintenant c'est le nombre de CLIENTS
                     BigDecimal montant = (BigDecimal) row[2];

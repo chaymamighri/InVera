@@ -31,10 +31,8 @@ public class CommandeFournisseurService {
     private final FournisseurRepository fournisseurRepository;
     private final ProduitRepository produitRepository;
 
-    // ========= CONSTANTES =========
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 
-    // ========= GET ALL COMMANDES ACTIVES =========
     public List<CommandeFournisseurDTO> getAll() {
         return commandeRepository.findByActifTrue()
                 .stream()
@@ -42,13 +40,10 @@ public class CommandeFournisseurService {
                 .collect(Collectors.toList());
     }
 
-    // ========= CREATE =========
     public CommandeFournisseurDTO creerCommande(CommandeFournisseurDTO dto) {
-        // Validation fournisseur
         Fournisseur fournisseur = fournisseurRepository.findById(dto.getFournisseur().getIdFournisseur())
                 .orElseThrow(() -> new RuntimeException("Fournisseur non trouvé"));
 
-        // Création commande
         CommandeFournisseur commande = new CommandeFournisseur();
         commande.setNumeroCommande(genererNumeroCommande());
         commande.setDateCommande(LocalDateTime.now());
@@ -59,11 +54,9 @@ public class CommandeFournisseurService {
         commande.setActif(true);
         commande.setTauxTVA(dto.getTauxTVA() != null ? dto.getTauxTVA() : TVA_PAR_DEFAUT);
 
-        // Traitement des lignes
         List<LigneCommandeFournisseur> lignes = dto.getLignesCommande()
                 .stream()
                 .map(ligneDTO -> {
-                    // Validation produit
                     if (ligneDTO.getProduitId() == null) {
                         throw new RuntimeException("L'ID du produit est obligatoire");
                     }
@@ -72,7 +65,6 @@ public class CommandeFournisseurService {
                             .orElseThrow(() -> new RuntimeException(
                                     "Produit non trouvé avec l'ID: " + ligneDTO.getProduitId()));
 
-                    // Validation quantité et prix
                     if (ligneDTO.getQuantite() <= 0) {
                         throw new RuntimeException("La quantité doit être supérieure à 0");
                     }
@@ -86,7 +78,6 @@ public class CommandeFournisseurService {
                     ligne.setQuantite(ligneDTO.getQuantite());
                     ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
-                    // Calculs
                     BigDecimal sousTotalHT = ligneDTO.getPrixUnitaire()
                             .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()))
                             .setScale(3, RoundingMode.HALF_UP);
@@ -102,7 +93,6 @@ public class CommandeFournisseurService {
                     ligne.setMontantTVA(montantTVA);
                     ligne.setSousTotalTTC(sousTotalTTC);
 
-                    // Notes optionnelles
                     if (ligneDTO.getNotes() != null && !ligneDTO.getNotes().isEmpty()) {
                         ligne.setNotes(ligneDTO.getNotes());
                     }
@@ -112,7 +102,6 @@ public class CommandeFournisseurService {
 
         commande.setLignesCommande(lignes);
 
-        // Calcul des totaux globaux
         BigDecimal totalHT = lignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalHT)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -136,19 +125,16 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= GET BY ID =========
     public CommandeFournisseurDTO getCommandeById(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
         return convertToDTO(commande);
     }
 
-    // ========= UPDATE =========
     public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
-        // Vérifier que la commande est modifiable
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON) {
             throw new RuntimeException("Seules les commandes en brouillon peuvent être modifiées");
         }
@@ -160,7 +146,6 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-    // ========= VALIDER COMMANDE =========
     public CommandeFournisseurDTO validerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -173,7 +158,6 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    // ========= ENVOYER COMMANDE =========
     public CommandeFournisseurDTO envoyerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -187,8 +171,13 @@ public class CommandeFournisseurService {
     }
 
 
+
     // ========= RECEVOIR COMMANDE avec DTO =========
     public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
+
+    public CommandeFournisseurDTO recevoirCommande(Integer id) {
+
+        }
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
@@ -198,6 +187,7 @@ public class CommandeFournisseurService {
 
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
+
 
         // ✅ Sauvegarder le numéro BL et les notes
         commande.setNumeroBL(receptionData.getNumeroBL());
@@ -220,8 +210,13 @@ public class CommandeFournisseurService {
 
             ligne.setQuantiteRecue(quantiteRecue);
 
+        for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
+            ligne.setQuantiteRecue(ligne.getQuantite());
+
+
             Produit produit = ligne.getProduit();
             if (produit != null) {
+
                 // Mise à jour du stock
                 int stockAvant = produit.getStockActuel();
                 int nouveauStock = stockAvant + quantiteRecue;
@@ -238,6 +233,23 @@ public class CommandeFournisseurService {
                 }
 
                 produitRepository.save(produit);
+
+                int stockAvant = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
+                int nouvelleQuantite = stockAvant + ligne.getQuantite();
+                produit.setQuantiteStock(nouvelleQuantite);
+
+                if (!Boolean.TRUE.equals(produit.getActive()) && nouvelleQuantite > 0) {
+                    produit.setActive(true);
+
+                    System.out.println("Produit réactivé: " + produit.getLibelle()
+                            + " (ID: " + produit.getIdProduit()
+                            + ") suite à réception commande " + commande.getNumeroCommande());
+                }
+
+                produitRepository.save(produit);
+            } else {
+                System.err.println("Ligne " + ligne.getIdLigneCommandeFournisseur()
+                        + " sans produit associé");
             }
         }
 
@@ -258,8 +270,6 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    // ========= ANNULER COMMANDE =========
-    // Dans CommandeFournisseurService.java
     public CommandeFournisseurDTO annulerCommande(Integer id, String raison) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -271,19 +281,17 @@ public class CommandeFournisseurService {
 
         commande.setStatut(CommandeFournisseur.StatutCommande.ANNULEE);
 
-        // ✅ Ajouter la raison dans les notes ou un champ dédié
         if (raison != null && !raison.isEmpty()) {
-            // Option 1: Ajouter aux notes de la commande
             String notesActuelles = commande.getNotes();
             String raisonAnnotation = "Annulation: " + raison;
-            commande.setNotes(notesActuelles != null ?
-                    notesActuelles + " | " + raisonAnnotation : raisonAnnotation);
+            commande.setNotes(notesActuelles != null
+                    ? notesActuelles + " | " + raisonAnnotation
+                    : raisonAnnotation);
         }
 
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    // ========= SOFT DELETE =========
     public void supprimerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -297,7 +305,6 @@ public class CommandeFournisseurService {
         commandeRepository.save(commande);
     }
 
-    // ========= RESTAURER COMMANDE =========
     public CommandeFournisseurDTO restoreCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -306,7 +313,6 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    // ========= GET ARCHIVED =========
     public List<CommandeFournisseurDTO> getArchivedCommandes() {
         return commandeRepository.findByActifFalse()
                 .stream()
@@ -314,22 +320,18 @@ public class CommandeFournisseurService {
                 .collect(Collectors.toList());
     }
 
-    // ========= RECHERCHE PAR NUMERO =========
     public CommandeFournisseurDTO getCommandeByNumero(String numero) {
         CommandeFournisseur commande = commandeRepository.findByNumeroCommande(numero)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec le numéro: " + numero));
         return convertToDTO(commande);
     }
 
-    // ========= RECHERCHE PAR PERIODE =========
     public List<CommandeFournisseurDTO> getCommandesByPeriode(LocalDateTime debut, LocalDateTime fin) {
         return commandeRepository.findByDateCommandeBetweenOrderByDateCommandeDesc(debut, fin)
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
-
-    // ========= METHODES PRIVEES =========
 
     private String genererNumeroCommande() {
         LocalDateTime now = LocalDateTime.now();

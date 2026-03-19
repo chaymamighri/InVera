@@ -1,5 +1,5 @@
 // src/components/Header.jsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BellIcon, UserCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -7,7 +7,9 @@ import logo from '../assets/images/logo.png';
 import { notificationService } from '../services/notificationService';
 import { useSidebar } from '../context/SidebarContext';
 
-const Header = () => {
+const normalizeRole = (value) => String(value || '').trim().toUpperCase().replace(/^ROLE_/, '');
+
+const Header = ({ userRole }) => {
   const { collapsed } = useSidebar();
   const location = useLocation();
 
@@ -19,21 +21,24 @@ const Header = () => {
 
   // detect new notifications (for toast popup)
   const lastUnreadRef = useRef(0);
+  const announcedExistingUnreadRef = useRef(false);
 
   const navigate = useNavigate();
 
   const profileRef = useRef(null);
   const notifRef = useRef(null);
 
-  const user = (() => {
+  const user = useMemo(() => {
     const name = localStorage.getItem('userName') || 'Utilisateur';
     const email = localStorage.getItem('userEmail') || '';
-    const role = (localStorage.getItem('userRole') || 'user').trim();
+    const role = (userRole || localStorage.getItem('userRole') || 'user').trim();
+    const normalizedRole = normalizeRole(role);
 
     const roleTranslations = {
       ADMIN: 'Administrateur',
       COMMERCIAL: 'Responsable Ventes',
       RESPONSABLE_ACHAT: 'Responsable Achats',
+      PROCUREMENT: 'Responsable Achats',
       admin: 'Administrateur',
       sales: 'Responsable Ventes',
       procurement: 'Responsable Achats',
@@ -52,11 +57,13 @@ const Header = () => {
       name,
       email,
       roleRaw: role,
-      role: roleTranslations[role] || roleTranslations[role.toUpperCase()] || role,
+      normalizedRole,
+      role: roleTranslations[role] || roleTranslations[normalizedRole] || roleTranslations[normalizedRole.toLowerCase()] || role,
       initials: initials || 'U',
-      isAdmin: role.toUpperCase() === 'ADMIN',
+      isAdmin: normalizedRole === 'ADMIN',
+      canUseNotifications: ['ADMIN', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
     };
-  })();
+  }, [userRole]);
 
   const handleLogout = () => {
     ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((item) => {
@@ -131,12 +138,17 @@ const Header = () => {
     return Array.from(map.entries());
   };
 
-  const loadUnreadCount = async ({ withToast = false } = {}) => {
-    if (!user.isAdmin) return;
+  const loadUnreadCount = async ({ withToast = false, announceExisting = false } = {}) => {
+    if (!user.canUseNotifications) return;
     try {
       const res = await notificationService.getUnreadCount();
       const n = typeof res.data === 'number' ? res.data : Number(res.data || 0);
       const safe = Number.isFinite(n) ? n : 0;
+
+      if (announceExisting && !announcedExistingUnreadRef.current && safe > 0) {
+        toast(`Vous avez ${safe} notification(s) non lue(s)`);
+        announcedExistingUnreadRef.current = true;
+      }
 
       // ✅ only toast if dropdown is NOT open
       if (withToast && !isNotifOpen && safe > lastUnreadRef.current) {
@@ -145,13 +157,18 @@ const Header = () => {
 
       lastUnreadRef.current = safe;
       setUnreadCount(safe);
+      if (safe === 0) {
+        announcedExistingUnreadRef.current = false;
+      }
+      return safe;
     } catch {
       // silent
+      return 0;
     }
   };
 
   const loadNotifications = async () => {
-    if (!user.isAdmin) return;
+    if (!user.canUseNotifications) return;
     setNotifLoading(true);
     try {
       const res = await notificationService.getAll();
@@ -192,9 +209,9 @@ const Header = () => {
 
   // ✅ Poll unread count (ADMIN only)
   useEffect(() => {
-    if (!user.isAdmin) return;
+    if (!user.canUseNotifications) return;
 
-    loadUnreadCount({ withToast: false });
+    loadUnreadCount({ withToast: false, announceExisting: true });
 
     const t = setInterval(() => {
       loadUnreadCount({ withToast: true });
@@ -202,7 +219,7 @@ const Header = () => {
 
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.isAdmin, isNotifOpen]);
+  }, [user.canUseNotifications, isNotifOpen]);
 
   // ✅ Close menus on outside click (capture)
   useEffect(() => {
@@ -271,6 +288,7 @@ const Header = () => {
           {/* Right Section */}
           <div className="flex items-center space-x-4">
             {/* 🔔 Notifications */}
+            {user.canUseNotifications && (
             <div className="relative" ref={notifRef}>
               <button
                 onClick={toggleNotifications}
@@ -462,6 +480,7 @@ const Header = () => {
                 </div>
               )}
             </div>
+            )}
 
             <div className="hidden lg:block h-6 w-px bg-white/20"></div>
 
