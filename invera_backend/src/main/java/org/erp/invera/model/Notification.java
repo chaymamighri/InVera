@@ -32,13 +32,21 @@ public class Notification {
     @Column(nullable = true)
     private String userName;
 
+    @Column(nullable = true)
+    private String targetRole;
+
     public Notification() {}
 
     public Notification(String type, String message, String userEmail, String userName) {
+        this(type, message, userEmail, userName, "ADMIN");
+    }
+
+    public Notification(String type, String message, String userEmail, String userName, String targetRole) {
         this.type = type;
         this.message = message;
         this.userEmail = userEmail;
         this.userName = userName;
+        this.targetRole = targetRole;
         this.read = false;
         this.createdAt = LocalDateTime.now();
     }
@@ -62,4 +70,7 @@ public class Notification {
 
     public String getUserName() { return userName; }
     public void setUserName(String userName) { this.userName = userName; }
+
+    public String getTargetRole() { return targetRole; }
+    public void setTargetRole(String targetRole) { this.targetRole = targetRole; }
 }

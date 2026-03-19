@@ -16,56 +16,46 @@ public class ProduitService {
 
     private final ProduitRepository produitRepository;
     private final CategorieRepository categorieRepository;
+    private final StockNotificationService stockNotificationService;
 
-    public ProduitService(ProduitRepository produitRepository, CategorieRepository categorieRepository) {
+    public ProduitService(ProduitRepository produitRepository,
+                          CategorieRepository categorieRepository,
+                          StockNotificationService stockNotificationService) {
         this.produitRepository = produitRepository;
         this.categorieRepository = categorieRepository;
+        this.stockNotificationService = stockNotificationService;
     }
 
-    /**
-     * Créer un nouveau produit
-     */
     public Produit createProduit(Produit produit) {
-        // Vérifier que la catégorie existe
         if (produit.getCategorie() != null && produit.getCategorie().getIdCategorie() != null) {
             Categorie categorie = categorieRepository.findById(produit.getCategorie().getIdCategorie())
-                    .orElseThrow(() -> new RuntimeException("Catégorie non trouvée avec l'id: " + produit.getCategorie().getIdCategorie()));
+                    .orElseThrow(() -> new RuntimeException(
+                            "Categorie non trouvee avec l'id: " + produit.getCategorie().getIdCategorie()
+                    ));
             produit.setCategorie(categorie);
         }
 
-        // Calculer le statut du stock avant la sauvegarde
         updateStockStatus(produit);
         return produitRepository.save(produit);
     }
 
-    /**
-     * Récupérer tous les produits
-     */
     public List<Produit> getAllProduits() {
         return produitRepository.findAll();
     }
 
-    /**
-     * Récupérer tous les produits actifs uniquement
-     */
     public List<Produit> getProduitsActifs() {
         return produitRepository.findByActiveTrue();
     }
 
-    /**
-     * Récupérer un produit par son ID
-     */
     public Optional<Produit> getProduitById(Integer id) {
         return produitRepository.findById(id);
     }
 
-    /**
-     * Mettre à jour un produit existant
-     */
     public Produit updateProduit(Integer id, Produit produitDetails) {
         return produitRepository.findById(id)
                 .map(produit -> {
-                    // Mise à jour des champs uniquement s'ils sont fournis
+                    Integer previousQuantity = produit.getQuantiteStock();
+
                     if (produitDetails.getLibelle() != null) {
                         produit.setLibelle(produitDetails.getLibelle());
                     }
@@ -78,10 +68,12 @@ public class ProduitService {
                         produit.setPrixAchat(produitDetails.getPrixAchat());
                     }
 
-                    // Mise à jour de la catégorie si spécifiée
                     if (produitDetails.getCategorie() != null && produitDetails.getCategorie().getIdCategorie() != null) {
                         Categorie categorie = categorieRepository.findById(produitDetails.getCategorie().getIdCategorie())
-                                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée avec l'id: " + produitDetails.getCategorie().getIdCategorie()));
+                                .orElseThrow(() -> new RuntimeException(
+                                        "Categorie non trouvee avec l'id: "
+                                                + produitDetails.getCategorie().getIdCategorie()
+                                ));
                         produit.setCategorie(categorie);
                     }
 
@@ -105,109 +97,77 @@ public class ProduitService {
                         produit.setRemiseTemporaire(produitDetails.getRemiseTemporaire());
                     }
 
-                    // Recalculer le statut du stock
                     updateStockStatus(produit);
 
-                    return produitRepository.save(produit);
+                    Produit savedProduit = produitRepository.save(produit);
+                    stockNotificationService.notifyIfStockNeedsReorder(
+                            savedProduit,
+                            previousQuantity,
+                            savedProduit.getQuantiteStock()
+                    );
+                    return savedProduit;
                 })
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Produit non trouve avec l'id: " + id));
     }
 
-    /**
-     * Désactiver un produit (soft delete)
-     */
     public void desactiverProduit(Integer id) {
         Produit produit = produitRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Produit non trouve avec l'id: " + id));
 
         produit.setActive(false);
         produitRepository.save(produit);
     }
 
-    /**
-     * Réactiver un produit
-     */
     public Produit reactiverProduit(Integer id) {
         Produit produit = produitRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Produit non trouve avec l'id: " + id));
 
         produit.setActive(true);
         return produitRepository.save(produit);
     }
 
-    /**
-     * Rechercher des produits avec filtres
-     */
-
     public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId, Boolean actif) {
-
-        // Logs pour debug
-        System.out.println("========== SERVICE SEARCH ==========");
-        System.out.println("keyword: " + keyword);
-        System.out.println("status (enum): " + status);
-        System.out.println("categorieId: " + categorieId);
-        System.out.println("actif: " + actif);
-
-        // CONVERSION : enum -> String
-        String statusStr = null;
-        if (status != null) {
-            statusStr = status.name(); // Convertit EN_STOCK -> "EN_STOCK"
-            System.out.println("status converti en String: " + statusStr);
-        }
-
-        // Appel au repository avec le String
-        List<Produit> resultats = produitRepository.searchProduits(keyword, statusStr, categorieId, actif);
-
-        System.out.println("Résultats trouvés: " + resultats.size());
-        System.out.println("====================================");
-
-        return resultats;
+        String statusStr = status != null ? status.name() : null;
+        return produitRepository.searchProduits(keyword, statusStr, categorieId, actif);
     }
 
-    /**
-     * Récupérer les produits par catégorie
-     */
     public List<Produit> getProduitsByCategorie(Integer categorieId) {
         Categorie categorie = categorieRepository.findById(categorieId)
-                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée avec l'id: " + categorieId));
+                .orElseThrow(() -> new RuntimeException("Categorie non trouvee avec l'id: " + categorieId));
         return produitRepository.findByCategorieAndActiveTrue(categorie);
     }
 
-    /**
-     * Récupérer les produits avec stock faible (FAIBLE ou CRITIQUE)
-     */
     public List<Produit> getLowStockProduits() {
         return produitRepository.findByStatusInAndActiveTrue(
                 List.of(Produit.StockStatus.FAIBLE, Produit.StockStatus.CRITIQUE)
         );
     }
 
-    /**
-     * Mettre à jour le stock d'un produit
-     */
     public Produit updateStock(Integer id, Integer nouvelleQuantite) {
         return produitRepository.findById(id)
                 .map(produit -> {
+                    Integer previousQuantity = produit.getQuantiteStock();
                     produit.setQuantiteStock(nouvelleQuantite);
                     updateStockStatus(produit);
-                    return produitRepository.save(produit);
+
+                    Produit savedProduit = produitRepository.save(produit);
+                    stockNotificationService.notifyIfStockNeedsReorder(
+                            savedProduit,
+                            previousQuantity,
+                            savedProduit.getQuantiteStock()
+                    );
+                    return savedProduit;
                 })
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Produit non trouve avec l'id: " + id));
     }
 
-    /**
-     * Vérifier la disponibilité d'un produit pour une quantité donnée
-     */
     public boolean verifierDisponibilite(Integer produitId, Integer quantiteDemandee) {
         Produit produit = produitRepository.findById(produitId)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'id: " + produitId));
+                .orElseThrow(() -> new RuntimeException("Produit non trouve avec l'id: " + produitId));
 
         return produit.getActive() && produit.getQuantiteStock() >= quantiteDemandee;
     }
 
-    /**
-     * Méthode privée pour mettre à jour le statut du stock
-     */
     private void updateStockStatus(Produit produit) {
         if (produit.getQuantiteStock() == null || produit.getSeuilMinimum() == null) {
             produit.setStatus(Produit.StockStatus.RUPTURE);
