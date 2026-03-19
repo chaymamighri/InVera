@@ -34,7 +34,6 @@ const SalesTab = () => {
   const clientTypes = [
     { id: undefined, label: 'Tous les clients' },
     { id: 'VIP', label: 'VIP' },
-    { id: 'PROFESSIONNEL', label: 'Professionnel' },
     { id: 'ENTREPRISE', label: 'Entreprise' },
     { id: 'FIDELE', label: 'Fidèle' },
     { id: 'PARTICULIER', label: 'Particulier' }

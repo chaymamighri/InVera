@@ -279,7 +279,6 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient }) =
                 >
                   <option value="PARTICULIER">Particulier</option>
                   <option value="VIP">VIP</option>
-                  <option value="PROFESSIONNEL">Professionnel</option>
                   <option value="ENTREPRISE">Entreprise</option>
                   <option value="FIDELE">Fidèle</option>
                 </select>

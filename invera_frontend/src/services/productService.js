@@ -195,6 +195,21 @@ updateProduct: async (id, productData) => {
   },
 
   /**
+   * Mettre à jour le stock d'un produit
+   */
+  updateStock: async (id, quantite) => {
+    try {
+      const response = await api.patch(`/produits/${id}/stock`, null, {
+        params: { quantite }
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Erreur lors de la mise à jour du stock du produit ${id}:`, error);
+      throw error;
+    }
+  },
+
+  /**
    * Vérifier la disponibilité d'un produit
 =   */
   checkAvailability: async (id, quantite) => {
