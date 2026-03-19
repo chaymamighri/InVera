@@ -93,7 +93,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
 
-                        .requestMatchers("/api/notifications/**").hasRole("ADMIN")
+                        .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
 
                         .requestMatchers(
                                 "/api/auth/register",

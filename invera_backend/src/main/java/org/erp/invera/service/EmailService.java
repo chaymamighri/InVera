@@ -1,5 +1,6 @@
 package org.erp.invera.service;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.erp.invera.model.User;
 import org.erp.invera.repository.UserRepository;
@@ -8,8 +9,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -40,22 +39,21 @@ public class EmailService {
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                     <div style="max-width: 500px; margin: auto; padding: 20px;">
                         <h2 style="color: #444;">Bonjour,</h2>
-                        
+
                         <p>Pour réinitialiser votre mot de passe, utilisez le code ci-dessous :</p>
-                        
-                        <div style="font-size: 32px; font-weight: bold; color: #0066cc; 
-                                   text-align: center; padding: 20px; background: #f5f5f5; 
+
+                        <div style="font-size: 32px; font-weight: bold; color: #0066cc;
+                                   text-align: center; padding: 20px; background: #f5f5f5;
                                    border-radius: 5px; margin: 20px 0;">
                             %s
                         </div>
-                        
+
                         <p style="color: #666;">
                             <strong>Validité :</strong> Ce code expirera le %s
                         </p>
-                       
-                        
+
                         <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-                        
+
                         <p style="color: #999; font-size: 12px;">
                             Invera ERP - Enterprise Resource Planning
                         </p>
@@ -72,74 +70,79 @@ public class EmailService {
         }
     }
 
-
-    public void sendCreatePasswordEmail(String email, String token) {
-
+    public void sendCreatePasswordEmail(String email, String code) {
         try {
-            String link = "http://localhost:5173/create-password?token="
-                    + token + "&email=" + email;
-
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("🔑 Bienvenue sur Invera ERP - Activez votre compte");
+            helper.setSubject("Code d'activation - Invera ERP");
 
-            // Récupérer les informations du NOUVEL UTILISATEUR
             User newUser = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            String newUserNomComplet = newUser.getPrenom() + " " + newUser.getNom();
+            LocalDateTime expiryTime = LocalDateTime.now().plusHours(24);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a' HH:mm");
+            String expiryTimeFormatted = expiryTime.format(formatter);
+
+            String prenom = newUser.getPrenom() == null ? "" : newUser.getPrenom();
+            String nom = newUser.getNom() == null ? "" : newUser.getNom();
+            String fullName = (prenom + " " + nom).trim();
+
+            if (fullName.isBlank()) {
+                fullName = email;
+            }
 
             String htmlContent = """
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <!DOCTYPE html>
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto;">
                         <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
                             <h1>Invera ERP</h1>
                         </div>
-                    
-                        <div style="padding: 20px; border: 1px solid #e0e0e0; border-top: none;">
+
+                        <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
                             <h2 style="color: #1976d2;">Bonjour %s,</h2>
-                    
-                            <p>L'administrateur de la plateforme Invera a créé votre compte.</p>
-                    
+
+                            <p>L'administrateur de la plateforme Invera a cree votre compte.</p>
+
                             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
                                 <p style="margin: 5px 0;"><strong>Email :</strong> %s</p>
                                 <p style="margin: 5px 0;"><strong>Nom :</strong> %s</p>
-                                <p style="margin: 5px 0;"><strong>Prénom :</strong> %s</p>
+                                <p style="margin: 5px 0;"><strong>Prenom :</strong> %s</p>
                             </div>
-                    
-                            <p>Pour finaliser votre inscription et créer votre mot de passe, cliquez sur le bouton ci-dessous :</p>
-                    
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="%s" 
-                                   style="background-color: #1976d2; 
-                                          color: white; 
-                                          padding: 12px 30px; 
-                                          text-decoration: none; 
-                                          border-radius: 5px;
-                                          font-weight: bold;">
-                                    🔐 Créer mon mot de passe
-                                </a>
+
+                            <p>Pour activer votre compte et creer votre mot de passe, utilisez le code ci-dessous :</p>
+
+                            <div style="margin: 24px 0; text-align: center;">
+                                <div style="display: inline-block; min-width: 220px; padding: 18px 28px; border-radius: 12px; background: #eef4ff; color: #1976d2; font-size: 32px; font-weight: bold; letter-spacing: 10px;">
+                                    %s
+                                </div>
                             </div>
-                    
+
+                            <p>Depuis la page de connexion Invera, cliquez sur <strong>Activer mon compte</strong>, puis saisissez votre email, ce code, et votre nouveau mot de passe.</p>
+
                             <p style="color: #666; font-size: 14px;">
-                                ⏰ Ce lien expirera dans <strong>24 heures</strong>.
+                                <strong>Validite :</strong> Ce code expirera le %s.
                             </p>
-                    
+
                             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-                    
+
                             <p style="color: #999; font-size: 12px; text-align: center;">
-                                &copy; 2026 Invera ERP. Tous droits réservés.
+                                &copy; 2026 Invera ERP. Tous droits reserves.
                             </p>
                         </div>
                     </div>
-                    """.formatted(
-                    newUserNomComplet,
+                </body>
+                </html>
+                """.formatted(
+                    fullName,
                     email,
-                    newUser.getNom(),
-                    newUser.getPrenom(),
-                    link
+                    nom,
+                    prenom,
+                    code,
+                    expiryTimeFormatted
             );
 
             helper.setText(htmlContent, true);
@@ -148,7 +151,5 @@ public class EmailService {
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
         }
-
     }
 }
-

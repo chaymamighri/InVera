@@ -169,7 +169,6 @@ public class ReportController {
                 ),
                 "clientTypes", Map.of(
                         "VIP", "VIP",
-                        "PROFESSIONNEL", "Professionnel",
                         "ENTREPRISE", "Entreprise",
                         "FIDELE", "Fidèle",
                         "PARTICULIER", "Particulier"

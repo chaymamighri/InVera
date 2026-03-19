@@ -369,8 +369,8 @@ public class CommandeClientService {
             Produit produit = produitRepository.findById(entry.getKey())
                     .orElseThrow(() -> new RuntimeException("Produit non trouve: " + entry.getKey()));
 
-            produit.setQuantiteStock(produit.getQuantiteStock() - entry.getValue());
-            produitRepository.save(produit);
+            int newQuantity = produit.getQuantiteStock() - entry.getValue();
+            produitService.updateStock(produit.getIdProduit(), newQuantity);
         }
 
         commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
@@ -392,8 +392,8 @@ public class CommandeClientService {
                 Produit produit = produitRepository.findById(produitId)
                         .orElseThrow(() -> new RuntimeException("Produit non trouve: " + produitId));
 
-                produit.setQuantiteStock(produit.getQuantiteStock() + ligne.getQuantite());
-                produitRepository.save(produit);
+                int restoredQuantity = produit.getQuantiteStock() + ligne.getQuantite();
+                produitService.updateStock(produit.getIdProduit(), restoredQuantity);
             }
         }
 
