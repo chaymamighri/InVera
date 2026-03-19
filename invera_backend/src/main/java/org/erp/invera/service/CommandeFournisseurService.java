@@ -3,6 +3,7 @@ package org.erp.invera.service;
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.commandeFornisseurdto.LigneCommandeDTO;
+import org.erp.invera.dto.commandeFornisseurdto.ReceptionDTO;
 import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
@@ -185,8 +186,9 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    // ========= RECEVOIR COMMANDE =========
-    public CommandeFournisseurDTO recevoirCommande(Integer id) {
+
+    // ========= RECEVOIR COMMANDE avec DTO =========
+    public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
@@ -197,47 +199,51 @@ public class CommandeFournisseurService {
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
 
-        // ✅ Mettre à jour les quantités reçues ET gérer la réactivation des produits
+        // ✅ Sauvegarder le numéro BL et les notes
+        commande.setNumeroBL(receptionData.getNumeroBL());
+        commande.setNotesReception(receptionData.getNotes());
+
+        int produitsReactives = 0;
+
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
-            // Enregistrer la quantité reçue
-            ligne.setQuantiteRecue(ligne.getQuantite());
+            Integer ligneId = ligne.getIdLigneCommandeFournisseur();
 
-            // ✅ RÉCUPÉRER LE PRODUIT ASSOCIÉ
+            // ✅ Récupérer la quantité reçue
+            Integer quantiteRecue = receptionData.getQuantitesRecues().get(ligneId);
+            if (quantiteRecue == null) {
+                quantiteRecue = ligne.getQuantite();
+            }
+
+            if (quantiteRecue > ligne.getQuantite()) {
+                throw new RuntimeException("Quantité reçue supérieure à la quantité commandée");
+            }
+
+            ligne.setQuantiteRecue(quantiteRecue);
+
             Produit produit = ligne.getProduit();
-
             if (produit != null) {
                 // Mise à jour du stock
                 int stockAvant = produit.getStockActuel();
-                int nouvelleQuantite = stockAvant + ligne.getQuantite();
-                produit.setStockActuel(nouvelleQuantite);
+                int nouveauStock = stockAvant + quantiteRecue;
+                produit.setStockActuel(nouveauStock);
 
-                // ✅ RÉACTIVATION DU PRODUIT S'IL ÉTAIT INACTIF
-                if (!produit.getActif() && nouvelleQuantite > 0) {
+                // ✅ Réactivation si demandée
+                Boolean doitReactivater = receptionData.getProduitsAReactiver() != null
+                        ? receptionData.getProduitsAReactiver().get(ligneId)
+                        : false;
+
+                if (doitReactivater != null && doitReactivater && !produit.getActif() && quantiteRecue > 0) {
                     produit.setActif(true);
-                    // Si vous avez un champ date_activation
-                    // produit.setDateActivation(LocalDateTime.now());
-
-                    // Log pour audit
-                    System.out.println("✅ Produit réactivé: " + produit.getLibelle() +
-                            " (ID: " + produit.getIdProduit() +
-                            ") suite à réception commande " + commande.getNumeroCommande());
+                    produitsReactives++;
                 }
 
-                // Sauvegarder le produit mis à jour
                 produitRepository.save(produit);
-            } else {
-                // Log si produit est null (cas d'erreur)
-                System.err.println("⚠️ Ligne " + ligne.getIdLigneCommandeFournisseur() +
-                        " sans produit associé");
             }
         }
 
-        // Sauvegarder la commande mise à jour
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
-
         return convertToDTO(savedCommande);
     }
-
 
     // ========= FACTURER COMMANDE =========
     public CommandeFournisseurDTO facturerCommande(Integer id) {

@@ -2,6 +2,7 @@ package org.erp.invera.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
+import org.erp.invera.dto.commandeFornisseurdto.ReceptionDTO;
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.service.CommandeFournisseurService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -78,9 +79,11 @@ public class CommandeFournisseurController {
         return ResponseEntity.ok(commandeService.envoyerCommande(id));
     }
 
-    @PutMapping("/{id}/recevoir")
-    public ResponseEntity<CommandeFournisseurDTO> recevoirCommande(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.recevoirCommande(id));
+    @PostMapping("/{id}/recevoir")
+    public ResponseEntity<CommandeFournisseurDTO> recevoirCommande(
+            @PathVariable Integer id,
+            @RequestBody ReceptionDTO receptionData) {
+        return ResponseEntity.ok(commandeService.recevoirCommande(id, receptionData));
     }
 
     @PutMapping("/{id}/annuler")
