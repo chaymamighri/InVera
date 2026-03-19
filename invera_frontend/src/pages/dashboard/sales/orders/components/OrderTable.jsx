@@ -76,7 +76,7 @@ const OrderTable = ({
       case 'ENTREPRISE':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'PROFESSIONNEL':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'STANDARD':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
@@ -90,7 +90,7 @@ const OrderTable = ({
       case 'ENTREPRISE':
         return <BuildingOfficeIcon className="h-3 w-3 mr-1" />;
       case 'PROFESSIONNEL':
-        return <BriefcaseIcon className="h-3 w-3 mr-1" />;
+        return <BuildingOfficeIcon className="h-3 w-3 mr-1" />;
       default:
         return null;
     }

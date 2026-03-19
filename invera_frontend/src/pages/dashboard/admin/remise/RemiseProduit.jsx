@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import useClients from "../../../../hooks/useClient";
 import useProducts from "../../../../hooks/useProducts";
 
-const SUPPORTED_CLIENT_DISCOUNT_TYPES = ["VIP", "FIDELE", "PROFESSIONNEL"];
+const CLIENT_TYPE_ORDER = ["VIP", "ENTREPRISE", "FIDELE"];
 
 const Remise = () => {
   // Tab state: "clients" or "products"
@@ -42,10 +42,12 @@ const Remise = () => {
     updateProduct,
   } = useProducts({ search: productSearch });
 
-  const configurableClientTypes = useMemo(
-    () => clientTypes.filter((type) => SUPPORTED_CLIENT_DISCOUNT_TYPES.includes(type)),
-    [clientTypes]
-  );
+  const configurableClientTypes = useMemo(() => {
+    const allowedTypes = clientTypes.filter((type) => type !== "PARTICULIER");
+    const knownTypes = CLIENT_TYPE_ORDER.filter((type) => allowedTypes.includes(type));
+    const customTypes = allowedTypes.filter((type) => !CLIENT_TYPE_ORDER.includes(type));
+    return [...knownTypes, ...customTypes];
+  }, [clientTypes]);
 
   // Debounce client search
   useEffect(() => {
@@ -220,7 +222,7 @@ const Remise = () => {
       {activeTab === "clients" && (
         <div className="space-y-6">
           {/* Client Stats with modern cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <StatCard 
               label="Total" 
               value={clientStats.total} 
@@ -234,8 +236,8 @@ const Remise = () => {
               icon="👤"
             />
             <StatCard 
-              label="Professionnels" 
-              value={clientStats.professionnel} 
+              label="VIP" 
+              value={clientStats.vip} 
               color="amber"
               icon="💼"
             />
@@ -244,6 +246,12 @@ const Remise = () => {
               value={clientStats.entreprise} 
               color="violet"
               icon="🏢"
+            />
+            <StatCard 
+              label="FidÃ¨les" 
+              value={clientStats.fidele} 
+              color="teal"
+              icon="ðŸ”"
             />
           </div>
 

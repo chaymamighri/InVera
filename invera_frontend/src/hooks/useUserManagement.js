@@ -1,17 +1,59 @@
-// src/hooks/useUserManagement.js
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { userService } from '../services/userService';
 
-const parseActive = (val) => {
-  if (typeof val === 'boolean') return val;
-  if (typeof val === 'number') return val === 1;
-  if (typeof val === 'string') {
-    const v = val.trim().toLowerCase();
-    if (v === 'true' || v === 't' || v === '1' || v === 'yes') return true;
-    if (v === 'false' || v === 'f' || v === '0' || v === 'no') return false;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const parseActive = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', 't', '1', 'yes'].includes(normalized)) return true;
+    if (['false', 'f', '0', 'no'].includes(normalized)) return false;
   }
+
   return false;
+};
+
+const splitFullName = (fullName = '') => {
+  const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+  const prenom = parts.pop() || '';
+  const nom = parts.join(' ') || prenom;
+
+  return { nom, prenom };
+};
+
+const mapFrontendRoleToBackend = (role) => {
+  switch (role) {
+    case 'procurement':
+      return 'RESPONSABLE_ACHAT';
+    case 'sales':
+    default:
+      return 'COMMERCIAL';
+  }
+};
+
+const extractErrorMessage = (error, fallbackMessage) => {
+  const backendMessage =
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    (typeof error?.response?.data === 'string' ? error.response.data : '');
+
+  if (typeof backendMessage === 'string' && backendMessage.trim()) {
+    return backendMessage.trim();
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim();
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallbackMessage;
 };
 
 export const useUserManagement = () => {
@@ -21,31 +63,32 @@ export const useUserManagement = () => {
   const getUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const users = await userService.getAllUsers();
 
-      return (users || []).map((u) => {
+      return (users || []).map((user) => {
         const rawActive =
-          u.active !== undefined ? u.active :
-          u.isActive !== undefined ? u.isActive :
-          u.enabled !== undefined ? u.enabled :
-          u.status !== undefined ? u.status :
+          user.active !== undefined ? user.active :
+          user.isActive !== undefined ? user.isActive :
+          user.enabled !== undefined ? user.enabled :
+          user.status !== undefined ? user.status :
           false;
 
         return {
-          id: u.id,
-          name: `${u.nom} ${u.prenom}`.trim(),
-          email: u.email,
+          id: user.id,
+          name: `${user.nom || ''} ${user.prenom || ''}`.trim(),
+          email: user.email || '',
           role:
-            u.role === 'COMMERCIAL' ? 'sales' :
-            u.role === 'RESPONSABLE_ACHAT' ? 'procurement' :
-            u.role === 'ADMIN' ? 'admin' :
-            String(u.role || '').toLowerCase(),
+            user.role === 'COMMERCIAL' ? 'sales' :
+            user.role === 'RESPONSABLE_ACHAT' ? 'procurement' :
+            user.role === 'ADMIN' ? 'admin' :
+            String(user.role || '').toLowerCase(),
           active: parseActive(rawActive),
         };
       });
     } catch (err) {
-      const message = typeof err === 'string' ? err : err.message || 'Erreur lors du chargement';
+      const message = extractErrorMessage(err, 'Erreur lors du chargement');
       setError(message);
       throw new Error(message);
     } finally {
@@ -56,29 +99,38 @@ export const useUserManagement = () => {
   const addUser = useCallback(async (user) => {
     setLoading(true);
     setError(null);
-    try {
-      const nameParts = user.name.trim().split(' ');
-      const prenom = nameParts.pop() || '';
-      const nom = nameParts.join(' ') || prenom;
 
+    try {
+      const email = String(user?.email || '').trim().toLowerCase();
+      const name = String(user?.name || '').trim();
+
+      if (!name) {
+        throw new Error("Le nom de l'utilisateur est requis.");
+      }
+
+      if (!EMAIL_REGEX.test(email)) {
+        throw new Error("L'adresse email n'est pas valide.");
+      }
+
+      if (user?.role === 'admin') {
+        throw new Error("Vous pouvez creer uniquement des comptes Commercial ou Responsable Achat.");
+      }
+
+      const { nom, prenom } = splitFullName(name);
       const payload = {
-        username: user.email.split('@')[0],
-        email: user.email,
+        username: email.split('@')[0],
+        email,
         nom,
         prenom,
-        role:
-          user.role === 'sales' ? 'COMMERCIAL' :
-          user.role === 'procurement' ? 'RESPONSABLE_ACHAT' :
-          'COMMERCIAL',
+        role: mapFrontendRoleToBackend(user?.role),
       };
 
-      await userService.createUser(payload);
-      toast.success('Utilisateur créé. Email de création envoyé.');
+      return await userService.createUser(payload);
     } catch (err) {
-      const msg = err?.message || err?.toString?.() || "Erreur lors de l'ajout";
-      toast.error(msg);
-      setError(msg);
-      throw new Error(msg);
+      const message = extractErrorMessage(err, "Erreur lors de l'ajout");
+      toast.error(message);
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -87,29 +139,38 @@ export const useUserManagement = () => {
   const updateUser = useCallback(async (id, updatedData) => {
     setLoading(true);
     setError(null);
-    try {
-      const nameParts = updatedData.name.trim().split(' ');
-      const prenom = nameParts.pop() || '';
-      const nom = nameParts.join(' ') || prenom;
 
+    try {
+      const email = String(updatedData?.email || '').trim().toLowerCase();
+      const name = String(updatedData?.name || '').trim();
+
+      if (!name) {
+        throw new Error("Le nom de l'utilisateur est requis.");
+      }
+
+      if (!EMAIL_REGEX.test(email)) {
+        throw new Error("L'adresse email n'est pas valide.");
+      }
+
+      if (updatedData?.role === 'admin') {
+        throw new Error("Le role Administrateur n'est pas modifiable depuis cette interface.");
+      }
+
+      const { nom, prenom } = splitFullName(name);
       const payload = {
-        username: updatedData.email.split('@')[0],
-        email: updatedData.email,
+        username: email.split('@')[0],
+        email,
         nom,
         prenom,
-        role:
-          updatedData.role === 'sales' ? 'COMMERCIAL' :
-          updatedData.role === 'procurement' ? 'RESPONSABLE_ACHAT' :
-          'COMMERCIAL',
+        role: mapFrontendRoleToBackend(updatedData?.role),
       };
 
-      await userService.updateUser(updatedData.email, payload);
-      toast.success('Utilisateur mis à jour.');
+      return await userService.updateUser(email, payload);
     } catch (err) {
-      const msg = err?.message || err?.toString?.() || 'Erreur lors de la mise à jour';
-      toast.error(msg);
-      setError(msg);
-      throw new Error(msg);
+      const message = extractErrorMessage(err, 'Erreur lors de la mise a jour');
+      toast.error(message);
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -118,14 +179,14 @@ export const useUserManagement = () => {
   const setUserActiveStatus = useCallback(async (email, active) => {
     setLoading(true);
     setError(null);
+
     try {
-      await userService.setUserActiveStatus(email, active);
-      toast.success(active ? 'Utilisateur activé.' : 'Utilisateur désactivé.');
+      return await userService.setUserActiveStatus(email, active);
     } catch (err) {
-      const msg = err?.message || err?.toString?.() || 'Erreur lors du changement de statut';
-      toast.error(msg);
-      setError(msg);
-      throw new Error(msg);
+      const message = extractErrorMessage(err, 'Erreur lors du changement de statut');
+      toast.error(message);
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -134,14 +195,14 @@ export const useUserManagement = () => {
   const deleteUserByEmail = useCallback(async (email) => {
     setLoading(true);
     setError(null);
+
     try {
-      await userService.deleteUser(email);
-      toast.success('Utilisateur supprimé.');
+      return await userService.deleteUser(email);
     } catch (err) {
-      const msg = err?.message || err?.toString?.() || 'Erreur lors de la suppression';
-      toast.error(msg);
-      setError(msg);
-      throw new Error(msg);
+      const message = extractErrorMessage(err, 'Erreur lors de la suppression');
+      toast.error(message);
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
