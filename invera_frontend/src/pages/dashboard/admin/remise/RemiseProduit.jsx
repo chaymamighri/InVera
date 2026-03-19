@@ -1,6 +1,10 @@
+
+
 import React, { useState, useEffect, useMemo } from "react";
 import useClients from "../../../../hooks/useClient";
 import useProducts from "../../../../hooks/useProducts";
+
+const CLIENT_TYPE_ORDER = ["VIP", "ENTREPRISE", "FIDELE"];
 
 const Remise = () => {
   // Tab state: "clients" or "products"
@@ -10,6 +14,7 @@ const Remise = () => {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientType, setSelectedClientType] = useState("TOUS");
   const [clientDiscounts, setClientDiscounts] = useState({}); // { type: discount }
+  const [draftClientDiscounts, setDraftClientDiscounts] = useState({}); // { type: draftDiscount }
 
   // Products state
   const [productSearch, setProductSearch] = useState("");
@@ -37,6 +42,13 @@ const Remise = () => {
     updateProduct,
   } = useProducts({ search: productSearch });
 
+  const configurableClientTypes = useMemo(() => {
+    const allowedTypes = clientTypes.filter((type) => type !== "PARTICULIER");
+    const knownTypes = CLIENT_TYPE_ORDER.filter((type) => allowedTypes.includes(type));
+    const customTypes = allowedTypes.filter((type) => !CLIENT_TYPE_ORDER.includes(type));
+    return [...knownTypes, ...customTypes];
+  }, [clientTypes]);
+
   // Debounce client search
   useEffect(() => {
     const t = setTimeout(() => {
@@ -47,33 +59,36 @@ const Remise = () => {
 
   // Debounce product search
   useEffect(() => {
+    if (activeTab !== "products") return;
+
     const t = setTimeout(() => {
       if (productSearch) {
-        searchProducts(productSearch);
+        searchProducts({ keyword: productSearch });
       } else {
         loadProducts();
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [productSearch, searchProducts, loadProducts]);
+  }, [activeTab, productSearch, searchProducts, loadProducts]);
 
   // Load client type discounts
   useEffect(() => {
     const loadDiscounts = async () => {
-      if (!clientTypes.length) return;
+      if (!configurableClientTypes.length) return;
       const newDiscounts = {};
-      for (const type of clientTypes) {
+      for (const type of configurableClientTypes) {
         try {
           const res = await getRemiseForType(type);
-          newDiscounts[type] = res?.remise ?? 0;
+          newDiscounts[type] = Number(res?.remise ?? 0);
         } catch (err) {
           console.error(`Failed to load discount for ${type}`);
         }
       }
       setClientDiscounts(newDiscounts);
+      setDraftClientDiscounts(newDiscounts);
     };
     loadDiscounts();
-  }, [clientTypes, getRemiseForType]);
+  }, [configurableClientTypes, getRemiseForType]);
 
   // Filter clients by type
   const filteredClients = useMemo(() => {
@@ -83,17 +98,33 @@ const Remise = () => {
 
   // Handle client discount change
   const handleClientDiscountChange = (type, value) => {
-    setClientDiscounts((prev) => ({ ...prev, [type]: value }));
+    setDraftClientDiscounts((prev) => ({ ...prev, [type]: value }));
   };
 
   // Save client type discount
   const saveClientTypeDiscount = async (type) => {
     try {
-      await updateTypeDiscount(type, clientDiscounts[type]);
+      const discount = Number(draftClientDiscounts[type] ?? 0);
+      await updateTypeDiscount(type, discount);
+      const refreshedDiscount = await getRemiseForType(type);
+      const savedDiscount = Number(refreshedDiscount?.remise ?? discount);
+
+      setClientDiscounts((prev) => ({
+        ...prev,
+        [type]: savedDiscount,
+      }));
+      setDraftClientDiscounts((prev) => ({
+        ...prev,
+        [type]: savedDiscount,
+      }));
+
+      await fetchClients();
     } catch (err) {
       // Error already toasted in hook
     }
   };
+
+  const getClientDiscount = (type) => Number(clientDiscounts[type] ?? 0);
 
   // ---- Product discount inline editing with confirmation button ----
   const handleSaveDiscount = async (productId) => {
@@ -191,7 +222,7 @@ const Remise = () => {
       {activeTab === "clients" && (
         <div className="space-y-6">
           {/* Client Stats with modern cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <StatCard 
               label="Total" 
               value={clientStats.total} 
@@ -205,8 +236,8 @@ const Remise = () => {
               icon="👤"
             />
             <StatCard 
-              label="Professionnels" 
-              value={clientStats.professionnel} 
+              label="VIP" 
+              value={clientStats.vip} 
               color="amber"
               icon="💼"
             />
@@ -215,6 +246,12 @@ const Remise = () => {
               value={clientStats.entreprise} 
               color="violet"
               icon="🏢"
+            />
+            <StatCard 
+              label="FidÃ¨les" 
+              value={clientStats.fidele} 
+              color="teal"
+              icon="ðŸ”"
             />
           </div>
 
@@ -283,10 +320,12 @@ const Remise = () => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {filteredClients.map((client, index) => (
-            <tr key={client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+            <tr key={client.idClient || client.id} className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
               index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
             }`}>
-              <td className="px-4 py-3 font-medium text-gray-900">{client.nom || client.name || "-"}</td>
+              <td className="px-4 py-3 font-medium text-gray-900">
+                {[client.prenom, client.nom || client.name].filter(Boolean).join(" ") || "-"}
+              </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +340,7 @@ const Remise = () => {
                 </span>
               </td>
               <td className="px-4 py-3">
-                <span className="font-medium text-gray-900">{client.remise ?? 0}%</span>
+                <span className="font-medium text-gray-900">{getClientDiscount(client.typeClient)}%</span>
               </td>
             </tr>
           ))}
@@ -312,11 +351,11 @@ const Remise = () => {
 )}
 
           {/* Client Type Discount Configuration */}
-        {clientTypes.length > 0 && (
+        {configurableClientTypes.length > 0 && (
   <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
     <h3 className="text-sm font-medium text-gray-700 mb-4">Remises par type de client</h3>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      {clientTypes.map((type) => (
+      {configurableClientTypes.map((type) => (
         <div
           key={type}
           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-teal-200 transition-all"
@@ -324,15 +363,15 @@ const Remise = () => {
           <span className="text-sm font-medium text-gray-700">{type}</span>
           <div className="flex items-center gap-2">
             <div className="flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={clientDiscounts[type] || 0}
-                onChange={(e) =>
-                  handleClientDiscountChange(
-                    type,
-                    parseInt(e.target.value) || 0
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={draftClientDiscounts[type] ?? clientDiscounts[type] ?? 0}
+                  onChange={(e) =>
+                    handleClientDiscountChange(
+                      type,
+                    parseFloat(e.target.value) || 0
                   )
                 }
                 className="w-16 px-2 py-1.5 text-sm border-0 focus:ring-0 text-right"

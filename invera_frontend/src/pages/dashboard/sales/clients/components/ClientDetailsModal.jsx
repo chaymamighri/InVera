@@ -161,13 +161,13 @@ const ClientDetailsModal = ({ open, onClose, client }) => {
                       <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${
                         client.typeClient === 'PARTICULIER' ? 'bg-gray-100 text-gray-800' :
                         client.typeClient === 'VIP' ? 'bg-purple-100 text-purple-800' :
-                        client.typeClient === 'PROFESSIONNEL' ? 'bg-blue-100 text-blue-800' :
+                        client.typeClient === 'PROFESSIONNEL' ? 'bg-indigo-100 text-indigo-800' :
                         client.typeClient === 'ENTREPRISE' ? 'bg-indigo-100 text-indigo-800' :
                         'bg-green-100 text-green-800'
                       }`}>
                         {client.typeClient === 'PARTICULIER' ? 'Particulier' :
                          client.typeClient === 'VIP' ? 'VIP' :
-                         client.typeClient === 'PROFESSIONNEL' ? 'Professionnel' :
+                         client.typeClient === 'PROFESSIONNEL' ? 'Entreprise' :
                          client.typeClient === 'ENTREPRISE' ? 'Entreprise' :
                          client.typeClient === 'FIDELE' ? 'Fidèle' : client.typeClient}
                       </span>

@@ -35,24 +35,20 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role; // ADMIN, COMMERCIAL, RESPONSABLE_ACHAT
+    private Role role;
 
     private boolean active = true;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    //  CASCADE DELETE FOR PASSWORD RESET TOKENS
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PasswordResetToken> passwordResetTokens;
 
-    // Optional custom constructor
-    public User( String nom, String prenom,
-                String email, String password, Role role) {
+    public User(String nom, String prenom, String email, String password, Role role) {
         this.nom = nom;
         this.prenom = prenom;
         this.email = email;
@@ -60,20 +56,11 @@ public class User implements UserDetails {
         this.role = role;
     }
 
-    // ================= SPRING SECURITY =================
-
-    /**
-     * 🔥 CRITICAL
-     * Spring expects ROLE_ prefix
-     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
-    /**
-     * Login is done using EMAIL
-     */
     @Override
     public String getUsername() {
         return email;
@@ -94,9 +81,6 @@ public class User implements UserDetails {
         return true;
     }
 
-    /**
-     * User enabled/disabled
-     */
     @Override
     public boolean isEnabled() {
         return active;

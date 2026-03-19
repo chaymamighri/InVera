@@ -37,7 +37,7 @@ public class ClientDTO {
 
         // Gestion du type de client
         if (client.getTypeClient() != null) {
-            dto.setTypeClient(client.getTypeClient().name());
+            dto.setTypeClient(normalizeTypeClient(client.getTypeClient().name()));
         }
 
         // Attributs de remise
@@ -60,13 +60,19 @@ public class ClientDTO {
     public String getTypeClientDisplay() {
         if (typeClient == null) return null;
 
-        switch (typeClient) {
+        switch (normalizeTypeClient(typeClient)) {
             case "PARTICULIER": return "Particulier";
             case "VIP": return "VIP";
-            case "PROFESSIONNEL": return "Professionnel";
             case "ENTREPRISE": return "Entreprise";
             case "FIDELE": return "Fidèle";
             default: return typeClient;
         }
+    }
+
+    private static String normalizeTypeClient(String typeClient) {
+        if ("PROFESSIONNEL".equals(typeClient)) {
+            return "ENTREPRISE";
+        }
+        return typeClient;
     }
 }

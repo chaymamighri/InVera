@@ -51,22 +51,20 @@ public class Produit {
 
     @Column(name = "seuil_minimum", nullable = false)
     private Integer seuilMinimum;
-    
+
     @Column(name = "image_url")
     private String imageUrl;
 
     @Column(name = "remise_temporaire")
     private Double remiseTemporaire;
 
-    // --- Nouveaux champs d'audit ---
     @CreatedBy
-    @JoinColumn(name = "created_by", nullable = false,  updatable = false)
+    @Column(name = "created_by", nullable = false, updatable = false)
     private String createdBy;
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false,  updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    // ------------------------------
 
     public enum StockStatus {
         EN_STOCK,
@@ -81,6 +79,6 @@ public class Produit {
         GRAMME,
         LITRE,
         MILLILITRE,
-        METRE,
+        METRE
     }
 }

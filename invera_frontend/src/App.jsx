@@ -23,6 +23,7 @@ import SalesTab from './pages/dashboard/sales/reports/tabs/SalesTab';
 import InvoicesTab from './pages/dashboard/sales/reports/tabs/InvoicesTab';
 import ClientsTab from './pages/dashboard/sales/reports/tabs/ClientsTab';
 import ReportsPage from './pages/dashboard/sales/reports/ReportsPage';
+import { AuthProvider } from './context/AuthContext';
 import { SidebarProvider } from './context/SidebarContext';
 import Produits from './pages/dashboard/procurement/produits/Produits';
 import CommandesFournisseurs from './pages/dashboard/procurement/commandeFournisseur/CommandesFournisseurs';
@@ -65,7 +66,7 @@ const inferRoleFromToken = (token) => {
 };
 
 const getUserData = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   if (!token) return null;
 
   const storedRole = localStorage.getItem('userRole');
@@ -154,6 +155,7 @@ const UnauthorizedPage = () => (
 function App() {
   return (
   <Router>
+  <AuthProvider>
   <SidebarProvider>
  <Toaster
   position="top-right"
@@ -302,9 +304,10 @@ function App() {
             </div>
           }
         />
-      </Routes>
+  </Routes>
         </SidebarProvider>
-    </Router>
+        </AuthProvider>
+      </Router>
   );
 }
 export default App;

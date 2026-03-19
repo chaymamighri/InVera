@@ -491,19 +491,16 @@ const ProductsConsultationPage = () => {
         statut: 'EN_ATTENTE'
       };
 
+      // Mettre à jour les stocks dans le backend.
+      // Si cette étape échoue, on ne doit pas afficher une commande comme totalement réussie.
+      for (const product of selectedProducts) {
+        const productId = product.idProduit || product.id;
+        const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
+        await productService.syncStock(productId, newStock);
+      }
+
       const nouvellesCommandes = [...commandes, nouvelleCommande];
       setCommandes(nouvellesCommandes);
-      
-      // Mettre à jour les stocks
-      for (const product of selectedProducts) {
-        try {
-          const productId = product.idProduit || product.id;
-          const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
-          await productService.syncStock(productId, newStock);
-        } catch (err) {
-          console.error('Erreur mise à jour stock:', err);
-        }
-      }
       
       setShowSuccessPopup(true);
       setShowRecap(false);

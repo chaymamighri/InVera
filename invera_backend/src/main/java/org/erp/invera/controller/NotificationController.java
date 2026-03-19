@@ -1,11 +1,13 @@
 package org.erp.invera.controller;
 
+import org.erp.invera.dto.MessageResponse;
 import org.erp.invera.model.Notification;
 import org.erp.invera.repository.NotificationRepository;
-import org.erp.invera.dto.MessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,87 +16,108 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/notifications")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'RESPONSABLE_ACHAT')")
 public class NotificationController {
+
+    private static final String ADMIN_ROLE = "ADMIN";
 
     @Autowired
     private NotificationRepository notificationRepository;
 
-    // ✅ list
     @GetMapping
-    public ResponseEntity<?> getAll() {
-        List<Notification> list = notificationRepository.findAllOrderByCreatedAtDesc();
-        return ResponseEntity.ok(list);
+    public ResponseEntity<?> getAll(Authentication authentication) {
+        return ResponseEntity.ok(getVisibleNotifications(authentication));
     }
 
-    // ✅ unread count
     @GetMapping("/unread-count")
-    public ResponseEntity<?> unreadCount() {
-        return ResponseEntity.ok(notificationRepository.countUnread());
+    public ResponseEntity<?> unreadCount(Authentication authentication) {
+        long unread = getVisibleNotifications(authentication).stream()
+                .filter(notification -> !notification.isRead())
+                .count();
+        return ResponseEntity.ok(unread);
     }
 
-    // ✅ mark one read
     @PatchMapping("/{id}/read")
     @Transactional
-    public ResponseEntity<?> markRead(@PathVariable Long id) {
-        notificationRepository.markRead(id);
+    public ResponseEntity<?> markRead(@PathVariable Long id, Authentication authentication) {
+        Notification notification = notificationRepository.findById(id)
+                .orElse(null);
+
+        if (notification == null || !canAccess(notification, authentication)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new MessageResponse("Notification introuvable"));
+        }
+
+        notification.setRead(true);
+        notificationRepository.save(notification);
         return ResponseEntity.ok(new MessageResponse("OK"));
     }
 
-    // ✅ mark all read
     @PatchMapping("/read-all")
     @Transactional
-    public ResponseEntity<?> markAllRead() {
-        notificationRepository.markAllRead();
+    public ResponseEntity<?> markAllRead(Authentication authentication) {
+        List<Notification> notifications = getVisibleNotifications(authentication).stream()
+                .filter(notification -> !notification.isRead())
+                .toList();
+
+        notifications.forEach(notification -> notification.setRead(true));
+        notificationRepository.saveAll(notifications);
         return ResponseEntity.ok(new MessageResponse("OK"));
     }
 
-    // ✅ delete one notification
     @DeleteMapping("/{id}")
     @Transactional
-    public ResponseEntity<?> deleteOne(@PathVariable Long id) {
-        if (!notificationRepository.existsById(id)) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Notification introuvable"));
+    public ResponseEntity<?> deleteOne(@PathVariable Long id, Authentication authentication) {
+        Notification notification = notificationRepository.findById(id)
+                .orElse(null);
+
+        if (notification == null || !canAccess(notification, authentication)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new MessageResponse("Notification introuvable"));
         }
-        notificationRepository.deleteById(id);
-        return ResponseEntity.ok(new MessageResponse("Notification supprimée"));
+
+        notificationRepository.delete(notification);
+        return ResponseEntity.ok(new MessageResponse("Notification supprimee"));
     }
 
-    // ✅ delete all notifications
     @DeleteMapping
     @Transactional
-    public ResponseEntity<?> deleteAll() {
-        int deleted = notificationRepository.deleteAllNotifications();
-        return ResponseEntity.ok(Map.of("deleted", deleted));
+    public ResponseEntity<?> deleteAll(Authentication authentication) {
+        List<Notification> notifications = getVisibleNotifications(authentication);
+        notificationRepository.deleteAll(notifications);
+        return ResponseEntity.ok(Map.of("deleted", notifications.size()));
     }
 
-    // ✅ delete by preset: week | month
-    // example: DELETE /api/notifications/by-range?range=week
     @DeleteMapping("/by-range")
     @Transactional
-    public ResponseEntity<?> deleteByRange(@RequestParam String range) {
+    public ResponseEntity<?> deleteByRange(@RequestParam String range, Authentication authentication) {
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime from;
 
-        int deleted;
         if ("week".equalsIgnoreCase(range)) {
-            deleted = notificationRepository.deleteFrom(now.minusDays(7));
+            from = now.minusDays(7);
         } else if ("month".equalsIgnoreCase(range)) {
-            deleted = notificationRepository.deleteFrom(now.minusDays(30));
+            from = now.minusDays(30);
         } else {
             return ResponseEntity.badRequest().body(new MessageResponse("range must be week or month"));
         }
 
-        return ResponseEntity.ok(Map.of("deleted", deleted));
+        List<Notification> notifications = getVisibleNotifications(authentication).stream()
+                .filter(notification -> notification.getCreatedAt() != null)
+                .filter(notification -> !notification.getCreatedAt().isBefore(from))
+                .toList();
+
+        notificationRepository.deleteAll(notifications);
+        return ResponseEntity.ok(Map.of("deleted", notifications.size()));
     }
 
-    // ✅ delete a specific month: YYYY-MM
-    // example: DELETE /api/notifications/by-month?month=2026-02
     @DeleteMapping("/by-month")
     @Transactional
-    public ResponseEntity<?> deleteByMonth(@RequestParam String month) {
+    public ResponseEntity<?> deleteByMonth(@RequestParam String month, Authentication authentication) {
         YearMonth ym;
         try {
             ym = YearMonth.parse(month);
@@ -102,14 +125,49 @@ public class NotificationController {
             return ResponseEntity.badRequest().body(new MessageResponse("Invalid month format. Use YYYY-MM"));
         }
 
-        LocalDate fromDate = ym.atDay(1);
-        LocalDate toDate = ym.plusMonths(1).atDay(1);
+        LocalDateTime from = ym.atDay(1).atStartOfDay();
+        LocalDateTime to = ym.plusMonths(1).atDay(1).atStartOfDay();
 
-        int deleted = notificationRepository.deleteBetween(
-                fromDate.atStartOfDay(),
-                toDate.atStartOfDay()
-        );
+        List<Notification> notifications = getVisibleNotifications(authentication).stream()
+                .filter(notification -> notification.getCreatedAt() != null)
+                .filter(notification -> !notification.getCreatedAt().isBefore(from))
+                .filter(notification -> notification.getCreatedAt().isBefore(to))
+                .toList();
 
-        return ResponseEntity.ok(Map.of("deleted", deleted));
+        notificationRepository.deleteAll(notifications);
+        return ResponseEntity.ok(Map.of("deleted", notifications.size()));
+    }
+
+    private List<Notification> getVisibleNotifications(Authentication authentication) {
+        String role = getCurrentRole(authentication);
+        return notificationRepository.findAllOrderByCreatedAtDesc().stream()
+                .filter(notification -> canAccess(notification, role))
+                .toList();
+    }
+
+    private boolean canAccess(Notification notification, Authentication authentication) {
+        return canAccess(notification, getCurrentRole(authentication));
+    }
+
+    private boolean canAccess(Notification notification, String role) {
+        String targetRole = notification.getTargetRole();
+        if (ADMIN_ROLE.equals(role)) {
+            return targetRole == null || targetRole.isBlank() || ADMIN_ROLE.equalsIgnoreCase(targetRole);
+        }
+        return role != null && role.equalsIgnoreCase(targetRole);
+    }
+
+    private String getCurrentRole(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return null;
+        }
+
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(Objects::nonNull)
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.substring("ROLE_".length()))
+                .findFirst()
+                .orElse(null);
     }
 }

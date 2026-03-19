@@ -26,7 +26,7 @@ const ClientTypeBadge = ({ type }) => {
     'VIP': 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-800 border border-purple-200',
     'FIDELE': 'bg-gradient-to-r from-blue-100 to-blue-50 text-blue-800 border border-blue-200',
     'ENTREPRISE': 'bg-gradient-to-r from-indigo-100 to-indigo-50 text-indigo-800 border border-indigo-200',
-    'PROFESSIONNEL': 'bg-gradient-to-r from-teal-100 to-teal-50 text-teal-800 border border-teal-200',
+    'PROFESSIONNEL': 'bg-gradient-to-r from-indigo-100 to-indigo-50 text-indigo-800 border border-indigo-200',
     'PARTICULIER': 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-800 border border-gray-200'
   };
   

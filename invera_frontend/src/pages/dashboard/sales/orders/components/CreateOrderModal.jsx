@@ -17,7 +17,7 @@ const ClientBadge = ({ type }) => {
     'VIP': 'bg-purple-100 text-purple-800',
     'FIDELE': 'bg-blue-100 text-blue-800',
     'ENTREPRISE': 'bg-indigo-100 text-indigo-800',
-    'PROFESSIONNEL': 'bg-teal-100 text-teal-800',
+    'PROFESSIONNEL': 'bg-indigo-100 text-indigo-800',
     'PARTICULIER': 'bg-gray-100 text-gray-800'
   };
   
@@ -166,7 +166,7 @@ const CreateOrderModal = ({
     (clientSelectionne.typeClient === 'VIP' ? 0.15 :      
      clientSelectionne.typeClient === 'FIDELE' ? 0.10 :
      clientSelectionne.typeClient === 'ENTREPRISE' ? 0.08 :
-     clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.05 : 0) : 0;
+     clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.08 : 0) : 0;
 
   const montantRemise = totalProduits * remisePourcentage;
   const totalFinal = totalProduits - montantRemise;
