@@ -1,6 +1,6 @@
 // components/commandeModal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
 import useProducts from '../../../../../hooks/useProducts';
 
@@ -134,7 +134,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     resetProductSelection();
   };
 
-  // Sélection produit
+  // ✅ Sélection produit - SUPPRESSION DE L'ALERTE POUR PRODUITS INACTIFS
   const handleProductSelect = (e) => {
     const productId = parseInt(e.target.value);
     if (!productId) {
@@ -147,23 +147,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     
     if (produit) {
       setPrixUnitaire(produit.prixAchat || produit.prix || 0);
-      
-      if (!produit.estActif) {
-        const confirm = window.confirm(
-          `⚠️ Le produit "${produit.nom || produit.libelle}" est actuellement inactif.\n\n` +
-          `Il pourra être commandé mais restera inactif jusqu'à la RÉCEPTION de la commande.\n\n` +
-          `Voulez-vous continuer ?`
-        );
-        
-        if (!confirm) {
-          setProduitSelectionne(null);
-          e.target.value = '';
-        }
-      }
+      // ✅ PLUS D'ALERTE POUR LES PRODUITS INACTIFS
+      // On laisse l'utilisateur sélectionner librement
     }
   };
 
-  // Ajout produit avec TVA depuis catégorie
+  // ✅ Ajout produit - PAS DE VÉRIFICATION DE STOCK
   const ajouterProduit = () => {
     if (!produitSelectionne) {
       alert('Veuillez sélectionner un produit');
@@ -180,15 +169,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       return;
     }
 
-    if (produitSelectionne.stock > 0 && quantite > produitSelectionne.stock) {
-      const confirm = window.confirm(
-        `⚠️ La quantité commandée (${quantite}) est supérieure au stock actuel (${produitSelectionne.stock}).\n\n` +
-        `Voulez-vous continuer ?`
-      );
-      if (!confirm) return;
-    }
-
-    // ✅ Calcul avec la TVA du produit (depuis catégorie)
+    // Calcul avec la TVA du produit (depuis catégorie)
     const tauxTVA = produitSelectionne.tauxTVA || 19;
     const sousTotalHT = quantite * prixUnitaire;
     const montantTVA = sousTotalHT * (tauxTVA / 100);
@@ -201,12 +182,13 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       produitReference: produitSelectionne.reference || `REF-${produitSelectionne.id}`,
       quantite,
       prixUnitaire,
-      tauxTVA, // ✅ Stocké pour chaque ligne
+      tauxTVA,
       sousTotalHT,
       montantTVA,
       sousTotalTTC,
       estInactif: !produitSelectionne.estActif,
-      categorie: produitSelectionne.categorie?.nomCategorie
+      categorie: produitSelectionne.categorie?.nomCategorie,
+      stockActuel: produitSelectionne.stock || 0
     };
 
     setLignes(prev => [...prev, nouvelleLigne]);
@@ -261,17 +243,10 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       return;
     }
 
-    const produitsInactifs = lignes.filter(l => l.estInactif);
-    if (produitsInactifs.length > 0) {
-      const confirm = window.confirm(
-        `⚠️ Cette commande contient ${produitsInactifs.length} produit(s) inactif(s).\n\n` +
-        `Ils seront automatiquement réactivés à la réception.\n\n` +
-        `Voulez-vous continuer ?`
-      );
-      if (!confirm) return;
-    }
+    // ✅ PLUS D'ALERTE POUR LES PRODUITS INACTIFS
+    // On soumet directement la commande sans confirmation
 
-    // ✅ Envoi des données avec TVA par ligne
+    // Envoi des données avec TVA par ligne
     const commandeData = {
       fournisseur: {
         idFournisseur: formData.fournisseur.idFournisseur
@@ -282,7 +257,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
         produitId: l.produitId,
         quantite: l.quantite,
         prixUnitaire: l.prixUnitaire,
-        tauxTVA: l.tauxTVA // ✅ TVA par ligne
+        tauxTVA: l.tauxTVA
       }))
     };
 
@@ -351,7 +326,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 </select>
               </section>
 
-              {/* Section Livraison - Sans TVA globale */}
+              {/* Section Livraison */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">2. Livraison</h4>
                 
@@ -457,25 +432,28 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                               </span>
                               {!produitSelectionne.estActif && (
                                 <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
-                                  Réactivation auto
+                                  Sera réactivé à la réception
                                 </span>
                               )}
                             </div>
                             
                             <div className="grid grid-cols-3 gap-3 text-sm">
                               <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
-                                <span className="text-gray-600">Stock:</span>
+                                <span className="text-gray-600">Stock actuel:</span>
                                 <span className="ml-2 font-medium">{produitSelectionne.stock || 0}</span>
+                              
                               </div>
                               <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
                                 <span className="text-gray-600">TVA:</span>
                                 <span className="ml-2 font-medium">{produitSelectionne.tauxTVA || 19}%</span>
                               </div>
                               <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
-                                <span className="text-gray-600">Prix:</span>
+                                <span className="text-gray-600">Prix achat:</span>
                                 <span className="ml-2 font-medium">{formatPrice(produitSelectionne.prixAchat || 0)}</span>
                               </div>
                             </div>
+
+        
                           </div>
                         </div>
                       </div>
@@ -486,7 +464,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Quantité <span className="text-red-500">*</span>
+                            Quantité à commander <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -495,12 +473,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                             onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                           />
-                          {quantite > (produitSelectionne.stock || 0) && (
-                            <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                              <ExclamationTriangleIcon className="w-3 h-3" />
-                              La quantité dépasse le stock actuel
-                            </p>
-                          )}
                         </div>
                         
                         <div>
@@ -533,14 +505,14 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 )}
 
-                {/* Tableau des articles avec TVA affichée */}
+                {/* Tableau des articles */}
                 {lignes.length > 0 ? (
                   <div className="mt-6 border rounded-lg overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Produit</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Qté</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Qté cmd</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prix unit.</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">TVA</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total HT</th>
@@ -565,8 +537,13 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                               {ligne.categorie && (
                                 <div className="text-xs text-gray-400">{ligne.categorie}</div>
                               )}
+                              {ligne.estInactif && (
+                                <div className="text-xs text-orange-600 mt-0.5">
+                                  Sera réactivé à la réception
+                                </div>
+                              )}
                             </td>
-                            <td className="px-4 py-2 text-right">{ligne.quantite}</td>
+                            <td className="px-4 py-2 text-right font-medium">{ligne.quantite}</td>
                             <td className="px-4 py-2 text-right">{formatPrice(ligne.prixUnitaire)}</td>
                             <td className="px-4 py-2 text-center">
                               <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
@@ -597,7 +574,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 )}
               </section>
 
-              {/* Section Totaux avec détail TVA */}
+              {/* Section Totaux */}
               {lignes.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">4. Récapitulatif</h4>

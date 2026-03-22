@@ -126,7 +126,7 @@ const ProcurementDashboard = () => {
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Gestion Achats
+                  Tableau de Bord Gestion Achats et stock
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
                   Stocks, commandes et réceptions

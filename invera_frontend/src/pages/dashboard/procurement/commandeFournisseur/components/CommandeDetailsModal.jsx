@@ -222,71 +222,140 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
               </div>
 
               {/* Articles avec TVA */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                  <h4 className="font-semibold text-gray-900">Détail des articles</h4>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unit.</th>
-                        <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TVA</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total HT</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total TTC</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {commande.lignesCommande && commande.lignesCommande.length > 0 ? (
-                        commande.lignesCommande.map((ligne, index) => (
-                          <tr key={ligne.idLigneCommandeFournisseur || index} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="font-medium text-gray-900">
-                                {ligne.produitLibelle || 'Produit sans nom'}
-                              </div>
-                              {ligne.produitReference && (
-                                <div className="text-sm text-gray-500">
-                                  Réf: {ligne.produitReference}
-                                </div>
-                              )}
-                              {ligne.categorie && (
-                                <div className="text-xs text-gray-400">
-                                  {ligne.categorie}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-right font-medium text-gray-900">
-                              {ligne.quantite}
-                            </td>
-                            <td className="px-6 py-4 text-right text-gray-900">
-                              {formatPrice(ligne.prixUnitaire)}
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                                {ligne.tauxTVA || 19}%
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right text-gray-900">
-                              {formatPrice(ligne.sousTotalHT || ligne.sousTotal)}
-                            </td>
-                            <td className="px-6 py-4 text-right font-semibold text-blue-600">
-                              {formatPrice(ligne.sousTotalTTC || (ligne.sousTotalHT ? ligne.sousTotalHT * (1 + (ligne.tauxTVA || 19)/100) : 0))}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                            Aucun article dans cette commande
-                          </td>
-                        </tr>
+              {/* Articles avec TVA */}
+<div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+    <h4 className="font-semibold text-gray-900">Détail des articles</h4>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+         <tr>
+          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+          <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qté commandée</th>
+          {/* ✅ Afficher Qté reçue pour tous les statuts, mais avec style différent selon statut */}
+          <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qté reçue</th>
+          <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unit.</th>
+          <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TVA</th>
+          <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total HT</th>
+          <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total TTC</th>
+         </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {commande.lignesCommande && commande.lignesCommande.length > 0 ? (
+          commande.lignesCommande.map((ligne, index) => {
+            const quantiteRecue = ligne.quantiteRecue || 0;
+            const quantiteManquante = ligne.quantite - quantiteRecue;
+            const estPartiellementRecue = quantiteRecue > 0 && quantiteRecue < ligne.quantite;
+            const estTotalementRecue = quantiteRecue === ligne.quantite && ligne.quantite > 0;
+            
+            return (
+              <tr key={ligne.idLigneCommandeFournisseur || index} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="font-medium text-gray-900">
+                    {ligne.produitLibelle || 'Produit sans nom'}
+                  </div>
+                  {ligne.produitReference && (
+                    <div className="text-sm text-gray-500">
+                      Réf: {ligne.produitReference}
+                    </div>
+                  )}
+                  {ligne.categorie && (
+                    <div className="text-xs text-gray-400">
+                      {ligne.categorie}
+                    </div>
+                  )}
+                  {/* Badges selon état de réception */}
+                  {(commande.statut === StatutCommande.RECUE || commande.statut === StatutCommande.FACTUREE) && (
+                    <div className="mt-1">
+                      {estTotalementRecue && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          ✓ Reçu complet
+                        </span>
                       )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                      {estPartiellementRecue && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                          ⚠️ Réception partielle ({quantiteRecue}/{ligne.quantite})
+                        </span>
+                      )}
+                      {quantiteRecue === 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                          ❌ Non reçu
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Pour les statuts antérieurs, indiquer que la commande n'est pas encore reçue */}
+                  {commande.statut === StatutCommande.VALIDEE && (
+                    <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                      ⏳ En attente de réception
+                    </span>
+                  )}
+                  {commande.statut === StatutCommande.ENVOYEE && (
+                    <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                      🚚 En cours de livraison
+                    </span>
+                  )}
+                 </td>
+                
+                {/* Quantité commandée */}
+                <td className="px-6 py-4 text-right">
+                  <span className="font-medium text-gray-900">{ligne.quantite}</span>
+                </td>
+                
+                {/* ✅ Quantité reçue avec style selon statut */}
+                <td className="px-6 py-4 text-right">
+                  {commande.statut === StatutCommande.RECUE || commande.statut === StatutCommande.FACTUREE ? (
+                    <div>
+                      {quantiteRecue > 0 ? (
+                        <span className={`font-semibold ${
+                          estTotalementRecue ? 'text-green-600' : 
+                          estPartiellementRecue ? 'text-orange-600' : 'text-red-600'
+                        }`}>
+                          {quantiteRecue}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">0</span>
+                      )}
+                      {quantiteManquante > 0 && quantiteRecue > 0 && (
+                        <div className="text-xs text-orange-500 mt-0.5">
+                          Manque: {quantiteManquante}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 italic text-sm">-</span>
+                  )}
+                </td>
+                
+                <td className="px-6 py-4 text-right text-gray-900">
+                  {formatPrice(ligne.prixUnitaire)}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                    {ligne.tauxTVA || 19}%
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right text-gray-900">
+                  {formatPrice(ligne.sousTotalHT || ligne.sousTotal)}
+                </td>
+                <td className="px-6 py-4 text-right font-semibold text-blue-600">
+                  {formatPrice(ligne.sousTotalTTC || (ligne.sousTotalHT ? ligne.sousTotalHT * (1 + (ligne.tauxTVA || 19)/100) : 0))}
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+              Aucun article dans cette commande
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
 
           
               {/* Totaux */}
