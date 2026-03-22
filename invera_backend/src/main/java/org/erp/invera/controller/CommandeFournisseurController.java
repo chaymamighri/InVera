@@ -79,7 +79,7 @@ public class CommandeFournisseurController {
         return ResponseEntity.ok(commandeService.envoyerCommande(id));
     }
 
-    @PostMapping("/{id}/recevoir")
+    @PutMapping("/{id}/recevoir")
     public ResponseEntity<CommandeFournisseurDTO> recevoirCommande(
             @PathVariable Integer id,
             @RequestBody ReceptionDTO receptionData) {
