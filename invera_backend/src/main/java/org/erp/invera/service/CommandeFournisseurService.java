@@ -10,6 +10,7 @@ import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.Produit;
 import org.erp.invera.repository.CommandeFournisseurRepository;
+import org.erp.invera.repository.LigneCommandeFournisseurRepository;
 import org.erp.invera.repository.FournisseurRepository;
 import org.erp.invera.repository.ProduitRepository;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,8 @@ public class CommandeFournisseurService {
     private final CommandeFournisseurRepository commandeRepository;
     private final FournisseurRepository fournisseurRepository;
     private final ProduitRepository produitRepository;
+    private final LigneCommandeFournisseurRepository ligneRepository;
+
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 
@@ -170,14 +173,7 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-
-
-    // ========= RECEVOIR COMMANDE avec DTO =========
     public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
-
-    public CommandeFournisseurDTO recevoirCommande(Integer id) {
-
-        }
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
@@ -185,79 +181,58 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes envoyées peuvent être reçues");
         }
 
+        // Mettre à jour les informations de réception
+        commande.setNumeroBonLivraison(receptionData.getNumeroBL());
+        commande.setNotesReception(receptionData.getNotes());
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
-
-
-        // ✅ Sauvegarder le numéro BL et les notes
-        commande.setNumeroBL(receptionData.getNumeroBL());
-        commande.setNotesReception(receptionData.getNotes());
-
-        int produitsReactives = 0;
 
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
             Integer ligneId = ligne.getIdLigneCommandeFournisseur();
 
-            // ✅ Récupérer la quantité reçue
+            // Récupérer la quantité reçue pour cette ligne depuis le DTO
             Integer quantiteRecue = receptionData.getQuantitesRecues().get(ligneId);
-            if (quantiteRecue == null) {
-                quantiteRecue = ligne.getQuantite();
+
+            // Si la ligne n'est pas dans la map ou quantité = 0, on passe
+            if (quantiteRecue == null || quantiteRecue <= 0) {
+                continue;
             }
 
-            if (quantiteRecue > ligne.getQuantite()) {
-                throw new RuntimeException("Quantité reçue supérieure à la quantité commandée");
-            }
-
+            // Enregistrer la quantité reçue
             ligne.setQuantiteRecue(quantiteRecue);
 
-        for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
-            ligne.setQuantiteRecue(ligne.getQuantite());
-
-
             Produit produit = ligne.getProduit();
+
             if (produit != null) {
+                int stockAvant = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
+                int nouvelleQuantite = stockAvant + quantiteRecue;
+                produit.setQuantiteStock(nouvelleQuantite);
 
-                // Mise à jour du stock
-                int stockAvant = produit.getStockActuel();
-                int nouveauStock = stockAvant + quantiteRecue;
-                produit.setStockActuel(nouveauStock);
-
-                // ✅ Réactivation si demandée
-                Boolean doitReactivater = receptionData.getProduitsAReactiver() != null
+                // Vérifier si le produit doit être réactivé
+                Boolean doitReactiver = receptionData.getProduitsAReactiver() != null
                         ? receptionData.getProduitsAReactiver().get(ligneId)
                         : false;
 
-                if (doitReactivater != null && doitReactivater && !produit.getActif() && quantiteRecue > 0) {
-                    produit.setActif(true);
-                    produitsReactives++;
-                }
-
-                produitRepository.save(produit);
-
-                int stockAvant = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
-                int nouvelleQuantite = stockAvant + ligne.getQuantite();
-                produit.setQuantiteStock(nouvelleQuantite);
-
-                if (!Boolean.TRUE.equals(produit.getActive()) && nouvelleQuantite > 0) {
+                if (!Boolean.TRUE.equals(produit.getActive()) && doitReactiver) {
                     produit.setActive(true);
-
-                    System.out.println("Produit réactivé: " + produit.getLibelle()
+                    System.out.println("✅ Produit réactivé: " + produit.getLibelle()
                             + " (ID: " + produit.getIdProduit()
                             + ") suite à réception commande " + commande.getNumeroCommande());
                 }
 
                 produitRepository.save(produit);
             } else {
-                System.err.println("Ligne " + ligne.getIdLigneCommandeFournisseur()
+                System.err.println("❌ Ligne " + ligne.getIdLigneCommandeFournisseur()
                         + " sans produit associé");
             }
+
+            ligneRepository.save(ligne);
         }
 
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
         return convertToDTO(savedCommande);
     }
 
-    // ========= FACTURER COMMANDE =========
     public CommandeFournisseurDTO facturerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -282,9 +257,9 @@ public class CommandeFournisseurService {
         commande.setStatut(CommandeFournisseur.StatutCommande.ANNULEE);
 
         if (raison != null && !raison.isEmpty()) {
-            String notesActuelles = commande.getNotes();
+            String notesActuelles = commande.getNotesReception();
             String raisonAnnotation = "Annulation: " + raison;
-            commande.setNotes(notesActuelles != null
+            commande.setNotesReception(notesActuelles != null
                     ? notesActuelles + " | " + raisonAnnotation
                     : raisonAnnotation);
         }
@@ -384,6 +359,26 @@ public class CommandeFournisseurService {
         dto.setSousTotalTTC(ligne.getSousTotalTTC());
         dto.setQuantiteRecue(ligne.getQuantiteRecue());
         dto.setNotes(ligne.getNotes());
+
+        // ✅ AJOUTER LA CATÉGORIE
+        if (ligne.getProduit().getCategorie() != null) {
+            dto.setCategorie(ligne.getProduit().getCategorie().getNomCategorie());
+        }
+
+        // ✅ AJOUTER LE STATUT D'INACTIVITÉ
+        // Récupérer le produit et vérifier s'il est actif
+        Produit produit = ligne.getProduit();
+        if (produit != null) {
+            // Selon comment vous stockez l'état du produit
+            // Option 1: si vous avez un champ 'active'
+            boolean estActif = produit.getActive() != null ? produit.getActive() : true;
+            dto.setEstInactif(!estActif);
+
+            // Option 2: si vous avez un champ 'estActif'
+            // dto.setEstInactif(!produit.getEstActif());
+        } else {
+            dto.setEstInactif(false);
+        }
 
         return dto;
     }

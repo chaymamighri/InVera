@@ -65,8 +65,11 @@ public class CommandeFournisseur {
     @Column(nullable = false)
     private Boolean actif = true;
 
-    @Column(name = "notes", length = 1000)
-    private String notes;
+    @Column(name = "numero_bon_livraison")
+    private String numeroBonLivraison;
+
+    @Column(name = "notes_reception", columnDefinition = "TEXT")
+    private String notesReception;
 
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
@@ -97,9 +100,6 @@ public class CommandeFournisseur {
             this.libelle = libelle;
         }
 
-        public String getLibelle() {
-            return libelle;
-        }
     }
 
     // ✅ METHODES UTILITAIRES
