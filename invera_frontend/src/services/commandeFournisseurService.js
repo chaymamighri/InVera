@@ -94,17 +94,20 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Enregistre la réception d'une commande - PUT /{id}/recevoir
-   */
-  async recevoirCommande(id) {
-    try {
-      const response = await api.put(`/commandes-fournisseurs/${id}/recevoir`);
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de l\'enregistrement de la réception:', error);
-      throw error;
-    }
+* Enregistre la réception d'une commande - PUT /{id}/recevoir
+ * @param {Integer} id - ID de la commande
+ * @param {Object} receptionData - Données de réception (quantitesRecues, produitsAReactiver, numeroBL, notes)
+ * 
+ **/
+ async recevoirCommande(id, receptionData) {
+  try {
+    const response = await api.put(`/commandes-fournisseurs/${id}/recevoir`, receptionData);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement de la réception:', error);
+    throw error;
   }
+}
 
   /**
    * Annule une commande - PUT /{id}/annuler?raison=

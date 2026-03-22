@@ -1,6 +1,6 @@
-// components/ReceptionModal.jsx - Version avec confirmation d'activation
+// components/ReceptionModal.jsx - Version avec popup de confirmation
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -16,29 +16,24 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   
   // États pour la confirmation
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [produitsAReactiver, setProduitsAReactiver] = useState({});
   const [pendingSubmission, setPendingSubmission] = useState(null);
+  
+  // ✅ État pour savoir si l'utilisateur a choisi de réactiver ou non
+  const [choixReactivation, setChoixReactivation] = useState(null); // 'oui' ou 'non'
 
   // Initialiser avec les quantités commandées
   useEffect(() => {
     if (commande?.lignesCommande) {
       const initial = {};
-      const reactiverInitial = {};
-      
       commande.lignesCommande.forEach(ligne => {
         const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
         initial[ligneId] = ligne.quantite;
-        
-        // ✅ Par défaut, on propose de réactiver les produits inactifs
-        if (ligne.estInactif) {
-          reactiverInitial[ligneId] = true;
-        }
       });
       
       setQuantitesRecues(initial);
-      setProduitsAReactiver(reactiverInitial);
       setNotes('');
       setNumeroBL('');
+      setChoixReactivation(null);
     }
   }, [commande]);
 
@@ -61,13 +56,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     }));
   };
 
-  const handleReactiverChange = (ligneId, checked) => {
-    setProduitsAReactiver(prev => ({
-      ...prev,
-      [ligneId]: checked
-    }));
-  };
-
   const calculerTotauxRecus = () => {
     let totalHT = 0;
     let totalTVA = 0;
@@ -78,8 +66,9 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       const qteRecue = quantitesRecues[ligneId] || 0;
       const prixUnitaire = ligne.prixUnitaire || 0;
       
+      const tauxTVA = ligne.tauxTVA || 20;
       const sousTotalHT = qteRecue * prixUnitaire;
-      const montantTVA = sousTotalHT * (commande.tauxTVA || 20) / 100;
+      const montantTVA = sousTotalHT * tauxTVA / 100;
       const sousTotalTTC = sousTotalHT + montantTVA;
       
       totalHT += sousTotalHT;
@@ -97,9 +86,14 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       const qteRecue = quantitesRecues[ligneId] || 0;
       return ligne.estInactif && qteRecue > 0;
     });
-
     return produitsInactifsAvecQté;
   };
+
+  // ✅ Vérifier si tous les produits sont reçus
+  const toutesRecues = commande.lignesCommande.every(ligne => {
+    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+    return quantitesRecues[ligneId] === ligne.quantite;
+  });
 
   const handleSubmitClick = () => {
     // Validations de base
@@ -131,16 +125,28 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
         quantitesRecues,
         numeroBL,
         notes: notes.trim() || null,
-        dateReception: new Date().toISOString()
+        dateReception: new Date().toISOString(),
+        produitsAReactiver: {} // Pas de produits à réactiver
       });
     }
   };
 
+  // ✅ Confirmation avec réactivation
   const handleConfirmWithActivation = () => {
-    // ✅ Ajouter les produits à réactiver dans les données
+    // ✅ Construire l'objet produitsAReactiver avec TOUS les produits inactifs reçus
+    const produitsAReactiverMap = {};
+    
+    commande.lignesCommande.forEach(ligne => {
+      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+      const qteRecue = quantitesRecues[ligneId] || 0;
+      if (ligne.estInactif && qteRecue > 0) {
+        produitsAReactiverMap[ligneId] = true; 
+      }
+    });
+    
     const dataToSend = {
       ...pendingSubmission,
-      produitsAReactiver // On envoie la liste des produits à réactiver
+      produitsAReactiver: produitsAReactiverMap
     };
     
     onConfirm(dataToSend);
@@ -148,9 +154,14 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     setPendingSubmission(null);
   };
 
+  // ✅ Confirmation sans réactivation
   const handleConfirmWithoutActivation = () => {
-    // ✅ Envoyer sans réactivation
-    onConfirm(pendingSubmission);
+    const dataToSend = {
+      ...pendingSubmission,
+      produitsAReactiver: {}
+    };
+    
+    onConfirm(dataToSend);
     setShowConfirmDialog(false);
     setPendingSubmission(null);
   };
@@ -161,11 +172,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   };
 
   const totauxRecus = calculerTotauxRecus();
-  const toutesRecues = commande.lignesCommande.every(ligne => {
-    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-    return quantitesRecues[ligneId] === ligne.quantite;
-  });
-
   const produitsInactifs = verifierProduitsInactifs();
 
   return (
@@ -218,7 +224,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Prix unit.</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Reçu</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Écart</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Activer</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Statut</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -226,14 +232,17 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
                     const qteRecue = quantitesRecues[ligneId] || 0;
                     const ecart = ligne.quantite - qteRecue;
+                    const estActif = !ligne.estInactif;
+                    const statutCouleur = estActif ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
+                    const statutTexte = estActif ? 'Actif' : 'Inactif';
                     
                     return (
-                      <tr key={ligneId} className="hover:bg-gray-50">
+                      <tr key={ligneId} className={`hover:bg-gray-50 ${ligne.estInactif ? 'bg-orange-50' : ''}`}>
                         <td className="px-4 py-3">
                           <div className="font-medium">{ligne.produitLibelle}</div>
                           <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
-                          {ligne.estInactif && (
-                            <span className="text-xs text-orange-600">⚠️ Produit inactif</span>
+                          {ligne.categorie && (
+                            <div className="text-xs text-gray-400">{ligne.categorie}</div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">{ligne.quantite}</td>
@@ -256,14 +265,9 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {ligne.estInactif && qteRecue > 0 && (
-                            <input
-                              type="checkbox"
-                              checked={produitsAReactiver[ligneId] || false}
-                              onChange={(e) => handleReactiverChange(ligneId, e.target.checked)}
-                              className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                            />
-                          )}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statutCouleur}`}>
+                            {statutTexte}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -296,7 +300,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     <span className="font-medium">{formatPrice(totauxRecus.totalHT)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">TVA ({commande.tauxTVA || 20}%)</span>
+                    <span className="text-gray-600">Total TVA</span>
                     <span className="font-medium">{formatPrice(totauxRecus.totalTVA)}</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
@@ -351,19 +355,32 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               </div>
               
               <p className="text-gray-600 mb-4">
-                Cette commande contient {produitsInactifs.length} produit(s) inactif(s) avec quantité reçue.
+                Cette commande contient <strong>{produitsInactifs.length}</strong> produit(s) inactif(s) avec quantité reçue.
                 Que souhaitez-vous faire ?
               </p>
 
               <div className="bg-orange-50 p-3 rounded-lg mb-4">
                 <ul className="text-sm text-orange-800 space-y-1">
                   {produitsInactifs.map(prod => (
-                    <li key={prod.id} className="flex items-center gap-2">
+                    <li key={prod.id || prod.produitId} className="flex items-center gap-2">
                       <span>•</span>
                       <span className="font-medium">{prod.produitLibelle}</span>
+                      <span className="text-xs text-gray-500">
+                        (Qté: {quantitesRecues[prod.idLigneCommandeFournisseur || prod.id] || 0})
+                      </span>
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                <div className="flex items-start gap-2">
+                  <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5" />
+                  <p className="text-xs text-blue-700">
+                    Si vous activez les produits, ils seront disponibles dans le catalogue.
+                    Sinon, ils resteront inactifs et pourront être activés plus tard depuis la gestion des produits.
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -371,13 +388,14 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                   onClick={handleConfirmWithoutActivation}
                   className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
                 >
-                  Garder inactifs
+                  ❌ Garder inactifs
                 </button>
                 <button
                   onClick={handleConfirmWithActivation}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
                 >
-                  Activer les produits
+                  <CheckIcon className="w-4 h-4" />
+                  ✅ Activer les produits
                 </button>
               </div>
             </div>
