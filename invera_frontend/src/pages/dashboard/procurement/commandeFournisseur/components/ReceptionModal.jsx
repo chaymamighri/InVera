@@ -1,4 +1,4 @@
-// components/ReceptionModal.jsx - Version avec popup de confirmation
+// ReceptionModal.jsx - Version avec protection contre quantité = 0
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
@@ -13,27 +13,28 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   const [quantitesRecues, setQuantitesRecues] = useState({});
   const [notes, setNotes] = useState('');
   const [numeroBL, setNumeroBL] = useState('');
-  
-  // États pour la confirmation
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingSubmission, setPendingSubmission] = useState(null);
-  
-  // ✅ État pour savoir si l'utilisateur a choisi de réactiver ou non
-  const [choixReactivation, setChoixReactivation] = useState(null); // 'oui' ou 'non'
+  const [produitsAReactiver, setProduitsAReactiver] = useState({});
 
-  // Initialiser avec les quantités commandées
+  // Initialiser avec les quantités commandées (par défaut = quantité commandée)
   useEffect(() => {
     if (commande?.lignesCommande) {
-      const initial = {};
+      const initialQuantites = {};
+      const initialReactiver = {};
+      
       commande.lignesCommande.forEach(ligne => {
         const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-        initial[ligneId] = ligne.quantite;
+        // ✅ Initialiser à la quantité commandée (pas à 0)
+        initialQuantites[ligneId] = ligne.quantite;
+        
+        if (ligne.estInactif) {
+          initialReactiver[ligneId] = true;
+        }
       });
       
-      setQuantitesRecues(initial);
+      setQuantitesRecues(initialQuantites);
+      setProduitsAReactiver(initialReactiver);
       setNotes('');
       setNumeroBL('');
-      setChoixReactivation(null);
     }
   }, [commande]);
 
@@ -45,14 +46,23 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       (l.idLigneCommandeFournisseur || l.id) === ligneId
     );
     
+    // ✅ Vérifier que la quantité ne dépasse pas la commande
     if (quantite > ligne.quantite) {
       alert(`La quantité reçue ne peut pas dépasser la quantité commandée (${ligne.quantite})`);
       return;
     }
     
+    // ✅ On accepte 0 temporairement, mais validation au submit
     setQuantitesRecues(prev => ({
       ...prev,
       [ligneId]: quantite
+    }));
+  };
+
+  const handleReactiverChange = (ligneId, checked) => {
+    setProduitsAReactiver(prev => ({
+      ...prev,
+      [ligneId]: checked
     }));
   };
 
@@ -79,100 +89,67 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     return { totalHT, totalTVA, totalTTC };
   };
 
-  // ✅ Vérifier s'il y a des produits inactifs avec quantité > 0
-  const verifierProduitsInactifs = () => {
-    const produitsInactifsAvecQté = commande.lignesCommande.filter(ligne => {
-      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-      const qteRecue = quantitesRecues[ligneId] || 0;
-      return ligne.estInactif && qteRecue > 0;
-    });
-    return produitsInactifsAvecQté;
-  };
+  // ✅ Vérifier les produits inactifs avec quantité > 0
+  const produitsInactifsAvecQté = commande.lignesCommande.filter(ligne => {
+    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+    const qteRecue = quantitesRecues[ligneId] || 0;
+    return ligne.estInactif && qteRecue > 0;
+  });
 
-  // ✅ Vérifier si tous les produits sont reçus
   const toutesRecues = commande.lignesCommande.every(ligne => {
     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
     return quantitesRecues[ligneId] === ligne.quantite;
   });
 
-  const handleSubmitClick = () => {
-    // Validations de base
-    const aAuMoinsUnProduit = Object.values(quantitesRecues).some(q => q > 0);
-    if (!aAuMoinsUnProduit) {
-      alert('Veuillez saisir au moins un produit reçu');
+  // ✅ Vérifier si au moins un produit a une quantité > 0
+  const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some(q => q > 0);
+
+  const handleSubmit = () => {
+    // ✅ PROTECTION 1 : Au moins un produit reçu
+    if (!aAuMoinsUnProduitRecu) {
+      alert('⚠️ Veuillez saisir au moins un produit reçu (quantité > 0)');
       return;
     }
 
+    // ✅ PROTECTION 2 : Numéro BL obligatoire
     if (!numeroBL.trim()) {
-      alert('Veuillez saisir le numéro de bon de livraison');
+      alert('📋 Veuillez saisir le numéro de bon de livraison');
       return;
     }
 
-    const produitsInactifs = verifierProduitsInactifs();
+    // ✅ PROTECTION 3 : Vérifier qu'aucune quantité n'est négative ou > commande
+    const quantitesInvalides = Object.entries(quantitesRecues).some(([ligneId, qte]) => {
+      const ligne = commande.lignesCommande.find(l => 
+        (l.idLigneCommandeFournisseur || l.id) === parseInt(ligneId)
+      );
+      return qte < 0 || qte > ligne.quantite;
+    });
 
-    // ✅ S'il y a des produits inactifs, afficher la confirmation
-    if (produitsInactifs.length > 0) {
-      setPendingSubmission({
-        quantitesRecues,
-        numeroBL,
-        notes: notes.trim() || null,
-        dateReception: new Date().toISOString()
-      });
-      setShowConfirmDialog(true);
-    } else {
-      // Pas de produits inactifs, soumettre directement
-      onConfirm({
-        quantitesRecues,
-        numeroBL,
-        notes: notes.trim() || null,
-        dateReception: new Date().toISOString(),
-        produitsAReactiver: {} // Pas de produits à réactiver
-      });
+    if (quantitesInvalides) {
+      alert('❌ Certaines quantités sont invalides');
+      return;
     }
-  };
 
-  // ✅ Confirmation avec réactivation
-  const handleConfirmWithActivation = () => {
-    // ✅ Construire l'objet produitsAReactiver avec TOUS les produits inactifs reçus
+    // ✅ Construire l'objet des produits à réactiver
     const produitsAReactiverMap = {};
-    
     commande.lignesCommande.forEach(ligne => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
       const qteRecue = quantitesRecues[ligneId] || 0;
-      if (ligne.estInactif && qteRecue > 0) {
-        produitsAReactiverMap[ligneId] = true; 
+      if (ligne.estInactif && qteRecue > 0 && produitsAReactiver[ligneId]) {
+        produitsAReactiverMap[ligneId] = true;
       }
     });
-    
-    const dataToSend = {
-      ...pendingSubmission,
+
+    onConfirm({
+      quantitesRecues,
+      numeroBL,
+      notes: notes.trim() || null,
+      dateReception: new Date().toISOString(),
       produitsAReactiver: produitsAReactiverMap
-    };
-    
-    onConfirm(dataToSend);
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
-  };
-
-  // ✅ Confirmation sans réactivation
-  const handleConfirmWithoutActivation = () => {
-    const dataToSend = {
-      ...pendingSubmission,
-      produitsAReactiver: {}
-    };
-    
-    onConfirm(dataToSend);
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
-  };
-
-  const handleCancelConfirm = () => {
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
+    });
   };
 
   const totauxRecus = calculerTotauxRecus();
-  const produitsInactifs = verifierProduitsInactifs();
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -192,6 +169,8 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
           </div>
 
           <div className="p-6 space-y-6">
+        
+
             {/* Info fournisseur */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="text-sm font-medium text-gray-700 mb-2">Fournisseur</h4>
@@ -225,6 +204,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Reçu</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Écart</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Statut</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Activer</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -235,9 +215,10 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     const estActif = !ligne.estInactif;
                     const statutCouleur = estActif ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
                     const statutTexte = estActif ? 'Actif' : 'Inactif';
+                    const estInactifEtRecu = ligne.estInactif && qteRecue > 0;
                     
                     return (
-                      <tr key={ligneId} className={`hover:bg-gray-50 ${ligne.estInactif ? 'bg-orange-50' : ''}`}>
+                      <tr key={ligneId} className={`hover:bg-gray-50 ${estInactifEtRecu ? 'bg-amber-50' : ''}`}>
                         <td className="px-4 py-3">
                           <div className="font-medium">{ligne.produitLibelle}</div>
                           <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
@@ -254,7 +235,9 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                             max={ligne.quantite}
                             value={qteRecue}
                             onChange={(e) => handleQuantityChange(ligneId, e.target.value)}
-                            className="w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500"
+                            className={`w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                              qteRecue === 0 ? 'border-red-300 bg-red-50' : ''
+                            }`}
                           />
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -268,6 +251,21 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${statutCouleur}`}>
                             {statutTexte}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {estInactifEtRecu && (
+                            <label className="inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={produitsAReactiver[ligneId] || false}
+                                onChange={(e) => handleReactiverChange(ligneId, e.target.checked)}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                              />
+                              <span className="ml-1 text-xs text-gray-500">
+                                {produitsAReactiver[ligneId] ? 'Oui' : 'Non'}
+                              </span>
+                            </label>
+                          )}
                         </td>
                       </tr>
                     );
@@ -328,80 +326,21 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               </button>
               <button
                 type="button"
-                onClick={handleSubmitClick}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                onClick={handleSubmit}
+                disabled={!aAuMoinsUnProduitRecu}
+                className={`px-6 py-2 rounded-lg flex items-center gap-2 ${
+                  aAuMoinsUnProduitRecu
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
+                }`}
               >
                 <CheckIcon className="w-4 h-4" />
-                Enregistrer la réception
+                Confirmer la réception
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      {/* ✅ Dialog de confirmation pour les produits inactifs */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-50" onClick={handleCancelConfirm} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-orange-100 p-2 rounded-full">
-                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Produits inactifs détectés
-                </h3>
-              </div>
-              
-              <p className="text-gray-600 mb-4">
-                Cette commande contient <strong>{produitsInactifs.length}</strong> produit(s) inactif(s) avec quantité reçue.
-                Que souhaitez-vous faire ?
-              </p>
-
-              <div className="bg-orange-50 p-3 rounded-lg mb-4">
-                <ul className="text-sm text-orange-800 space-y-1">
-                  {produitsInactifs.map(prod => (
-                    <li key={prod.id || prod.produitId} className="flex items-center gap-2">
-                      <span>•</span>
-                      <span className="font-medium">{prod.produitLibelle}</span>
-                      <span className="text-xs text-gray-500">
-                        (Qté: {quantitesRecues[prod.idLigneCommandeFournisseur || prod.id] || 0})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                <div className="flex items-start gap-2">
-                  <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <p className="text-xs text-blue-700">
-                    Si vous activez les produits, ils seront disponibles dans le catalogue.
-                    Sinon, ils resteront inactifs et pourront être activés plus tard depuis la gestion des produits.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={handleConfirmWithoutActivation}
-                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  ❌ Garder inactifs
-                </button>
-                <button
-                  onClick={handleConfirmWithActivation}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                >
-                  <CheckIcon className="w-4 h-4" />
-                  ✅ Activer les produits
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
