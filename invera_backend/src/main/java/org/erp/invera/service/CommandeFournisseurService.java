@@ -20,7 +20,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -187,15 +189,30 @@ public class CommandeFournisseurService {
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
 
+        // ✅ Récupérer les maps en sécurité
+        Map<Integer, Integer> quantitesRecues = receptionData.getQuantitesRecues() != null
+                ? receptionData.getQuantitesRecues() : new HashMap<>();
+        Map<Integer, Boolean> produitsAReactiver = receptionData.getProduitsAReactiver() != null
+                ? receptionData.getProduitsAReactiver() : new HashMap<>();
+
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
             Integer ligneId = ligne.getIdLigneCommandeFournisseur();
 
-            // Récupérer la quantité reçue pour cette ligne depuis le DTO
-            Integer quantiteRecue = receptionData.getQuantitesRecues().get(ligneId);
+            // Récupérer la quantité reçue pour cette ligne
+            Integer quantiteRecue = quantitesRecues.get(ligneId);
 
             // Si la ligne n'est pas dans la map ou quantité = 0, on passe
             if (quantiteRecue == null || quantiteRecue <= 0) {
+                System.out.println("📦 Ligne " + ligneId + ": quantité reçue = 0 ou non spécifiée");
                 continue;
+            }
+
+            // ✅ Vérifier que la quantité reçue ne dépasse pas la quantité commandée
+            Integer quantiteCommandee = ligne.getQuantite();
+            if (quantiteCommandee != null && quantiteRecue > quantiteCommandee) {
+                System.err.println("⚠️ Ligne " + ligneId + ": quantité reçue (" + quantiteRecue +
+                        ") supérieure à la quantité commandée (" + quantiteCommandee + ")");
+                throw new RuntimeException("Quantité reçue supérieure à la quantité commandée");
             }
 
             // Enregistrer la quantité reçue
@@ -208,16 +225,23 @@ public class CommandeFournisseurService {
                 int nouvelleQuantite = stockAvant + quantiteRecue;
                 produit.setQuantiteStock(nouvelleQuantite);
 
-                // Vérifier si le produit doit être réactivé
-                Boolean doitReactiver = receptionData.getProduitsAReactiver() != null
-                        ? receptionData.getProduitsAReactiver().get(ligneId)
-                        : false;
+                // ✅ Récupérer si le produit doit être réactivé (avec gestion null)
+                Boolean doitReactiver = produitsAReactiver.get(ligneId);
 
-                if (!Boolean.TRUE.equals(produit.getActive()) && doitReactiver) {
+                // ✅ CORRECTION : Vérifier si doitReactiver est null
+                boolean reactiver = doitReactiver != null && doitReactiver;
+
+                // ✅ Vérifier si le produit est inactif et doit être réactivé
+                boolean estInactif = produit.getActive() == null || !produit.getActive();
+
+                if (estInactif && reactiver && quantiteRecue > 0) {
                     produit.setActive(true);
                     System.out.println("✅ Produit réactivé: " + produit.getLibelle()
                             + " (ID: " + produit.getIdProduit()
                             + ") suite à réception commande " + commande.getNumeroCommande());
+                } else if (estInactif && quantiteRecue > 0 && !reactiver) {
+                    System.out.println("ℹ️ Produit inactif conservé: " + produit.getLibelle()
+                            + " (non réactivé)");
                 }
 
                 produitRepository.save(produit);
@@ -230,6 +254,10 @@ public class CommandeFournisseurService {
         }
 
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
+
+        // ✅ Log récapitulatif
+        System.out.println("📦 Commande " + commande.getNumeroCommande() + " réceptionnée");
+
         return convertToDTO(savedCommande);
     }
 
