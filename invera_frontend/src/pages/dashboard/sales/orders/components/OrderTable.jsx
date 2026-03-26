@@ -17,7 +17,8 @@ import {
   BriefcaseIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  TagIcon
+  TagIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const OrderTable = ({
@@ -28,7 +29,9 @@ const OrderTable = ({
   onValider,
   onRejeter,
   onVoirDetails,
-  toNumber
+  toNumber,
+  validationError,
+  setValidationError
 }) => {
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,8 +160,61 @@ const OrderTable = ({
     setCurrentPage(1);
   }, [commandes.length]);
 
+  // Fermer le popup d'erreur
+  const closeErrorPopup = () => {
+    setValidationError(null);
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      
+      {/* ✅ Popup d'erreur stock insuffisant */}
+      {validationError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">
+                  Stock insuffisant
+                </h3>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-gray-800 font-medium mb-1">
+                    Impossible de valider cette commande
+                  </p>
+                  <p className="text-gray-600 text-sm">
+                    {validationError}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-700">
+                  <span className="font-medium">💡 Solution :</span> Rapprovisionnez le stock avant de valider la commande.
+                </p>
+              </div>
+              
+              <button
+                onClick={closeErrorPopup}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* En-tête avec statistiques */}
       <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -233,7 +289,7 @@ const OrderTable = ({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 ACTIONS
               </th>
-            </tr>
+             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {currentCommandes.map((commande) => {
@@ -252,7 +308,7 @@ const OrderTable = ({
                         {formatDate(commande.dateCommande)}
                       </div>
                     </div>
-                  </td>
+                   </td>
 
                   {/* Client */}
                   <td className="px-4 py-3">
@@ -272,14 +328,14 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                  </td>
+                   </td>
 
                   {/* Date de création */}
                   <td className="px-4 py-3">
                     <div className="text-sm text-gray-900">
                       {formatDate(commande.dateCommande)}
                     </div>
-                  </td>
+                   </td>
 
                   {/* Produits */}
                   <td className="px-4 py-3">
@@ -318,7 +374,7 @@ const OrderTable = ({
                         })()}
                       </div>
                     </div>
-                  </td>
+                   </td>
 
                   {/* Montant Final avec Remise */}
                   <td className="px-4 py-3">
@@ -339,7 +395,7 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                  </td>
+                   </td>
 
                   {/* Statut */}
                   <td className="px-4 py-3">
@@ -361,7 +417,7 @@ const OrderTable = ({
                         </span>
                       </button>
                     </div>
-                  </td>
+                   </td>
 
                   {/* Actions */}
                   <td className="px-4 py-3">
@@ -401,8 +457,8 @@ const OrderTable = ({
                         </span>
                       )}
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               );
             })}
           </tbody>

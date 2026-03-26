@@ -158,7 +158,7 @@ const ClientFormModal = ({
     <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100 border border-gray-200">
         {/* Header avec dégradé */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
+        <div className="bg-gradient-to-r from-green-600 to-indigo-600 px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg">

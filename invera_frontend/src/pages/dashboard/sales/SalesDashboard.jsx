@@ -66,7 +66,7 @@ const SalesDashboard = () => {
   // ========== FONCTIONS UTILITAIRES ==========
   const getFirstName = (fullName) => fullName.split(' ')[0];
 
-  // ========== STRUCTURE DE NAVIGATION - CORRESPOND À VOS ROUTES ==========
+  // ========== STRUCTURE DE NAVIGATION ==========
   const sections = [
     {
       title: 'TABLEAU DE BORD',
@@ -136,69 +136,100 @@ const SalesDashboard = () => {
   const isActive = (itemPath) => {
     const currentPath = location.pathname;
     
-    // Cas spécial pour la racine
+    // Cas spécial pour la racine (dashboard)
     if (itemPath === 'dashboard') {
-      return currentPath === '/dashboard/sales/dashboard' || 
-             currentPath === '/dashboard/sales';
+      return currentPath === '/dashboard/sales' || 
+             currentPath === '/dashboard/sales/' ||
+             currentPath === '/dashboard/sales/dashboard';
     }
     
     // Pour les autres pages
-    return currentPath === `/dashboard/sales/${itemPath}` || 
-           currentPath.startsWith(`/dashboard/sales/${itemPath}/`);
+    return currentPath === `/dashboard/sales/${itemPath}`;
   };
 
-  // ========== TITRE DYNAMIQUE BASÉ SUR L'URL ==========
+  // ========== TITRE DYNAMIQUE CORRIGÉ ==========
   const getPageTitle = () => {
     const currentPath = location.pathname;
     
+    // Tableau de bord
     if (currentPath === '/dashboard/sales' || 
-        currentPath === '/dashboard/sales/') {
-      return 'Tableau de bord';
+        currentPath === '/dashboard/sales/' ||
+        currentPath === '/dashboard/sales/dashboard') {
+      return 'Tableau de bord commercial';
     }
     
-    if (currentPath.includes('/dashboard')) return 'Tableau de bord';
-    if (currentPath.includes('/products')) return 'Catalogue produits';
-    if (currentPath.includes('/clients')) return 'Gestion des clients';
-    if (currentPath.includes('/orders')) return 'Commandes clients';
-    if (currentPath.includes('/sales')) return 'Ventes';
-    if (currentPath.includes('/invoices')) return 'Facturation';
-    if (currentPath.includes('/reports')) return 'Rapports';
+    // Catalogue produits
+    if (currentPath.includes('/products')) {
+      return 'Catalogue produits';
+    }
     
-    return 'Tableau de Bord Commercial';
+    // Clients
+    if (currentPath.includes('/clients')) {
+      return 'Gestion des clients';
+    }
+    
+    // Commandes
+    if (currentPath.includes('/orders')) {
+      return 'Commandes clients';
+    }
+    
+    // Ventes
+    if (currentPath.includes('/sales')) {
+      return 'Ventes';
+    }
+    
+    // Facturation
+    if (currentPath.includes('/invoices')) {
+      return 'Facturation';
+    }
+    
+    // Rapports
+    if (currentPath.includes('/reports')) {
+      return 'Rapports et analyses';
+    }
+    
+    return 'Tableau de bord commercial';
   };
 
-  // ========== DESCRIPTION DYNAMIQUE BASÉE SUR L'URL ==========
+  // ========== DESCRIPTION DYNAMIQUE CORRIGÉE ==========
   const getPageDescription = () => {
     const currentPath = location.pathname;
     
+    // Tableau de bord
     if (currentPath === '/dashboard/sales' || 
         currentPath === '/dashboard/sales/' ||
-        currentPath.includes('/dashboard')) {
-      return 'Statistiques et indicateurs de performance';
+        currentPath === '/dashboard/sales/dashboard') {
+      return 'Statistiques et indicateurs de performance commerciale';
     }
     
+    // Catalogue produits
     if (currentPath.includes('/products')) {
-      return 'Gérez votre catalogue de produits';
+      return 'Consultez le catalogue des produits disponibles à la vente';
     }
     
+    // Clients
     if (currentPath.includes('/clients')) {
-      return 'Gérez vos clients et leurs informations';
+      return 'Gérez votre portefeuille clients et leurs informations';
     }
     
+    // Commandes
     if (currentPath.includes('/orders')) {
-      return 'Consultez et gérez les commandes clients';
+      return 'Suivez et gérez toutes les commandes clients';
     }
     
+    // Ventes
     if (currentPath.includes('/sales')) {
-      return 'Suivez les ventes réalisées';
+      return 'Historique et suivi des ventes réalisées';
     }
     
+    // Facturation
     if (currentPath.includes('/invoices')) {
-      return 'Gérez la facturation clients';
+      return 'Gérez la facturation et les paiements clients';
     }
     
+    // Rapports
     if (currentPath.includes('/reports')) {
-      return 'Analysez les performances commerciales';
+      return 'Analysez les performances commerciales et les tendances';
     }
     
     return 'Gestion commerciale et suivi des opérations';
@@ -220,7 +251,7 @@ const SalesDashboard = () => {
                   Tableau de Bord Commercial
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                   Suivi des ventes et gestion des produits
+                  Suivi des ventes et gestion des produits
                 </p>
               </div>
             )}

@@ -1,11 +1,10 @@
 // produits/EditProduitForm.jsx
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ProduitFormBase from './ProduitFormBase';
-import ProductMovementsTab from './ProductMovementsTab'; 
 
 const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => {
-  const [activeTab, setActiveTab] = useState('info'); // 'info' ou 'movements'
+
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
@@ -23,7 +22,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const [errors, setErrors] = useState({});
   const [imagePreview, setImagePreview] = useState(null); 
   
-  // ✅ Logique pour désactiver la remise 
   const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
     
   // Initialiser avec les données du produit
@@ -43,7 +41,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
         active: produit.active ?? true
       });
       
-      // Si une image existe déjà, créer un aperçu
       if (produit.imageUrl) {
         const imageUrl = produit.imageUrl.startsWith('http') 
           ? produit.imageUrl 
@@ -53,7 +50,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   }, [produit]);
 
-  // Validation du formulaire
+  // Validation du formulaire (sans validation du stock)
   const validateForm = () => {
     const newErrors = {};
     
@@ -71,7 +68,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
     
     if (!formData.categorie?.idCategorie) newErrors.categorie = 'La catégorie est requise';
-    if (formData.quantiteStock < 0) newErrors.quantiteStock = 'La quantité ne peut pas être négative';
     if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
     if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
     
@@ -86,9 +82,13 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     return Object.keys(newErrors).length === 0;
   };
 
-  // Gestion du changement avec support des décimales
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    
+    // ✅ Bloquer la modification du stock
+    if (name === 'quantiteStock') {
+      return; // Ne rien faire
+    }
     
     if (name === 'prixVente' || name === 'prixAchat' || name === 'remiseTemporaire') {
       const normalizedValue = value.replace(',', '.');
@@ -166,65 +166,68 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   };
 
-  const handleSubmit = async (e) => {
-    try {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      if (!formData) {
-        console.error('❌ formData est null');
-        return;
-      }
-      
-      let isValid = false;
-      try {
-        isValid = validateForm();
-        console.log('🚦 Validation:', isValid);
-      } catch (validationError) {
-        console.error('❌ Erreur validation:', validationError);
-        toast.error('Erreur de validation');
-        return;
-      }
-      
-      if (!isValid) return;
-      
-      const formDataToSend = new FormData();
-      
-      formDataToSend.append('libelle', String(formData.libelle || ''));
-      
-      const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
-      formDataToSend.append('prixVente', prixVente);
-      
-      const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
-      formDataToSend.append('prixAchat', prixAchat);
-      
-      formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
-      formDataToSend.append('quantiteStock', String(parseInt(formData.quantiteStock) || 0));
-      formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
-      formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
-      
-      const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
-      formDataToSend.append('remiseTemporaire', String(remise));
-      formDataToSend.append('active', formData.active ? 'true' : 'false');
-      
-      if (formData.imageFile && formData.imageFile instanceof File) {
-        formDataToSend.append('image', formData.imageFile);
-      }
-
-      await onSave(produit.id, formDataToSend);
-      
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      toast.error('Une erreur inattendue est survenue');
-      e?.preventDefault?.();
-      e?.stopPropagation?.();
+ // EditProduitForm.jsx - handleSubmit modifié
+const handleSubmit = async (e) => {
+  try {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!formData) {
+      console.error('❌ formData est null');
+      return;
     }
-  };
+    
+    let isValid = false;
+    try {
+      isValid = validateForm();
+      console.log('🚦 Validation:', isValid);
+    } catch (validationError) {
+      console.error('❌ Erreur validation:', validationError);
+      toast.error('Erreur de validation');
+      return;
+    }
+    
+    if (!isValid) return;
+    
+    const formDataToSend = new FormData();
+    
+    formDataToSend.append('libelle', String(formData.libelle || ''));
+    
+    const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
+    formDataToSend.append('prixVente', prixVente);
+    
+    const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
+    formDataToSend.append('prixAchat', prixAchat);
+    
+    formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
+    formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
+    formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
+    
+    const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
+    formDataToSend.append('remiseTemporaire', String(remise));
+    formDataToSend.append('active', formData.active ? 'true' : 'false');
+    
+    if (formData.imageFile && formData.imageFile instanceof File) {
+      formDataToSend.append('image', formData.imageFile);
+    }
 
-  // ✅ Fermer le modal si on change d'onglet depuis les mouvements (optionnel)
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
+    const productId = produit.idProduit || produit.id;
+    
+    if (!productId) {
+      console.error('❌ ID du produit manquant:', produit);
+      toast.error('Erreur: ID du produit manquant');
+      return;
+    }
+    
+    console.log('📤 Envoi mise à jour - ID:', productId);
+    
+    await onSave(productId, formDataToSend);
+    
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    toast.error('Une erreur inattendue est survenue');
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -232,7 +235,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           
-          {/* En-tête avec onglets */}
+          {/* En-tête */}
           <div className="sticky top-0 bg-white z-10">
             <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
               <h3 className="text-lg font-semibold text-white">
@@ -242,55 +245,40 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
                 <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            
-            {/* ✅ ONGLETS */}
-            <div className="flex border-b bg-white">
-              <button
-                onClick={() => handleTabChange('info')}
-                className={`px-6 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'info'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Informations
-              </button>
-              <button
-                onClick={() => handleTabChange('movements')}
-                className={`px-6 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'movements'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Mouvements de stock
-              </button>
-            </div>
           </div>
 
-          {/* Contenu des onglets */}
+          {/* Contenu du formulaire */}
           <div className="p-6">
-            {activeTab === 'info' && (
-              <ProduitFormBase
-                formData={formData}
-                errors={errors}
-                categories={categories}
-                handleChange={handleChange}
-                handleImageChange={handleImageChange}    
-                handleRemoveImage={handleRemoveImage}   
-                imagePreview={imagePreview}  
-                handleCategorieChange={handleCategorieChange}
-                isRemiseDisabled={isRemiseDisabled}
-                handleSubmit={handleSubmit}
-                onClose={onClose}
-                isEditMode={true}
-                title="Modifier le produit"
-              />
-            )}
+            {/* ✅ Note explicative sur le stock */}
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2">
+                <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Gestion du stock</p>
+                  <p className="text-xs text-blue-700">
+                    Le stock est géré automatiquement par les réceptions de commande et les ventes.
+                    Pour modifier le stock, créez une commande fournisseur ou enregistrez une vente.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-            {activeTab === 'movements' && (
-              <ProductMovementsTab productId={produit?.id || produit?.idProduit} />
-            )}
+            <ProduitFormBase
+              formData={formData}
+              errors={errors}
+              categories={categories}
+              handleChange={handleChange}
+              handleImageChange={handleImageChange}    
+              handleRemoveImage={handleRemoveImage}   
+              imagePreview={imagePreview}  
+              handleCategorieChange={handleCategorieChange}
+              isRemiseDisabled={isRemiseDisabled}
+              handleSubmit={handleSubmit}
+              onClose={onClose}
+              isEditMode={true}
+              title="Modifier le produit"
+              stockDisabled={true}  
+            />
           </div>
         </div>
       </div>
