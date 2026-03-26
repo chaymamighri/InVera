@@ -113,6 +113,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/commandes-fournisseurs/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
 
                         .anyRequest().authenticated()
                 )
