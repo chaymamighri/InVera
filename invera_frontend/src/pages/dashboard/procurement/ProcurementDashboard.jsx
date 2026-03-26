@@ -5,8 +5,8 @@ import {
   CubeIcon,
   ShoppingCartIcon,
   ChartBarIcon,
-  TruckIcon, // ← NOUVEAU : pour les réceptions
-  ClipboardDocumentCheckIcon, // ← NOUVEAU : pour les réceptions
+  ArrowPathIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -42,9 +42,9 @@ const ProcurementDashboard = () => {
   const getActivePage = () => {
     const path = location.pathname;
     if (path.includes('/commandes')) return 'commandes';
-    if (path.includes('/receptions')) return 'receptions'; // ← NOUVEAU
     if (path.includes('/stats')) return 'stats';
-    return 'produits';
+    if (path.includes('/mouvements')) return 'mouvements';
+    return 'stats';
   };
 
   const activePage = getActivePage();
@@ -67,7 +67,8 @@ const ProcurementDashboard = () => {
       title: 'APPROVISIONNEMENT',
       items: [
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
-        { id: 'receptions', label: 'Réceptions', icon: TruckIcon },
+        { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
+
       ]
     },
   ];
@@ -81,8 +82,8 @@ const ProcurementDashboard = () => {
       case 'commandes':
         navigate('/dashboard/procurement/commandes');
         break;
-      case 'receptions': // ← NOUVEAU
-        navigate('/dashboard/procurement/receptions');
+      case 'mouvements': 
+        navigate('/dashboard/procurement/mouvements');
         break;
       case 'stats':
         navigate('/dashboard/procurement/stats');
@@ -98,7 +99,7 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Statistiques Achats';
       case 'produits': return 'Gestion des Produits';
       case 'commandes': return 'Bons de commande fournisseurs';
-      case 'receptions': return 'Réceptions de marchandises'; // ← NOUVEAU
+      case 'mouvements': return 'mouvements de stock'; 
       default: return 'Tableau de bord';
     }
   };
@@ -108,7 +109,7 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Indicateurs de performance achats';
       case 'produits': return 'Gérez votre catalogue produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
-      case 'receptions': return 'Suivez et enregistrez les réceptions'; // ← NOUVEAU
+      case 'mouvements': return  'Visualisez l\'historique des entrées et sorties de stock'; 
       default: return '';
     }
   };

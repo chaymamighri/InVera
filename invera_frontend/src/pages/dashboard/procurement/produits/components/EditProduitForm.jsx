@@ -1,8 +1,11 @@
 // produits/EditProduitForm.jsx
 import React, { useState, useEffect } from 'react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import ProduitFormBase from './ProduitFormBase';
+import ProductMovementsTab from './ProductMovementsTab'; 
 
 const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => {
+  const [activeTab, setActiveTab] = useState('info'); // 'info' ou 'movements'
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
@@ -42,7 +45,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       
       // Si une image existe déjà, créer un aperçu
       if (produit.imageUrl) {
-        // Vérifier si l'URL est complète ou relative
         const imageUrl = produit.imageUrl.startsWith('http') 
           ? produit.imageUrl 
           : `http://localhost:8081/${produit.imageUrl.replace(/^\/+/, '')}`;
@@ -88,13 +90,12 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     
-    // Pour les champs de prix, accepter chiffres, point et virgule
     if (name === 'prixVente' || name === 'prixAchat' || name === 'remiseTemporaire') {
       const normalizedValue = value.replace(',', '.');
       if (normalizedValue === '' || /^\d*\.?\d*$/.test(normalizedValue)) {
         setFormData(prev => ({
           ...prev,
-          [name]: value // Garder la valeur saisie (avec virgule si l'utilisateur l'a mise)
+          [name]: value
         }));
       }
     } else if (type === 'number') {
@@ -165,92 +166,135 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   };
 
-// EditProduitForm.jsx - Construction FORCÉE du FormData
-const handleSubmit = async (e) => {
-  try {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!formData) {
-      console.error('❌ formData est null');
-      return;
-    }
-    
-    let isValid = false;
+  const handleSubmit = async (e) => {
     try {
-      isValid = validateForm();
-      console.log('🚦 Validation:', isValid);
-    } catch (validationError) {
-      console.error('❌ Erreur validation:', validationError);
-      toast.error('Erreur de validation');
-      return;
-    }
-    
-    if (!isValid) return;
-    
-    // ✅ CONSTRUCTION SYSTÉMATIQUE DU FORMDATA
-    const formDataToSend = new FormData();
-    console.log('🚦 FormData créé');
-    
-    // ✅ AJOUTER TOUS LES CHAMPS, MÊME VIDES
-    formDataToSend.append('libelle', String(formData.libelle || ''));
-    
-    // Prix avec gestion des virgules
-    const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
-    formDataToSend.append('prixVente', prixVente);
-    
-    const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
-    formDataToSend.append('prixAchat', prixAchat);
-    
-    // Catégorie
-    formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
-    
-    // Stock
-    formDataToSend.append('quantiteStock', String(parseInt(formData.quantiteStock) || 0));
-    formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
-    
-    // Unité de mesure
-    formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
-    
-    // Remise
-    const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
-    formDataToSend.append('remiseTemporaire', String(remise));
-    
-    // Actif
-    formDataToSend.append('active', formData.active ? 'true' : 'false');
-    
-    // Image
-    if (formData.imageFile && formData.imageFile instanceof File) {
-      formDataToSend.append('image', formData.imageFile);
-    }
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (!formData) {
+        console.error('❌ formData est null');
+        return;
+      }
+      
+      let isValid = false;
+      try {
+        isValid = validateForm();
+        console.log('🚦 Validation:', isValid);
+      } catch (validationError) {
+        console.error('❌ Erreur validation:', validationError);
+        toast.error('Erreur de validation');
+        return;
+      }
+      
+      if (!isValid) return;
+      
+      const formDataToSend = new FormData();
+      
+      formDataToSend.append('libelle', String(formData.libelle || ''));
+      
+      const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
+      formDataToSend.append('prixVente', prixVente);
+      
+      const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
+      formDataToSend.append('prixAchat', prixAchat);
+      
+      formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
+      formDataToSend.append('quantiteStock', String(parseInt(formData.quantiteStock) || 0));
+      formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
+      formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
+      
+      const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
+      formDataToSend.append('remiseTemporaire', String(remise));
+      formDataToSend.append('active', formData.active ? 'true' : 'false');
+      
+      if (formData.imageFile && formData.imageFile instanceof File) {
+        formDataToSend.append('image', formData.imageFile);
+      }
 
-await onSave(produit.id, formDataToSend);
-    
-  } catch (error) {
-   
-    toast.error('Une erreur inattendue est survenue');
-    e?.preventDefault?.();
-    e?.stopPropagation?.();
-  }
-};
+      await onSave(produit.id, formDataToSend);
+      
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      toast.error('Une erreur inattendue est survenue');
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+    }
+  };
 
+  // ✅ Fermer le modal si on change d'onglet depuis les mouvements (optionnel)
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
 
   return (
-    <ProduitFormBase
-      formData={formData}
-      errors={errors}
-      categories={categories}
-      handleChange={handleChange}
-      handleImageChange={handleImageChange}    
-      handleRemoveImage={handleRemoveImage}   
-      imagePreview={imagePreview}  
-      handleCategorieChange={handleCategorieChange}
-      isRemiseDisabled={isRemiseDisabled}
-      handleSubmit={handleSubmit}
-      onClose={onClose}
-      isEditMode={true}
-      title="Modifier le produit"
-    />
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          
+          {/* En-tête avec onglets */}
+          <div className="sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
+              <h3 className="text-lg font-semibold text-white">
+                Modifier le produit
+              </h3>
+              <button onClick={onClose} className="text-white hover:text-gray-200">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {/* ✅ ONGLETS */}
+            <div className="flex border-b bg-white">
+              <button
+                onClick={() => handleTabChange('info')}
+                className={`px-6 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'info'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Informations
+              </button>
+              <button
+                onClick={() => handleTabChange('movements')}
+                className={`px-6 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'movements'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Mouvements de stock
+              </button>
+            </div>
+          </div>
+
+          {/* Contenu des onglets */}
+          <div className="p-6">
+            {activeTab === 'info' && (
+              <ProduitFormBase
+                formData={formData}
+                errors={errors}
+                categories={categories}
+                handleChange={handleChange}
+                handleImageChange={handleImageChange}    
+                handleRemoveImage={handleRemoveImage}   
+                imagePreview={imagePreview}  
+                handleCategorieChange={handleCategorieChange}
+                isRemiseDisabled={isRemiseDisabled}
+                handleSubmit={handleSubmit}
+                onClose={onClose}
+                isEditMode={true}
+                title="Modifier le produit"
+              />
+            )}
+
+            {activeTab === 'movements' && (
+              <ProductMovementsTab productId={produit?.id || produit?.idProduit} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
