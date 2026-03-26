@@ -9,10 +9,8 @@ import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.Produit;
-import org.erp.invera.repository.CommandeFournisseurRepository;
-import org.erp.invera.repository.LigneCommandeFournisseurRepository;
-import org.erp.invera.repository.FournisseurRepository;
-import org.erp.invera.repository.ProduitRepository;
+import org.erp.invera.model.stock.StockMovement;
+import org.erp.invera.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +33,7 @@ public class CommandeFournisseurService {
     private final FournisseurRepository fournisseurRepository;
     private final ProduitRepository produitRepository;
     private final LigneCommandeFournisseurRepository ligneRepository;
+    private final StockMovementRepository stockMovementRepository;
 
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
@@ -195,6 +195,10 @@ public class CommandeFournisseurService {
         Map<Integer, Boolean> produitsAReactiver = receptionData.getProduitsAReactiver() != null
                 ? receptionData.getProduitsAReactiver() : new HashMap<>();
 
+        // ✅ Liste pour stocker les mouvements créés
+        List<StockMovement> mouvements = new ArrayList<>();
+        int totalProduitsReactives = 0;
+
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
             Integer ligneId = ligne.getIdLigneCommandeFournisseur();
 
@@ -225,10 +229,23 @@ public class CommandeFournisseurService {
                 int nouvelleQuantite = stockAvant + quantiteRecue;
                 produit.setQuantiteStock(nouvelleQuantite);
 
+                // ✅ CRÉATION DU MOUVEMENT DE STOCK - ENTRÉE
+                StockMovement mouvement = new StockMovement();
+                mouvement.setProduit(produit);
+                mouvement.setTypeMouvement(StockMovement.MovementType.ENTREE);
+                mouvement.setQuantite(quantiteRecue);
+                mouvement.setStockAvant(stockAvant);
+                mouvement.setStockApres(nouvelleQuantite);
+                mouvement.setReference(commande.getNumeroCommande());
+                mouvement.setTypeDocument("COMMANDE_FOURNISSEUR");
+                mouvement.setIdDocument(Long.valueOf(commande.getIdCommandeFournisseur()));
+                mouvement.setCommentaire("Réception commande " + commande.getNumeroCommande() +
+                        " - BL: " + receptionData.getNumeroBL());
+                mouvement.setDateMouvement(LocalDateTime.now());
+                mouvements.add(mouvement);
+
                 // ✅ Récupérer si le produit doit être réactivé (avec gestion null)
                 Boolean doitReactiver = produitsAReactiver.get(ligneId);
-
-                // ✅ CORRECTION : Vérifier si doitReactiver est null
                 boolean reactiver = doitReactiver != null && doitReactiver;
 
                 // ✅ Vérifier si le produit est inactif et doit être réactivé
@@ -236,6 +253,7 @@ public class CommandeFournisseurService {
 
                 if (estInactif && reactiver && quantiteRecue > 0) {
                     produit.setActive(true);
+                    totalProduitsReactives++;
                     System.out.println("✅ Produit réactivé: " + produit.getLibelle()
                             + " (ID: " + produit.getIdProduit()
                             + ") suite à réception commande " + commande.getNumeroCommande());
@@ -253,10 +271,19 @@ public class CommandeFournisseurService {
             ligneRepository.save(ligne);
         }
 
+        // ✅ SAUVEGARDER TOUS LES MOUVEMENTS EN BATCH
+        if (!mouvements.isEmpty()) {
+            stockMovementRepository.saveAll(mouvements);
+            System.out.println("📊 " + mouvements.size() + " mouvement(s) de stock créé(s)");
+        }
+
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
 
-        // ✅ Log récapitulatif
+        // ✅ Log récapitulatif détaillé
         System.out.println("📦 Commande " + commande.getNumeroCommande() + " réceptionnée");
+        System.out.println("   - " + mouvements.size() + " produit(s) reçu(s)");
+        System.out.println("   - " + totalProduitsReactives + " produit(s) réactivé(s)");
+        System.out.println("   - BL: " + receptionData.getNumeroBL());
 
         return convertToDTO(savedCommande);
     }
