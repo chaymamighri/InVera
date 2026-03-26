@@ -96,8 +96,6 @@ public class CommandeClientController {
     @GetMapping("/validated")
     public ResponseEntity<Map<String, Object>> getCommandesValidees() {
         try {
-            System.out.println("📌 API appelée: GET /api/commandes/validated");
-
             List<CommandeClient> commandes = commandeClientRepository.findByStatutWithDetails(
                     CommandeClient.StatutCommande.CONFIRMEE);
 
