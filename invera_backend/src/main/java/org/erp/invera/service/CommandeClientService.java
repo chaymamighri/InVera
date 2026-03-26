@@ -8,10 +8,8 @@ import org.erp.invera.model.client.CommandeClient;
 import org.erp.invera.model.client.Client;
 import org.erp.invera.model.client.LigneCommandeClient;
 import org.erp.invera.model.Produit;
-import org.erp.invera.repository.CommandeClientRepository;
-import org.erp.invera.repository.ClientRepository;
-import org.erp.invera.repository.LigneCommandeClientRepository;
-import org.erp.invera.repository.ProduitRepository;
+import org.erp.invera.model.stock.StockMovement;
+import org.erp.invera.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,17 +30,20 @@ public class CommandeClientService {
     private final ProduitRepository produitRepository;
     private final LigneCommandeClientRepository ligneCommandeClientRepository;
     private final ProduitService produitService;
+    private final StockMovementRepository stockMovementRepository;
 
     public CommandeClientService(CommandeClientRepository commandeClientRepository,
                                  ClientRepository clientRepository,
                                  ProduitRepository produitRepository,
                                  LigneCommandeClientRepository ligneCommandeClientRepository,
-                                 ProduitService produitService) {
+                                 ProduitService produitService,
+                                 StockMovementRepository stockMovementRepository) {
         this.commandeClientRepository = commandeClientRepository;
         this.clientRepository = clientRepository;
         this.produitRepository = produitRepository;
         this.ligneCommandeClientRepository = ligneCommandeClientRepository;
         this.produitService = produitService;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     // Méthode pour vérifier la disponibilité (format Map)
@@ -292,8 +293,6 @@ public class CommandeClientService {
                 " | Ajustement stock: " + differenceStock);
     }
 
-
-
     private void addNewLigne(CommandeClient commande, ProduitCommandeUpdateDTO produitDTO) {
         // Récupérer le produit
         Produit produit = produitRepository.findById(produitDTO.getProduitId())
@@ -335,47 +334,113 @@ public class CommandeClientService {
                 " | Stock restant: " + nouveauStock);
     }
 
-
-    // Méthode utilitaire pour la conversion sécurisée Double -> BigDecimal
-
     @Transactional
     public CommandeClient confirmerCommande(Integer commandeId) {
-        CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvee"));
+        System.out.println("🔍 === DÉBUT confirmerCommande ===");
+        System.out.println("🔍 commandeId reçu: " + commandeId);
 
-        if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
-            throw new RuntimeException("Seules les commandes en attente peuvent etre confirmees");
-        }
+        try {
+            CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
+                    .orElseThrow(() -> {
+                        System.err.println("❌ Commande non trouvée avec l'ID: " + commandeId);
+                        return new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
+                    });
 
-        Map<Integer, Integer> quantitesParProduit = new HashMap<>();
-        for (LigneCommandeClient ligne : commande.getLignesCommande()) {
-            Integer produitId = ligne.getProduit().getIdProduit();
-            quantitesParProduit.merge(produitId, ligne.getQuantite(), Integer::sum);
-        }
+            System.out.println("✅ Commande trouvée: " + commande.getIdCommandeClient());
+            System.out.println("📊 Statut actuel: " + commande.getStatut());
+            System.out.println("📊 Nombre de lignes: " + (commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0));
 
-        for (Map.Entry<Integer, Integer> entry : quantitesParProduit.entrySet()) {
-            Produit produit = produitRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouve: " + entry.getKey()));
-
-            if (produit.getQuantiteStock() < entry.getValue()) {
-                throw new RuntimeException(
-                        "Stock insuffisant pour le produit: " + produit.getLibelle() +
-                                " (Disponible: " + produit.getQuantiteStock() +
-                                ", Demande: " + entry.getValue() + ")");
+            // Vérifier le statut
+            if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
+                System.err.println("❌ Statut invalide: " + commande.getStatut() + " - Attendu: EN_ATTENTE");
+                throw new RuntimeException("Seules les commandes en attente peuvent être confirmées. Statut actuel: " + commande.getStatut());
             }
+
+            System.out.println("✅ Statut OK (EN_ATTENTE)");
+
+            // Vérifier les lignes de commande
+            if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
+                System.err.println("❌ La commande ne contient aucun produit");
+                throw new RuntimeException("La commande ne contient aucun produit");
+            }
+
+            System.out.println("✅ " + commande.getLignesCommande().size() + " ligne(s) de commande trouvée(s)");
+
+            // Vérifier le stock
+            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
+                Produit produit = ligne.getProduit();
+                if (produit == null) {
+                    System.err.println("❌ Produit null pour une ligne");
+                    throw new RuntimeException("Produit non trouvé pour une ligne de commande");
+                }
+
+                System.out.println("📦 Produit: " + produit.getLibelle() +
+                        " | Stock: " + produit.getQuantiteStock() +
+                        " | Demandé: " + ligne.getQuantite());
+
+                if (produit.getQuantiteStock() < ligne.getQuantite()) {
+                    System.err.println("❌ Stock insuffisant pour: " + produit.getLibelle());
+                    throw new RuntimeException("Stock insuffisant pour le produit: " + produit.getLibelle());
+                }
+            }
+
+            System.out.println("✅ Vérification stock OK");
+
+            // Liste des mouvements
+            List<StockMovement> mouvements = new ArrayList<>();
+
+            // Traitement de chaque ligne
+            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
+                Produit produit = ligne.getProduit();
+
+                int stockAvant = produit.getQuantiteStock();
+                int nouvelleQuantite = stockAvant - ligne.getQuantite();
+
+                System.out.println("🔄 Mise à jour stock: " + produit.getLibelle() +
+                        " " + stockAvant + " → " + nouvelleQuantite);
+
+                // Mise à jour du stock
+                produit.setQuantiteStock(nouvelleQuantite);
+                produitRepository.save(produit);
+
+                // Création du mouvement
+                StockMovement mouvement = new StockMovement();
+                mouvement.setProduit(produit);
+                mouvement.setTypeMouvement(StockMovement.MovementType.SORTIE);
+                mouvement.setQuantite(ligne.getQuantite());
+                mouvement.setStockAvant(stockAvant);
+                mouvement.setStockApres(nouvelleQuantite);
+                mouvement.setReference(commande.getReferenceCommandeClient());
+                mouvement.setTypeDocument("COMMANDE_CLIENT");
+                mouvement.setIdDocument(Long.valueOf(commande.getIdCommandeClient()));
+                mouvement.setCommentaire("Vente - Commande client " + commande.getReferenceCommandeClient());
+                mouvement.setDateMouvement(LocalDateTime.now());
+
+                mouvements.add(mouvement);
+            }
+
+            // Sauvegarde des mouvements
+            if (!mouvements.isEmpty()) {
+                stockMovementRepository.saveAll(mouvements);
+                System.out.println("📊 " + mouvements.size() + " mouvement(s) de stock SORTIE créé(s)");
+            }
+
+            // Mise à jour du statut
+            commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
+
+            CommandeClient saved = commandeClientRepository.save(commande);
+            System.out.println("✅ Commande " + saved.getIdCommandeClient() + " confirmée avec succès");
+            System.out.println("🔍 === FIN confirmerCommande ===");
+
+            return saved;
+
+        } catch (Exception e) {
+            System.err.println("❌ EXCEPTION dans confirmerCommande: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        for (Map.Entry<Integer, Integer> entry : quantitesParProduit.entrySet()) {
-            Produit produit = produitRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouve: " + entry.getKey()));
-
-            int newQuantity = produit.getQuantiteStock() - entry.getValue();
-            produitService.updateStock(produit.getIdProduit(), newQuantity);
-        }
-
-        commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
-        return commandeClientRepository.save(commande);
     }
+
 
     @Transactional
     public CommandeClient rejeterCommande(Integer commandeId) {
@@ -427,7 +492,6 @@ public class CommandeClientService {
         // Pour l'instant, retourne ZERO car pas de champ remise dans LigneCommandeClient
         return BigDecimal.ZERO;
     }
-
 
     // Méthode pour générer une référence de commande unique
     private String genererReferenceCommande() {
