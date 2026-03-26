@@ -6,6 +6,7 @@ import {
   ShoppingCartIcon,
   ChartBarIcon,
   ArrowPathIcon,
+  ArchiveBoxIcon,
   ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
@@ -41,9 +42,11 @@ const ProcurementDashboard = () => {
   // ========== DÉTERMINER LA PAGE ACTIVE DEPUIS L'URL ==========
   const getActivePage = () => {
     const path = location.pathname;
+    if (path.includes('/produits')) return 'produits';
     if (path.includes('/commandes')) return 'commandes';
     if (path.includes('/stats')) return 'stats';
     if (path.includes('/mouvements')) return 'mouvements';
+    if (path.includes('/etat_stock')) return 'etat_stock';
     return 'stats';
   };
 
@@ -67,10 +70,15 @@ const ProcurementDashboard = () => {
       title: 'APPROVISIONNEMENT',
       items: [
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
-        { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
-
       ]
     },
+   {
+  title: 'stock',
+  items: [
+    { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
+    { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
+  ]
+},
   ];
 
   // ========== NAVIGATION MISE À JOUR ==========
@@ -84,6 +92,9 @@ const ProcurementDashboard = () => {
         break;
       case 'mouvements': 
         navigate('/dashboard/procurement/mouvements');
+        break;
+        case 'etat_stock': 
+        navigate('/dashboard/procurement/etat_stock');
         break;
       case 'stats':
         navigate('/dashboard/procurement/stats');
@@ -99,7 +110,8 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Statistiques Achats';
       case 'produits': return 'Gestion des Produits';
       case 'commandes': return 'Bons de commande fournisseurs';
-      case 'mouvements': return 'mouvements de stock'; 
+      case 'mouvements': return 'Mouvements de stock'; 
+       case 'etat_stock': return 'État de stock'; 
       default: return 'Tableau de bord';
     }
   };
@@ -109,7 +121,8 @@ const ProcurementDashboard = () => {
       case 'stats': return 'Indicateurs de performance achats';
       case 'produits': return 'Gérez votre catalogue produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
-      case 'mouvements': return  'Visualisez l\'historique des entrées et sorties de stock'; 
+      case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
+      case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques'; 
       default: return '';
     }
   };

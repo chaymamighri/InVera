@@ -1,7 +1,7 @@
 // pages/dashboard/procurement/stock/StockMovementsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useStockMovements } from '../../../../hooks/useStockMovements';
+import { useStockMovements } from '../../../../../hooks/useStockMovements';
 import StatsCards from './components/StatsCards';
 import FilterBar from './components/FilterBar';
 import MovementTable from './components/MovementTable';

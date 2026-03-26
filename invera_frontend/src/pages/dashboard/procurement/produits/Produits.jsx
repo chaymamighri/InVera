@@ -1,10 +1,12 @@
-// produits/Produits.jsx
+// produits/Produits.jsx - Version avec pagination avancée
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
 import {
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import ProduitCard from './components/ProduitCard';
@@ -21,20 +23,20 @@ const Produits = () => {
     products = [],
     loading: productsLoading,
     error: productsError,
-    pagination = { page: 0, size: 10, total: 0, totalPages: 0 },
-    searchProducts,
+    pagination = { page: 0, size: 9, total: 0, totalPages: 0 },
+    loadProducts,        
     createProduct,
     updateProduct,
     deleteProduct,
     reactivateProduct,
-    updateStock,
     filters,           
     setFilters,      
     resetFilters,     
     changePage,
+    changePageSize,
     getStatusLabel = (s) => s || '',
     getStatusColor = (s) => 'gray'
-  } = useProducts({ actif: '' }) || {}; 
+  } = useProducts({ actif: '', size: 9 }) || {}; 
   
   const { user } = useAuth();
   const userRole = user?.role;
@@ -42,7 +44,7 @@ const Produits = () => {
   // Hook pour les catégories
   const { categories, loading: categoriesLoading } = useCategories();
 
-  // ========== ÉTATS LOCAUX SÉPARÉS ==========
+  // ========== ÉTATS LOCAUX ==========
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchInput, setSearchInput] = useState(''); 
@@ -70,9 +72,7 @@ const Produits = () => {
     setEditingProduct(null);
   };
 
-  // ✅ FONCTION SÉPARÉE POUR LA CRÉATION
   const handleCreateProduct = async (formData) => {
-    
     if (!formData) {
       console.error('❌ formData null');
       toast.error('Erreur: données du formulaire manquantes');
@@ -91,36 +91,37 @@ const Produits = () => {
       }
     } catch (error) {
       console.error('❌ Erreur création:', error);
-      console.error('❌ Response:', error.response?.data);
       toast.error(error.response?.data?.message || 'Erreur lors de la création');
     }
   };
 
-  // ✅ FONCTION SÉPARÉE POUR LA MODIFICATION
-  const handleUpdateProduct = async (id, formData) => {
+  // Dans Produits.jsx - Modifier handleUpdateProduct
+const handleUpdateProduct = async (id, formData) => {
+  if (!id || !formData) {
+    console.error('❌ ID ou formData manquant');
+    toast.error('Erreur: données manquantes pour la modification');
+    return;
+  }
+  
+  try {
+    const response = await updateProduct(id, formData);
+    console.log('✅ Réponse modification:', response);
     
-    if (!id || !formData) {
-      console.error('❌ ID ou formData manquant');
-      toast.error('Erreur: données manquantes pour la modification');
-      return;
-    }
-    
-    try {
-      const response = await updateProduct(id, formData);
-      console.log('✅ Réponse modification:', response);
+    if (response?.success) {
+      toast.success('Produit modifié avec succès');
+      handleCloseForm();
       
-      if (response?.success) {
-        toast.success('Produit modifié avec succès');
-        handleCloseForm();
-      } else {
-        toast.error(response?.message || 'Erreur lors de la modification');
-      }
-    } catch (error) {
-      console.error('❌ Erreur modification:', error);
-      console.error('❌ Response:', error.response?.data);
-      toast.error(error.response?.data?.message || 'Erreur lors de la modification');
+      // ✅ REFRESH AUTO : Recharger la page courante
+      await loadProducts(pagination.page);
+      
+    } else {
+      toast.error(response?.message || 'Erreur lors de la modification');
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur modification:', error);
+    toast.error(error.response?.data?.message || 'Erreur lors de la modification');
+  }
+};
 
   const handleToggleActive = async (id, currentActive) => {
     if (!id) return;
@@ -139,47 +140,158 @@ const Produits = () => {
     }
   };
 
-  const handleStockAdjustment = async (id, nouvelleQuantite) => {
-    if (!id || nouvelleQuantite === undefined) return;
-    
-    try {
-      const response = await updateStock(id, nouvelleQuantite);
-      if (response?.success) {
-        toast.success('Stock ajusté');
-      }
-    } catch (error) {
-      console.error('❌ Erreur stock:', error);
-      toast.error("Erreur lors de l'ajustement");
-    }
-  };
 
-  // RECHERCHE avec debounce
   const handleSearch = useCallback((keyword) => {
-    setFilters(prev => ({
-      ...prev,
-      keyword: keyword || undefined
-    }));
-  }, [setFilters]);
+    const newFilters = { ...filters, keyword: keyword || undefined };
+    setFilters(newFilters);
+    loadProducts(0, newFilters);
+  }, [filters, setFilters, loadProducts]);
 
-  // CHANGEMENT DE FILTRE
   const handleFilterChange = useCallback((key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value || undefined
-    }));
-  }, [setFilters]);
+    const newFilters = { ...filters, [key]: value || undefined };
+    setFilters(newFilters);
+    loadProducts(0, newFilters);
+  }, [filters, setFilters, loadProducts]);
 
-  // RÉINITIALISATION TOTALE
   const handleResetFilters = useCallback(() => {
     setSearchInput('');
     resetFilters();
   }, [resetFilters]);
 
-  // RAFRAÎCHIR
   const handleRefresh = useCallback(() => {
-    searchProducts(filters);
+    loadProducts(0, filters);
     toast.success('Liste actualisée');
-  }, [filters, searchProducts]);
+  }, [filters, loadProducts]);
+
+  // ========== RENDU DE LA PAGINATION AVANCÉE ==========
+  const renderPagination = () => {
+    if (pagination.totalPages <= 1) return null;
+
+    const currentPage = pagination.page;
+    const totalPages = pagination.totalPages;
+    const pageSize = pagination.size;
+    
+    // Calculer les pages à afficher
+    const getPageNumbers = () => {
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+          range.push(i);
+        }
+      }
+
+      range.forEach((i) => {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...');
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      });
+
+      return rangeWithDots;
+    };
+
+    const pageNumbers = getPageNumbers();
+
+    return (
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-4 border-t border-gray-200">
+        {/* Sélecteur de taille de page */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Afficher :</span>
+          <select
+            value={pageSize}
+            onChange={(e) => changePageSize?.(parseInt(e.target.value))}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="6">6 par page</option>
+            <option value="9">9 par page</option>
+            <option value="12">12 par page</option>
+            <option value="18">18 par page</option>
+            <option value="24">24 par page</option>
+          </select>
+        </div>
+
+        {/* Informations de pagination */}
+        <div className="text-sm text-gray-500">
+          Affichage de {currentPage * pageSize + 1} à{' '}
+          {Math.min((currentPage + 1) * pageSize, pagination.total)} sur{' '}
+          {pagination.total} produits
+        </div>
+
+        {/* Contrôles de pagination */}
+        <div className="flex items-center gap-1">
+          {/* Première page */}
+          <button
+            onClick={() => changePage?.(0)}
+            disabled={currentPage === 0}
+            className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+            title="Première page"
+          >
+            <ChevronDoubleLeftIcon className="h-5 w-5 text-gray-600" />
+          </button>
+
+          {/* Page précédente */}
+          <button
+            onClick={() => changePage?.(currentPage - 1)}
+            disabled={currentPage === 0}
+            className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+            title="Page précédente"
+          >
+            <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
+          </button>
+
+          {/* Numéros de pages */}
+          <div className="flex items-center gap-1 mx-1">
+            {pageNumbers.map((page, idx) => (
+              page === '...' ? (
+                <span key={`dots-${idx}`} className="px-2 text-gray-400">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => changePage?.(page - 1)}
+                  className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === page - 1
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+          </div>
+
+          {/* Page suivante */}
+          <button
+            onClick={() => changePage?.(currentPage + 1)}
+            disabled={currentPage === totalPages - 1}
+            className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+            title="Page suivante"
+          >
+            <ChevronRightIcon className="h-5 w-5 text-gray-600" />
+          </button>
+
+          {/* Dernière page */}
+          <button
+            onClick={() => changePage?.(totalPages - 1)}
+            disabled={currentPage === totalPages - 1}
+            className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+            title="Dernière page"
+          >
+            <ChevronDoubleRightIcon className="h-5 w-5 text-gray-600" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // ========== RENDU ==========
   if (productsError) {
@@ -223,7 +335,6 @@ const Produits = () => {
                   produit={produit || {}}
                   onEdit={handleEditProduit}
                   onToggleActive={handleToggleActive}
-                  onStockAdjust={handleStockAdjustment}
                   getStatusColor={getStatusColor}
                   getStatusLabel={getStatusLabel}
                 />
@@ -235,27 +346,8 @@ const Produits = () => {
             )}
           </div>
 
-          {pagination?.totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <button
-                onClick={() => changePage?.(pagination.page - 1)}
-                disabled={pagination.page === 0}
-                className="p-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50"
-              >
-                <ChevronLeftIcon className="h-5 w-5" />
-              </button>
-              <span className="px-4 py-2">
-                Page {pagination.page + 1} / {pagination.totalPages}
-              </span>
-              <button
-                onClick={() => changePage?.(pagination.page + 1)}
-                disabled={pagination.page === pagination.totalPages - 1}
-                className="p-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50"
-              >
-                <ChevronRightIcon className="h-5 w-5" />
-              </button>
-            </div>
-          )}
+          {/* Pagination avancée */}
+          {renderPagination()}
         </>
       )}
 
