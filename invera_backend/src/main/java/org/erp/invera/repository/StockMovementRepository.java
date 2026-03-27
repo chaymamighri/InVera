@@ -11,8 +11,8 @@ import java.util.List;
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
     List<StockMovement> findByProduit_IdProduitOrderByDateMouvementDesc(Integer produitId);
-
-    List<StockMovement> findByTypeDocumentAndIdDocument(String typeDocument, Long idDocument);
+    // ✅ CORRIGÉ : Utiliser idProduit au lieu de id
+    List<StockMovement> findByProduit_IdProduit(Integer produitId);
 
     // ✅ Solution définitive : Native Query avec CAST explicite pour PostgreSQL
     @Query(value = "SELECT * FROM stock_movement WHERE " +

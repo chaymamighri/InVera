@@ -15,6 +15,8 @@ import java.util.List;
 public class StockMovementService {
 
     private final StockMovementRepository stockMovementRepository;
+    private final StockEtatService stockEtatService;
+
 
     /**
      * Récupère les mouvements avec filtres optionnels
@@ -43,14 +45,6 @@ public class StockMovementService {
      */
     public List<StockMovement> getHistoriqueProduit(Integer produitId) {
         return stockMovementRepository.findByProduit_IdProduitOrderByDateMouvementDesc(produitId);
-    }
-
-    /**
-     * Crée plusieurs mouvements en batch
-     */
-    @Transactional
-    public List<StockMovement> creerMouvementsBatch(List<StockMovement> mouvements) {
-        return stockMovementRepository.saveAll(mouvements);
     }
 
     /**
