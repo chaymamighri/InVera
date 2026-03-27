@@ -1,7 +1,6 @@
 import api from './api'; 
 
 class FournisseurService {
-  // ==================== GET ALL ====================
   
   /**
    * Récupère tous les fournisseurs (actifs + inactifs)
