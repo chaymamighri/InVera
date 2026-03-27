@@ -1,4 +1,4 @@
-// ProcurementDashboard.jsx - Version avec Réceptions
+// ProcurementDashboard.jsx - Version avec État de stock
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -52,7 +52,7 @@ const ProcurementDashboard = () => {
 
   const activePage = getActivePage();
 
-  // ========== STRUCTURE DE NAVIGATION MISE À JOUR ==========
+  // ========== STRUCTURE DE NAVIGATION ==========
   const sections = [
     {
       title: 'TABLEAU DE BORD',
@@ -72,16 +72,16 @@ const ProcurementDashboard = () => {
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
       ]
     },
-   {
-  title: 'stock',
-  items: [
-    { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
-    { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
-  ]
-},
+    {
+      title: 'STOCK',
+      items: [
+        { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
+        { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
+      ]
+    },
   ];
 
-  // ========== NAVIGATION MISE À JOUR ==========
+  // ========== NAVIGATION AVEC URLs DIRECTES ==========
   const handleSetActivePage = (pageId) => {
     switch(pageId) {
       case 'produits':
@@ -93,14 +93,14 @@ const ProcurementDashboard = () => {
       case 'mouvements': 
         navigate('/dashboard/procurement/mouvements');
         break;
-        case 'etat_stock': 
+      case 'etat_stock': 
         navigate('/dashboard/procurement/etat_stock');
         break;
       case 'stats':
         navigate('/dashboard/procurement/stats');
         break;
       default:
-        navigate('/dashboard/procurement/produits');
+        navigate('/dashboard/procurement/stats');
     }
   };
 
@@ -111,7 +111,7 @@ const ProcurementDashboard = () => {
       case 'produits': return 'Gestion des Produits';
       case 'commandes': return 'Bons de commande fournisseurs';
       case 'mouvements': return 'Mouvements de stock'; 
-       case 'etat_stock': return 'État de stock'; 
+      case 'etat_stock': return 'État de stock'; 
       default: return 'Tableau de bord';
     }
   };
@@ -129,21 +129,21 @@ const ProcurementDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar - identique mais avec le nouvel item */}
+      {/* Sidebar */}
       <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
         collapsed ? 'w-20' : 'w-64'
       }`}>
         
-        {/* En-tête sidebar (inchangé) */}
+        {/* En-tête sidebar */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Gestion Achats et stock
+                  Tableau de Bord
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                  Stocks, commandes et réceptions
+                  Gestion Achats et Stock
                 </p>
               </div>
             )}
@@ -156,7 +156,7 @@ const ProcurementDashboard = () => {
           </div>
         </div>
 
-        {/* Navigation avec le nouvel item */}
+        {/* Navigation */}
         <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
           <ul className="space-y-1 flex-1 overflow-y-auto">
             {sections.map((section) => (
@@ -206,7 +206,7 @@ const ProcurementDashboard = () => {
             ))}
           </ul>
 
-          {/* Profil utilisateur (inchangé) */}
+          {/* Profil utilisateur */}
           <div className={`border-t pt-4 ${collapsed ? 'px-3' : 'px-4'} mt-auto`}>
             <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
               <div
@@ -250,14 +250,6 @@ const ProcurementDashboard = () => {
                   {getPageDescription()}
                 </p>
               </div>
-              
-              {/* Badge pour les réceptions en attente (optionnel) */}
-              {activePage === 'receptions' && (
-                <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg flex items-center gap-2">
-                  <ClipboardDocumentCheckIcon className="w-5 h-5" />
-                  <span className="font-medium">3 réceptions en attente</span>
-                </div>
-              )}
             </div>
           </div>
         </div>

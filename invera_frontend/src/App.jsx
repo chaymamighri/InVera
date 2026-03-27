@@ -242,7 +242,7 @@ function App() {
   <Route path="produits" element={<Produits />} />
   <Route path="commandes" element={<CommandesFournisseurs />} />
    <Route path="mouvements" element={<StockMovementsPage />} />
-    <Route path="etat" element={<EtatStock />} />
+    <Route path="etat_stock" element={<EtatStock />} />
 </Route>
 
   <Route

@@ -1,5 +1,5 @@
 // components/stock/MovementTable.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowPathIcon, ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const formatDate = (dateString) => {
@@ -14,17 +14,39 @@ const formatDate = (dateString) => {
   }).format(date);
 };
 
-const MovementTable = ({ movements, pagination, onPageChange }) => {
-  const { currentPage, totalPages, itemsPerPage } = pagination;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(currentPage * itemsPerPage, movements.length);
+const MovementTable = ({ movements }) => {
+  // État interne pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
+  // Réinitialiser à la première page quand les mouvements changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [movements]);
+  
+  const totalItems = movements.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  
+  // S'assurer que currentPage est valide
+  const safeCurrentPage = Math.min(currentPage, totalPages || 1);
+  if (safeCurrentPage !== currentPage && totalPages > 0) {
+    setCurrentPage(safeCurrentPage);
+  }
+  
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(safeCurrentPage * itemsPerPage, totalItems);
   const paginatedMovements = movements.slice(startIndex, endIndex);
 
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages) {
-      onPageChange(page);
+      setCurrentPage(page);
     }
+  };
+
+  const handleItemsPerPageChange = (e) => {
+    const newValue = parseInt(e.target.value);
+    setItemsPerPage(newValue);
+    setCurrentPage(1);
   };
 
   if (movements.length === 0) {
@@ -52,18 +74,17 @@ const MovementTable = ({ movements, pagination, onPageChange }) => {
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stock après</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document</th>
-            </tr>
+              </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedMovements.map((movement) => (
               <tr key={movement.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                   {formatDate(movement.dateMouvement)}
-                 </td>
+                </td>
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-900">{movement.produitLibelle}</div>
-                  <div className="text-xs text-gray-500">ID: {movement.produitId}</div>
-                 </td>
+                </td>
                 <td className="px-6 py-4 text-center">
                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                     movement.typeMouvement === 'ENTREE' 
@@ -77,52 +98,75 @@ const MovementTable = ({ movements, pagination, onPageChange }) => {
                     )}
                     {movement.typeMouvement === 'ENTREE' ? 'Entrée' : 'Sortie'}
                   </span>
-                 </td>
+                </td>
                 <td className="px-6 py-4 text-right font-medium">{movement.quantite}</td>
                 <td className="px-6 py-4 text-right text-gray-500">{movement.stockAvant}</td>
                 <td className="px-6 py-4 text-right font-medium text-blue-600">{movement.stockApres}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{movement.reference}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{movement.reference || '-'}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {movement.typeDocument === 'COMMANDE_FOURNISSEUR' ? 'Commande' : movement.typeDocument}
-                 </td>
-               </tr>
+                  {movement.typeDocument === 'COMMANDE_FOURNISSEUR' ? 'Commande fournisseur' : 
+                   movement.typeDocument === 'COMMANDE_CLIENT' ? 'Commande client' :
+                   movement.typeDocument || '-'}
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
-          <div className="text-sm text-gray-500">
-            Affichage de {startIndex + 1} à {endIndex} sur {movements.length} mouvements
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-gray-50 border-t border-gray-200">
+        <div className="text-sm text-gray-500">
+          Affichage de {startIndex + 1} à {endIndex} sur {totalItems} mouvements
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {/* Sélecteur du nombre d'éléments par page */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Afficher :</span>
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-500">par page</span>
           </div>
+          
+          {/* Boutons de navigation */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
+              onClick={() => goToPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
               className={`p-2 rounded-lg transition-colors ${
-                currentPage === 1
+                safeCurrentPage === 1
                   ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-200'
               }`}
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
+            
             <div className="flex items-center gap-1">
               {[...Array(totalPages)].map((_, idx) => {
                 const pageNum = idx + 1;
+                // Afficher la première page, la dernière page, et les pages autour de la page actuelle
                 if (
                   pageNum === 1 ||
                   pageNum === totalPages ||
-                  (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                  (pageNum >= safeCurrentPage - 1 && pageNum <= safeCurrentPage + 1)
                 ) {
                   return (
                     <button
                       key={pageNum}
                       onClick={() => goToPage(pageNum)}
                       className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                        currentPage === pageNum
+                        safeCurrentPage === pageNum
                           ? 'bg-blue-600 text-white'
                           : 'text-gray-600 hover:bg-gray-200'
                       }`}
@@ -131,19 +175,20 @@ const MovementTable = ({ movements, pagination, onPageChange }) => {
                     </button>
                   );
                 } else if (
-                  (pageNum === currentPage - 2 && currentPage > 3) ||
-                  (pageNum === currentPage + 2 && currentPage < totalPages - 2)
+                  (pageNum === safeCurrentPage - 2 && safeCurrentPage > 3) ||
+                  (pageNum === safeCurrentPage + 2 && safeCurrentPage < totalPages - 2)
                 ) {
                   return <span key={pageNum} className="px-2 text-gray-400">...</span>;
                 }
                 return null;
               })}
             </div>
+            
             <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              onClick={() => goToPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages || totalPages === 0}
               className={`p-2 rounded-lg transition-colors ${
-                currentPage === totalPages
+                safeCurrentPage === totalPages || totalPages === 0
                   ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-200'
               }`}
@@ -152,7 +197,7 @@ const MovementTable = ({ movements, pagination, onPageChange }) => {
             </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
