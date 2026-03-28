@@ -7,7 +7,7 @@ import {
   ChartBarIcon,
   ArrowPathIcon,
   ArchiveBoxIcon,
-  ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -47,6 +47,7 @@ const ProcurementDashboard = () => {
     if (path.includes('/stats')) return 'stats';
     if (path.includes('/mouvements')) return 'mouvements';
     if (path.includes('/etat_stock')) return 'etat_stock';
+    if (path.includes('/factures')) return 'factures';
     return 'stats';
   };
 
@@ -79,11 +80,20 @@ const ProcurementDashboard = () => {
         { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
       ]
     },
+    {
+      title: 'FACTURATION',
+      items: [
+        { id: 'factures', label: 'Factures fournisseurs', icon: DocumentTextIcon },
+      ]
+    },
   ];
 
   // ========== NAVIGATION AVEC URLs DIRECTES ==========
   const handleSetActivePage = (pageId) => {
     switch(pageId) {
+      case 'stats':
+        navigate('/dashboard/procurement/stats');
+        break;
       case 'produits':
         navigate('/dashboard/procurement/produits');
         break;
@@ -96,8 +106,8 @@ const ProcurementDashboard = () => {
       case 'etat_stock': 
         navigate('/dashboard/procurement/etat_stock');
         break;
-      case 'stats':
-        navigate('/dashboard/procurement/stats');
+      case 'factures':
+        navigate('/dashboard/procurement/factures');
         break;
       default:
         navigate('/dashboard/procurement/stats');
@@ -111,7 +121,8 @@ const ProcurementDashboard = () => {
       case 'produits': return 'Gestion des Produits';
       case 'commandes': return 'Bons de commande fournisseurs';
       case 'mouvements': return 'Mouvements de stock'; 
-      case 'etat_stock': return 'État de stock'; 
+      case 'etat_stock': return 'État de stock';
+      case 'factures': return 'Factures fournisseurs';  
       default: return 'Tableau de bord';
     }
   };
@@ -122,7 +133,8 @@ const ProcurementDashboard = () => {
       case 'produits': return 'Gérez votre catalogue produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
       case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
-      case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques'; 
+      case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques';
+      case 'factures': return 'Gérez les factures des commandes réceptionnées';
       default: return '';
     }
   };
@@ -134,16 +146,16 @@ const ProcurementDashboard = () => {
         collapsed ? 'w-20' : 'w-64'
       }`}>
         
-        {/* En-tête sidebar */}
+        {/* En-tête sidebar - TEXTE PLUS PETIT */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             {!collapsed && (
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord
+                <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                  Tableau de Bord Gestion Achats et Stock
                 </h1>
-                <p className="text-xs text-gray-400 mt-1">
-                  Gestion Achats et Stock
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Stocks, Commandes et Facturation
                 </p>
               </div>
             )}
