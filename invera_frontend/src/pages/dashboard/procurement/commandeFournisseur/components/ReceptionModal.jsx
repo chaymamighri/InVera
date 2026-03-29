@@ -1,4 +1,4 @@
-// ReceptionModal.jsx - Version avec protection contre quantité = 0
+// ReceptionModal.jsx - Version avec messages d'erreur sous les champs
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
@@ -14,8 +14,15 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   const [notes, setNotes] = useState('');
   const [numeroBL, setNumeroBL] = useState('');
   const [produitsAReactiver, setProduitsAReactiver] = useState({});
+  
+  // ✅ États pour les erreurs
+  const [errors, setErrors] = useState({
+    numeroBL: '',
+    quantiteZero: '',
+    quantitesDepassees: {}
+  });
 
-  // Initialiser avec les quantités commandées (par défaut = quantité commandée)
+  // Initialiser avec les quantités commandées
   useEffect(() => {
     if (commande?.lignesCommande) {
       const initialQuantites = {};
@@ -23,7 +30,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       
       commande.lignesCommande.forEach(ligne => {
         const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-        // ✅ Initialiser à la quantité commandée (pas à 0)
         initialQuantites[ligneId] = ligne.quantite;
         
         if (ligne.estInactif) {
@@ -35,6 +41,12 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       setProduitsAReactiver(initialReactiver);
       setNotes('');
       setNumeroBL('');
+      // ✅ Réinitialiser les erreurs
+      setErrors({
+        numeroBL: '',
+        quantiteZero: '',
+        quantitesDepassees: {}
+      });
     }
   }, [commande]);
 
@@ -48,15 +60,55 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     
     // ✅ Vérifier que la quantité ne dépasse pas la commande
     if (quantite > ligne.quantite) {
-      alert(`La quantité reçue ne peut pas dépasser la quantité commandée (${ligne.quantite})`);
+      setErrors(prev => ({
+        ...prev,
+        quantitesDepassees: {
+          ...prev.quantitesDepassees,
+          [ligneId]: `La quantité ne peut pas dépasser ${ligne.quantite}`
+        }
+      }));
       return;
+    } else {
+      setErrors(prev => ({
+        ...prev,
+        quantitesDepassees: {
+          ...prev.quantitesDepassees,
+          [ligneId]: ''
+        }
+      }));
     }
     
-    // ✅ On accepte 0 temporairement, mais validation au submit
     setQuantitesRecues(prev => ({
       ...prev,
       [ligneId]: quantite
     }));
+    
+    // ✅ Vérifier si au moins un produit est reçu
+    const aAuMoinsUnProduitRecu = Object.values({
+      ...quantitesRecues,
+      [ligneId]: quantite
+    }).some(q => q > 0);
+    
+    if (!aAuMoinsUnProduitRecu) {
+      setErrors(prev => ({
+        ...prev,
+        quantiteZero: 'Veuillez saisir au moins un produit reçu (quantité > 0)'
+      }));
+    } else {
+      setErrors(prev => ({
+        ...prev,
+        quantiteZero: ''
+      }));
+    }
+  };
+
+  const handleNumeroBLChange = (value) => {
+    setNumeroBL(value);
+    if (!value.trim()) {
+      setErrors(prev => ({ ...prev, numeroBL: 'Le numéro de bon de livraison est obligatoire' }));
+    } else {
+      setErrors(prev => ({ ...prev, numeroBL: '' }));
+    }
   };
 
   const handleReactiverChange = (ligneId, checked) => {
@@ -89,44 +141,41 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     return { totalHT, totalTVA, totalTTC };
   };
 
-  // ✅ Vérifier les produits inactifs avec quantité > 0
-  const produitsInactifsAvecQté = commande.lignesCommande.filter(ligne => {
-    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-    const qteRecue = quantitesRecues[ligneId] || 0;
-    return ligne.estInactif && qteRecue > 0;
-  });
-
-  const toutesRecues = commande.lignesCommande.every(ligne => {
-    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-    return quantitesRecues[ligneId] === ligne.quantite;
-  });
-
   // ✅ Vérifier si au moins un produit a une quantité > 0
   const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some(q => q > 0);
 
   const handleSubmit = () => {
-    // ✅ PROTECTION 1 : Au moins un produit reçu
-    if (!aAuMoinsUnProduitRecu) {
-      alert('⚠️ Veuillez saisir au moins un produit reçu (quantité > 0)');
-      return;
-    }
-
-    // ✅ PROTECTION 2 : Numéro BL obligatoire
+    let hasError = false;
+    const newErrors = {
+      numeroBL: '',
+      quantiteZero: '',
+      quantitesDepassees: {}
+    };
+    
+    // ✅ Vérification 1 : Numéro BL obligatoire
     if (!numeroBL.trim()) {
-      alert('📋 Veuillez saisir le numéro de bon de livraison');
-      return;
+      newErrors.numeroBL = 'Le numéro de bon de livraison est obligatoire';
+      hasError = true;
     }
-
-    // ✅ PROTECTION 3 : Vérifier qu'aucune quantité n'est négative ou > commande
-    const quantitesInvalides = Object.entries(quantitesRecues).some(([ligneId, qte]) => {
-      const ligne = commande.lignesCommande.find(l => 
-        (l.idLigneCommandeFournisseur || l.id) === parseInt(ligneId)
-      );
-      return qte < 0 || qte > ligne.quantite;
+    
+    // ✅ Vérification 2 : Au moins un produit reçu
+    if (!aAuMoinsUnProduitRecu) {
+      newErrors.quantiteZero = 'Veuillez saisir au moins un produit reçu (quantité > 0)';
+      hasError = true;
+    }
+    
+    // ✅ Vérification 3 : Quantités ne dépassent pas les commandes
+    commande.lignesCommande.forEach(ligne => {
+      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+      const qteRecue = quantitesRecues[ligneId] || 0;
+      if (qteRecue > ligne.quantite) {
+        newErrors.quantitesDepassees[ligneId] = `La quantité ne peut pas dépasser ${ligne.quantite}`;
+        hasError = true;
+      }
     });
-
-    if (quantitesInvalides) {
-      alert('❌ Certaines quantités sont invalides');
+    
+    if (hasError) {
+      setErrors(newErrors);
       return;
     }
 
@@ -150,6 +199,10 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   };
 
   const totauxRecus = calculerTotauxRecus();
+  const toutesRecues = commande.lignesCommande.every(ligne => {
+    const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+    return quantitesRecues[ligneId] === ligne.quantite;
+  });
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -169,8 +222,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
           </div>
 
           <div className="p-6 space-y-6">
-        
-
             {/* Info fournisseur */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="text-sm font-medium text-gray-700 mb-2">Fournisseur</h4>
@@ -178,7 +229,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               <p className="text-sm text-gray-600">{commande.fournisseur?.email}</p>
             </div>
 
-            {/* Numéro BL */}
+            {/* Numéro BL avec message d'erreur sous le champ */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Numéro de bon de livraison <span className="text-red-500">*</span>
@@ -186,11 +237,19 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               <input
                 type="text"
                 value={numeroBL}
-                onChange={(e) => setNumeroBL(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                onChange={(e) => handleNumeroBLChange(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                  errors.numeroBL ? 'border-red-500 bg-red-50' : ''
+                }`}
                 placeholder="Ex: BL-2024-001"
                 required
               />
+              {errors.numeroBL && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-4 h-4" />
+                  {errors.numeroBL}
+                </p>
+              )}
             </div>
 
             {/* Tableau des produits */}
@@ -216,6 +275,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     const statutCouleur = estActif ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
                     const statutTexte = estActif ? 'Actif' : 'Inactif';
                     const estInactifEtRecu = ligne.estInactif && qteRecue > 0;
+                    const hasError = errors.quantitesDepassees[ligneId];
                     
                     return (
                       <tr key={ligneId} className={`hover:bg-gray-50 ${estInactifEtRecu ? 'bg-amber-50' : ''}`}>
@@ -237,8 +297,11 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                             onChange={(e) => handleQuantityChange(ligneId, e.target.value)}
                             className={`w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500 ${
                               qteRecue === 0 ? 'border-red-300 bg-red-50' : ''
-                            }`}
+                            } ${hasError ? 'border-red-500 bg-red-50' : ''}`}
                           />
+                          {hasError && (
+                            <p className="text-xs text-red-600 mt-1">{hasError}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {ecart !== 0 && (
@@ -273,6 +336,14 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                 </tbody>
               </table>
             </div>
+
+            {/* ✅ Message d'erreur global pour quantité zéro */}
+            {errors.quantiteZero && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
+                <p className="text-sm text-red-600">{errors.quantiteZero}</p>
+              </div>
+            )}
 
             {/* Notes */}
             <div className="bg-gray-50 p-4 rounded-lg">
