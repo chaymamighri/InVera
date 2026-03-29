@@ -3,7 +3,7 @@ package org.erp.invera.controller;
 import jakarta.transaction.Transactional;
 import org.erp.invera.dto.FactureDTO;
 import org.erp.invera.model.client.FactureClient;
-import org.erp.invera.service.FactureService;
+import org.erp.invera.service.FactureClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public class FactureClientController {
 
     @Autowired
-    private FactureService factureService;
+    private FactureClientService factureService;
 
     /**
      * ✅ Récupérer toutes les factures
