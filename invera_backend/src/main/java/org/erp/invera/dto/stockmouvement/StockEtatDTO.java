@@ -16,5 +16,5 @@ public class StockEtatDTO {
     private BigDecimal valeurStock;
     private String emplacement;
     private Integer seuilAlerte;
-    private String statutStock; // "NORMAL", "STOCK_BAS", "RUPTURE"
+    private String statutStock;
 }
