@@ -172,16 +172,26 @@ const commandesSansFacture = React.useMemo(() => {
     }
   };
 
-  const handleViewDetail = async (facture) => {
-    try {
-      const detail = await factureFournisseur.getFactureById(facture.idFactureFournisseur);
-      setSelectedFacture(detail);
-      setShowModal(true);
-    } catch (error) {
-      console.error('Erreur chargement détail:', error);
-      toast.error('Erreur lors du chargement des détails');
-    }
-  };
+
+const handleViewDetail = async (facture) => {
+  try {
+    const factureId = facture.idFactureFournisseur || facture.id;
+    
+    console.log('🔍 ID facture:', factureId);
+    
+    const detail = await factureFournisseur.getFactureById(factureId);
+    
+    console.log('📄 DÉTAIL COMPLET:', detail);
+    console.log('📄 detail.lignesCommande:', detail.lignesCommande);  // ← ICI !
+    console.log('📄 detail.commande:', detail.commande);
+    
+    setSelectedFacture(detail);
+    setShowModal(true);
+  } catch (error) {
+    console.error('❌ Erreur chargement détail:', error);
+    toast.error('Erreur lors du chargement des détails');
+  }
+};
 
   const handleUpdatePaiement = async (factureId, nouveauStatut) => {
     try {
