@@ -29,10 +29,6 @@ public class StockEtatController {
         return ResponseEntity.ok(etatStock);
     }
 
-    @GetMapping("/alertes")
-    public ResponseEntity<List<StockEtatDTO>> getProduitsEnAlerte() {
-        return ResponseEntity.ok(stockEtatService.getProduitsEnAlerte());
-    }
 
     @GetMapping("/ruptures")
     public ResponseEntity<List<StockEtatDTO>> getProduitsEnRupture() {

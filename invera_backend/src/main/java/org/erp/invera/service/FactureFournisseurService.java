@@ -9,6 +9,7 @@ import org.erp.invera.dto.FactureFournisseurDTO.FactureStatutDTO;
 
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.FactureFournisseur;
+import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.repository.CommandeFournisseurRepository;
 import org.erp.invera.repository.FactureFournisseurRepository;
 import org.springframework.data.domain.Page;
@@ -78,6 +79,24 @@ public class FactureFournisseurService {
 
         CommandeFournisseur commande = facture.getCommandeFournisseur();
 
+        // ✅ FORCER le chargement des lignes avant de fermer la session
+        if (commande != null && commande.getLignesCommande() != null) {
+            // Force l'initialisation de la collection
+            int nbLignes = commande.getLignesCommande().size();
+            log.info("Nombre de lignes chargées: {}", nbLignes);
+
+            // Force le chargement de chaque produit
+            for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
+                if (ligne.getProduit() != null) {
+                    // Force le chargement du produit et de sa catégorie
+                    ligne.getProduit().getLibelle();
+                    if (ligne.getProduit().getCategorie() != null) {
+                        ligne.getProduit().getCategorie().getTauxTVA();
+                    }
+                }
+            }
+        }
+
         FactureDetailDTO dto = new FactureDetailDTO();
         dto.setIdFactureFournisseur(facture.getIdFactureFournisseur());
         dto.setReference(facture.getReferenceFactureFournisseur());
@@ -86,7 +105,7 @@ public class FactureFournisseurService {
         dto.setStatut(facture.getStatut().toString());
         dto.setFournisseur(facture.getFournisseur());
         dto.setCommande(commande);
-        dto.setLignes(commande.getLignesCommande());
+        dto.setLignes(commande != null ? commande.getLignesCommande() : null);
 
         byte[] pdfBytes = pdfGenerationService.genererPdfFacture(dto);
         long endTime = System.currentTimeMillis();
@@ -102,6 +121,37 @@ public class FactureFournisseurService {
 
         CommandeFournisseur commande = facture.getCommandeFournisseur();
 
+        // ✅ LOGS DE DEBUG
+        System.out.println("=== DÉBUT DEBUG ===");
+        System.out.println("Facture ID: " + facture.getIdFactureFournisseur());
+        System.out.println("Commande ID: " + (commande != null ? commande.getIdCommandeFournisseur() : "null"));
+        System.out.println("Lignes de commande: " + (commande != null && commande.getLignesCommande() != null ? commande.getLignesCommande().size() : "null"));
+        System.out.println("Lignes size: " + (commande != null && commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0));
+
+        if (commande != null && commande.getLignesCommande() != null) {
+            // ✅ FORCER le chargement des lignes
+            int nbLignes = commande.getLignesCommande().size();
+            System.out.println("Nombre de lignes chargées: " + nbLignes);
+
+            for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
+                System.out.println("  - Ligne ID: " + ligne.getIdLigneCommandeFournisseur());
+                System.out.println("    Produit: " + (ligne.getProduit() != null ? ligne.getProduit().getLibelle() : "null"));
+                System.out.println("    Quantité: " + ligne.getQuantite());
+                System.out.println("    Prix unitaire: " + ligne.getPrixUnitaire());
+
+                // Force le chargement du produit
+                if (ligne.getProduit() != null) {
+                    ligne.getProduit().getLibelle();
+                    if (ligne.getProduit().getCategorie() != null) {
+                        System.out.println("    TVA: " + ligne.getProduit().getCategorie().getTauxTVA());
+                    }
+                }
+            }
+        } else {
+            System.out.println("⚠️ Aucune ligne trouvée pour cette commande");
+        }
+        System.out.println("=== FIN DEBUG ===");
+
         FactureDetailDTO dto = new FactureDetailDTO();
         dto.setIdFactureFournisseur(facture.getIdFactureFournisseur());
         dto.setReference(facture.getReferenceFactureFournisseur());
@@ -110,7 +160,7 @@ public class FactureFournisseurService {
         dto.setStatut(facture.getStatut().toString());
         dto.setFournisseur(facture.getFournisseur());
         dto.setCommande(commande);
-        dto.setLignes(commande.getLignesCommande());
+        dto.setLignes(commande != null ? commande.getLignesCommande() : null);  // ← Important
 
         return dto;
     }

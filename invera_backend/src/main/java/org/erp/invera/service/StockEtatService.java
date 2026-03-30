@@ -55,7 +55,7 @@ public class StockEtatService {
     }
 
     /**
-     * ✅ Mettre à jour le statut du produit en fonction de la quantité actuelle
+     *  Mettre à jour le statut du produit en fonction de la quantité actuelle
      */
     @Transactional
     private void mettreAJourStatutProduit(Produit produit, Integer quantiteActuelle) {
@@ -68,7 +68,7 @@ public class StockEtatService {
     }
 
     /**
-     * ✅ Déterminer le statut en fonction de la quantité et du seuil
+     *  Définir et Déterminer le statut en fonction de la quantité et du seuil
      */
     private StockStatus determinerStatut(Produit produit, Integer quantiteActuelle) {
         Integer seuilMinimum = produit.getSeuilMinimum();
@@ -129,7 +129,7 @@ public class StockEtatService {
         dto.setPrixUnitaire(prixUnitaire);
 
         dto.setSeuilAlerte(produit.getSeuilMinimum());
-        dto.setStatutStock(statutStock);  // ✅ Utiliser le statut du produit
+        dto.setStatutStock(statutStock);
 
         if (prixUnitaire != null && quantiteActuelle != null) {
             dto.setValeurStock(prixUnitaire.multiply(BigDecimal.valueOf(quantiteActuelle)));
@@ -169,43 +169,6 @@ public class StockEtatService {
         }
 
         return true;
-    }
-
-    /**
-     * ✅ Méthode pour mettre à jour le statut d'un produit spécifique
-     */
-    @Transactional
-    public void mettreAJourStatutProduit(Integer produitId) {
-        Produit produit = produitRepository.findById(produitId)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
-
-        List<StockMovement> mouvements = stockMovementRepository.findByProduit_IdProduit(produitId);
-        Map<Integer, Integer> stockActuelMap = calculerStockActuel(mouvements);
-        Integer quantiteActuelle = stockActuelMap.getOrDefault(produitId, 0);
-
-        mettreAJourStatutProduit(produit, quantiteActuelle);
-    }
-
-    /**
-     * ✅ Mettre à jour tous les statuts des produits
-     */
-    @Transactional
-    public void mettreAJourTousLesStatuts() {
-        List<Produit> produits = produitRepository.findAll();
-        List<StockMovement> allMovements = stockMovementRepository.findAll();
-        Map<Integer, Integer> stockActuelMap = calculerStockActuel(allMovements);
-
-        for (Produit produit : produits) {
-            Integer quantiteActuelle = stockActuelMap.getOrDefault(produit.getIdProduit(), 0);
-            mettreAJourStatutProduit(produit, quantiteActuelle);
-        }
-    }
-
-    /**
-     * ✅ Obtenir les produits en alerte (FAIBLE ou CRITIQUE)
-     */
-    public List<StockEtatDTO> getProduitsEnAlerte() {
-        return getEtatStock(null, true, null);
     }
 
     /**

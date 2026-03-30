@@ -1,5 +1,6 @@
 package org.erp.invera.model.Fournisseurs;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -72,6 +73,7 @@ public class CommandeFournisseur {
     private String notesReception;
 
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
 
     @CreationTimestamp
