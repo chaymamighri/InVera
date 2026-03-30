@@ -8,11 +8,6 @@ export const stockEtatService = {
         return response.data;
     },
     
-    // ✅ Obtenir les produits en alerte
-    getProduitsEnAlerte: async () => {
-        const response = await api.get('/stock/etat/alertes');
-        return response.data;
-    },
     
     // ✅ Obtenir les produits en rupture
     getProduitsEnRupture: async () => {

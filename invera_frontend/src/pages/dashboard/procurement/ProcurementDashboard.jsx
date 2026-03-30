@@ -83,7 +83,7 @@ const ProcurementDashboard = () => {
     {
       title: 'FACTURATION',
       items: [
-        { id: 'factures', label: 'Factures fournisseurs', icon: DocumentTextIcon },
+        { id: 'factures', label: 'Factures', icon: DocumentTextIcon },
       ]
     },
   ];

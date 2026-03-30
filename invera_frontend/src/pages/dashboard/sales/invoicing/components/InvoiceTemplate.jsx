@@ -3,6 +3,20 @@ import { logoBase64 } from '../../../../../assets/logoBase64';
 
 const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) => {
   const isPaye = facture.statut === 'PAYE';
+  const hasRemise = totaux.remise && totaux.remise > 0;
+  
+  // ✅ CORRECTION: Récupération du numéro de commande avec le bon nom
+  const numeroCommande = 
+    facture.commande?.referenceCommandeClient ||  // ← Bon nom !!!
+    facture.commande?.numeroCommande ||
+    facture.commande?.reference ||
+    facture.numeroCommande ||
+    facture.referenceCommande ||
+    null;
+  
+  // ✅ Log pour debug (sera visible dans la console du backend)
+  console.log('📄 Template - Numéro commande trouvé:', numeroCommande);
+  console.log('📄 Template - facture.commande:', facture.commande);
   
   return `
     <html>
@@ -34,7 +48,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             overflow: hidden;
           }
           
-          /* Header style modal */
           .header {
             padding: 24px 28px;
             background: white;
@@ -101,7 +114,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             font-weight: 400;
           }
           
-          /* Badge de statut style modal */
           .status-badge {
             display: inline-flex;
             align-items: center;
@@ -121,7 +133,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             font-size: 14px;
           }
           
-          /* Grille info style modal */
           .info-grid {
             padding: 20px 28px;
             display: grid;
@@ -163,7 +174,7 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
           .info-label {
             font-size: 11px;
             color: #64748b;
-            width: 80px;
+            width: 85px;
             flex-shrink: 0;
           }
           
@@ -190,7 +201,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             color: #2563eb;
           }
           
-          /* Articles */
           .articles-section {
             padding: 10px 28px 5px 28px;
           }
@@ -250,8 +260,14 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .font-mono { font-family: 'SF Mono', monospace; font-weight: 400; }
+          .remise-row {
+            color: #059669;
+          }
+          .remise-row .total-value {
+            color: #059669;
+            font-weight: 600;
+          }
           
-          /* Totaux */
           .totaux-section {
             padding: 15px 28px 25px 28px;
           }
@@ -303,7 +319,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             color: #2563eb;
           }
           
-          /* Footer */
           .footer {
             padding: 16px 28px;
             text-align: center;
@@ -321,13 +336,13 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
       <body>
         <div class="invoice-container">
           
-          <!-- HEADER AVEC STATUT BIEN VISIBLE -->
+          <!-- HEADER -->
           <div class="header">
             <div class="left-section">
               <img src="${logoBase64}" alt="InVera" class="logo" />
               <div class="company-details">
                 <p><i>📍</i> 123 Rue de la République, 1000 Tunis</p>
-                <p><i>📞</i> +216 00 000 000</p>
+                <p><i>📞</i> +216 71 123 456</p>
                 <p><i>✉️</i> contact@invera.tn</p>
                 <p><i>🆔</i> MF: 0000000/A/M/000</p>
               </div>
@@ -335,7 +350,6 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             <div class="invoice-info">
               <div class="invoice-title">FACTURE</div>
               <div class="invoice-ref">${facture.referenceFactureClient || facture.reference}</div>
-              <!-- BADGE STATUT STYLE MODAL -->
               <div class="status-badge">
                 <i>${isPaye ? '✓' : '○'}</i>
                 ${isPaye ? 'Payée' : 'En attente de paiement'}
@@ -345,32 +359,27 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
 
           <!-- INFORMATIONS CLIENT ET FACTURE -->
           <div class="info-grid">
-            <!-- Client -->
             <div class="info-card">
               <h3><i>👤</i> CLIENT</h3>
               <div class="info-row">
                 <span class="info-label">Nom</span>
                 <span class="info-value">${facture.client?.nomComplet || facture.client?.nom || 'N/A'}</span>
               </div>
-              
               ${facture.client?.typeClient ? `
               <div class="info-row">
                 <span class="info-label">Type</span>
                 <span class="info-value">${facture.client.typeClient}</span>
               </div>` : ''}
-              
               ${facture.client?.email ? `
               <div class="info-row">
                 <span class="info-label">Email</span>
                 <span class="info-value">${facture.client.email}</span>
               </div>` : ''}
-              
               ${facture.client?.telephone ? `
               <div class="info-row">
                 <span class="info-label">Tél</span>
                 <span class="info-value">${facture.client.telephone}</span>
               </div>` : ''}
-              
               ${facture.client?.adresse ? `
               <div class="info-row">
                 <span class="info-label">Adresse</span>
@@ -378,25 +387,27 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
               </div>` : ''}
             </div>
 
-            <!-- Détails facture -->
             <div class="info-card">
               <h3><i>📄</i> FACTURE</h3>
               <div class="info-row">
                 <span class="info-label">Date</span>
                 <span class="info-value">${formatDate(facture.dateFacture)}</span>
               </div>
-              
               <div class="info-row">
-                <span class="info-label">N°</span>
+                <span class="info-label">N° Facture</span>
                 <span class="info-value">${facture.referenceFactureClient || facture.reference}</span>
               </div>
-              
-              ${facture.commande?.reference ? `
-              <div class="info-row">
-                <span class="info-label">Commande</span>
-                <span class="info-value">${facture.commande.reference}</span>
-              </div>` : ''}
-              
+${numeroCommande ? `
+<div class="info-row">
+  <span class="info-label">N° Commande</span>
+  <span class="info-value">${numeroCommande}</span>
+</div>
+` : `
+<div class="info-row">
+  <span class="info-label">N° Commande</span>
+  <span class="info-value" style="color: #94a3b8;">Non renseigné</span>
+</div>
+`}
               <div class="montant-highlight">
                 <span class="info-label">Total TTC</span>
                 <span class="info-value">${formatMontant(facture.montantTotal)}</span>
@@ -417,7 +428,7 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
                   <th>Description</th>
                   <th class="text-center">Qté</th>
                   <th class="text-right">Prix unitaire</th>
-                  <th class="text-right">Total</th>
+                  <th class="text-right">Total HT</th>
                 </tr>
               </thead>
               <tbody>
@@ -439,20 +450,32 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
             </table>
           </div>
 
-          <!-- TOTAUX -->
+          <!-- TOTAUX AVEC REMISE -->
           <div class="totaux-section">
             <div class="totaux-container">
               <div class="total-row">
-                <span class="total-label">Sous-total</span>
-                <span class="total-value">${formatMontant(totaux.sousTotal)}</span>
+                <span class="total-label">Sous-total HT</span>
+                <span class="total-value">${formatMontant(totaux.sousTotal || 0)}</span>
+              </div>
+              
+              ${hasRemise ? `
+              <div class="total-row remise-row">
+                <span class="total-label">Remise (${totaux.remiseTaux || 0}%)</span>
+                <span class="total-value">- ${formatMontant(totaux.remise)}</span>
+              </div>
+              ` : ''}
+              
+              <div class="total-row">
+                <span class="total-label">Total HT après remise</span>
+                <span class="total-value">${formatMontant(totaux.totalHT || totaux.sousTotal || 0)}</span>
               </div>
               <div class="total-row">
-                <span class="total-label">TVA 19%</span>
-                <span class="total-value">${formatMontant(totaux.tva)}</span>
+                <span class="total-label">TVA ${totaux.tvaTaux || 19}%</span>
+                <span class="total-value">${formatMontant(totaux.tva || 0)}</span>
               </div>
               <div class="total-row grand-total-row">
                 <span class="total-label grand-total-label">Total TTC</span>
-                <span class="total-value grand-total-value">${formatMontant(totaux.totalTTC)}</span>
+                <span class="total-value grand-total-value">${formatMontant(totaux.totalTTC || facture.montantTotal || 0)}</span>
               </div>
             </div>
           </div>
@@ -460,6 +483,8 @@ const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) 
           <!-- PIED DE PAGE -->
           <div class="footer">
             <p>Merci de votre confiance • Facture générée par InVera</p>
+            ${hasRemise ? '<p style="color: #059669;">* Remise commerciale appliquée</p>' : ''}
+            ${numeroCommande ? '<p style="color: #64748b;">* Commande client: ' + numeroCommande + '</p>' : ''}
           </div>
         </div>
       </body>
