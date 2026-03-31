@@ -23,6 +23,7 @@ public class LigneCommandeDTO {
 
     // Totaux calculés
     private BigDecimal sousTotalHT;
+    private BigDecimal tauxTVA;
     private BigDecimal montantTVA;
     private BigDecimal sousTotalTTC;
 
