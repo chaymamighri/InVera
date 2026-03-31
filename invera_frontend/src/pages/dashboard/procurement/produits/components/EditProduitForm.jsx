@@ -1,7 +1,7 @@
-// produits/EditProduitForm.jsx
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ProduitFormBase from './ProduitFormBase';
+import toast from 'react-hot-toast';
 
 const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => {
 
@@ -23,15 +23,54 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const [imagePreview, setImagePreview] = useState(null); 
   
   const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
+  
+  // ✅ DEBUG : Voir les catégories reçues
+  useEffect(() => {
+    console.log('📁 Catégories reçues dans EditProduitForm:', categories);
+    console.log('📦 Produit à modifier:', produit);
+  }, [categories, produit]);
     
-  // Initialiser avec les données du produit
+  // ✅ CORRECTION : Initialiser avec les données du produit
   useEffect(() => {
     if (produit) {
+      // ✅ Récupérer l'ID de la catégorie du produit
+      let categorieId = null;
+      
+      // Essayer différentes sources
+      if (produit.categorieId) {
+        categorieId = produit.categorieId;
+      } else if (produit.idCategorie) {
+        categorieId = produit.idCategorie;
+      } else if (produit.categorie?.idCategorie) {
+        categorieId = produit.categorie.idCategorie;
+      } else if (produit.categorie && typeof produit.categorie === 'number') {
+        categorieId = produit.categorie;
+      }
+      
+      // ✅ Trouver la catégorie correspondante dans la liste
+      let selectedCategorie = { idCategorie: '' };
+      if (categorieId && categories && categories.length > 0) {
+        const found = categories.find(c => 
+          (c.idCategorie === categorieId) || (c.id === categorieId)
+        );
+        if (found) {
+          selectedCategorie = found;
+        } else {
+          selectedCategorie = { idCategorie: categorieId };
+        }
+      }
+      
+      console.log('🔍 Catégorie sélectionnée:', {
+        categorieId: categorieId,
+        selectedCategorie: selectedCategorie,
+        nomCategorie: selectedCategorie?.nomCategorie || selectedCategorie?.nom
+      });
+      
       setFormData({
         libelle: produit.libelle || '',
         prixVente: produit.prixVente?.toString() || '',
         prixAchat: produit.prixAchat?.toString() || '',
-        categorie: produit.categorie || { idCategorie: '' },
+        categorie: selectedCategorie,
         quantiteStock: produit.quantiteStock || 0,
         seuilMinimum: produit.seuilMinimum || 10,
         uniteMesure: produit.uniteMesure || 'pièce',
@@ -48,9 +87,9 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
         setImagePreview(imageUrl);
       }
     }
-  }, [produit]);
+  }, [produit, categories]);
 
-  // Validation du formulaire (sans validation du stock)
+  // Validation du formulaire
   const validateForm = () => {
     const newErrors = {};
     
@@ -85,29 +124,19 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     
-    // ✅ Bloquer la modification du stock
     if (name === 'quantiteStock') {
-      return; // Ne rien faire
+      return;
     }
     
     if (name === 'prixVente' || name === 'prixAchat' || name === 'remiseTemporaire') {
       const normalizedValue = value.replace(',', '.');
       if (normalizedValue === '' || /^\d*\.?\d*$/.test(normalizedValue)) {
-        setFormData(prev => ({
-          ...prev,
-          [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
       }
     } else if (type === 'number') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
     
     if (errors[name]) {
@@ -154,8 +183,10 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     if (input) input.value = '';
   };
 
+  // ✅ CORRECTION : Gérer correctement le changement de catégorie
   const handleCategorieChange = (e) => {
     const categorieId = parseInt(e.target.value);
+    // ✅ Trouver la catégorie complète
     const selectedCategorie = categories.find(c => c.idCategorie === categorieId);
     setFormData(prev => ({
       ...prev,
@@ -166,68 +197,71 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   };
 
- // EditProduitForm.jsx - handleSubmit modifié
-const handleSubmit = async (e) => {
-  try {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!formData) {
-      console.error('❌ formData est null');
-      return;
-    }
-    
-    let isValid = false;
+  const handleSubmit = async (e) => {
     try {
-      isValid = validateForm();
-      console.log('🚦 Validation:', isValid);
-    } catch (validationError) {
-      console.error('❌ Erreur validation:', validationError);
-      toast.error('Erreur de validation');
-      return;
-    }
-    
-    if (!isValid) return;
-    
-    const formDataToSend = new FormData();
-    
-    formDataToSend.append('libelle', String(formData.libelle || ''));
-    
-    const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
-    formDataToSend.append('prixVente', prixVente);
-    
-    const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
-    formDataToSend.append('prixAchat', prixAchat);
-    
-    formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
-    formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
-    formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
-    
-    const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
-    formDataToSend.append('remiseTemporaire', String(remise));
-    formDataToSend.append('active', formData.active ? 'true' : 'false');
-    
-    if (formData.imageFile && formData.imageFile instanceof File) {
-      formDataToSend.append('image', formData.imageFile);
-    }
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (!formData) {
+        console.error('❌ formData est null');
+        return;
+      }
+      
+      let isValid = false;
+      try {
+        isValid = validateForm();
+        console.log('🚦 Validation:', isValid);
+      } catch (validationError) {
+        console.error('❌ Erreur validation:', validationError);
+        toast.error('Erreur de validation');
+        return;
+      }
+      
+      if (!isValid) return;
+      
+      const formDataToSend = new FormData();
+      
+      formDataToSend.append('libelle', String(formData.libelle || ''));
+      
+      const prixVente = parseFloat(String(formData.prixVente).replace(',', '.')) || 0;
+      formDataToSend.append('prixVente', prixVente);
+      
+      const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.')) || 0;
+      formDataToSend.append('prixAchat', prixAchat);
+      
+      // ✅ Envoyer correctement l'ID de la catégorie
+      const categorieId = formData.categorie?.idCategorie;
+      formDataToSend.append('categorieId', String(categorieId || ''));
+      
+      formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
+      formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'pièce'));
+      
+      const remise = parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0;
+      formDataToSend.append('remiseTemporaire', String(remise));
+      formDataToSend.append('active', formData.active ? 'true' : 'false');
+      
+      if (formData.imageFile && formData.imageFile instanceof File) {
+        formDataToSend.append('image', formData.imageFile);
+      }
 
-    const productId = produit.idProduit || produit.id;
-    
-    if (!productId) {
-      console.error('❌ ID du produit manquant:', produit);
-      toast.error('Erreur: ID du produit manquant');
-      return;
+      const productId = produit.idProduit || produit.id;
+      
+      if (!productId) {
+        console.error('❌ ID du produit manquant:', produit);
+        toast.error('Erreur: ID du produit manquant');
+        return;
+      }
+      
+      console.log('📤 Envoi mise à jour - ID:', productId);
+      console.log('📤 Catégorie envoyée:', categorieId);
+      
+      await onSave(productId, formDataToSend);
+      
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      toast.error('Une erreur inattendue est survenue');
     }
-    
-    console.log('📤 Envoi mise à jour - ID:', productId);
-    
-    await onSave(productId, formDataToSend);
-    
-  } catch (error) {
-    console.error('❌ Erreur:', error);
-    toast.error('Une erreur inattendue est survenue');
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -235,7 +269,6 @@ const handleSubmit = async (e) => {
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           
-          {/* En-tête */}
           <div className="sticky top-0 bg-white z-10">
             <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
               <h3 className="text-lg font-semibold text-white">
@@ -247,9 +280,7 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
-          {/* Contenu du formulaire */}
           <div className="p-6">
-            {/* ✅ Note explicative sur le stock */}
             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-start gap-2">
                 <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />

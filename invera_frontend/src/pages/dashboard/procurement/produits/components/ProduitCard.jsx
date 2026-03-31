@@ -93,6 +93,14 @@ const handleEditClick = (e) => {
   const imageUrl = getImageUrl();
   const hasValidImage = imageUrl && !imageError;
 
+  // Dans ProduitCard.jsx, avant le return
+console.log('🎴 ProduitCard reçu:', {
+  libelle: produit.libelle,
+  categorieNom: produit.categorieNom,
+  displayCategorie: produit.displayCategorie,
+  categorie: produit.categorie
+});
+
   return (
     <div className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 relative h-full flex flex-col ${
       !produit.active ? 'opacity-75 bg-gray-50' : ''
@@ -161,8 +169,11 @@ const handleEditClick = (e) => {
           
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900 truncate text-base">{produit.libelle}</h3>
-            <p className="text-xs text-gray-600 truncate">{produit.categorieNom || produit.displayCategorie || 'Sans catégorie'}</p>
-          </div>
+ <p className="text-xs text-gray-600 truncate">
+    {/* Maintenant produit.categorieNom est toujours bien rempli */}
+    {produit.categorieNom || 'Sans catégorie'}
+  </p>
+         </div>
         </div>
 
         {/* ========== INFORMATIONS PRIX ========== */}
