@@ -137,6 +137,7 @@ public class CommandeFournisseurService {
     }
 
     public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto) {
+
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
@@ -144,10 +145,51 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes en brouillon peuvent être modifiées");
         }
 
+        // ✅ Update champs simples
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
 
+        // 🔥 MAP des lignes existantes
+        Map<Integer, LigneCommandeFournisseur> lignesExistantes = commande.getLignesCommande()
+                .stream()
+                .collect(Collectors.toMap(LigneCommandeFournisseur::getIdLigneCommandeFournisseur, l -> l));
+
+        List<LigneCommandeFournisseur> nouvellesLignes = new ArrayList<>();
+
+        for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
+
+            LigneCommandeFournisseur ligne;
+
+            // CAS 1 : update ligne existante
+            if (ligneDTO.getIdLigneCommandeFournisseur() != null &&
+                    lignesExistantes.containsKey(ligneDTO.getIdLigneCommandeFournisseur())) {
+                ligne = lignesExistantes.get(ligneDTO.getIdLigneCommandeFournisseur());
+            } else {
+                ligne = new LigneCommandeFournisseur();
+                ligne.setCommandeFournisseur(commande);
+            }
+
+            // Récupérer produit
+            Produit produit = produitRepository.findById(ligneDTO.getProduitId())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+
+            ligne.setProduit(produit);
+            ligne.setQuantite(ligneDTO.getQuantite());
+            ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
+
+            // 🔥 Calculer les totaux en fonction du taux de TVA de la catégorie du produit
+            BigDecimal tauxTVA = produit.getCategorie().getTauxTVA(); // taux par catégorie
+            ligne.calculerTotaux(tauxTVA);
+
+            nouvellesLignes.add(ligne);
+        }
+
+        // 🔥 orphanRemoval = true → supprime automatiquement les anciennes lignes non présentes
+        commande.getLignesCommande().clear();
+        commande.getLignesCommande().addAll(nouvellesLignes);
+
         CommandeFournisseur saved = commandeRepository.save(commande);
+
         return convertToDTO(saved);
     }
 
@@ -366,9 +408,9 @@ public class CommandeFournisseurService {
     private String genererNumeroCommande() {
         LocalDateTime now = LocalDateTime.now();
         String anneeMois = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
-        Long count = commandeRepository.countByNumeroCommandeStartingWith("CMD-" + anneeMois);
+        Long count = commandeRepository.countByNumeroCommandeStartingWith("BC-" + anneeMois);
         int nextNum = count != null ? count.intValue() + 1 : 1;
-        return String.format("CMD-%s-%04d", anneeMois, nextNum);
+        return String.format("BC-%s-%04d", anneeMois, nextNum);
     }
 
     private CommandeFournisseurDTO convertToDTO(CommandeFournisseur commande) {
