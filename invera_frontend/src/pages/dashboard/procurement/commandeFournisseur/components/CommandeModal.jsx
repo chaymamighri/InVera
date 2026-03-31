@@ -1,6 +1,7 @@
-// components/commandeModal.jsx
+// components/commandeModal.jsx - Version avec style différencié pour produits inactifs
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
 import useProducts from '../../../../../hooks/useProducts';
 
@@ -11,48 +12,42 @@ const formatPrice = (price) => {
   }).format(price);
 };
 
-// ✅ Fonction pour déterminer le statut actif d'un produit
-const getProductStatus = (produit) => {
-  if (!produit) return false;
-  if (produit.actif !== undefined) return produit.actif;
-  if (produit.estActif !== undefined) return produit.estActif;
-  if (produit.active !== undefined) return produit.active;
-  if (produit.isActive !== undefined) return produit.isActive;
-  return true;
-};
-
-// ✅ Fonction pour récupérer le taux TVA depuis la catégorie
+// ✅ Récupérer le taux TVA depuis la catégorie du produit
 const getTauxTVA = (produit) => {
   if (!produit) return 19;
-  
-  // Récupérer la TVA depuis la catégorie du produit
-  if (produit.categorie?.tauxTVA) {
-    return produit.categorie.tauxTVA;
-  }
-  
-  // Fallback
+  if (produit.categorie?.tauxTVA) return produit.categorie.tauxTVA;
   return 19;
 };
 
 const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
-  // Hooks
   const { fournisseurs, fetchAllFournisseurs, loading: loadingFournisseurs } = useFournisseur();
   
   const { 
-    products: produitsBruts,           
+    allProducts: produitsBruts,
     loading: loadingProduits,
     loadProducts,
   } = useProducts();
 
-  // ✅ Normaliser les produits avec statut ET taux TVA
+  // ✅ Normalisation des produits
   const produits = useMemo(() => {
     if (!produitsBruts) return [];
     return produitsBruts.map(p => ({
       ...p,
-      estActif: getProductStatus(p),
-      tauxTVA: getTauxTVA(p)
+      tauxTVA: getTauxTVA(p),
+      estActif: p.estActif !== undefined ? p.estActif : p.active,
+      prixAchat: p.prixAchat || p.prix,
+      stock: p.stock || p.quantiteStock,
     }));
   }, [produitsBruts]);
+
+  // ✅ Groupement des produits avec comptage
+  const produitsGroupes = useMemo(() => {
+    if (!produits) return { actifs: [], inactifs: [] };
+    return {
+      actifs: produits.filter(p => p.estActif === true),
+      inactifs: produits.filter(p => p.estActif === false),
+    };
+  }, [produits]);
 
   // États
   const [formData, setFormData] = useState({
@@ -63,20 +58,11 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
 
   const [lignes, setLignes] = useState([]);
   const [loading, setLoading] = useState(false);
-  
   const [produitSelectionne, setProduitSelectionne] = useState(null);
   const [quantite, setQuantite] = useState(1);
   const [prixUnitaire, setPrixUnitaire] = useState(0);
   const [afficherInactifs, setAfficherInactifs] = useState(false);
-
-  // Groupes de produits
-  const produitsGroupes = useMemo(() => {
-    if (!produits) return { actifs: [], inactifs: [] };
-    return {
-      actifs: produits.filter(p => p.estActif === true),
-      inactifs: produits.filter(p => p.estActif === false)
-    };
-  }, [produits]);
+  const [nextId, setNextId] = useState(1);
 
   const produitsAffiches = useMemo(() => {
     if (afficherInactifs) return produits;
@@ -87,9 +73,9 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   useEffect(() => {
     fetchAllFournisseurs();
     loadProducts(0, {});
-  }, []);
+  }, [fetchAllFournisseurs, loadProducts]);
 
-  // Gestion ouverture modal
+  // Initialisation du formulaire à l'ouverture
   useEffect(() => {
     if (isOpen) {
       if (commande) {
@@ -116,6 +102,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     setQuantite(1);
     setPrixUnitaire(0);
     setAfficherInactifs(false);
+    setNextId(1);
   };
 
   const resetProductSelection = () => {
@@ -129,56 +116,58 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     const selected = fournisseurs.find(f => f.idFournisseur === fournisseurId);
     setFormData(prev => ({
       ...prev,
-      fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' }
+      fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' },
     }));
     resetProductSelection();
   };
 
-  // ✅ Sélection produit - SUPPRESSION DE L'ALERTE POUR PRODUITS INACTIFS
   const handleProductSelect = (e) => {
     const productId = parseInt(e.target.value);
-    if (!productId) {
+    if (!productId || isNaN(productId)) {
       setProduitSelectionne(null);
       return;
     }
-    
     const produit = produits.find(p => p.id === productId);
+    if (!produit) {
+      setProduitSelectionne(null);
+      return;
+    }
     setProduitSelectionne(produit);
-    
     if (produit) {
       setPrixUnitaire(produit.prixAchat || produit.prix || 0);
-      // ✅ PLUS D'ALERTE POUR LES PRODUITS INACTIFS
-      // On laisse l'utilisateur sélectionner librement
     }
   };
 
-  // ✅ Ajout produit - PAS DE VÉRIFICATION DE STOCK
   const ajouterProduit = () => {
     if (!produitSelectionne) {
       alert('Veuillez sélectionner un produit');
       return;
     }
-
+    
+    if (!produitSelectionne.id) {
+      console.error('Produit sans ID:', produitSelectionne);
+      alert('Erreur: produit invalide');
+      return;
+    }
+    
     if (quantite <= 0) {
       alert('La quantité doit être supérieure à 0');
       return;
     }
-
     if (prixUnitaire <= 0) {
       alert('Le prix unitaire doit être supérieur à 0');
       return;
     }
 
-    // Calcul avec la TVA du produit (depuis catégorie)
     const tauxTVA = produitSelectionne.tauxTVA || 19;
     const sousTotalHT = quantite * prixUnitaire;
     const montantTVA = sousTotalHT * (tauxTVA / 100);
     const sousTotalTTC = sousTotalHT + montantTVA;
 
     const nouvelleLigne = {
-      id: Date.now(),
+      id: nextId,
       produitId: produitSelectionne.id,
-      produitLibelle: produitSelectionne.nom || produitSelectionne.libelle,
+      produitLibelle: produitSelectionne.nom || produitSelectionne.libelle || 'Produit sans nom',
       produitReference: produitSelectionne.reference || `REF-${produitSelectionne.id}`,
       quantite,
       prixUnitaire,
@@ -187,11 +176,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       montantTVA,
       sousTotalTTC,
       estInactif: !produitSelectionne.estActif,
-      categorie: produitSelectionne.categorie?.nomCategorie,
-      stockActuel: produitSelectionne.stock || 0
+      categorie: produitSelectionne.categorieNom || 'Sans catégorie',
+      stockActuel: produitSelectionne.stock || 0,
     };
 
     setLignes(prev => [...prev, nouvelleLigne]);
+    setNextId(prev => prev + 1);
     resetProductSelection();
   };
 
@@ -199,66 +189,51 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     setLignes(prev => prev.filter(l => l.id !== id));
   };
 
-  // Calcul des totaux avec détail par taux
+  // Calcul des totaux
   const totaux = useMemo(() => {
     const totalHT = lignes.reduce((acc, l) => acc + l.sousTotalHT, 0);
     const totalTVA = lignes.reduce((acc, l) => acc + l.montantTVA, 0);
     const totalTTC = lignes.reduce((acc, l) => acc + l.sousTotalTTC, 0);
-    
-    // Détail par taux pour affichage
     const detailParTaux = lignes.reduce((acc, l) => {
       const taux = l.tauxTVA || 19;
-      if (!acc[taux]) {
-        acc[taux] = { ht: 0, tva: 0 };
-      }
+      if (!acc[taux]) acc[taux] = { ht: 0, tva: 0 };
       acc[taux].ht += l.sousTotalHT;
       acc[taux].tva += l.montantTVA;
       return acc;
     }, {});
-    
     return { totalHT, totalTVA, totalTTC, detailParTaux };
   }, [lignes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validations
     if (!formData.fournisseur.idFournisseur) {
       alert('Veuillez sélectionner un fournisseur');
       return;
     }
-
     if (lignes.length === 0) {
       alert('Veuillez ajouter au moins un article');
       return;
     }
-
     if (!formData.dateLivraisonPrevue) {
       alert('Veuillez saisir une date de livraison prévue');
       return;
     }
-
     if (!formData.adresseLivraison.trim()) {
       alert('Veuillez saisir une adresse de livraison');
       return;
     }
 
-    // ✅ PLUS D'ALERTE POUR LES PRODUITS INACTIFS
-    // On soumet directement la commande sans confirmation
-
-    // Envoi des données avec TVA par ligne
     const commandeData = {
-      fournisseur: {
-        idFournisseur: formData.fournisseur.idFournisseur
-      },
+      fournisseur: { idFournisseur: formData.fournisseur.idFournisseur },
       dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
       adresseLivraison: formData.adresseLivraison,
       lignesCommande: lignes.map(l => ({
         produitId: l.produitId,
         quantite: l.quantite,
         prixUnitaire: l.prixUnitaire,
-        tauxTVA: l.tauxTVA
-      }))
+        tauxTVA: l.tauxTVA,
+      })),
     };
 
     try {
@@ -308,6 +283,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
+
               {/* Section Fournisseur */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">1. Fournisseur</h4>
@@ -319,7 +295,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 >
                   <option value="">Sélectionner un fournisseur...</option>
                   {fournisseurs.map(f => (
-                    <option key={f.idFournisseur} value={f.idFournisseur}>
+                    <option key={`fournisseur-${f.idFournisseur}`} value={f.idFournisseur}>
                       {f.nomFournisseur} - {f.email}
                     </option>
                   ))}
@@ -329,23 +305,19 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
               {/* Section Livraison */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">2. Livraison</h4>
-                
-                <div className="grid grid-cols-1 gap-4 mb-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Date prévue <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.dateLivraisonPrevue}
-                      onChange={(e) => setFormData(prev => ({ ...prev, dateLivraisonPrevue: e.target.value }))}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                      min={new Date().toISOString().split('T')[0]}
-                      required
-                    />
-                  </div>
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Date prévue <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateLivraisonPrevue}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dateLivraisonPrevue: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
                 </div>
-                
                 <textarea
                   value={formData.adresseLivraison}
                   onChange={(e) => setFormData(prev => ({ ...prev, adresseLivraison: e.target.value }))}
@@ -360,7 +332,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
               <section className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-medium text-gray-700">3. Produits</h4>
-                  
                   {produitsGroupes.inactifs.length > 0 && (
                     <label className="flex items-center text-sm text-gray-600">
                       <input
@@ -369,7 +340,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                         onChange={(e) => setAfficherInactifs(e.target.checked)}
                         className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      Afficher les produits inactifs ({produitsGroupes.inactifs.length})
+                      <span className="flex items-center gap-1">
+                        Afficher les produits inactifs 
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">
+                          {produitsGroupes.inactifs.length}
+                        </span>
+                      </span>
                     </label>
                   )}
                 </div>
@@ -384,39 +360,39 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Sélection du produit */}
+                    {/* Sélection du produit avec styles différenciés */}
                     <select
                       value={produitSelectionne?.id || ''}
                       onChange={handleProductSelect}
                       className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Sélectionner un produit...</option>
-                      
                       {produitsGroupes.actifs.length > 0 && (
                         <optgroup label="📦 Produits actifs">
                           {produitsGroupes.actifs.map(p => (
-                            <option key={p.id} value={p.id}>
+                            <option key={`actif-${p.id}`} value={p.id} className="text-black-700">
                               {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0}
                             </option>
                           ))}
                         </optgroup>
                       )}
-                      
                       {afficherInactifs && produitsGroupes.inactifs.length > 0 && (
-                        <optgroup label="⚠️ Produits inactifs">
+                        <optgroup label="⚠️ Produits inactifs" className="text-orange-600">
                           {produitsGroupes.inactifs.map(p => (
-                            <option key={p.id} value={p.id} className="text-orange-600">
-                              {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0} (INACTIF)
+                            <option key={`inactif-${p.id}`} value={p.id} className="text-orange-600 bg-orange-50">
+                              ⚠️ {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0} (INACTIF)
                             </option>
                           ))}
                         </optgroup>
                       )}
                     </select>
 
-                    {/* Carte d'information produit */}
+                    {/* Carte info produit sélectionné avec style orange pour inactif */}
                     {produitSelectionne && (
                       <div className={`p-4 rounded-lg border ${
-                        !produitSelectionne.estActif ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'
+                        !produitSelectionne.estActif 
+                          ? 'bg-orange-50 border-orange-300 shadow-sm' 
+                          : 'bg-green-50 border-green-200'
                       }`}>
                         <div className="flex items-start gap-3">
                           {!produitSelectionne.estActif ? (
@@ -424,11 +400,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                           ) : (
                             <CheckCircleIcon className="w-5 h-5 text-green-500 mt-0.5" />
                           )}
-                          
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <span className={`font-medium ${!produitSelectionne.estActif ? 'text-orange-800' : 'text-green-800'}`}>
-                                {!produitSelectionne.estActif ? 'Produit inactif' : 'Produit actif'}
+                              <span className={`font-medium ${
+                                !produitSelectionne.estActif ? 'text-orange-800' : 'text-green-800'
+                              }`}>
+                                {!produitSelectionne.estActif ? '⚠️ Produit inactif' : '✅ Produit actif'}
                               </span>
                               {!produitSelectionne.estActif && (
                                 <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
@@ -436,24 +413,26 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                                 </span>
                               )}
                             </div>
-                            
                             <div className="grid grid-cols-3 gap-3 text-sm">
-                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                              <div className={`${
+                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
+                              } p-2 rounded`}>
                                 <span className="text-gray-600">Stock actuel:</span>
                                 <span className="ml-2 font-medium">{produitSelectionne.stock || 0}</span>
-                              
                               </div>
-                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                              <div className={`${
+                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
+                              } p-2 rounded`}>
                                 <span className="text-gray-600">TVA:</span>
                                 <span className="ml-2 font-medium">{produitSelectionne.tauxTVA || 19}%</span>
                               </div>
-                              <div className={`${!produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'} p-2 rounded`}>
+                              <div className={`${
+                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
+                              } p-2 rounded`}>
                                 <span className="text-gray-600">Prix achat:</span>
                                 <span className="ml-2 font-medium">{formatPrice(produitSelectionne.prixAchat || 0)}</span>
                               </div>
                             </div>
-
-        
                           </div>
                         </div>
                       </div>
@@ -474,7 +453,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
-                        
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Prix unitaire (TND) <span className="text-red-500">*</span>
@@ -492,12 +470,18 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       </div>
                     )}
 
-                    {/* Bouton d'ajout */}
+                    {/* Bouton ajout avec style différencié pour produit inactif */}
                     <button
                       type="button"
                       onClick={ajouterProduit}
                       disabled={!produitSelectionne}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                      className={`w-full px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                        !produitSelectionne
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : !produitSelectionne.estActif
+                          ? 'bg-orange-600 text-white hover:bg-orange-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
                       <PlusIcon className="w-4 h-4" />
                       Ajouter à la commande
@@ -505,7 +489,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 )}
 
-                {/* Tableau des articles */}
+                {/* Tableau des lignes avec style orange pour les inactifs */}
                 {lignes.length > 0 ? (
                   <div className="mt-6 border rounded-lg overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -522,23 +506,27 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {lignes.map((ligne) => (
-                          <tr 
-                            key={ligne.id} 
-                            className={`hover:bg-gray-50 ${ligne.estInactif ? 'bg-orange-50' : ''}`}
-                          >
+                          <tr key={`ligne-${ligne.id}`} className={`${
+                            ligne.estInactif 
+                              ? 'bg-orange-50 hover:bg-orange-100 border-l-4 border-l-orange-400' 
+                              : 'hover:bg-gray-50'
+                          }`}>
                             <td className="px-4 py-2">
                               <div className="font-medium flex items-center gap-1">
                                 {ligne.estInactif && (
                                   <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" title="Produit inactif" />
                                 )}
-                                {ligne.produitLibelle}
+                                <span className={ligne.estInactif ? 'text-orange-800' : 'text-gray-900'}>
+                                  {ligne.produitLibelle}
+                                </span>
                               </div>
                               <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
                               {ligne.categorie && (
                                 <div className="text-xs text-gray-400">{ligne.categorie}</div>
                               )}
                               {ligne.estInactif && (
-                                <div className="text-xs text-orange-600 mt-0.5">
+                                <div className="text-xs text-orange-600 mt-0.5 flex items-center gap-1">
+                                  <ExclamationTriangleIcon className="w-3 h-3" />
                                   Sera réactivé à la réception
                                 </div>
                               )}
@@ -578,12 +566,10 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
               {lignes.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">4. Récapitulatif</h4>
-                  
-                  {/* Détail par taux TVA */}
                   {Object.entries(totaux.detailParTaux).length > 0 && (
                     <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                       {Object.entries(totaux.detailParTaux).map(([taux, valeurs]) => (
-                        <div key={taux} className="bg-white p-3 rounded-lg border">
+                        <div key={`tva-${taux}`} className="bg-white p-3 rounded-lg border">
                           <p className="text-xs text-gray-500">TVA {taux}%</p>
                           <p className="text-sm font-medium">{formatPrice(valeurs.tva)}</p>
                           <p className="text-xs text-gray-400">Base: {formatPrice(valeurs.ht)}</p>
@@ -591,7 +577,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       ))}
                     </div>
                   )}
-                  
                   <div className="flex justify-end">
                     <div className="w-64 space-y-2">
                       <div className="flex justify-between text-sm">

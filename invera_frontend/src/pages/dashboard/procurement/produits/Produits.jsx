@@ -1,5 +1,5 @@
-// produits/Produits.jsx - Version avec pagination avancée
-import React, { useState, useCallback, useEffect } from 'react';
+// produits/Produits.jsx - Version corrigée
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
 import {
   ArrowPathIcon,
@@ -18,9 +18,9 @@ import useCategories from '../../../../hooks/useCategories';
 import toast from 'react-hot-toast';
 
 const Produits = () => {
-  // ========== HOOKS ==========
+  // ========== HOOKS (dans le bon ordre) ==========
   const {
-    products = [],
+    products: rawProducts = [],
     loading: productsLoading,
     error: productsError,
     pagination = { page: 0, size: 9, total: 0, totalPages: 0 },
@@ -37,12 +37,84 @@ const Produits = () => {
     getStatusLabel = (s) => s || '',
     getStatusColor = (s) => 'gray'
   } = useProducts({ actif: '', size: 9 }) || {}; 
+
   
   const { user } = useAuth();
   const userRole = user?.role;
 
-  // Hook pour les catégories
-  const { categories, loading: categoriesLoading } = useCategories();
+  // ✅ Hook pour les catégories - BIEN DÉCLARÉ ICI
+  const { categories: rawCategories, loading: categoriesLoading } = useCategories();
+
+  // ✅ NORMALISER LES CATÉGORIES (après la déclaration)
+  const categories = useMemo(() => {
+    console.log('🔍 rawCategories dans useMemo:', rawCategories);
+    if (!rawCategories?.length) return [];
+    return rawCategories.map(cat => ({
+      idCategorie: cat.idCategorie || cat.id,
+      nomCategorie: cat.nomCategorie || cat.nom || cat.libelle || 'Sans catégorie',
+      description: cat.description || '',
+      tauxTVA: cat.tauxTVA || 19
+    }));
+  }, [rawCategories]);
+
+  
+  useEffect(() => {
+  console.log('📊 État chargement catégories:', categoriesLoading);
+  console.log('📊 Nombre de catégories:', categories.length);
+}, [categoriesLoading, categories]);
+
+  // ✅ Créer un map des catégories par ID
+  const categoriesMap = useMemo(() => {
+    const map = new Map();
+    if (categories && categories.length) {
+      categories.forEach(cat => {
+        if (cat.idCategorie) {
+          map.set(cat.idCategorie, {
+            id: cat.idCategorie,
+            nom: cat.nomCategorie,
+            tauxTVA: cat.tauxTVA
+          });
+        }
+      });
+    }
+    return map;
+  }, [categories]);
+
+  // ✅ ENRICHIR LES PRODUITS
+  const products = useMemo(() => {
+    if (!rawProducts?.length) return [];
+    
+    return rawProducts.map(product => {
+      let categorieId = product.categorieId;
+      
+      if (!categorieId && product.idCategorie) {
+        categorieId = product.idCategorie;
+      }
+      if (!categorieId && product.categorie && typeof product.categorie === 'number') {
+        categorieId = product.categorie;
+      }
+      if (!categorieId && product.categorie?.idCategorie) {
+        categorieId = product.categorie.idCategorie;
+      }
+      
+      const categorieInfo = categoriesMap.get(categorieId);
+      const categorieNom = categorieInfo?.nom || 'Sans catégorie';
+      const tauxTVA = categorieInfo?.tauxTVA || 19;
+      
+      return {
+        ...product,
+        categorieId: categorieId,
+        categorieNom: categorieNom,
+        displayCategorie: categorieNom,
+        tauxTVA: tauxTVA,
+        categorie: categorieInfo ? {
+          idCategorie: categorieInfo.id,
+          nomCategorie: categorieInfo.nom,
+          tauxTVA: categorieInfo.tauxTVA
+        } : product.categorie
+      };
+    });
+  }, [rawProducts, categoriesMap]);
 
   // ========== ÉTATS LOCAUX ==========
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -50,7 +122,7 @@ const Produits = () => {
   const [searchInput, setSearchInput] = useState(''); 
   const [showFilters, setShowFilters] = useState(false);
 
-  // Synchroniser l'input avec la recherche du hook
+  // Synchroniser l'input avec la recherche
   useEffect(() => {
     setSearchInput(filters.keyword || '');
   }, [filters.keyword]);
@@ -95,33 +167,29 @@ const Produits = () => {
     }
   };
 
-  // Dans Produits.jsx - Modifier handleUpdateProduct
-const handleUpdateProduct = async (id, formData) => {
-  if (!id || !formData) {
-    console.error('❌ ID ou formData manquant');
-    toast.error('Erreur: données manquantes pour la modification');
-    return;
-  }
-  
-  try {
-    const response = await updateProduct(id, formData);
-    console.log('✅ Réponse modification:', response);
-    
-    if (response?.success) {
-      toast.success('Produit modifié avec succès');
-      handleCloseForm();
-      
-      // ✅ REFRESH AUTO : Recharger la page courante
-      await loadProducts(pagination.page);
-      
-    } else {
-      toast.error(response?.message || 'Erreur lors de la modification');
+  const handleUpdateProduct = async (id, formData) => {
+    if (!id || !formData) {
+      console.error('❌ ID ou formData manquant');
+      toast.error('Erreur: données manquantes pour la modification');
+      return;
     }
-  } catch (error) {
-    console.error('❌ Erreur modification:', error);
-    toast.error(error.response?.data?.message || 'Erreur lors de la modification');
-  }
-};
+    
+    try {
+      const response = await updateProduct(id, formData);
+      console.log('✅ Réponse modification:', response);
+      
+      if (response?.success) {
+        toast.success('Produit modifié avec succès');
+        handleCloseForm();
+        await loadProducts(pagination.page);
+      } else {
+        toast.error(response?.message || 'Erreur lors de la modification');
+      }
+    } catch (error) {
+      console.error('❌ Erreur modification:', error);
+      toast.error(error.response?.data?.message || 'Erreur lors de la modification');
+    }
+  };
 
   const handleToggleActive = async (id, currentActive) => {
     if (!id) return;
@@ -133,13 +201,13 @@ const handleUpdateProduct = async (id, formData) => {
       
       if (response?.success) {
         toast.success(currentActive ? 'Produit désactivé' : 'Produit activé');
+        await loadProducts(pagination.page);
       }
     } catch (error) {
       console.error('❌ Erreur toggle:', error);
       toast.error('Erreur lors du changement de statut');
     }
   };
-
 
   const handleSearch = useCallback((keyword) => {
     const newFilters = { ...filters, keyword: keyword || undefined };
@@ -163,7 +231,7 @@ const handleUpdateProduct = async (id, formData) => {
     toast.success('Liste actualisée');
   }, [filters, loadProducts]);
 
-  // ========== RENDU DE LA PAGINATION AVANCÉE ==========
+  // ========== RENDU DE LA PAGINATION ==========
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
 
@@ -171,7 +239,6 @@ const handleUpdateProduct = async (id, formData) => {
     const totalPages = pagination.totalPages;
     const pageSize = pagination.size;
     
-    // Calculer les pages à afficher
     const getPageNumbers = () => {
       const delta = 2;
       const range = [];
@@ -203,7 +270,6 @@ const handleUpdateProduct = async (id, formData) => {
 
     return (
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-4 border-t border-gray-200">
-        {/* Sélecteur de taille de page */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500">Afficher :</span>
           <select
@@ -219,16 +285,13 @@ const handleUpdateProduct = async (id, formData) => {
           </select>
         </div>
 
-        {/* Informations de pagination */}
         <div className="text-sm text-gray-500">
           Affichage de {currentPage * pageSize + 1} à{' '}
           {Math.min((currentPage + 1) * pageSize, pagination.total)} sur{' '}
           {pagination.total} produits
         </div>
 
-        {/* Contrôles de pagination */}
         <div className="flex items-center gap-1">
-          {/* Première page */}
           <button
             onClick={() => changePage?.(0)}
             disabled={currentPage === 0}
@@ -238,7 +301,6 @@ const handleUpdateProduct = async (id, formData) => {
             <ChevronDoubleLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
 
-          {/* Page précédente */}
           <button
             onClick={() => changePage?.(currentPage - 1)}
             disabled={currentPage === 0}
@@ -248,7 +310,6 @@ const handleUpdateProduct = async (id, formData) => {
             <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
 
-          {/* Numéros de pages */}
           <div className="flex items-center gap-1 mx-1">
             {pageNumbers.map((page, idx) => (
               page === '...' ? (
@@ -269,7 +330,6 @@ const handleUpdateProduct = async (id, formData) => {
             ))}
           </div>
 
-          {/* Page suivante */}
           <button
             onClick={() => changePage?.(currentPage + 1)}
             disabled={currentPage === totalPages - 1}
@@ -279,7 +339,6 @@ const handleUpdateProduct = async (id, formData) => {
             <ChevronRightIcon className="h-5 w-5 text-gray-600" />
           </button>
 
-          {/* Dernière page */}
           <button
             onClick={() => changePage?.(totalPages - 1)}
             disabled={currentPage === totalPages - 1}
@@ -346,24 +405,22 @@ const handleUpdateProduct = async (id, formData) => {
             )}
           </div>
 
-          {/* Pagination avancée */}
           {renderPagination()}
         </>
       )}
 
-      {/* Formulaire avec fonctions séparées */}
       {isFormOpen && (
         editingProduct ? (
           <EditProduitForm
             produit={editingProduct}
-            categories={categories}
+            categories={categories} 
             onClose={handleCloseForm}
             onSave={handleUpdateProduct}  
             userRole={userRole} 
           />
         ) : (
           <CreateProduitForm
-            categories={categories}
+            categories={categories}  
             onClose={handleCloseForm}
             onSave={handleCreateProduct}  
             userRole={userRole} 

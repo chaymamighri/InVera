@@ -1,4 +1,4 @@
-// src/hooks/useProducts.js
+// src/hooks/useProducts.js - VERSION CORRIGÉE AVEC GESTION DES CATÉGORIES
 import { useState, useEffect, useCallback } from 'react';
 import productService from '../services/productService';
 
@@ -46,24 +46,41 @@ const useProducts = (initialFilters = {}) => {
   const normalizeProduct = useCallback((produit) => {
     if (!produit) return null;
     
+    // ✅ S'assurer que l'ID est toujours défini
+    const productId = produit.idProduit || produit.id;
+    if (!productId) {
+      console.warn('⚠️ Produit sans ID:', produit);
+      return null;
+    }
+    
     let categorieNom = 'Sans catégorie';
     let categorieId = null;
     
-    if (produit.categorie) {
+    // ✅ RÉCUPÉRER L'ID DE LA CATÉGORIE DEPUIS DIFFÉRENTS ENDROITS
+    if (produit.categorieId !== undefined && produit.categorieId !== null) {
+      categorieId = produit.categorieId;
+    } else if (produit.idCategorie !== undefined && produit.idCategorie !== null) {
+      categorieId = produit.idCategorie;
+    } else if (produit.categorie) {
       if (typeof produit.categorie === 'object') {
-        categorieNom = produit.categorie.nomCategorie || 'Sans catégorie';
         categorieId = produit.categorie.idCategorie || produit.categorie.id;
+        categorieNom = produit.categorie.nomCategorie || 'Sans catégorie';
+      } else if (typeof produit.categorie === 'number') {
+        categorieId = produit.categorie;
       } else if (typeof produit.categorie === 'string') {
         categorieNom = produit.categorie;
       }
     }
     
+    // ✅ Si on a un ID mais pas de nom, on garde temporairement "Sans catégorie"
+    // (sera enrichi plus tard avec les données des catégories dans le composant)
+    
     const remiseTemporaire = produit.remiseTemporaire != null ? Number(produit.remiseTemporaire) : 0;
     
     return {
       ...produit,
-      id: produit.idProduit || produit.id,
-      idProduit: produit.idProduit || produit.id,
+      id: productId,
+      idProduit: productId,
       nom: produit.libelle,
       libelle: produit.libelle,
       prix: produit.prixVente,
@@ -77,9 +94,9 @@ const useProducts = (initialFilters = {}) => {
       image: produit.imageUrl,
       imageUrl: produit.imageUrl,
       remise: remiseTemporaire,
-      estActif: produit.active,
+      estActif: produit.active === true,
       active: produit.active,
-      categorieId: categorieId,
+      categorieId: categorieId,  // ✅ Maintenant correctement récupéré
       categorieNom: categorieNom,
       displayCategorie: categorieNom,
       statutStock: produit.status,
@@ -91,7 +108,14 @@ const useProducts = (initialFilters = {}) => {
 
   const normalizeProducts = useCallback((productsData) => {
     if (!Array.isArray(productsData)) return [];
-    return productsData.map(p => normalizeProduct(p)).filter(Boolean);
+    const normalized = productsData.map(p => normalizeProduct(p)).filter(Boolean);
+    console.log('✅ Normalisation:', {
+      entree: productsData.length,
+      sortie: normalized.length,
+      produitsAvecCategorie: normalized.filter(p => p.categorieId).length,
+      produitsSansCategorie: normalized.filter(p => !p.categorieId).length
+    });
+    return normalized;
   }, [normalizeProduct]);
 
   // ========== FONCTION DE CHARGEMENT ==========
@@ -122,31 +146,38 @@ const useProducts = (initialFilters = {}) => {
       
       if (response?.data && Array.isArray(response.data)) {
         allProductsData = response.data;
+        console.log('✅ Structure: response.data,', allProductsData.length, 'produits');
       } else if (Array.isArray(response)) {
         allProductsData = response;
+        console.log('✅ Structure: response,', allProductsData.length, 'produits');
       } else if (response?.success && response?.produits) {
         allProductsData = response.produits;
+        console.log('✅ Structure: response.produits,', allProductsData.length, 'produits');
       } else {
+        console.warn('⚠️ Structure non reconnue:', response);
         allProductsData = [];
       }
       
-      setAllProducts(allProductsData);
+      // ✅ Normaliser les données avant de les stocker
+      const normalizedAll = normalizeProducts(allProductsData);
+      setAllProducts(normalizedAll);
       
-      const total = allProductsData.length;
+      const total = normalizedAll.length;
       const totalPages = Math.ceil(total / pagination.size);
       const start = page * pagination.size;
       const end = start + pagination.size;
-      const paginatedProducts = allProductsData.slice(start, end);
+      const paginatedProducts = normalizedAll.slice(start, end);
       
       setProducts(paginatedProducts);
-      setPagination({
+      setPagination(prev => ({
+        ...prev,
         page: page,
-        size: pagination.size,
         total: total,
         totalPages: totalPages
-      });
+      }));
       
       console.log(`📊 Page ${page + 1}/${totalPages} - ${paginatedProducts.length} produits sur ${total}`);
+      console.log(`📊 Produits avec catégorie: ${normalizedAll.filter(p => p.categorieId).length}`);
       
     } catch (err) {
       console.error('❌ ERREUR dans loadProducts:', err);
@@ -156,7 +187,7 @@ const useProducts = (initialFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.size]);
+  }, [filters, pagination.size, normalizeProducts]);
 
   // ========== FONCTIONS CRUD ==========
   const createProduct = async (productData) => {
@@ -298,16 +329,13 @@ const useProducts = (initialFilters = {}) => {
     }
   }, [loadProducts, pagination.totalPages]);
 
-  // ✅ UNE SEULE VERSION DE changePageSize
   const changePageSize = useCallback((newSize) => {
     setPagination(prev => {
       const newPagination = { ...prev, size: newSize };
       
-      // Recalculer la pagination avec la nouvelle taille
       const totalPages = Math.ceil(allProducts.length / newSize);
       let newPage = pagination.page;
       
-      // Ajuster la page courante si elle dépasse
       if (newPage >= totalPages && totalPages > 0) {
         newPage = totalPages - 1;
       }

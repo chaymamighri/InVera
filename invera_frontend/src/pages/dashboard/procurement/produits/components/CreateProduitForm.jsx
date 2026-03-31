@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+// produits/CreateProduitForm.jsx - Version corrigée
+import React, { useState, useEffect } from 'react';
 import ProduitFormBase from './ProduitFormBase';
 
-const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
+const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
@@ -20,13 +21,21 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
   const [imagePreview, setImagePreview] = useState(null);
   const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
 
-  // FONCTION : validateForm
+  // ✅ Vérifier que categories est un tableau
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  // ✅ DEBUG : Voir les catégories reçues
+  useEffect(() => {
+    console.log('📁 Catégories reçues dans CreateProduitForm:', safeCategories);
+    console.log('📁 Nombre de catégories:', safeCategories.length);
+  }, [safeCategories]);
+
+  // Validation du formulaire
   const validateForm = () => {
     const newErrors = {};
     
     if (!formData.libelle.trim()) newErrors.libelle = 'Le libellé est requis';
     
-    // ✅ Prix avec décimales 
     const prixVente = parseFloat(formData.prixVente);
     const prixAchat = parseFloat(formData.prixAchat);
     
@@ -43,7 +52,6 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
     if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
     
-    // ✅ Remise avec décimales
     const remise = parseFloat(formData.remiseTemporaire);
     if (isNaN(remise) || remise < 0 || remise > 100) {
       newErrors.remiseTemporaire = 'La remise doit être entre 0 et 100';
@@ -53,7 +61,6 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ FONCTION  handleChange 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     
@@ -74,10 +81,11 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     }
   };
 
-  // FONCTION: handleCategorieChange
+  // ✅ CORRECTION : Gérer le changement de catégorie avec sécurité
   const handleCategorieChange = (e) => {
     const categorieId = parseInt(e.target.value);
-    const selectedCategorie = categories.find(c => c.idCategorie === categorieId);
+    // ✅ Utiliser safeCategories au lieu de categories
+    const selectedCategorie = safeCategories.find(c => c.idCategorie === categorieId);
     setFormData(prev => ({
       ...prev,
       categorie: selectedCategorie || { idCategorie: categorieId }
@@ -87,7 +95,6 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     }
   };
 
-  // Fonction pour l'upload d'image
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -116,7 +123,6 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     }
   };
 
-  // Fonction pour supprimer l'image
   const handleRemoveImage = () => {
     setFormData(prev => ({
       ...prev,
@@ -124,17 +130,15 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
       imageUrl: ''
     }));
     setImagePreview(null);
-    document.getElementById('image-upload').value = '';
+    const input = document.getElementById('image-upload');
+    if (input) input.value = '';
   };
 
-  // Fonction de soumission - Convertir en nombres avant d'envoyer
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
       const formDataToSend = new FormData();
       formDataToSend.append('libelle', formData.libelle);
-      
-      // ✅ Convertir en nombres avec décimales
       formDataToSend.append('prixVente', parseFloat(formData.prixVente));
       formDataToSend.append('prixAchat', parseFloat(formData.prixAchat));
       formDataToSend.append('categorieId', formData.categorie.idCategorie);
@@ -148,6 +152,7 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
         formDataToSend.append('image', formData.imageFile);
       }
       
+      console.log('📤 Création produit - Catégorie ID:', formData.categorie.idCategorie);
       onSave(formDataToSend);
     }
   };
@@ -156,7 +161,7 @@ const CreateProduitForm = ({ categories, onClose, onSave, userRole }) => {
     <ProduitFormBase
       formData={formData}
       errors={errors}
-      categories={categories}
+      categories={safeCategories}  // ✅ Passer safeCategories
       handleChange={handleChange}
       handleImageChange={handleImageChange}   
       handleRemoveImage={handleRemoveImage}    

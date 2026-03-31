@@ -98,22 +98,25 @@ const ProduitFormBase = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Catégorie <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.categorie?.idCategorie || ''}
-                onChange={handleCategorieChange}
-                className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              >
-                <option value="">Sélectionner une catégorie</option>
-                {categories.map(cat => (
-                  <option key={cat.idCategorie} value={cat.idCategorie}>{cat.libelle}</option>
-                ))}
-              </select>
-              {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
-            </div>
+           <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Catégorie <span className="text-red-500">*</span>
+  </label>
+  <select
+    value={formData.categorie?.idCategorie || ''}
+    onChange={handleCategorieChange}
+    className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+  >
+    <option value="">Sélectionner une catégorie</option>
+    {/* ✅ CORRECTION : Utiliser nomCategorie au lieu de libelle */}
+    {categories && categories.map(cat => (
+      <option key={cat.idCategorie} value={cat.idCategorie}>
+        {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
+      </option>
+    ))}
+  </select>
+  {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
+</div>
           </div>
 
          {/* Gestion du stock */}

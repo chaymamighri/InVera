@@ -3,9 +3,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useCommandeFournisseur } from '../../../../hooks/useCommandeFournisseur';
-import CommandeModal from './components/CommandeModal';
+import CommandeModal from './components/commandeModal';
 import CommandeDetailsModal from './components/CommandeDetailsModal';
-import ReceptionModal from './components/ReceptionModal'; // ✅ NOUVEAU
+import ReceptionModal from './components/ReceptionModal'; 
 import StatsCartes from './components/StatsCartes';
 import BarreRecherche from './components/BarreRecherche';
 import TableauCommandes from './components/TableauCommandes';
@@ -86,7 +86,7 @@ const CommandesFournisseurs = () => {
   const [showArchives, setShowArchives] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isReceptionModalOpen, setIsReceptionModalOpen] = useState(false); // ✅ NOUVEAU
+  const [isReceptionModalOpen, setIsReceptionModalOpen] = useState(false); 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [dateDebut, setDateDebut] = useState('');
