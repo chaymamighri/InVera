@@ -1,12 +1,6 @@
 // src/services/productService.js
 import api from './api';
 
-// Fonction utilitaire pour récupérer le token (si vous avez besoin d'headers spécifiques)
-/*const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};*/
-
 const productService = {
   /**
    * Récupérer tous les produits
@@ -22,7 +16,7 @@ getAllProducts: async (params = {}) => {
     console.log('📥 Réponse API - data type:', typeof response.data);
     console.log('📥 Réponse API - isArray:', Array.isArray(response.data));
     
-    return response.data; // Retourner directement response.data
+    return response.data; 
   } catch (error) {
     console.error('❌ getAllProducts - Erreur:', error);
     throw error;
@@ -66,26 +60,40 @@ getAllProducts: async (params = {}) => {
     }
   },
 
-  /**
-   * Recherche avancée de produits avec filtres
-   */
- searchProducts: async ({ keyword, status, categorieId, actif } = {}) => {
+
+/**
+ * Recherche avancée de produits avec filtres ET pagination
+ */
+searchProducts: async ({ keyword, status, categorieId, actif, page = 0, size = 10 } = {}) => {
   try {
     // Construction des paramètres de recherche
     const params = new URLSearchParams();
     if (keyword) params.append('keyword', keyword);
     if (status) params.append('status', status);
     if (categorieId) params.append('categorieId', categorieId);
+    if (actif !== undefined) params.append('actif', actif);
     
-    // ✅ IMPORTANT: N'ajouter actif que s'il est défini (pas undefined)
-    if (actif !== undefined) {
-      params.append('actif', actif);
-    }
+    // ✅ AJOUTER LA PAGINATION
+    params.append('page', page);
+    params.append('size', size);
     
     console.log('🔍 Paramètres envoyés:', params.toString());
     
     const response = await api.get(`/produits/search?${params.toString()}`);
     
+    // ✅ Gérer la réponse paginée (Spring Page)
+    if (response.data?.content) {
+      return {
+        data: response.data.content,
+        total: response.data.totalElements,
+        totalPages: response.data.totalPages,
+        currentPage: response.data.number,
+        size: response.data.size,
+        success: true
+      };
+    }
+    
+    // Fallback pour l'ancien format
     if (response.data && response.data.success) {
       return {
         data: response.data.produits || [],
@@ -93,6 +101,7 @@ getAllProducts: async (params = {}) => {
         success: true
       };
     }
+    
     return response.data;
   } catch (error) {
     console.error('Erreur lors de la recherche de produits:', error);

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Random;
 
 @Service
-public class FactureService {
+public class FactureClientService {
 
     @Autowired
     private FactureClientRepository factureRepository;
@@ -81,7 +81,6 @@ public class FactureService {
     }
 
     // ===== LISTES =====
-
     /**
      * Récupérer toutes les factures
      */

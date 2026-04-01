@@ -60,7 +60,6 @@ public class CommandeClient {
     @CreatedDate
     @Column(name = "created_at", nullable = false,  updatable = false)
     private LocalDateTime createdAt;
-    // ------------------------------
 
 
     @OneToMany(mappedBy = "commandeClient", cascade = CascadeType.ALL, orphanRemoval = true)

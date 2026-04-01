@@ -91,4 +91,6 @@ public class LigneCommandeFournisseur {
             this.sousTotal = sousTotalHT.setScale(2, BigDecimal.ROUND_HALF_UP);
         }
     }
+
+
 }

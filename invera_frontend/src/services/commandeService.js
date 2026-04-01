@@ -66,73 +66,50 @@ export const commandeService = {
     }
   },
 
-  async validerCommande(commandeId) {
+  /**
+   *  Valider une commande - URL correcte
+   * PUT /api/commandes/{id}/valider
+   */
+   async validerCommande(commandeId) {
     try {
-      console.log(`Tentative validation commande ${commandeId}`);
+      console.log(`📡 Validation commande ${commandeId}`);
       
-      const endpoints = [
-        `/commandes/${commandeId}/valider`,
-        `/api/commandes/${commandeId}/valider`,
-        `/commandes/valider/${commandeId}`
-      ];
+      // ✅ UN SEUL ENDPOINT CORRECT
+      const response = await api.put(`/commandes/${commandeId}/valider`, {});
       
-      let lastError = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`📡 Essai endpoint: ${endpoint}`);
-          const response = await api.put(endpoint, {});
-          
-          console.log(` Succès avec endpoint: ${endpoint}`);
-          return response.data;
-        } catch (err) {
-          console.log(` Échec endpoint ${endpoint}:`, err.response?.status);
-          lastError = err;
-        }
-      }
-      
-      throw lastError || new Error('Aucun endpoint de validation trouvé');
+      console.log(`✅ Commande ${commandeId} validée avec succès`);
+      return response.data;
       
     } catch (error) {
-      console.error('Erreur validerCommande:', error);
+      console.error(`❌ Erreur validation commande ${commandeId}:`, error);
       
       if (error.response?.status === 403) {
-        console.error(' ACCÈS REFUSÉ: Votre rôle n\'a pas la permission de valider des commandes');
+        console.error('🔒 ACCÈS REFUSÉ: Votre rôle n\'a pas la permission de valider des commandes');
+      }
+      if (error.response?.status === 404) {
+        console.error('🔍 Commande non trouvée ou endpoint incorrect');
       }
       
       throw error;
     }
   },
 
+  /**
+   *  Rejeter une commande - URL correcte
+   * PUT /api/commandes/{id}/rejeter
+   */
   async rejeterCommande(commandeId) {
     try {
-      console.log(` Tentative rejet commande ${commandeId}`);
+      console.log(`📡 Rejet commande ${commandeId}`);
       
-      const endpoints = [
-        `/commandes/${commandeId}/rejeter`,
-        `/api/commandes/${commandeId}/rejeter`,
-        `/commandes/rejeter/${commandeId}`
-      ];
+      // ✅ UN SEUL ENDPOINT CORRECT
+      const response = await api.put(`/commandes/${commandeId}/rejeter`, {});
       
-      let lastError = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`📡 Essai endpoint: ${endpoint}`);
-          const response = await api.put(endpoint, {});
-          
-          console.log(`Succès avec endpoint: ${endpoint}`);
-          return response.data;
-        } catch (err) {
-          console.log(` Échec endpoint ${endpoint}:`, err.response?.status);
-          lastError = err;
-        }
-      }
-      
-      throw lastError || new Error('Aucun endpoint de rejet trouvé');
+      console.log(`✅ Commande ${commandeId} rejetée avec succès`);
+      return response.data;
       
     } catch (error) {
-      console.error(' Erreur rejeterCommande:', error);
+      console.error(`❌ Erreur rejet commande ${commandeId}:`, error);
       throw error;
     }
   },

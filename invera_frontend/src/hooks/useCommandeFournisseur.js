@@ -267,7 +267,7 @@ export const useCommandeFournisseur = () => {
   /**
    * Enregistre la réception d'une commande
    */
-  const recevoirCommande = async (id) => {
+const recevoirCommande = async (id, receptionData) => { 
     if (!checkAuth()) {
       showToast('Session expirée', 'error');
       throw new Error('Non authentifié');
@@ -275,7 +275,8 @@ export const useCommandeFournisseur = () => {
 
     try {
       setLoading(true);
-      const commande = await commandeFournisseurService.recevoirCommande(id);
+      // ✅ Passer receptionData au service
+      const commande = await commandeFournisseurService.recevoirCommande(id, receptionData);
       showToast('Réception enregistrée avec succès', 'success');
       await refresh();
       return commande;

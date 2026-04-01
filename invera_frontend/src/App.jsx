@@ -27,6 +27,11 @@ import { AuthProvider } from './context/AuthContext';
 import { SidebarProvider } from './context/SidebarContext';
 import Produits from './pages/dashboard/procurement/produits/Produits';
 import CommandesFournisseurs from './pages/dashboard/procurement/commandeFournisseur/CommandesFournisseurs';
+import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/StockMovementsPage';
+import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
+import FactureFournisseur from './pages/dashboard/procurement/factures/FactureFournisseur';
+import GestionCategories from './pages/dashboard/procurement/categories/GestionCategories';
+
 
 const ROLE_MAPPING = {
   ADMIN: 'admin',
@@ -234,10 +239,16 @@ function App() {
     </ProtectedRoute>
   }
 >
-  {/* ✅ SOUS-ROUTES */}
-  <Route index element={<Navigate to="produits" replace />} />
+  {/*  SOUS-ROUTES */}
+  <Route index element={<Navigate to="StatsPage" replace />} />
+   {/*<Route path="stats" element={<StatsPage />} />*/}
   <Route path="produits" element={<Produits />} />
+  <Route path="categories" element= {<GestionCategories />} />
   <Route path="commandes" element={<CommandesFournisseurs />} />
+   <Route path="mouvements" element={<StockMovementsPage />} />
+    <Route path="etat_stock" element={<EtatStock />} />
+    <Route path="factures" element={<FactureFournisseur />} />
+
 </Route>
 
   <Route

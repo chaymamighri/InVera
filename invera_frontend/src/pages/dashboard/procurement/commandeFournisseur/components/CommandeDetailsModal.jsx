@@ -1,4 +1,4 @@
-// components/commandeDetailsModal.jsx - Version corrigée avec Hooks dans le bon ordre
+// components/commandeDetailsModal.jsx - Version Clean Code
 import React, { useEffect, useMemo } from 'react';
 import {
   XMarkIcon,
@@ -11,7 +11,7 @@ import {
   ReceiptPercentIcon
 } from '@heroicons/react/24/outline';
 
-// Constantes
+// ========== CONSTANTES ==========
 const StatutCommande = {
   BROUILLON: 'BROUILLON',
   VALIDEE: 'VALIDEE',
@@ -21,6 +21,9 @@ const StatutCommande = {
   ANNULEE: 'ANNULEE',
 };
 
+const STATUTS_RECUS = [StatutCommande.RECUE, StatutCommande.FACTUREE];
+
+// ========== UTILITAIRES ==========
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -43,63 +46,109 @@ const formatPrice = (price) => {
   }).format(price);
 };
 
-const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
-  // ========== 1. TOUS LES HOOKS EN HAUT, DANS LE MÊME ORDRE ==========
-  
-  // ✅ useMemo en premier
-  const detailTVA = useMemo(() => {
-    if (!commande?.lignesCommande) return {};
+const getStatusBadge = (statut) => {
+  const colors = {
+    [StatutCommande.BROUILLON]: 'bg-gray-100 text-gray-800 border-gray-300',
+    [StatutCommande.VALIDEE]: 'bg-blue-100 text-blue-800 border-blue-300',
+    [StatutCommande.ENVOYEE]: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    [StatutCommande.RECUE]: 'bg-green-100 text-green-800 border-green-300',
+    [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800 border-purple-300',
+    [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800 border-red-300',
+  };
+  return (
+    <span className={`px-4 py-2 rounded-full text-sm font-semibold border shadow-sm ${colors[statut] || colors[StatutCommande.BROUILLON]}`}>
+      {statut}
+    </span>
+  );
+};
+
+// ========== HOOK PERSONNALISÉ ==========
+const useCommandeCalculs = (commande) => {
+  const estRecue = useMemo(() => 
+    STATUTS_RECUS.includes(commande?.statut), 
+    [commande?.statut]
+  );
+
+  const ligneAvecTotaux = useMemo(() => {
+    if (!commande?.lignesCommande) return [];
     
-    return commande.lignesCommande.reduce((acc, ligne) => {
+    return commande.lignesCommande.map(ligne => {
+      // ✅ Règle métier : quantité utilisée selon le statut
+      const quantite = estRecue 
+        ? (ligne.quantiteRecue || 0)  // Si reçue : utiliser qté reçue (0 par défaut)
+        : (ligne.quantite || 0);       // Sinon : utiliser qté commandée
+      
+      const prixUnitaire = ligne.prixUnitaire || 0;
+      const tauxTVA = ligne.tauxTVA || 19;
+      
+      const sousTotalHT = quantite * prixUnitaire;
+      const montantTVA = sousTotalHT * tauxTVA / 100;
+      const sousTotalTTC = sousTotalHT + montantTVA;
+      
+      return {
+        ...ligne,
+        quantiteUtilisee: quantite,
+        sousTotalHT,
+        montantTVA,
+        sousTotalTTC
+      };
+    });
+  }, [commande, estRecue]);
+
+  const totaux = useMemo(() => {
+    if (!ligneAvecTotaux.length) return { totalHT: 0, totalTVA: 0, totalTTC: 0 };
+    
+    return ligneAvecTotaux.reduce((acc, ligne) => ({
+      totalHT: acc.totalHT + ligne.sousTotalHT,
+      totalTVA: acc.totalTVA + ligne.montantTVA,
+      totalTTC: acc.totalTTC + ligne.sousTotalTTC
+    }), { totalHT: 0, totalTVA: 0, totalTTC: 0 });
+  }, [ligneAvecTotaux]);
+
+  const detailTVA = useMemo(() => {
+    return ligneAvecTotaux.reduce((acc, ligne) => {
       const taux = ligne.tauxTVA || 19;
-      if (!acc[taux]) {
-        acc[taux] = { ht: 0, tva: 0 };
-      }
-      acc[taux].ht += ligne.sousTotalHT || 0;
-      acc[taux].tva += ligne.montantTVA || 0;
+      if (!acc[taux]) acc[taux] = { ht: 0, tva: 0 };
+      acc[taux].ht += ligne.sousTotalHT;
+      acc[taux].tva += ligne.montantTVA;
       return acc;
     }, {});
-  }, [commande]);
+  }, [ligneAvecTotaux]);
 
-  // ✅ useEffect ensuite
+  return { estRecue, ligneAvecTotaux, totaux, detailTVA };
+};
+
+// ========== COMPOSANT PRINCIPAL ==========
+const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
+  const { estRecue, ligneAvecTotaux, totaux, detailTVA } = useCommandeCalculs(commande);
+
   useEffect(() => {
     if (commande) {
       console.log('📦 Commande reçue dans modal:', commande);
     }
   }, [commande]);
 
-  // ========== 2. RETOUR CONDITIONNEL APRÈS TOUS LES HOOKS ==========
   if (!isOpen || !commande) return null;
 
-  // ========== 3. FONCTIONS UTILITAIRES ==========
-  const getStatusBadge = (statut) => {
-    const colors = {
-      [StatutCommande.BROUILLON]: 'bg-gray-100 text-gray-800 border-gray-300',
-      [StatutCommande.VALIDEE]: 'bg-blue-100 text-blue-800 border-blue-300',
-      [StatutCommande.ENVOYEE]: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      [StatutCommande.RECUE]: 'bg-green-100 text-green-800 border-green-300',
-      [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800 border-purple-300',
-      [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800 border-red-300',
-    };
-    return (
-      <span className={`px-4 py-2 rounded-full text-sm font-semibold border shadow-sm ${colors[statut] || colors[StatutCommande.BROUILLON]}`}>
-        {statut}
-      </span>
-    );
+  // Helper pour le statut de réception
+  const getReceptionStatus = (ligne) => {
+    const quantiteRecue = ligne.quantiteRecue || 0;
+    const quantiteCommandee = ligne.quantite || 0;
+    
+    if (quantiteRecue === 0) return { type: 'none', text: '❌ Non reçu', color: 'red' };
+    if (quantiteRecue === quantiteCommandee) return { type: 'full', text: '✓ Reçu complet', color: 'green' };
+    return { type: 'partial', text: `⚠️ Réception partielle (${quantiteRecue}/${quantiteCommandee})`, color: 'orange' };
   };
 
-  // ========== 4. RENDU JSX ==========
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" onClick={onClose} />
-
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        {/* Modal large */}
         <div className="relative inline-block align-bottom bg-white rounded-2xl shadow-2xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle w-full max-w-6xl">
 
-          {/* En-tête avec dégradé */}
+          {/* En-tête */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -112,23 +161,15 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                       Commande {commande.numeroCommande || 'N/A'}
                     </h3>
                     {getStatusBadge(commande.statut)}
-                  </div>                
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors"
-                  title="Exporter"
-                >
+                <button onClick={() => window.print()} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors" title="Exporter">
                   <DocumentArrowDownIcon className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={onClose}
-                  className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors"
-                  title="Fermer"
-                >
-                  <XMarkIcon className="w-5 h-5" />
+                <button onClick={onClose} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors" title="Fermer">
+                  <XMarkIcon className="w-6 h-6" />
                 </button>
               </div>
             </div>
@@ -140,88 +181,18 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
 
               {/* Informations de livraison */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Date commande */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <CalendarIcon className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">Date commande</p>
-                      <p className="font-semibold">{formatDate(commande.dateCommande)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Livraison prévue */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <TruckIcon className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">Livraison prévue</p>
-                      <p className="font-semibold">{formatDate(commande.dateLivraisonPrevue)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Livraison réelle */}
+                <InfoCard icon={CalendarIcon} label="Date commande" value={formatDate(commande.dateCommande)} />
+                <InfoCard icon={TruckIcon} label="Livraison prévue" value={formatDate(commande.dateLivraisonPrevue)} />
                 {commande.dateLivraisonReelle && (
-                  <div className="bg-white p-4 rounded-xl border border-green-200 shadow-sm bg-green-50">
-                    <div className="flex items-center gap-3">
-                      <TruckIcon className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="text-xs text-gray-500">Livraison réelle</p>
-                        <p className="font-semibold text-green-700">
-                          {formatDate(commande.dateLivraisonReelle)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <InfoCard icon={TruckIcon} label="Livraison réelle" value={formatDate(commande.dateLivraisonReelle)} highlight />
                 )}
-
-                {/* Adresse livraison */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm col-span-1">
-                  <div className="flex items-center gap-3">
-                    <MapPinIcon className="w-5 h-5 text-orange-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">Adresse livraison</p>
-                      <p className="font-semibold text-sm">{commande.adresseLivraison || 'Non spécifiée'}</p>
-                    </div>
-                  </div>
-                </div>
+                <InfoCard icon={MapPinIcon} label="Adresse livraison" value={commande.adresseLivraison || 'Non spécifiée'} />
               </div>
 
               {/* Fournisseur */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <BuildingStorefrontIcon className="w-5 h-5 text-gray-600" />
-                    <h4 className="font-semibold text-gray-900">Informations fournisseur</h4>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</p>
-                      <p className="text-base font-semibold text-gray-900">
-                        {commande.fournisseur?.nomFournisseur || commande.fournisseur?.nom || 'N/A'}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</p>
-                      <a href={`mailto:${commande.fournisseur?.email}`} className="text-base text-blue-600 hover:text-blue-800 font-medium">
-                        {commande.fournisseur?.email || 'N/A'}
-                      </a>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</p>
-                      <a href={`tel:${commande.fournisseur?.telephone}`} className="text-base text-gray-900 font-medium">
-                        {commande.fournisseur?.telephone || 'N/A'}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <FournisseurCard fournisseur={commande.fournisseur} />
 
-              {/* Articles avec TVA */}
+              {/* Articles */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
                   <h4 className="font-semibold text-gray-900">Détail des articles</h4>
@@ -230,84 +201,90 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unit.</th>
-                        <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TVA</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total HT</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total TTC</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500">Produit</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Qté commandée</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Qté reçue</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Prix unit.</th>
+                        <th className="px-6 py-4 text-center text-xs font-medium text-gray-500">TVA</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Total HT</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Total TTC</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {commande.lignesCommande && commande.lignesCommande.length > 0 ? (
-                        commande.lignesCommande.map((ligne, index) => (
-                          <tr key={ligne.idLigneCommandeFournisseur || index} className="hover:bg-gray-50 transition-colors">
+                      {ligneAvecTotaux.map((ligne, idx) => {
+                        const quantiteRecue = ligne.quantiteRecue || 0;
+                        const receptionStatus = getReceptionStatus(ligne);
+                        const colorMap = { green: 'text-green-600', orange: 'text-orange-600', red: 'text-red-600' };
+                        
+                        return (
+                          <tr key={ligne.idLigneCommandeFournisseur || idx} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
-                              <div className="font-medium text-gray-900">
-                                {ligne.produitLibelle || 'Produit sans nom'}
-                              </div>
-                              {ligne.produitReference && (
-                                <div className="text-sm text-gray-500">
-                                  Réf: {ligne.produitReference}
-                                </div>
+                              <div className="font-medium text-gray-900">{ligne.produitLibelle || 'Produit sans nom'}</div>
+                              {ligne.produitReference && <div className="text-sm text-gray-500">Réf: {ligne.produitReference}</div>}
+                              {estRecue && (
+                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-${receptionStatus.color}-100 text-${receptionStatus.color}-800`}>
+                                  {receptionStatus.text}
+                                </span>
                               )}
-                              {ligne.categorie && (
-                                <div className="text-xs text-gray-400">
-                                  {ligne.categorie}
-                                </div>
+                              {!estRecue && commande.statut === StatutCommande.ENVOYEE && (
+                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">🚚 En cours de livraison</span>
                               )}
+                              {!estRecue && commande.statut === StatutCommande.VALIDEE && (
+                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">⏳ En attente de réception</span>
+                              )}
+                             </td>
+                            <td className="px-6 py-4 text-right font-medium text-gray-900">{ligne.quantite}</td>
+                            <td className="px-6 py-4 text-right">
+                              {estRecue ? (
+                                <div>
+                                  <span className={`font-semibold ${colorMap[receptionStatus.color]}`}>{quantiteRecue}</span>
+                                  {receptionStatus.type === 'partial' && (
+                                    <div className="text-xs text-orange-500 mt-0.5">Manque: {ligne.quantite - quantiteRecue}</div>
+                                  )}
+                                </div>
+                              ) : <span className="text-gray-400 italic text-sm">-</span>}
                             </td>
-                            <td className="px-6 py-4 text-right font-medium text-gray-900">
-                              {ligne.quantite}
-                            </td>
-                            <td className="px-6 py-4 text-right text-gray-900">
-                              {formatPrice(ligne.prixUnitaire)}
-                            </td>
+                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.prixUnitaire)}</td>
                             <td className="px-6 py-4 text-center">
-                              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                                {ligne.tauxTVA || 19}%
-                              </span>
+                              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{ligne.tauxTVA || 19}%</span>
                             </td>
-                            <td className="px-6 py-4 text-right text-gray-900">
-                              {formatPrice(ligne.sousTotalHT || ligne.sousTotal)}
-                            </td>
-                            <td className="px-6 py-4 text-right font-semibold text-blue-600">
-                              {formatPrice(ligne.sousTotalTTC || (ligne.sousTotalHT ? ligne.sousTotalHT * (1 + (ligne.tauxTVA || 19)/100) : 0))}
-                            </td>
+                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.sousTotalHT)}</td>
+                            <td className="px-6 py-4 text-right font-semibold text-blue-600">{formatPrice(ligne.sousTotalTTC)}</td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                            Aucun article dans cette commande
-                          </td>
-                        </tr>
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-          
+              {/* Détail TVA */}
+              {Object.keys(detailTVA).length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <ReceiptPercentIcon className="w-5 h-5 text-blue-600" />
+                    Détail de la TVA
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(detailTVA).map(([taux, valeurs]) => (
+                      <div key={taux} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-500">TVA {taux}%</p>
+                        <p className="text-lg font-semibold text-blue-600">{formatPrice(valeurs.tva)}</p>
+                        <p className="text-xs text-gray-400">Base: {formatPrice(valeurs.ht)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Totaux */}
               <div className="flex justify-end">
                 <div className="w-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-6 shadow-sm">
                   <h4 className="text-sm font-semibold text-gray-700 mb-4">Récapitulatif des montants</h4>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Total HT</span>
-                      <span className="font-medium text-gray-900">{formatPrice(commande.totalHT)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Total TVA</span>
-                      <span className="font-medium text-gray-900">{formatPrice(commande.totalTVA)}</span>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3 mt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-base font-semibold text-gray-900">Total TTC</span>
-                        <span className="text-xl font-bold text-blue-600">{formatPrice(commande.totalTTC)}</span>
-                      </div>
-                    </div>
+                    <TotalRow label="Total HT" value={formatPrice(totaux.totalHT)} />
+                    <TotalRow label="Total TVA" value={formatPrice(totaux.totalTVA)} />
+                    <TotalRow label="Total TTC" value={formatPrice(totaux.totalTTC)} isBold />
                   </div>
                 </div>
               </div>
@@ -316,10 +293,7 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
 
           {/* Pied */}
           <div className="bg-gray-100 px-8 py-4 border-t border-gray-200 flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 bg-white text-gray-700 font-medium rounded-xl border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
-            >
+            <button onClick={onClose} className="px-6 py-2.5 bg-white text-gray-700 font-medium rounded-xl border border-gray-300 hover:bg-gray-50 transition-all shadow-sm">
               Fermer
             </button>
           </div>
@@ -328,5 +302,52 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
     </div>
   );
 };
+
+// ========== COMPOSANTS UTILITAIRES ==========
+const InfoCard = ({ icon: Icon, label, value, highlight }) => (
+  <div className={`bg-white p-4 rounded-xl border shadow-sm ${highlight ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
+    <div className="flex items-center gap-3">
+      <Icon className={`w-5 h-5 ${highlight ? 'text-green-600' : 'text-blue-600'}`} />
+      <div>
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className={`font-semibold ${highlight ? 'text-green-700' : ''}`}>{value}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const FournisseurCard = ({ fournisseur }) => (
+  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+      <div className="flex items-center gap-2">
+        <BuildingStorefrontIcon className="w-5 h-5 text-gray-600" />
+        <h4 className="font-semibold text-gray-900">Informations fournisseur</h4>
+      </div>
+    </div>
+    <div className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-500 uppercase">Nom</p>
+          <p className="text-base font-semibold text-gray-900">{fournisseur?.nomFournisseur || fournisseur?.nom || 'N/A'}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
+          <a href={`mailto:${fournisseur?.email}`} className="text-base text-blue-600 hover:text-blue-800 font-medium">{fournisseur?.email || 'N/A'}</a>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-500 uppercase">Téléphone</p>
+          <a href={`tel:${fournisseur?.telephone}`} className="text-base text-gray-900 font-medium">{fournisseur?.telephone || 'N/A'}</a>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const TotalRow = ({ label, value, isBold }) => (
+  <div className={`flex justify-between items-center ${isBold ? 'border-t border-gray-200 pt-3 mt-3' : 'text-sm'}`}>
+    <span className={isBold ? 'text-base font-semibold text-gray-900' : 'text-gray-600'}>{label}</span>
+    <span className={isBold ? 'text-xl font-bold text-blue-600' : 'font-medium text-gray-900'}>{value}</span>
+  </div>
+);
 
 export default CommandeDetailsModal;
