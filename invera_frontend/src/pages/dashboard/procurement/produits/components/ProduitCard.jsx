@@ -1,42 +1,19 @@
-// produits/components/ProduitCard.jsx
+// produits/components/ProduitCard.jsx 
 import React, { useState } from 'react';
 import {
   PencilSquareIcon,
   CheckCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
-import toast from 'react-hot-toast';
 
 const ProduitCard = ({ 
   produit, 
   onEdit, 
-  onToggleActive, 
-  onStockAdjust,
+  onToggleActive,
   getStatusColor,
   getStatusLabel 
 }) => {
-  const [showStockAdjust, setShowStockAdjust] = useState(false);
-  const [newQuantity, setNewQuantity] = useState(produit.quantiteStock);
   const [imageError, setImageError] = useState(false);
-
-  // ========== GESTION DU STOCK ==========
-  const handleStockSubmit = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (newQuantity < 0) {
-      toast.error('La quantité ne peut pas être négative');
-      return;
-    }
-    
-    if (newQuantity === produit.quantiteStock) {
-      setShowStockAdjust(false);
-      return;
-    }
-    
-    onStockAdjust(produit.idProduit, parseInt(newQuantity));
-    setShowStockAdjust(false);
-  };
 
   // ========== GESTION DE L'ACTIVATION/DÉSACTIVATION ==========
   const handleToggleClick = (e) => {
@@ -57,43 +34,43 @@ const ProduitCard = ({
   };
 
   // ========== GESTION DE L'ÉDITION ==========
+
 const handleEditClick = (e) => {
-  
   e.preventDefault();
   e.stopPropagation();
   
-  // Vérifier que produit est valide
+  console.log('🟢 ===== CLIC SUR MODIFIER =====');
+  console.log('🟢 Produit reçu:', produit);
+  console.log('🟢 produit.id:', produit.id);
+  console.log('🟢 produit.idProduit:', produit.idProduit);
+  console.log('🟢 produit.idProduit:', produit.idProduit);
+  
   if (!produit) {
-    console.error('🟢 ERREUR: produit est null!');
+    console.error('❌ Erreur: produit est null!');
     return;
   }
   
-  if (!produit.id) {
-    console.error('🟢 ERREUR: produit.id est manquant!');
+  // ✅ Utiliser idProduit au lieu de id
+  const productId = produit.idProduit || produit.id;
+  
+  if (!productId) {
+    console.error('❌ Erreur: produit.id est manquant!');
     console.log('🟢 produit complet:', JSON.stringify(produit));
     return;
   }
   
+  console.log('🟢 ID produit utilisé:', productId);
   onEdit(produit);
 };
-
-  // ========== GESTION DE L'AJUSTEMENT ==========
-  const handleAdjustClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setShowStockAdjust(true);
-  };
 
   // ========== GESTION DE L'IMAGE ==========
   const getImageUrl = () => {
     if (!produit.imageUrl) return null;
     
-    // Si l'URL commence par http, c'est une URL absolue
     if (produit.imageUrl.startsWith('http')) {
       return produit.imageUrl;
     }
     
-    // c'est un chemin relatif
     let cleanPath = produit.imageUrl.replace(/^\/+|\/+$/g, '');
     return `http://localhost:8081/${cleanPath}`;
   };
@@ -115,6 +92,14 @@ const handleEditClick = (e) => {
 
   const imageUrl = getImageUrl();
   const hasValidImage = imageUrl && !imageError;
+
+  // Dans ProduitCard.jsx, avant le return
+console.log('🎴 ProduitCard reçu:', {
+  libelle: produit.libelle,
+  categorieNom: produit.categorieNom,
+  displayCategorie: produit.displayCategorie,
+  categorie: produit.categorie
+});
 
   return (
     <div className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 relative h-full flex flex-col ${
@@ -184,8 +169,11 @@ const handleEditClick = (e) => {
           
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900 truncate text-base">{produit.libelle}</h3>
-            <p className="text-xs text-gray-600 truncate">{produit.categorieNom || produit.displayCategorie || 'Sans catégorie'}</p>
-          </div>
+ <p className="text-xs text-gray-600 truncate">
+    {/* Maintenant produit.categorieNom est toujours bien rempli */}
+    {produit.categorieNom || 'Sans catégorie'}
+  </p>
+         </div>
         </div>
 
         {/* ========== INFORMATIONS PRIX ========== */}
@@ -222,63 +210,14 @@ const handleEditClick = (e) => {
           </div>
         </div>
 
-        {/* ========== ESPACE RÉSERVÉ POUR LA REMISE ========== */}
-        <div className="min-h-[52px] mb-3">
-          {produit.remise > 0 ? (
-            <div className="p-2 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-xs text-green-700">Remise temporaire</p>
-              <p className="text-sm font-semibold text-green-800">{produit.remise}%</p>
-            </div>
-          ) : null}
-        </div>
+        {/* ========== REMISE ========== */}
+        {produit.remise > 0 && (
+          <div className="p-2 bg-green-50 rounded-lg border border-green-200 mb-3">
+            <p className="text-xs text-green-700">Remise temporaire</p>
+            <p className="text-sm font-semibold text-green-800">{produit.remise}%</p>
+          </div>
+        )}
 
-        {/* ========== ACTIONS STOCK ========== */}
-        <div className="pt-1 border-t border-gray-200 mt-auto">
-          {showStockAdjust ? (
-            <form onSubmit={handleStockSubmit} className="flex gap-1.5">
-              <input
-                type="number"
-                value={newQuantity}
-                onChange={(e) => setNewQuantity(e.target.value)}
-                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                min="0"
-                step="1"
-                placeholder="Qté"
-                autoFocus
-              />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors whitespace-nowrap"
-              >
-                OK
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowStockAdjust(false);
-                  setNewQuantity(produit.quantiteStock);
-                }}
-                className="px-3 py-1.5 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors whitespace-nowrap"
-              >
-                Annuler
-              </button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={handleAdjustClick}
-              disabled={!produit.active}
-              className={`w-full py-1.5 rounded-lg transition-colors text-sm font-medium ${
-                produit.active 
-                  ? 'bg-orange-50 text-orange-800 hover:bg-orange-100 cursor-pointer' 
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-              title={produit.active ? "Modifier le stock" : "Produit inactif - modification impossible"}
-            >
-              Modifier le stock
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

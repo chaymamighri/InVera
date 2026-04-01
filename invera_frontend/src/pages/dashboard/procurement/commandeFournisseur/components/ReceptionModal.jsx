@@ -1,6 +1,6 @@
-// components/ReceptionModal.jsx - Version avec confirmation d'activation
+// ReceptionModal.jsx - Version avec messages d'erreur sous les champs
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -13,32 +13,40 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   const [quantitesRecues, setQuantitesRecues] = useState({});
   const [notes, setNotes] = useState('');
   const [numeroBL, setNumeroBL] = useState('');
-  
-  // États pour la confirmation
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [produitsAReactiver, setProduitsAReactiver] = useState({});
-  const [pendingSubmission, setPendingSubmission] = useState(null);
+  
+  // ✅ États pour les erreurs
+  const [errors, setErrors] = useState({
+    numeroBL: '',
+    quantiteZero: '',
+    quantitesDepassees: {}
+  });
 
   // Initialiser avec les quantités commandées
   useEffect(() => {
     if (commande?.lignesCommande) {
-      const initial = {};
-      const reactiverInitial = {};
+      const initialQuantites = {};
+      const initialReactiver = {};
       
       commande.lignesCommande.forEach(ligne => {
         const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-        initial[ligneId] = ligne.quantite;
+        initialQuantites[ligneId] = ligne.quantite;
         
-        // ✅ Par défaut, on propose de réactiver les produits inactifs
         if (ligne.estInactif) {
-          reactiverInitial[ligneId] = true;
+          initialReactiver[ligneId] = true;
         }
       });
       
-      setQuantitesRecues(initial);
-      setProduitsAReactiver(reactiverInitial);
+      setQuantitesRecues(initialQuantites);
+      setProduitsAReactiver(initialReactiver);
       setNotes('');
       setNumeroBL('');
+      // ✅ Réinitialiser les erreurs
+      setErrors({
+        numeroBL: '',
+        quantiteZero: '',
+        quantitesDepassees: {}
+      });
     }
   }, [commande]);
 
@@ -50,15 +58,57 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       (l.idLigneCommandeFournisseur || l.id) === ligneId
     );
     
+    // ✅ Vérifier que la quantité ne dépasse pas la commande
     if (quantite > ligne.quantite) {
-      alert(`La quantité reçue ne peut pas dépasser la quantité commandée (${ligne.quantite})`);
+      setErrors(prev => ({
+        ...prev,
+        quantitesDepassees: {
+          ...prev.quantitesDepassees,
+          [ligneId]: `La quantité ne peut pas dépasser ${ligne.quantite}`
+        }
+      }));
       return;
+    } else {
+      setErrors(prev => ({
+        ...prev,
+        quantitesDepassees: {
+          ...prev.quantitesDepassees,
+          [ligneId]: ''
+        }
+      }));
     }
     
     setQuantitesRecues(prev => ({
       ...prev,
       [ligneId]: quantite
     }));
+    
+    // ✅ Vérifier si au moins un produit est reçu
+    const aAuMoinsUnProduitRecu = Object.values({
+      ...quantitesRecues,
+      [ligneId]: quantite
+    }).some(q => q > 0);
+    
+    if (!aAuMoinsUnProduitRecu) {
+      setErrors(prev => ({
+        ...prev,
+        quantiteZero: 'Veuillez saisir au moins un produit reçu (quantité > 0)'
+      }));
+    } else {
+      setErrors(prev => ({
+        ...prev,
+        quantiteZero: ''
+      }));
+    }
+  };
+
+  const handleNumeroBLChange = (value) => {
+    setNumeroBL(value);
+    if (!value.trim()) {
+      setErrors(prev => ({ ...prev, numeroBL: 'Le numéro de bon de livraison est obligatoire' }));
+    } else {
+      setErrors(prev => ({ ...prev, numeroBL: '' }));
+    }
   };
 
   const handleReactiverChange = (ligneId, checked) => {
@@ -78,8 +128,9 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       const qteRecue = quantitesRecues[ligneId] || 0;
       const prixUnitaire = ligne.prixUnitaire || 0;
       
+      const tauxTVA = ligne.tauxTVA || 20;
       const sousTotalHT = qteRecue * prixUnitaire;
-      const montantTVA = sousTotalHT * (commande.tauxTVA || 20) / 100;
+      const montantTVA = sousTotalHT * tauxTVA / 100;
       const sousTotalTTC = sousTotalHT + montantTVA;
       
       totalHT += sousTotalHT;
@@ -90,74 +141,61 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     return { totalHT, totalTVA, totalTTC };
   };
 
-  // ✅ Vérifier s'il y a des produits inactifs avec quantité > 0
-  const verifierProduitsInactifs = () => {
-    const produitsInactifsAvecQté = commande.lignesCommande.filter(ligne => {
-      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
-      const qteRecue = quantitesRecues[ligneId] || 0;
-      return ligne.estInactif && qteRecue > 0;
-    });
+  // ✅ Vérifier si au moins un produit a une quantité > 0
+  const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some(q => q > 0);
 
-    return produitsInactifsAvecQté;
-  };
-
-  const handleSubmitClick = () => {
-    // Validations de base
-    const aAuMoinsUnProduit = Object.values(quantitesRecues).some(q => q > 0);
-    if (!aAuMoinsUnProduit) {
-      alert('Veuillez saisir au moins un produit reçu');
-      return;
-    }
-
-    if (!numeroBL.trim()) {
-      alert('Veuillez saisir le numéro de bon de livraison');
-      return;
-    }
-
-    const produitsInactifs = verifierProduitsInactifs();
-
-    // ✅ S'il y a des produits inactifs, afficher la confirmation
-    if (produitsInactifs.length > 0) {
-      setPendingSubmission({
-        quantitesRecues,
-        numeroBL,
-        notes: notes.trim() || null,
-        dateReception: new Date().toISOString()
-      });
-      setShowConfirmDialog(true);
-    } else {
-      // Pas de produits inactifs, soumettre directement
-      onConfirm({
-        quantitesRecues,
-        numeroBL,
-        notes: notes.trim() || null,
-        dateReception: new Date().toISOString()
-      });
-    }
-  };
-
-  const handleConfirmWithActivation = () => {
-    // ✅ Ajouter les produits à réactiver dans les données
-    const dataToSend = {
-      ...pendingSubmission,
-      produitsAReactiver // On envoie la liste des produits à réactiver
+  const handleSubmit = () => {
+    let hasError = false;
+    const newErrors = {
+      numeroBL: '',
+      quantiteZero: '',
+      quantitesDepassees: {}
     };
     
-    onConfirm(dataToSend);
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
-  };
+    // ✅ Vérification 1 : Numéro BL obligatoire
+    if (!numeroBL.trim()) {
+      newErrors.numeroBL = 'Le numéro de bon de livraison est obligatoire';
+      hasError = true;
+    }
+    
+    // ✅ Vérification 2 : Au moins un produit reçu
+    if (!aAuMoinsUnProduitRecu) {
+      newErrors.quantiteZero = 'Veuillez saisir au moins un produit reçu (quantité > 0)';
+      hasError = true;
+    }
+    
+    // ✅ Vérification 3 : Quantités ne dépassent pas les commandes
+    commande.lignesCommande.forEach(ligne => {
+      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+      const qteRecue = quantitesRecues[ligneId] || 0;
+      if (qteRecue > ligne.quantite) {
+        newErrors.quantitesDepassees[ligneId] = `La quantité ne peut pas dépasser ${ligne.quantite}`;
+        hasError = true;
+      }
+    });
+    
+    if (hasError) {
+      setErrors(newErrors);
+      return;
+    }
 
-  const handleConfirmWithoutActivation = () => {
-    // ✅ Envoyer sans réactivation
-    onConfirm(pendingSubmission);
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
-  };
+    // ✅ Construire l'objet des produits à réactiver
+    const produitsAReactiverMap = {};
+    commande.lignesCommande.forEach(ligne => {
+      const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
+      const qteRecue = quantitesRecues[ligneId] || 0;
+      if (ligne.estInactif && qteRecue > 0 && produitsAReactiver[ligneId]) {
+        produitsAReactiverMap[ligneId] = true;
+      }
+    });
 
-  const handleCancelConfirm = () => {
-    setShowConfirmDialog(false);
-    setPendingSubmission(null);
+    onConfirm({
+      quantitesRecues,
+      numeroBL,
+      notes: notes.trim() || null,
+      dateReception: new Date().toISOString(),
+      produitsAReactiver: produitsAReactiverMap
+    });
   };
 
   const totauxRecus = calculerTotauxRecus();
@@ -165,8 +203,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
     return quantitesRecues[ligneId] === ligne.quantite;
   });
-
-  const produitsInactifs = verifierProduitsInactifs();
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -193,7 +229,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               <p className="text-sm text-gray-600">{commande.fournisseur?.email}</p>
             </div>
 
-            {/* Numéro BL */}
+            {/* Numéro BL avec message d'erreur sous le champ */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Numéro de bon de livraison <span className="text-red-500">*</span>
@@ -201,11 +237,19 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               <input
                 type="text"
                 value={numeroBL}
-                onChange={(e) => setNumeroBL(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                onChange={(e) => handleNumeroBLChange(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                  errors.numeroBL ? 'border-red-500 bg-red-50' : ''
+                }`}
                 placeholder="Ex: BL-2024-001"
                 required
               />
+              {errors.numeroBL && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-4 h-4" />
+                  {errors.numeroBL}
+                </p>
+              )}
             </div>
 
             {/* Tableau des produits */}
@@ -218,6 +262,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Prix unit.</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Reçu</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Écart</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Statut</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Activer</th>
                   </tr>
                 </thead>
@@ -226,14 +271,19 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
                     const qteRecue = quantitesRecues[ligneId] || 0;
                     const ecart = ligne.quantite - qteRecue;
+                    const estActif = !ligne.estInactif;
+                    const statutCouleur = estActif ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
+                    const statutTexte = estActif ? 'Actif' : 'Inactif';
+                    const estInactifEtRecu = ligne.estInactif && qteRecue > 0;
+                    const hasError = errors.quantitesDepassees[ligneId];
                     
                     return (
-                      <tr key={ligneId} className="hover:bg-gray-50">
+                      <tr key={ligneId} className={`hover:bg-gray-50 ${estInactifEtRecu ? 'bg-amber-50' : ''}`}>
                         <td className="px-4 py-3">
                           <div className="font-medium">{ligne.produitLibelle}</div>
                           <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
-                          {ligne.estInactif && (
-                            <span className="text-xs text-orange-600">⚠️ Produit inactif</span>
+                          {ligne.categorie && (
+                            <div className="text-xs text-gray-400">{ligne.categorie}</div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">{ligne.quantite}</td>
@@ -245,8 +295,13 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                             max={ligne.quantite}
                             value={qteRecue}
                             onChange={(e) => handleQuantityChange(ligneId, e.target.value)}
-                            className="w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500"
+                            className={`w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                              qteRecue === 0 ? 'border-red-300 bg-red-50' : ''
+                            } ${hasError ? 'border-red-500 bg-red-50' : ''}`}
                           />
+                          {hasError && (
+                            <p className="text-xs text-red-600 mt-1">{hasError}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {ecart !== 0 && (
@@ -256,13 +311,23 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {ligne.estInactif && qteRecue > 0 && (
-                            <input
-                              type="checkbox"
-                              checked={produitsAReactiver[ligneId] || false}
-                              onChange={(e) => handleReactiverChange(ligneId, e.target.checked)}
-                              className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                            />
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statutCouleur}`}>
+                            {statutTexte}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {estInactifEtRecu && (
+                            <label className="inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={produitsAReactiver[ligneId] || false}
+                                onChange={(e) => handleReactiverChange(ligneId, e.target.checked)}
+                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                              />
+                              <span className="ml-1 text-xs text-gray-500">
+                                {produitsAReactiver[ligneId] ? 'Oui' : 'Non'}
+                              </span>
+                            </label>
                           )}
                         </td>
                       </tr>
@@ -271,6 +336,14 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                 </tbody>
               </table>
             </div>
+
+            {/* ✅ Message d'erreur global pour quantité zéro */}
+            {errors.quantiteZero && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
+                <p className="text-sm text-red-600">{errors.quantiteZero}</p>
+              </div>
+            )}
 
             {/* Notes */}
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -296,7 +369,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                     <span className="font-medium">{formatPrice(totauxRecus.totalHT)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">TVA ({commande.tauxTVA || 20}%)</span>
+                    <span className="text-gray-600">Total TVA</span>
                     <span className="font-medium">{formatPrice(totauxRecus.totalTVA)}</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
@@ -324,66 +397,21 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               </button>
               <button
                 type="button"
-                onClick={handleSubmitClick}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                onClick={handleSubmit}
+                disabled={!aAuMoinsUnProduitRecu}
+                className={`px-6 py-2 rounded-lg flex items-center gap-2 ${
+                  aAuMoinsUnProduitRecu
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
+                }`}
               >
                 <CheckIcon className="w-4 h-4" />
-                Enregistrer la réception
+                Confirmer la réception
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      {/* ✅ Dialog de confirmation pour les produits inactifs */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-50" onClick={handleCancelConfirm} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-orange-100 p-2 rounded-full">
-                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Produits inactifs détectés
-                </h3>
-              </div>
-              
-              <p className="text-gray-600 mb-4">
-                Cette commande contient {produitsInactifs.length} produit(s) inactif(s) avec quantité reçue.
-                Que souhaitez-vous faire ?
-              </p>
-
-              <div className="bg-orange-50 p-3 rounded-lg mb-4">
-                <ul className="text-sm text-orange-800 space-y-1">
-                  {produitsInactifs.map(prod => (
-                    <li key={prod.id} className="flex items-center gap-2">
-                      <span>•</span>
-                      <span className="font-medium">{prod.produitLibelle}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={handleConfirmWithoutActivation}
-                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Garder inactifs
-                </button>
-                <button
-                  onClick={handleConfirmWithActivation}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Activer les produits
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

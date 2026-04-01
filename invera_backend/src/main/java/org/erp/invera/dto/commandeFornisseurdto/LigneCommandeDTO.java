@@ -15,7 +15,7 @@ public class LigneCommandeDTO {
 
     // Informations produit (en lecture seule)
     private String produitLibelle;
-    private String produitReference;
+    private String categorie;
 
     // Quantités et prix
     private Integer quantite;
@@ -23,10 +23,13 @@ public class LigneCommandeDTO {
 
     // Totaux calculés
     private BigDecimal sousTotalHT;
+    private BigDecimal tauxTVA;
     private BigDecimal montantTVA;
     private BigDecimal sousTotalTTC;
 
     // Suivi de réception
     private Integer quantiteRecue;
     private String notes;
+
+    private Boolean estInactif;
 }

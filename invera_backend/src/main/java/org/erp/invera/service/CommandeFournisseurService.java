@@ -3,14 +3,14 @@ package org.erp.invera.service;
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.commandeFornisseurdto.LigneCommandeDTO;
+import org.erp.invera.dto.commandeFornisseurdto.ReceptionDTO;
 import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.Produit;
-import org.erp.invera.repository.CommandeFournisseurRepository;
-import org.erp.invera.repository.FournisseurRepository;
-import org.erp.invera.repository.ProduitRepository;
+import org.erp.invera.model.stock.StockMovement;
+import org.erp.invera.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +18,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +32,9 @@ public class CommandeFournisseurService {
     private final CommandeFournisseurRepository commandeRepository;
     private final FournisseurRepository fournisseurRepository;
     private final ProduitRepository produitRepository;
+    private final LigneCommandeFournisseurRepository ligneRepository;
+    private final StockMovementRepository stockMovementRepository;
+
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 
@@ -131,6 +137,7 @@ public class CommandeFournisseurService {
     }
 
     public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto) {
+
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
@@ -138,10 +145,51 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes en brouillon peuvent être modifiées");
         }
 
+        // ✅ Update champs simples
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
 
+        // 🔥 MAP des lignes existantes
+        Map<Integer, LigneCommandeFournisseur> lignesExistantes = commande.getLignesCommande()
+                .stream()
+                .collect(Collectors.toMap(LigneCommandeFournisseur::getIdLigneCommandeFournisseur, l -> l));
+
+        List<LigneCommandeFournisseur> nouvellesLignes = new ArrayList<>();
+
+        for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
+
+            LigneCommandeFournisseur ligne;
+
+            // CAS 1 : update ligne existante
+            if (ligneDTO.getIdLigneCommandeFournisseur() != null &&
+                    lignesExistantes.containsKey(ligneDTO.getIdLigneCommandeFournisseur())) {
+                ligne = lignesExistantes.get(ligneDTO.getIdLigneCommandeFournisseur());
+            } else {
+                ligne = new LigneCommandeFournisseur();
+                ligne.setCommandeFournisseur(commande);
+            }
+
+            // Récupérer produit
+            Produit produit = produitRepository.findById(ligneDTO.getProduitId())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+
+            ligne.setProduit(produit);
+            ligne.setQuantite(ligneDTO.getQuantite());
+            ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
+
+            // 🔥 Calculer les totaux en fonction du taux de TVA de la catégorie du produit
+            BigDecimal tauxTVA = produit.getCategorie().getTauxTVA(); // taux par catégorie
+            ligne.calculerTotaux(tauxTVA);
+
+            nouvellesLignes.add(ligne);
+        }
+
+        // 🔥 orphanRemoval = true → supprime automatiquement les anciennes lignes non présentes
+        commande.getLignesCommande().clear();
+        commande.getLignesCommande().addAll(nouvellesLignes);
+
         CommandeFournisseur saved = commandeRepository.save(commande);
+
         return convertToDTO(saved);
     }
 
@@ -169,7 +217,7 @@ public class CommandeFournisseurService {
         return convertToDTO(commandeRepository.save(commande));
     }
 
-    public CommandeFournisseurDTO recevoirCommande(Integer id) {
+    public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
@@ -177,35 +225,108 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes envoyées peuvent être reçues");
         }
 
+        // Mettre à jour les informations de réception
+        commande.setNumeroBonLivraison(receptionData.getNumeroBL());
+        commande.setNotesReception(receptionData.getNotes());
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
 
+        // ✅ Récupérer les maps en sécurité
+        Map<Integer, Integer> quantitesRecues = receptionData.getQuantitesRecues() != null
+                ? receptionData.getQuantitesRecues() : new HashMap<>();
+        Map<Integer, Boolean> produitsAReactiver = receptionData.getProduitsAReactiver() != null
+                ? receptionData.getProduitsAReactiver() : new HashMap<>();
+
+        // ✅ Liste pour stocker les mouvements créés
+        List<StockMovement> mouvements = new ArrayList<>();
+        int totalProduitsReactives = 0;
+
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
-            ligne.setQuantiteRecue(ligne.getQuantite());
+            Integer ligneId = ligne.getIdLigneCommandeFournisseur();
+
+            // Récupérer la quantité reçue pour cette ligne
+            Integer quantiteRecue = quantitesRecues.get(ligneId);
+
+            // Si la ligne n'est pas dans la map ou quantité = 0, on passe
+            if (quantiteRecue == null || quantiteRecue <= 0) {
+                System.out.println("📦 Ligne " + ligneId + ": quantité reçue = 0 ou non spécifiée");
+                continue;
+            }
+
+            // ✅ Vérifier que la quantité reçue ne dépasse pas la quantité commandée
+            Integer quantiteCommandee = ligne.getQuantite();
+            if (quantiteCommandee != null && quantiteRecue > quantiteCommandee) {
+                System.err.println("⚠️ Ligne " + ligneId + ": quantité reçue (" + quantiteRecue +
+                        ") supérieure à la quantité commandée (" + quantiteCommandee + ")");
+                throw new RuntimeException("Quantité reçue supérieure à la quantité commandée");
+            }
+
+            // Enregistrer la quantité reçue
+            ligne.setQuantiteRecue(quantiteRecue);
 
             Produit produit = ligne.getProduit();
 
             if (produit != null) {
                 int stockAvant = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
-                int nouvelleQuantite = stockAvant + ligne.getQuantite();
+                int nouvelleQuantite = stockAvant + quantiteRecue;
                 produit.setQuantiteStock(nouvelleQuantite);
 
-                if (!Boolean.TRUE.equals(produit.getActive()) && nouvelleQuantite > 0) {
-                    produit.setActive(true);
+                // ✅ CRÉATION DU MOUVEMENT DE STOCK - ENTRÉE
+                StockMovement mouvement = new StockMovement();
+                mouvement.setProduit(produit);
+                mouvement.setTypeMouvement(StockMovement.MovementType.ENTREE);
+                mouvement.setQuantite(quantiteRecue);
+                mouvement.setStockAvant(stockAvant);
+                mouvement.setStockApres(nouvelleQuantite);
+                mouvement.setReference(commande.getNumeroCommande());
+                mouvement.setTypeDocument("COMMANDE_FOURNISSEUR");
+                mouvement.setIdDocument(Long.valueOf(commande.getIdCommandeFournisseur()));
+                mouvement.setCommentaire("Réception commande " + commande.getNumeroCommande() +
+                        " - BL: " + receptionData.getNumeroBL());
+                mouvement.setDateMouvement(LocalDateTime.now());
+                mouvements.add(mouvement);
 
-                    System.out.println("Produit réactivé: " + produit.getLibelle()
+                // ✅ Récupérer si le produit doit être réactivé (avec gestion null)
+                Boolean doitReactiver = produitsAReactiver.get(ligneId);
+                boolean reactiver = doitReactiver != null && doitReactiver;
+
+                // ✅ Vérifier si le produit est inactif et doit être réactivé
+                boolean estInactif = produit.getActive() == null || !produit.getActive();
+
+                if (estInactif && reactiver && quantiteRecue > 0) {
+                    produit.setActive(true);
+                    totalProduitsReactives++;
+                    System.out.println("✅ Produit réactivé: " + produit.getLibelle()
                             + " (ID: " + produit.getIdProduit()
                             + ") suite à réception commande " + commande.getNumeroCommande());
+                } else if (estInactif && quantiteRecue > 0 && !reactiver) {
+                    System.out.println("ℹ️ Produit inactif conservé: " + produit.getLibelle()
+                            + " (non réactivé)");
                 }
 
                 produitRepository.save(produit);
             } else {
-                System.err.println("Ligne " + ligne.getIdLigneCommandeFournisseur()
+                System.err.println("❌ Ligne " + ligne.getIdLigneCommandeFournisseur()
                         + " sans produit associé");
             }
+
+            ligneRepository.save(ligne);
+        }
+
+        // ✅ SAUVEGARDER TOUS LES MOUVEMENTS EN BATCH
+        if (!mouvements.isEmpty()) {
+            stockMovementRepository.saveAll(mouvements);
+            System.out.println("📊 " + mouvements.size() + " mouvement(s) de stock créé(s)");
         }
 
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
+
+        // ✅ Log récapitulatif détaillé
+        System.out.println("📦 Commande " + commande.getNumeroCommande() + " réceptionnée");
+        System.out.println("   - " + mouvements.size() + " produit(s) reçu(s)");
+        System.out.println("   - " + totalProduitsReactives + " produit(s) réactivé(s)");
+        System.out.println("   - BL: " + receptionData.getNumeroBL());
+
         return convertToDTO(savedCommande);
     }
 
@@ -233,9 +354,9 @@ public class CommandeFournisseurService {
         commande.setStatut(CommandeFournisseur.StatutCommande.ANNULEE);
 
         if (raison != null && !raison.isEmpty()) {
-            String notesActuelles = commande.getNotes();
+            String notesActuelles = commande.getNotesReception();
             String raisonAnnotation = "Annulation: " + raison;
-            commande.setNotes(notesActuelles != null
+            commande.setNotesReception(notesActuelles != null
                     ? notesActuelles + " | " + raisonAnnotation
                     : raisonAnnotation);
         }
@@ -287,9 +408,9 @@ public class CommandeFournisseurService {
     private String genererNumeroCommande() {
         LocalDateTime now = LocalDateTime.now();
         String anneeMois = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
-        Long count = commandeRepository.countByNumeroCommandeStartingWith("CMD-" + anneeMois);
+        Long count = commandeRepository.countByNumeroCommandeStartingWith("BC-" + anneeMois);
         int nextNum = count != null ? count.intValue() + 1 : 1;
-        return String.format("CMD-%s-%04d", anneeMois, nextNum);
+        return String.format("BC-%s-%04d", anneeMois, nextNum);
     }
 
     private CommandeFournisseurDTO convertToDTO(CommandeFournisseur commande) {
@@ -335,6 +456,26 @@ public class CommandeFournisseurService {
         dto.setSousTotalTTC(ligne.getSousTotalTTC());
         dto.setQuantiteRecue(ligne.getQuantiteRecue());
         dto.setNotes(ligne.getNotes());
+
+        // ✅ AJOUTER LA CATÉGORIE
+        if (ligne.getProduit().getCategorie() != null) {
+            dto.setCategorie(ligne.getProduit().getCategorie().getNomCategorie());
+        }
+
+        // ✅ AJOUTER LE STATUT D'INACTIVITÉ
+        // Récupérer le produit et vérifier s'il est actif
+        Produit produit = ligne.getProduit();
+        if (produit != null) {
+            // Selon comment vous stockez l'état du produit
+            // Option 1: si vous avez un champ 'active'
+            boolean estActif = produit.getActive() != null ? produit.getActive() : true;
+            dto.setEstInactif(!estActif);
+
+            // Option 2: si vous avez un champ 'estActif'
+            // dto.setEstInactif(!produit.getEstActif());
+        } else {
+            dto.setEstInactif(false);
+        }
 
         return dto;
     }

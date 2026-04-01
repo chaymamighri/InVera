@@ -1,5 +1,6 @@
 package org.erp.invera.model.Fournisseurs;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -65,10 +66,14 @@ public class CommandeFournisseur {
     @Column(nullable = false)
     private Boolean actif = true;
 
-    @Column(name = "notes", length = 1000)
-    private String notes;
+    @Column(name = "numero_bon_livraison")
+    private String numeroBonLivraison;
+
+    @Column(name = "notes_reception", columnDefinition = "TEXT")
+    private String notesReception;
 
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
 
     @CreationTimestamp
@@ -97,9 +102,6 @@ public class CommandeFournisseur {
             this.libelle = libelle;
         }
 
-        public String getLibelle() {
-            return libelle;
-        }
     }
 
     // ✅ METHODES UTILITAIRES

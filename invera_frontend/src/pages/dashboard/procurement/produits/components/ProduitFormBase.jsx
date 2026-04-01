@@ -24,7 +24,8 @@ const ProduitFormBase = ({
   handleSubmit,
   onClose,
   isEditMode,
-  title
+  title,
+  stockDisabled = false
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -97,41 +98,63 @@ const ProduitFormBase = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Catégorie <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.categorie?.idCategorie || ''}
-                onChange={handleCategorieChange}
-                className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              >
-                <option value="">Sélectionner une catégorie</option>
-                {categories.map(cat => (
-                  <option key={cat.idCategorie} value={cat.idCategorie}>{cat.libelle}</option>
-                ))}
-              </select>
-              {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
-            </div>
+           <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Catégorie <span className="text-red-500">*</span>
+  </label>
+  <select
+    value={formData.categorie?.idCategorie || ''}
+    onChange={handleCategorieChange}
+    className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+  >
+    <option value="">Sélectionner une catégorie</option>
+    {/* ✅ CORRECTION : Utiliser nomCategorie au lieu de libelle */}
+    {categories && categories.map(cat => (
+      <option key={cat.idCategorie} value={cat.idCategorie}>
+        {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
+      </option>
+    ))}
+  </select>
+  {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
+</div>
           </div>
 
-          {/* Gestion du stock */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">Gestion du stock</h3>
+         {/* Gestion du stock */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-gray-700">Gestion du stock</h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantité initiale</label>
-                <input
-                  type="number"
-                  name="quantiteStock"
-                  value={formData.quantiteStock}
-                  onChange={handleChange}
-                  min="0"
-                  step="1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Stock actuel
+      </label>
+      <input
+        type="number"
+        name="quantiteStock"
+        value={formData.quantiteStock}
+        onChange={handleChange}
+        disabled={stockDisabled}
+        min="0"
+        step="1"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          stockDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'
+        }`}
+      />
+
+    </div>
+    
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Seuil minimum</label>
+      <input
+        type="number"
+        name="seuilMinimum"
+        value={formData.seuilMinimum}
+        onChange={handleChange}
+        min="0"
+        step="1"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

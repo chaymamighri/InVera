@@ -1,5 +1,6 @@
 package org.erp.invera.controller;
 
+import org.erp.invera.dto.Produitdto.ProduitDTO;
 import org.erp.invera.model.Categorie;
 import org.erp.invera.model.Produit;
 import org.erp.invera.service.ProduitService;
@@ -17,6 +18,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/produits")
@@ -167,6 +169,28 @@ public class ProduitController {
         }
     }
 
+    @GetMapping("/actifs")
+    public ResponseEntity<Map<String, Object>> getActiveProducts() {
+        try {
+            List<Produit> produits = produitService.getProduitsActifs();
+
+            // ✅ Utiliser le DTO
+            List<ProduitDTO> produitsDTO = produits.stream()
+                    .map(ProduitDTO::fromEntity)
+                    .collect(Collectors.toList());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", produitsDTO);
+            response.put("total", produitsDTO.size());
+            response.put("message", produitsDTO.size() + " produits actifs trouvés");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     /**
      * Récupérer un produit par son ID
      */
@@ -215,8 +239,6 @@ public class ProduitController {
             if (remiseTemporaire != null) {
                 produit.setRemiseTemporaire(remiseTemporaire);
             }
-            // Si remiseTemporaire est null, on garde la valeur existante ou on la met à null
-            // (selon votre logique métier)
 
             // ✅ Mise à jour de la catégorie
             if (categorieId != null) {
@@ -315,9 +337,8 @@ public class ProduitController {
         }
     }
 
-
     /**
-     * Rechercher des produits
+     * Rechercher des produits et recupére les produits avec filter
      */
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> searchProduits(
@@ -329,10 +350,15 @@ public class ProduitController {
         try {
             List<Produit> produits = produitService.searchProduits(keyword, status, categorieId, actif);
 
+            // ✅ Convertir en DTO
+            List<ProduitDTO> produitsDTO = produits.stream()
+                    .map(ProduitDTO::fromEntity)
+                    .collect(Collectors.toList());
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("count", produits.size());
-            response.put("produits", produits);
+            response.put("count", produitsDTO.size());
+            response.put("produits", produitsDTO);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

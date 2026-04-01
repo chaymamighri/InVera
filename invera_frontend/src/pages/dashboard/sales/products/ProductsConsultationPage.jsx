@@ -49,73 +49,76 @@ const ProductsConsultationPage = () => {
   const [nouveauClient, setNouveauClient] = useState({
     nom: '',
     prenom: '',
-    typeClient: 'PARTICULIER', // Changé de PROFESSIONNEL à PARTICULIER pour correspondre au backend
+    typeClient: 'PARTICULIER', 
     telephone: '',
     adresse: ''
   });
 
-  // Fonction pour charger les produits depuis l'API - CORRIGÉE
-  const loadProducts = async (filters = {}) => {
-    setLoading(true);
-    setError(null);
+  // Fonction pour charger les produits depuis l'API 
+const loadProducts = async (filters = {}) => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    console.log('🔄 Chargement des produits...');
     
-    try {
-      console.log('🔄 Chargement des produits...');
-      
-      // Construire les paramètres de requête
-      const params = {
-        keyword: searchTerm || filters.keyword,
-        ...filters
-      };
-      
-      // Appeler l'API
-      const response = await productService.getAllProducts(params);
-      console.log('📥 Réponse reçue:', response);
-      
-      // Extraire les produits de la réponse
-      let produitsData = [];
-      
-      // Vérifier la structure de la réponse
-      if (response && response.data) {
-        if (Array.isArray(response.data)) {
-          produitsData = response.data;
-        } else if (response.data.produits) {
-          produitsData = response.data.produits;
-        }
-      } else if (response && response.produits) {
-        produitsData = response.produits;
-      } else if (Array.isArray(response)) {
-        produitsData = response;
-      } else if (response && response.data && response.data.data) {
-        produitsData = response.data.data;
+    // ✅ Construire les paramètres avec actif: true
+    const params = {
+      keyword: searchTerm || filters.keyword,
+      actif: true,  // ← AJOUTER CETTE LIGNE : ne charger que les produits actifs
+      ...filters
+    };
+    
+    // Appeler l'API avec le paramètre actif
+    const response = await productService.getAllProducts(params);
+    console.log('📥 Réponse reçue:', response);
+    
+    // Extraire les produits de la réponse
+    let produitsData = [];
+    
+    if (response && response.data) {
+      if (Array.isArray(response.data)) {
+        produitsData = response.data;
+      } else if (response.data.produits) {
+        produitsData = response.data.produits;
       }
-      
-      console.log('✅ Produits extraits:', produitsData);
-      setProducts(produitsData);
-      
-      // Extraire les catégories uniques depuis les données de l'API
-      const allCategories = [];
-      produitsData.forEach(p => {
-        if (p.categorie) {
-          if (typeof p.categorie === 'object') {
-            allCategories.push(p.categorie.nomCategorie);
-          } else {
-            allCategories.push(p.categorie);
-          }
-        }
-      });
-      
-      const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
-      setCategories(['Tous', ...uniqueCategories]);
-      
-    } catch (err) {
-      console.error('❌ Erreur lors du chargement des produits:', err);
-      setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
-      setProducts([]);
-    } finally {
-      setLoading(false);
+    } else if (response && response.produits) {
+      produitsData = response.produits;
+    } else if (Array.isArray(response)) {
+      produitsData = response;
+    } else if (response && response.data && response.data.data) {
+      produitsData = response.data.data;
     }
-  };
+    
+    // ✅ Filtrer pour s'assurer que seuls les actifs sont affichés
+    const produitsActifs = produitsData.filter(p => p.active === true);
+    
+    console.log(`✅ ${produitsActifs.length} produits actifs chargés`);
+    setProducts(produitsActifs);
+    
+    // Extraire les catégories uniques
+    const allCategories = [];
+    produitsActifs.forEach(p => {
+      if (p.categorie) {
+        if (typeof p.categorie === 'object') {
+          allCategories.push(p.categorie.nomCategorie);
+        } else {
+          allCategories.push(p.categorie);
+        }
+      }
+    });
+    
+    const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
+    setCategories(['Tous', ...uniqueCategories]);
+    
+  } catch (err) {
+    console.error('❌ Erreur lors du chargement des produits:', err);
+    setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
+    setProducts([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fonction pour charger les clients depuis l'API - CORRIGÉE
   const loadClients = async () => {
@@ -550,10 +553,8 @@ const ProductsConsultationPage = () => {
   const filteredProducts = filterAndSortProducts(products, searchTerm, selectedCategory, sortField, sortDirection);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  // Rendu (inchangé - gardez votre design existant)
   return (
     <div className="space-y-6">
-      {/* ... votre JSX existant (inchangé) ... */}
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
@@ -565,8 +566,7 @@ const ProductsConsultationPage = () => {
             <div className="mt-4 md:mt-0">
               <button
                 onClick={handleCreateOrder}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-600 transition-all duration-200 flex items-center"
-              >
+               className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow-sm hover:bg-green-700 transition-all duration-200 flex items-center"              >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>

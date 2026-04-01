@@ -1,12 +1,14 @@
-// ProcurementDashboard.jsx - Version avec Réceptions
+// ProcurementDashboard.jsx - Version avec État de stock
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   CubeIcon,
   ShoppingCartIcon,
   ChartBarIcon,
-  TruckIcon, // ← NOUVEAU : pour les réceptions
-  ClipboardDocumentCheckIcon, // ← NOUVEAU : pour les réceptions
+  ArrowPathIcon,
+  ArchiveBoxIcon,
+  DocumentTextIcon,
+  Square3Stack3DIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -41,15 +43,19 @@ const ProcurementDashboard = () => {
   // ========== DÉTERMINER LA PAGE ACTIVE DEPUIS L'URL ==========
   const getActivePage = () => {
     const path = location.pathname;
+    if (path.includes('/produits')) return 'produits';
+     if (path.includes('/categories')) return 'categories'; 
     if (path.includes('/commandes')) return 'commandes';
-    if (path.includes('/receptions')) return 'receptions'; // ← NOUVEAU
     if (path.includes('/stats')) return 'stats';
-    return 'produits';
+    if (path.includes('/mouvements')) return 'mouvements';
+    if (path.includes('/etat_stock')) return 'etat_stock';
+    if (path.includes('/factures')) return 'factures';
+    return 'stats';
   };
 
   const activePage = getActivePage();
 
-  // ========== STRUCTURE DE NAVIGATION MISE À JOUR ==========
+  // ========== STRUCTURE DE NAVIGATION ==========
   const sections = [
     {
       title: 'TABLEAU DE BORD',
@@ -58,37 +64,59 @@ const ProcurementDashboard = () => {
       ]
     },
     {
-      title: 'GESTION DES PRODUITS',
+      title: 'GESTION ',
       items: [
         { id: 'produits', label: 'Catalogue produits', icon: CubeIcon },
+        { id: 'categories', label: 'Catégories produits', icon: Square3Stack3DIcon },
       ]
     },
     {
       title: 'APPROVISIONNEMENT',
       items: [
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
-        { id: 'receptions', label: 'Réceptions', icon: TruckIcon },
+      ]
+    },
+    {
+      title: 'STOCK',
+      items: [
+        { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
+        { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
+      ]
+    },
+    {
+      title: 'FACTURATION',
+      items: [
+        { id: 'factures', label: 'Factures', icon: DocumentTextIcon },
       ]
     },
   ];
 
-  // ========== NAVIGATION MISE À JOUR ==========
+  // ========== NAVIGATION AVEC URLs DIRECTES ==========
   const handleSetActivePage = (pageId) => {
     switch(pageId) {
-      case 'produits':
-        navigate('/dashboard/procurement/produits');
-        break;
-      case 'commandes':
-        navigate('/dashboard/procurement/commandes');
-        break;
-      case 'receptions': // ← NOUVEAU
-        navigate('/dashboard/procurement/receptions');
-        break;
       case 'stats':
         navigate('/dashboard/procurement/stats');
         break;
-      default:
+      case 'produits':
         navigate('/dashboard/procurement/produits');
+        break;
+        case 'categories':  
+      navigate('/dashboard/procurement/categories');
+      break;
+      case 'commandes':
+        navigate('/dashboard/procurement/commandes');
+        break;
+      case 'mouvements': 
+        navigate('/dashboard/procurement/mouvements');
+        break;
+      case 'etat_stock': 
+        navigate('/dashboard/procurement/etat_stock');
+        break;
+      case 'factures':
+        navigate('/dashboard/procurement/factures');
+        break;
+      default:
+        navigate('/dashboard/procurement/stats');
     }
   };
 
@@ -97,8 +125,11 @@ const ProcurementDashboard = () => {
     switch (activePage) {
       case 'stats': return 'Statistiques Achats';
       case 'produits': return 'Gestion des Produits';
+      case 'categories': return 'Gestion des Catégories';
       case 'commandes': return 'Bons de commande fournisseurs';
-      case 'receptions': return 'Réceptions de marchandises'; // ← NOUVEAU
+      case 'mouvements': return 'Mouvements de stock'; 
+      case 'etat_stock': return 'État de stock';
+      case 'factures': return 'Factures fournisseurs';  
       default: return 'Tableau de bord';
     }
   };
@@ -107,29 +138,32 @@ const ProcurementDashboard = () => {
     switch (activePage) {
       case 'stats': return 'Indicateurs de performance achats';
       case 'produits': return 'Gérez votre catalogue produits';
+      case 'categories': return 'Gérez les catégories de vos produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
-      case 'receptions': return 'Suivez et enregistrez les réceptions'; // ← NOUVEAU
+      case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
+      case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques';
+      case 'factures': return 'Gérez les factures des commandes réceptionnées';
       default: return '';
     }
   };
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar - identique mais avec le nouvel item */}
+      {/* Sidebar */}
       <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
         collapsed ? 'w-20' : 'w-64'
       }`}>
         
-        {/* En-tête sidebar (inchangé) */}
+        {/* En-tête sidebar - TEXTE PLUS PETIT */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             {!collapsed && (
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Gestion Achats
+                <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                  Tableau de Bord Gestion Achats et Stock
                 </h1>
-                <p className="text-xs text-gray-400 mt-1">
-                  Stocks, commandes et réceptions
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Stocks, Commandes et Facturation
                 </p>
               </div>
             )}
@@ -142,7 +176,7 @@ const ProcurementDashboard = () => {
           </div>
         </div>
 
-        {/* Navigation avec le nouvel item */}
+        {/* Navigation */}
         <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
           <ul className="space-y-1 flex-1 overflow-y-auto">
             {sections.map((section) => (
@@ -192,7 +226,7 @@ const ProcurementDashboard = () => {
             ))}
           </ul>
 
-          {/* Profil utilisateur (inchangé) */}
+          {/* Profil utilisateur */}
           <div className={`border-t pt-4 ${collapsed ? 'px-3' : 'px-4'} mt-auto`}>
             <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
               <div
@@ -236,14 +270,6 @@ const ProcurementDashboard = () => {
                   {getPageDescription()}
                 </p>
               </div>
-              
-              {/* Badge pour les réceptions en attente (optionnel) */}
-              {activePage === 'receptions' && (
-                <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg flex items-center gap-2">
-                  <ClipboardDocumentCheckIcon className="w-5 h-5" />
-                  <span className="font-medium">3 réceptions en attente</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
