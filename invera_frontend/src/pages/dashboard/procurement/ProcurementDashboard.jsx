@@ -8,6 +8,7 @@ import {
   ArrowPathIcon,
   ArchiveBoxIcon,
   DocumentTextIcon,
+  Square3Stack3DIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -43,6 +44,7 @@ const ProcurementDashboard = () => {
   const getActivePage = () => {
     const path = location.pathname;
     if (path.includes('/produits')) return 'produits';
+     if (path.includes('/categories')) return 'categories'; 
     if (path.includes('/commandes')) return 'commandes';
     if (path.includes('/stats')) return 'stats';
     if (path.includes('/mouvements')) return 'mouvements';
@@ -62,9 +64,10 @@ const ProcurementDashboard = () => {
       ]
     },
     {
-      title: 'GESTION DES PRODUITS',
+      title: 'GESTION ',
       items: [
         { id: 'produits', label: 'Catalogue produits', icon: CubeIcon },
+        { id: 'categories', label: 'Catégories produits', icon: Square3Stack3DIcon },
       ]
     },
     {
@@ -97,6 +100,9 @@ const ProcurementDashboard = () => {
       case 'produits':
         navigate('/dashboard/procurement/produits');
         break;
+        case 'categories':  
+      navigate('/dashboard/procurement/categories');
+      break;
       case 'commandes':
         navigate('/dashboard/procurement/commandes');
         break;
@@ -119,6 +125,7 @@ const ProcurementDashboard = () => {
     switch (activePage) {
       case 'stats': return 'Statistiques Achats';
       case 'produits': return 'Gestion des Produits';
+      case 'categories': return 'Gestion des Catégories';
       case 'commandes': return 'Bons de commande fournisseurs';
       case 'mouvements': return 'Mouvements de stock'; 
       case 'etat_stock': return 'État de stock';
@@ -131,6 +138,7 @@ const ProcurementDashboard = () => {
     switch (activePage) {
       case 'stats': return 'Indicateurs de performance achats';
       case 'produits': return 'Gérez votre catalogue produits';
+      case 'categories': return 'Gérez les catégories de vos produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
       case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
       case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques';
