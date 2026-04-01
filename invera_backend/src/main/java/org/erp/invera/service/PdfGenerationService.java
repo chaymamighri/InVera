@@ -156,7 +156,7 @@ public class PdfGenerationService {
             refTable.setMarginBottom(15);
 
             if (facture.getCommande() != null) {
-                Cell refLabelCell = new Cell().add(new Paragraph("N° Commande:")
+                Cell refLabelCell = new Cell().add(new Paragraph("N° Bon De Commande:")
                         .setFont(boldFont)
                         .setFontSize(9));
                 refLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
