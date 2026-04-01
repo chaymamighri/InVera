@@ -1,25 +1,26 @@
 // src/services/categorieService.js
 import api from './api';
+
 const categorieService = {
   /**
    * Récupérer toutes les catégories
-   * GET /api/categories/all
+   * GET /api/categories
    */
   getAllCategories: async () => {
     try {
       console.log('📤 Récupération des catégories...');
-      const response = await api.get('/categories/all');
+      const response = await api.get('/categories');
       
       console.log('📥 Réponse catégories:', response.data);
       
-      // Format: { success: true, count: number, categories: [] }
-      if (response.data?.success && Array.isArray(response.data?.categories)) {
-        return response.data.categories;
-      }
-      
-      // Fallback si le format est différent
+      // Le backend retourne directement un tableau de catégories
       if (Array.isArray(response.data)) {
         return response.data;
+      }
+      
+      // Format alternatif avec wrapper
+      if (response.data?.success && Array.isArray(response.data?.categories)) {
+        return response.data.categories;
       }
       
       return [];
@@ -27,10 +28,9 @@ const categorieService = {
     } catch (error) {
       console.error('❌ Erreur chargement catégories:', error);
       
-      // ✅ GESTION DES ERREURS 403 (non autorisé)
+      // Gestion des erreurs 403 (non autorisé)
       if (error.response?.status === 403) {
         console.warn('⚠️ Accès non autorisé aux catégories - utilisation du fallback');
-        // Retourner un tableau vide au lieu de propager l'erreur
         return [];
       }
       
@@ -42,16 +42,12 @@ const categorieService = {
   /**
    * Récupérer une catégorie par ID
    * GET /api/categories/{id}
-   * Réponse: { success: true, categorie: {} }
    */
   getCategorieById: async (id) => {
     try {
       const response = await api.get(`/categories/${id}`);
       
-      if (response.data?.success && response.data?.categorie) {
-        return response.data.categorie;
-      }
-      
+      // Le backend retourne directement l'objet catégorie
       return response.data;
     } catch (error) {
       console.error(`❌ Erreur chargement catégorie ${id}:`, error);
@@ -60,13 +56,12 @@ const categorieService = {
   },
 
   /**
-   * Créer une nouvelle catégorie (admin seulement)
-   * POST /api/categories/add
-   * Réponse: { success: true, message: string, categorie: {} }
+   * Créer une nouvelle catégorie
+   * POST /api/categories
    */
   createCategorie: async (categorieData) => {
     try {
-      const response = await api.post('/categories/add', categorieData);
+      const response = await api.post('/categories', categorieData);
       return response.data;
     } catch (error) {
       console.error('❌ Erreur création catégorie:', error);
@@ -75,13 +70,26 @@ const categorieService = {
   },
 
   /**
-   * Mettre à jour une catégorie (admin seulement)
-   * PUT /api/categories/update/{id}
-   * Réponse: { success: true, message: string, categorie: {} }
+   * Supprimer une catégorie
+   * DELETE /api/categories/{id}
+   */
+  deleteCategorie: async (id) => {
+    try {
+      const response = await api.delete(`/categories/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erreur suppression catégorie ${id}:`, error);
+      throw error;
+    }
+  },
+  
+    /**
+   * Mettre à jour une catégorie (NOUVEAU)
+   * PUT /api/categories/{id}
    */
   updateCategorie: async (id, categorieData) => {
     try {
-      const response = await api.put(`/categories/update/${id}`, categorieData);
+      const response = await api.put(`/categories/${id}`, categorieData);
       return response.data;
     } catch (error) {
       console.error(`❌ Erreur mise à jour catégorie ${id}:`, error);
@@ -90,29 +98,21 @@ const categorieService = {
   },
 
   /**
-   * Supprimer une catégorie (admin seulement)
-   * DELETE /api/categories/delete/{id}
-   * Réponse: { success: true, message: string }
-   */
-  deleteCategorie: async (id) => {
-    try {
-      const response = await api.delete(`/categories/delete/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur suppression catégorie ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
    * Rechercher des catégories par nom
    * GET /api/categories/search?keyword=
-   * Réponse: { success: true, count: number, categories: [] }
    */
   searchCategories: async (keyword) => {
     try {
-      const response = await api.get(`/categories/search?keyword=${encodeURIComponent(keyword)}`);
+      const response = await api.get(`/categories/search`, {
+        params: { keyword: keyword || '' }
+      });
       
+      // Le backend retourne directement un tableau de catégories
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // Format alternatif avec wrapper
       if (response.data?.success && Array.isArray(response.data?.categories)) {
         return response.data.categories;
       }

@@ -30,6 +30,7 @@ import CommandesFournisseurs from './pages/dashboard/procurement/commandeFournis
 import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/StockMovementsPage';
 import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 import FactureFournisseur from './pages/dashboard/procurement/factures/FactureFournisseur';
+import GestionCategories from './pages/dashboard/procurement/categories/GestionCategories';
 
 
 const ROLE_MAPPING = {
@@ -242,6 +243,7 @@ function App() {
   <Route index element={<Navigate to="StatsPage" replace />} />
    {/*<Route path="stats" element={<StatsPage />} />*/}
   <Route path="produits" element={<Produits />} />
+  <Route path="categories" element= {<GestionCategories />} />
   <Route path="commandes" element={<CommandesFournisseurs />} />
    <Route path="mouvements" element={<StockMovementsPage />} />
     <Route path="etat_stock" element={<EtatStock />} />
