@@ -15,8 +15,6 @@ import java.util.List;
 public class StockMovementService {
 
     private final StockMovementRepository stockMovementRepository;
-    private final StockEtatService stockEtatService;
-
 
     /**
      * Récupère les mouvements avec filtres optionnels

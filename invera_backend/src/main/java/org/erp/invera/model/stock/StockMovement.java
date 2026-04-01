@@ -38,9 +38,11 @@ public class StockMovement {
     @Column(name = "reference", length = 50)
     private String reference;
 
+    // est ce que c'est un commande fournisseur ( entréé ) ou commande client ( sortie )
     @Column(name = "type_document", length = 50)
     private String typeDocument;
 
+    // refrence vers la commande fournisseur spécifier a cet mouvement
     @Column(name = "id_document")
     private Long idDocument;
 
