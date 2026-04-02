@@ -278,9 +278,7 @@ public class CommandeFournisseurService {
                 mouvement.setQuantite(quantiteRecue);
                 mouvement.setStockAvant(stockAvant);
                 mouvement.setStockApres(nouvelleQuantite);
-                mouvement.setReference(commande.getNumeroCommande());
                 mouvement.setTypeDocument("COMMANDE_FOURNISSEUR");
-                mouvement.setIdDocument(Long.valueOf(commande.getIdCommandeFournisseur()));
                 mouvement.setCommentaire("Réception commande " + commande.getNumeroCommande() +
                         " - BL: " + receptionData.getNumeroBL());
                 mouvement.setDateMouvement(LocalDateTime.now());
