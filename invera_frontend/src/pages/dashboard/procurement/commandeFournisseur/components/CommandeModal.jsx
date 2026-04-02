@@ -267,7 +267,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           {/* En-tête */}
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
             <h3 className="text-lg font-semibold text-white">
-              {commande ? 'Modifier la commande' : 'Nouvelle commande fournisseur'}
+              {commande ? 'Modifier la Bon De Commande' : 'Nouvelle Bon De Commande'}
             </h3>
             <button onClick={onClose} className="text-white hover:text-gray-200">
               <XMarkIcon className="w-6 h-6" />

@@ -214,7 +214,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-green-600 to-green-700 sticky top-0 z-10">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <CheckIcon className="w-5 h-5" />
-              Réception de commande - {commande.numeroCommande}
+              Réception de Bon De Commande - {commande.numeroCommande}
             </h3>
             <button onClick={onClose} className="text-white hover:text-gray-200">
               <XMarkIcon className="w-6 h-6" />
