@@ -410,9 +410,7 @@ public class CommandeClientService {
                 mouvement.setQuantite(ligne.getQuantite());
                 mouvement.setStockAvant(stockAvant);
                 mouvement.setStockApres(nouvelleQuantite);
-                mouvement.setReference(commande.getReferenceCommandeClient());
                 mouvement.setTypeDocument("COMMANDE_CLIENT");
-                mouvement.setIdDocument(Long.valueOf(commande.getIdCommandeClient()));
                 mouvement.setCommentaire("Vente - Commande client " + commande.getReferenceCommandeClient());
                 mouvement.setDateMouvement(LocalDateTime.now());
 

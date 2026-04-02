@@ -170,7 +170,7 @@ public class PdfGenerationService {
                 refTable.addCell(refValueCell);
 
                 if (facture.getCommande().getDateCommande() != null) {
-                    Cell dateLabelCell = new Cell().add(new Paragraph("Date commande:")
+                    Cell dateLabelCell = new Cell().add(new Paragraph("Date Bon De commande:")
                             .setFont(boldFont)
                             .setFontSize(9));
                     dateLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));

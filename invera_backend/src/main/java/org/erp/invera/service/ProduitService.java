@@ -2,11 +2,14 @@ package org.erp.invera.service;
 
 import org.erp.invera.model.Categorie;
 import org.erp.invera.model.Produit;
+import org.erp.invera.model.stock.StockMovement;
 import org.erp.invera.repository.CategorieRepository;
 import org.erp.invera.repository.ProduitRepository;
+import org.erp.invera.repository.StockMovementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,13 +20,17 @@ public class ProduitService {
     private final ProduitRepository produitRepository;
     private final CategorieRepository categorieRepository;
     private final StockNotificationService stockNotificationService;
+    private final StockMovementRepository stockMovementRepository;
+
 
     public ProduitService(ProduitRepository produitRepository,
                           CategorieRepository categorieRepository,
-                          StockNotificationService stockNotificationService) {
+                          StockNotificationService stockNotificationService,
+                          StockMovementRepository stockMovementRepository) {
         this.produitRepository = produitRepository;
         this.categorieRepository = categorieRepository;
         this.stockNotificationService = stockNotificationService;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     public Produit createProduit(Produit produit) {
@@ -36,7 +43,23 @@ public class ProduitService {
         }
 
         updateStockStatus(produit);
-        return produitRepository.save(produit);
+        Produit savedProduit = produitRepository.save(produit);
+
+        // ✅ Créer le mouvement de stock initial
+        if (savedProduit.getQuantiteStock() != null && savedProduit.getQuantiteStock() > 0) {
+            StockMovement movement = new StockMovement();
+            movement.setProduit(savedProduit);
+            movement.setTypeMouvement(StockMovement.MovementType.INIT_STOCK);
+            movement.setQuantite(savedProduit.getQuantiteStock());
+            movement.setStockAvant(0);
+            movement.setStockApres(savedProduit.getQuantiteStock());
+            movement.setTypeDocument("init_stock");
+            movement.setCommentaire("Stock initial à la création du produit");
+            movement.setDateMouvement(LocalDateTime.now());
+            stockMovementRepository.save(movement);
+        }
+
+        return savedProduit;
     }
 
     public List<Produit> getAllProduits() {

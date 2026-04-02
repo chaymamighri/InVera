@@ -69,9 +69,7 @@ public class StockMovementController {
         dto.setQuantite(movement.getQuantite());
         dto.setStockAvant(movement.getStockAvant());
         dto.setStockApres(movement.getStockApres());
-        dto.setReference(movement.getReference());
         dto.setTypeDocument(movement.getTypeDocument());
-        dto.setIdDocument(movement.getIdDocument());
         dto.setCommentaire(movement.getCommentaire());
         dto.setDateMouvement(movement.getDateMouvement());
         return dto;
