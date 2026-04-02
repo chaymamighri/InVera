@@ -73,6 +73,7 @@ const ProcurementDashboard = () => {
     {
       title: 'APPROVISIONNEMENT',
       items: [
+       // { id: 'demandes', label: 'Demandes d\'approvisionnement', icon: DocumentPlusIcon }, 
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
       ]
     },

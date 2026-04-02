@@ -217,7 +217,7 @@ const TableauCommandes = ({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                N° Commande
+                N° Bon De Commande
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Fournisseur
@@ -227,7 +227,7 @@ const TableauCommandes = ({
                 onClick={toggleSortDirection}
               >
                 <div className="flex items-center gap-1">
-                  Date commande
+                  Date 
                   <span className="ml-1">
                     {getSortIcon()}
                   </span>
