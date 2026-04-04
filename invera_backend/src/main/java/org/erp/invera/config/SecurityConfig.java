@@ -79,7 +79,9 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+
                 .authorizeHttpRequests(auth -> auth
+
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         .requestMatchers(
@@ -116,6 +118,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/procurement/stats/**").hasRole("RESPONSABLE_ACHAT")
+
 
                         .anyRequest().authenticated()
                 )
