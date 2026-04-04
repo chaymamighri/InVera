@@ -1,4 +1,4 @@
-// components/commandeModal.jsx - Version avec style différencié pour produits inactifs
+// components/commandeModal.jsx - Version corrigée avec fournisseurs actifs uniquement
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
@@ -20,7 +20,12 @@ const getTauxTVA = (produit) => {
 };
 
 const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
-  const { fournisseurs, fetchAllFournisseurs, loading: loadingFournisseurs } = useFournisseur();
+  const { 
+    fournisseurs, 
+    activeFournisseurs,  // Utiliser activeFournisseurs au lieu de fournisseurs
+    loading: loadingFournisseurs,
+    fetchActiveFournisseurs
+  } = useFournisseur();
   
   const { 
     allProducts: produitsBruts,
@@ -69,11 +74,11 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     return produitsGroupes.actifs;
   }, [produits, produitsGroupes, afficherInactifs]);
 
-  // Chargement initial
+  // Chargement initial - Utiliser fetchActiveFournisseurs
   useEffect(() => {
-    fetchAllFournisseurs();
+    fetchActiveFournisseurs(); 
     loadProducts(0, {});
-  }, [fetchAllFournisseurs, loadProducts]);
+  }, [fetchActiveFournisseurs, loadProducts]);
 
   // Initialisation du formulaire à l'ouverture
   useEffect(() => {
@@ -113,7 +118,8 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
 
   const handleFournisseurChange = (e) => {
     const fournisseurId = parseInt(e.target.value);
-    const selected = fournisseurs.find(f => f.idFournisseur === fournisseurId);
+    // Utiliser activeFournisseurs au lieu de fournisseurs
+    const selected = activeFournisseurs.find(f => f.idFournisseur === fournisseurId);
     setFormData(prev => ({
       ...prev,
       fournisseur: selected || { idFournisseur: '', nomFournisseur: '', email: '' },
@@ -284,22 +290,28 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
-              {/* Section Fournisseur */}
+              {/* Section Fournisseur - MODIFIÉE pour n'afficher que les actifs */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">1. Fournisseur</h4>
-                <select
-                  value={formData.fournisseur.idFournisseur || ''}
-                  onChange={handleFournisseurChange}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Sélectionner un fournisseur...</option>
-                  {fournisseurs.map(f => (
-                    <option key={`fournisseur-${f.idFournisseur}`} value={f.idFournisseur}>
-                      {f.nomFournisseur} - {f.email}
-                    </option>
-                  ))}
-                </select>
+                {!activeFournisseurs || activeFournisseurs.length === 0 ? (
+                  <div className="text-center py-4 text-yellow-600 bg-yellow-50 rounded-lg">
+                    ⚠️ Aucun fournisseur actif disponible
+                  </div>
+                ) : (
+                  <select
+                    value={formData.fournisseur.idFournisseur || ''}
+                    onChange={handleFournisseurChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Sélectionner un fournisseur...</option>
+                    {activeFournisseurs.map(f => (
+                      <option key={`fournisseur-${f.idFournisseur}`} value={f.idFournisseur}>
+                        {f.nomFournisseur} - {f.email}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </section>
 
               {/* Section Livraison */}
@@ -328,7 +340,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 />
               </section>
 
-              {/* Section Produits */}
+              {/* Section Produits - reste identique */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-medium text-gray-700">3. Produits</h4>
@@ -387,13 +399,14 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       )}
                     </select>
 
-                    {/* Carte info produit sélectionné avec style orange pour inactif */}
+                    {/* Reste du code identique... */}
                     {produitSelectionne && (
                       <div className={`p-4 rounded-lg border ${
                         !produitSelectionne.estActif 
                           ? 'bg-orange-50 border-orange-300 shadow-sm' 
                           : 'bg-green-50 border-green-200'
                       }`}>
+                        {/* ... contenu identique ... */}
                         <div className="flex items-start gap-3">
                           {!produitSelectionne.estActif ? (
                             <ExclamationTriangleIcon className="w-5 h-5 text-orange-500 mt-0.5" />
@@ -470,7 +483,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       </div>
                     )}
 
-                    {/* Bouton ajout avec style différencié pour produit inactif */}
+                    {/* Bouton ajout */}
                     <button
                       type="button"
                       onClick={ajouterProduit}
@@ -489,7 +502,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 )}
 
-                {/* Tableau des lignes avec style orange pour les inactifs */}
+                {/* Tableau des lignes - reste identique */}
                 {lignes.length > 0 ? (
                   <div className="mt-6 border rounded-lg overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">

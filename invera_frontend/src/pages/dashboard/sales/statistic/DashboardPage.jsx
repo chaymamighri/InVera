@@ -10,6 +10,7 @@ import StatusDonutChart from './components/StatusDonutChart';
 import OrdersEvolutionChart from './components/OrdersEvolutionChart';
 import ClientTypeChart from './components/ClientTypeChart';
 import SkeletonLoader from './components/SkeletonLoader';
+import DateRangeSelector from './components/DateRangeSelector';
 
 const DashboardPage = () => {
   const {
@@ -19,16 +20,33 @@ const DashboardPage = () => {
     applyCustomRange,
     refresh,
     formatCurrency,
+    refreshing,
+    dateRange,
+    filterActive: hookFilterActive
   } = useDashboardData();
 
-  const handleApplyCustom = (start, end) => {
-  applyDateRange(start, end);
-};
-
-  // État local pour les dates
+  // État local pour les dates (synchronisé avec le hook)
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [filterActive, setFilterActive] = useState(false); 
+  const [filterActive, setFilterActive] = useState(false);
+
+  // ✅ Synchroniser les dates avec le hook
+  useEffect(() => {
+    if (dateRange?.startDate && dateRange?.endDate) {
+      setStartDate(dateRange.startDate);
+      setEndDate(dateRange.endDate);
+      setFilterActive(true);
+    } else {
+      setStartDate('');
+      setEndDate('');
+      setFilterActive(false);
+    }
+  }, [dateRange]);
+
+  // ✅ Mettre à jour filterActive quand le hook change
+  useEffect(() => {
+    setFilterActive(hookFilterActive);
+  }, [hookFilterActive]);
 
   // ✅ VALEURS PAR DÉFAUT VIDES
   const defaultKPI = {
@@ -40,66 +58,6 @@ const DashboardPage = () => {
   const defaultCharts = {
     evolutionCA: [],
     topProduits: []
-  };
-
-  // Fonction pour réinitialiser (vider les champs)
-  const handleReset = () => {
-    setStartDate('');
-    setEndDate('');
-    setFilterActive(false);
-    applyCustomRange('', ''); 
-  };
-
-  // Fonction pour effacer un champ spécifique
-  const handleClearField = (type) => {
-    if (type === 'start') {
-      setStartDate('');
-      if (endDate) {
-        applyCustomRange('', endDate);
-      } else {
-        setFilterActive(false);
-        applyCustomRange('', '');
-      }
-    } else {
-      setEndDate('');
-      if (startDate) {
-        applyCustomRange(startDate, '');
-      } else {
-        setFilterActive(false);
-        applyCustomRange('', '');
-      }
-    }
-  };
-
-  // Initialiser sans dates
-  useEffect(() => {
-    setStartDate('');
-    setEndDate('');
-    setFilterActive(false);
-  }, []);
-
-  const handleDateChange = (type, value) => {
-    setFilterActive(true);
-    
-    if (type === 'start') {
-      setStartDate(value);
-      if (endDate) {
-        if (value <= endDate) {
-          applyCustomRange(value, endDate);
-        }
-      } else {
-        applyCustomRange(value, '');
-      }
-    } else {
-      setEndDate(value);
-      if (startDate) {
-        if (value >= startDate) {
-          applyCustomRange(startDate, value);
-        }
-      } else {
-        applyCustomRange('', value);
-      }
-    }
   };
 
   // ============================================
@@ -155,8 +113,6 @@ const DashboardPage = () => {
   const kpi = data?.kpi || defaultKPI;
   const charts = data?.charts || defaultCharts;
 
-  
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -168,62 +124,13 @@ const DashboardPage = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">Période :</span>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <label className="block text-xs text-gray-500 mb-1">Date début</label>
-                <div className="relative">
-                  <input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={(e) => handleDateChange('start', e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
-                    placeholder="JJ/MM/AAAA"
-                  />
-                  {startDate && (
-                    <button
-                      onClick={() => handleClearField('start')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="relative">
-                <label className="block text-xs text-gray-500 mb-1">Date fin</label>
-                <div className="relative">
-                  <input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={(e) => handleDateChange('end', e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
-                    placeholder="JJ/MM/AAAA"
-                  />
-                  {endDate && (
-                    <button
-                      onClick={() => handleClearField('end')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Bouton Reset */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleReset}
-              className="px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-              title="Vider tous les filtres"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="text-sm font-medium">Reset</span>
-            </motion.button>
+            <DateRangeSelector 
+              onApplyCustom={applyCustomRange}
+              onRefresh={refresh}
+              refreshing={refreshing}
+              currentStartDate={startDate}
+              currentEndDate={endDate}
+            />
           </div>
         </div>
 
@@ -232,9 +139,9 @@ const DashboardPage = () => {
           <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
             <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
             Filtre actif : 
-            {startDate && <span>du {new Date(startDate).toLocaleDateString('fr-FR')}</span>}
-            {startDate && endDate && <span> - </span>}
-            {endDate && <span>au {new Date(endDate).toLocaleDateString('fr-FR')}</span>}
+            {startDate && <span> du {new Date(startDate).toLocaleDateString('fr-FR')}</span>}
+            {startDate && endDate && <span> au </span>}
+            {endDate && <span>{new Date(endDate).toLocaleDateString('fr-FR')}</span>}
           </div>
         )}
       </div>
@@ -287,7 +194,7 @@ const DashboardPage = () => {
                 Évolution du Chiffre d'Affaires
               </h3>
               <span className="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-full">
-                {filterActive && (startDate || endDate) ? 'Période filtrée' : 'Toutes les données'}
+                {filterActive && (startDate || endDate) ? 'Période filtrée' : '30 derniers jours'}
               </span>
             </div>
             <EvolutionChart 
@@ -421,11 +328,10 @@ const DashboardPage = () => {
         >
           <span className="inline-flex items-center">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
-            Filtre appliqué : 
+            Période sélectionnée : 
             {startDate && <span> du {new Date(startDate).toLocaleDateString('fr-FR')}</span>}
             {startDate && endDate && <span> au </span>}
             {endDate && <span>{new Date(endDate).toLocaleDateString('fr-FR')}</span>}
-            {!startDate && !endDate && <span> Aucun filtre</span>}
           </span>
         </motion.div>
       )}
