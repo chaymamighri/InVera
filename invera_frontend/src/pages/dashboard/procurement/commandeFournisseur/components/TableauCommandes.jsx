@@ -164,6 +164,14 @@ const TableauCommandes = ({
     setCurrentPage(1);
   };
 
+  const getSortIcon = () => {
+    if (sortDirection === 'asc') {
+      return <ArrowUpIcon className="w-4 h-4 text-blue-600" />;
+    }
+
+    return <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
+  };
+
   const renderPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -222,19 +230,21 @@ const TableauCommandes = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Commande</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur</th>
-              <th
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                N° Commande
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Fournisseur
+              </th>
+              <th 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={toggleSortDirection}
               >
                 <div className="flex items-center gap-1">
                   Date commande
-                  {sortDirection === 'asc' ? (
-                    <ArrowUpIcon className="w-4 h-4 text-blue-600" />
-                  ) : (
-                    <ArrowDownIcon className="w-4 h-4 text-blue-600" />
-                  )}
+                  <span className="ml-1">
+                    {getSortIcon()}
+                  </span>
                 </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Livraison prevue</th>

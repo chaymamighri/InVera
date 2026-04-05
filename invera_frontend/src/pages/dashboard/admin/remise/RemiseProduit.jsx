@@ -186,8 +186,6 @@ const Remise = () => {
       {/* Header avec titre et tabs à droite */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         
-        {/* Espace pour titre si nécessaire */}
-        <h1 className="text-xl font-semibold text-gray-800">Dashboard</h1>
         
         {/* Tabs redesign - maintenant à droite avec ml-auto */}
         <div className="bg-white rounded-lg p-1 border border-gray-200 inline-flex shadow-sm ml-auto">

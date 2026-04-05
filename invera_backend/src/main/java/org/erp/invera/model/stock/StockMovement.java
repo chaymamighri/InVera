@@ -35,16 +35,9 @@ public class StockMovement {
     @Column(name = "stock_apres", nullable = false)
     private Integer stockApres;
 
-    @Column(name = "reference", length = 50)
-    private String reference;
-
     // est ce que c'est un commande fournisseur ( entréé ) ou commande client ( sortie )
     @Column(name = "type_document", length = 50)
     private String typeDocument;
-
-    // refrence vers la commande fournisseur spécifier a cet mouvement
-    @Column(name = "id_document")
-    private Long idDocument;
 
     @Column(name = "commentaire", length = 500)
     private String commentaire;
@@ -58,17 +51,10 @@ public class StockMovement {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (dateMouvement == null) {
-            dateMouvement = LocalDateTime.now();
-        }
-    }
-
     public enum MovementType {
         ENTREE("Entrée"),
-        SORTIE("Sortie");
+        SORTIE("Sortie"),
+        INIT_STOCK("Stock initial");
 
         private final String libelle;
 

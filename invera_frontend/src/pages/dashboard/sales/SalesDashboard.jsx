@@ -73,7 +73,7 @@ const SalesDashboard = () => {
       items: [
         { 
           id: 'dashboard', 
-          label: 'Tableau de bord', 
+          label: 'Statistiques', 
           icon: ChartBarIcon,
           path: 'dashboard'
         },

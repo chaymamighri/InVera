@@ -180,7 +180,7 @@ public class DashboardService {
                             ? Client.TypeClient.ENTREPRISE.name()
                             : typeEnum.name();
 
-                    Long nombre = ((Number) row[1]).longValue();  // Maintenant c'est le nombre de CLIENTS
+                    Long nombre = ((Number) row[1]).longValue();
                     BigDecimal montant = (BigDecimal) row[2];
 
                     if (typeMap.containsKey(typeName)) {
@@ -338,16 +338,24 @@ public class DashboardService {
         );
     }
 
-
     private DashboardDTO.Charts calculerCharts(Periode p) {
-        // Évolution 7 jours
         List<DashboardDTO.Point> evolution = new ArrayList<>();
-        for (int i = 6; i >= 0; i--) {
-            LocalDate date = LocalDate.now().minusDays(i);
-            evolution.add(new DashboardDTO.Point(
-                    date.format(java.time.format.DateTimeFormatter.ofPattern("EEE dd/MM")),
-                    commandeRepo.sumTotalByDate(date)
-            ));
+
+        LocalDate currentDate = p.getDebut();
+        LocalDate endDate = p.getFin();
+
+        while (!currentDate.isAfter(endDate)) {
+            BigDecimal caDuJour = commandeRepo.sumTotalByDate(currentDate);
+
+            // ✅ AJOUTEZ CE FILTRE : n'ajouter que si CA > 0
+            if (caDuJour != null && caDuJour.compareTo(BigDecimal.ZERO) > 0) {
+                evolution.add(new DashboardDTO.Point(
+                        currentDate.format(java.time.format.DateTimeFormatter.ofPattern("EEE dd/MM")),
+                        caDuJour
+                ));
+            }
+
+            currentDate = currentDate.plusDays(1);
         }
 
         LocalDateTime debut = p.getDebut().atStartOfDay();
@@ -359,7 +367,6 @@ public class DashboardService {
                 new ArrayList<>()
         );
     }
-
 
     private BigDecimal calculerVariation(BigDecimal current, BigDecimal previous) {
         if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {

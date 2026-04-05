@@ -35,6 +35,7 @@ const FilterBar = ({ filters, onFilterChange, onReset }) => {
             <option value="">Tous les types</option>
             <option value="ENTREE">Entrées</option>
             <option value="SORTIE">Sorties</option>
+            <option value="INIT_STOCK">Stock initial</option>  {/* ✅ corrigé */}
           </select>
         </div>
         <div className="md:col-span-3 flex justify-end">

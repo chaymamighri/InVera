@@ -401,7 +401,7 @@ useEffect(() => {
   loading={isLoading}
   fullWidth
   size="lg"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-900 hover:to-blue-900 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
 >
   {isLoading ? 'Connexion...' : 'Se connecter'}
 </Button>

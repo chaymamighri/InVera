@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.erp.invera.model.DemandeApprovisionement.DemandeApprovisionnement;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.annotation.CreatedBy;
@@ -72,6 +73,11 @@ public class CommandeFournisseur {
     @Column(name = "notes_reception", columnDefinition = "TEXT")
     private String notesReception;
 
+    // Relation vers la demande d'approvisionnement source
+    @OneToOne
+    @JoinColumn(name = "demande_approvisionnement_id")
+    private DemandeApprovisionnement demande;
+
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
@@ -104,53 +110,4 @@ public class CommandeFournisseur {
 
     }
 
-    // ✅ METHODES UTILITAIRES
-
-    /**
-     * Calcule les totaux de la commande à partir des lignes
-     */
-    public void calculerTotaux() {
-        if (lignesCommande != null && !lignesCommande.isEmpty()) {
-            this.totalHT = lignesCommande.stream()
-                    .map(LigneCommandeFournisseur::getSousTotalHT)
-                    .filter(java.util.Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .setScale(3, BigDecimal.ROUND_HALF_UP);
-
-            this.totalTVA = lignesCommande.stream()
-                    .map(LigneCommandeFournisseur::getMontantTVA)
-                    .filter(java.util.Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .setScale(3, BigDecimal.ROUND_HALF_UP);
-
-            this.totalTTC = lignesCommande.stream()
-                    .map(LigneCommandeFournisseur::getSousTotalTTC)
-                    .filter(java.util.Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .setScale(3, BigDecimal.ROUND_HALF_UP);
-        }
-    }
-
-    /**
-     * Vérifie si la commande est modifiable
-     */
-    public boolean isModifiable() {
-        return this.statut == StatutCommande.BROUILLON;
-    }
-
-    /**
-     * Vérifie si la commande peut être annulée
-     */
-    public boolean isAnnulable() {
-        return this.statut != StatutCommande.FACTUREE &&
-                this.statut != StatutCommande.RECUE;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("CommandeFournisseur{id=%d, numero='%s', fournisseur=%s, totalTTC=%s, statut=%s}",
-                idCommandeFournisseur, numeroCommande,
-                fournisseur != null ? fournisseur.getNomFournisseur() : "null",
-                totalTTC, statut);
-    }
 }

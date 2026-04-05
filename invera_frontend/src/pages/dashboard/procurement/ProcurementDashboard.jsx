@@ -1,4 +1,4 @@
-// ProcurementDashboard.jsx - Version avec État de stock
+// ProcurementDashboard.jsx - Version avec style d'écriture et positionnement optimisés
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import {
   ArchiveBoxIcon,
   DocumentTextIcon,
   Square3Stack3DIcon,
+  DocumentPlusIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -43,8 +44,9 @@ const ProcurementDashboard = () => {
   // ========== DÉTERMINER LA PAGE ACTIVE DEPUIS L'URL ==========
   const getActivePage = () => {
     const path = location.pathname;
+    if (path.includes('/demandes')) return 'demandes';
     if (path.includes('/produits')) return 'produits';
-     if (path.includes('/categories')) return 'categories'; 
+    if (path.includes('/categories')) return 'categories'; 
     if (path.includes('/commandes')) return 'commandes';
     if (path.includes('/stats')) return 'stats';
     if (path.includes('/mouvements')) return 'mouvements';
@@ -64,23 +66,24 @@ const ProcurementDashboard = () => {
       ]
     },
     {
-      title: 'GESTION ',
+      title: 'GESTION',
       items: [
         { id: 'produits', label: 'Catalogue produits', icon: CubeIcon },
-        { id: 'categories', label: 'Catégories produits', icon: Square3Stack3DIcon },
+        { id: 'categories', label: 'Catégories', icon: Square3Stack3DIcon },
       ]
     },
     {
-      title: 'APPROVISIONNEMENT',
+      title: 'RÉAPPROVISIONNEMENT',
       items: [
+        { id: 'demandes', label: 'Demandes', icon: DocumentPlusIcon },
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
       ]
     },
     {
       title: 'STOCK',
       items: [
-        { id: 'mouvements', label: 'Mouvements de stock', icon: ArrowPathIcon },
-        { id: 'etat_stock', label: 'État de stock', icon: ArchiveBoxIcon },
+        { id: 'mouvements', label: 'Mouvements', icon: ArrowPathIcon },
+        { id: 'etat_stock', label: 'État du stock', icon: ArchiveBoxIcon },
       ]
     },
     {
@@ -97,12 +100,15 @@ const ProcurementDashboard = () => {
       case 'stats':
         navigate('/dashboard/procurement/stats');
         break;
+      case 'demandes':
+        navigate('/dashboard/procurement/demandes');
+        break;
       case 'produits':
         navigate('/dashboard/procurement/produits');
         break;
-        case 'categories':  
-      navigate('/dashboard/procurement/categories');
-      break;
+      case 'categories':  
+        navigate('/dashboard/procurement/categories');
+        break;
       case 'commandes':
         navigate('/dashboard/procurement/commandes');
         break;
@@ -124,6 +130,7 @@ const ProcurementDashboard = () => {
   const getPageTitle = () => {
     switch (activePage) {
       case 'stats': return 'Statistiques Achats';
+      case 'demandes': return 'Demandes d\'approvisionnement';
       case 'produits': return 'Gestion des Produits';
       case 'categories': return 'Gestion des Catégories';
       case 'commandes': return 'Bons de commande fournisseurs';
@@ -136,7 +143,8 @@ const ProcurementDashboard = () => {
 
   const getPageDescription = () => {
     switch (activePage) {
-      case 'stats': return 'Indicateurs de performance achats';
+      case 'stats': return 'Indicateurs de performance achats et stocks';
+      case 'demandes': return 'Gérez vos demandes d\'approvisionnement';
       case 'produits': return 'Gérez votre catalogue produits';
       case 'categories': return 'Gérez les catégories de vos produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
@@ -149,16 +157,16 @@ const ProcurementDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar */}
-      <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
+      {/* Sidebar - Version optimisée */}
+      <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 flex flex-col ${
         collapsed ? 'w-20' : 'w-64'
       }`}>
         
-        {/* En-tête sidebar - TEXTE PLUS PETIT */}
-        <div className="p-6 border-b">
+        {/* En-tête sidebar - Style compact */}
+        <div className="flex-shrink-0 p-4 border-b">
           <div className="flex items-center justify-between">
             {!collapsed && (
-              <div>
+               <div>
                 <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
                   Tableau de Bord Gestion Achats et Stock
                 </h1>
@@ -169,20 +177,22 @@ const ProcurementDashboard = () => {
             )}
             <button
               onClick={toggleSidebar}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className={`p-1.5 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ${
+                collapsed ? 'mx-auto' : ''
+              }`}
             >
-              {collapsed ? '→' : '←'}
+              <span className="text-gray-500 text-sm">{collapsed ? '→' : '←'}</span>
             </button>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
-          <ul className="space-y-1 flex-1 overflow-y-auto">
+        {/* Navigation - Espacement vertical optimisé */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
+          <ul className="space-y-3 px-3">
             {sections.map((section) => (
-              <li key={section.title}>
+              <li key={section.title} className="mb-2">
                 {!collapsed && (
-                  <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  <h3 className="px-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                     {section.title}
                   </h3>
                 )}
@@ -195,11 +205,13 @@ const ProcurementDashboard = () => {
                       <li key={item.id}>
                         <button
                           onClick={() => handleSetActivePage(item.id)}
-                          className={`w-full flex items-center ${
-                            collapsed ? 'justify-center px-3 py-3' : 'px-4 py-3'
-                          } rounded-lg transition-all duration-200 relative group ${
+                          className={`w-full flex items-center rounded-lg transition-all duration-200 group ${
+                            collapsed 
+                              ? 'justify-center p-2.5' 
+                              : 'px-3 py-2.5 space-x-3'
+                          } ${
                             isActive
-                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold border-l-3 border-blue-500'
+                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700'
                               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                           }`}
                           title={collapsed ? item.label : ''}
@@ -209,11 +221,14 @@ const ProcurementDashboard = () => {
                           }`} />
                           
                           {!collapsed && (
-                            <span className="ml-3 flex-1 text-left text-sm">{item.label}</span>
+                            <span className="text-sm font-medium flex-1 text-left">
+                              {item.label}
+                            </span>
                           )}
                           
+                          {/* Tooltip pour mode collapsed */}
                           {collapsed && (
-                            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 pointer-events-none">
                               {item.label}
                             </div>
                           )}
@@ -225,30 +240,30 @@ const ProcurementDashboard = () => {
               </li>
             ))}
           </ul>
-
-          {/* Profil utilisateur */}
-          <div className={`border-t pt-4 ${collapsed ? 'px-3' : 'px-4'} mt-auto`}>
-            <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
-              <div
-                className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => navigate('/profile')}
-                title="Voir mon profil"
-              >
-                {user.initials}
-              </div>
-              
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {getFirstName(user.name)}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">{user.role}</p>
-                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                </div>
-              )}
-            </div>
-          </div>
         </nav>
+
+        {/* Profil utilisateur - Style compact */}
+        <div className="flex-shrink-0 border-t p-3">
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-2.5'}`}>
+            <div
+              className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => navigate('/profile')}
+              title="Voir mon profil"
+            >
+              {user.initials}
+            </div>
+            
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">
+                  {getFirstName(user.name)}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">{user.role}</p>
+                <p className="text-[9px] text-gray-400 truncate">{user.email}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Contenu principal */}
@@ -256,17 +271,18 @@ const ProcurementDashboard = () => {
         collapsed ? 'ml-20' : 'ml-64'
       }`}>
         
-        <div className="h-16"></div>
+        {/* Espace pour la barre de navigation supérieure */}
+        <div className="h-14"></div>
 
         {/* Barre de titre sticky */}
-        <div className="sticky top-16 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
-          <div className="px-8 py-4">
+        <div className="sticky top-14 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
+          <div className="px-6 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">
+                <h1 className="text-xl font-bold text-gray-800">
                   {getPageTitle()}
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {getPageDescription()}
                 </p>
               </div>
