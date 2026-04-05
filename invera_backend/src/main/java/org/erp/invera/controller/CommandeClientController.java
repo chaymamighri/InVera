@@ -243,7 +243,7 @@ public class CommandeClientController {
     @PostMapping("/creer")
     public ResponseEntity<Map<String, Object>> creerCommande(@RequestBody CommandeRequestDTO commandeRequest) {
         try {
-            System.out.println("📦 Données reçues pour création de commande:");
+            System.out.println(" Données reçues pour création de commande:");
             System.out.println("Client ID: " + commandeRequest.getClientId());
             System.out.println("Produits: " + commandeRequest.getProduits());
 

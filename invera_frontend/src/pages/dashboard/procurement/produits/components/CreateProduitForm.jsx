@@ -1,4 +1,4 @@
-// produits/CreateProduitForm.jsx - Version corrigée
+// produits/CreateProduitForm.jsx - Version avec stock désactivé
 import React, { useState, useEffect } from 'react';
 import ProduitFormBase from './ProduitFormBase';
 
@@ -8,7 +8,7 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
     prixVente: '',
     prixAchat: '',
     categorie: { idCategorie: '' },
-    quantiteStock: 0,
+    quantiteStock: 0,  // Valeur par défaut, mais le champ sera désactivé
     seuilMinimum: 10,
     uniteMesure: 'pièce',
     imageUrl: '',
@@ -20,6 +20,7 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   const [errors, setErrors] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
+  const isStockDisabled = true; // ✅ Désactiver le champ stock pour la création
 
   // ✅ Vérifier que categories est un tableau
   const safeCategories = Array.isArray(categories) ? categories : [];
@@ -48,7 +49,10 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
     }
     
     if (!formData.categorie?.idCategorie) newErrors.categorie = 'La catégorie est requise';
-    if (formData.quantiteStock < 0) newErrors.quantiteStock = 'La quantité ne peut pas être négative';
+    
+    // ✅ Supprimer la validation de quantiteStock puisqu'il est désactivé
+    // if (formData.quantiteStock < 0) newErrors.quantiteStock = 'La quantité ne peut pas être négative';
+    
     if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
     if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
     
@@ -63,6 +67,11 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    
+    // ✅ Empêcher la modification du stock si c'est le champ désactivé
+    if (name === 'quantiteStock' && isStockDisabled) {
+      return;
+    }
     
     if (type === 'number') {
       setFormData(prev => ({
@@ -142,7 +151,8 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
       formDataToSend.append('prixVente', parseFloat(formData.prixVente));
       formDataToSend.append('prixAchat', parseFloat(formData.prixAchat));
       formDataToSend.append('categorieId', formData.categorie.idCategorie);
-      formDataToSend.append('quantiteStock', parseInt(formData.quantiteStock) || 0);
+      // ✅ Toujours envoyer 0 pour le stock initial lors de la création
+      formDataToSend.append('quantiteStock', 0);
       formDataToSend.append('seuilMinimum', parseInt(formData.seuilMinimum) || 0);
       formDataToSend.append('uniteMesure', formData.uniteMesure);
       formDataToSend.append('remiseTemporaire', parseFloat(formData.remiseTemporaire) || 0);
@@ -153,6 +163,7 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
       }
       
       console.log('📤 Création produit - Catégorie ID:', formData.categorie.idCategorie);
+      console.log('📤 Stock initial forcé à 0');
       onSave(formDataToSend);
     }
   };
@@ -161,13 +172,14 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
     <ProduitFormBase
       formData={formData}
       errors={errors}
-      categories={safeCategories}  // ✅ Passer safeCategories
+      categories={safeCategories} 
       handleChange={handleChange}
       handleImageChange={handleImageChange}   
       handleRemoveImage={handleRemoveImage}    
       imagePreview={imagePreview}             
       handleCategorieChange={handleCategorieChange}
-      isRemiseDisabled={isRemiseDisabled} 
+      isRemiseDisabled={isRemiseDisabled}
+      isStockDisabled={isStockDisabled}  
       handleSubmit={handleSubmit}
       onClose={onClose}
       isEditMode={false}

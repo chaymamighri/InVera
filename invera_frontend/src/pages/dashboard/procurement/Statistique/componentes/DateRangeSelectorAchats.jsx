@@ -1,10 +1,10 @@
-// src/pages/dashboard/sales/components/DateRangeSelector.jsx
+// src/pages/dashboard/achats/components/DateRangeSelectorAchats.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, X, RefreshCw, Check, AlertCircle } from 'lucide-react';
 
-const DateRangeSelector = ({ 
-  onApplyCustom, 
+const DateRangeSelectorAchats = ({ 
+  onApply, 
   onRefresh, 
   refreshing,
   currentStartDate,  
@@ -15,13 +15,13 @@ const DateRangeSelector = ({
   const [endDate, setEndDate] = useState(currentEndDate || '');
   const [dateError, setDateError] = useState('');
 
-  // ✅ Synchroniser avec les props du parent
+  // Synchroniser avec les props du parent
   useEffect(() => {
     setStartDate(currentStartDate || '');
     setEndDate(currentEndDate || '');
   }, [currentStartDate, currentEndDate]);
 
-  const handleApplyCustom = () => {
+  const handleApply = () => {
     if (!startDate || !endDate) {
       setDateError('Veuillez sélectionner une date de début et de fin');
       return;
@@ -51,7 +51,7 @@ const DateRangeSelector = ({
     }
 
     setDateError('');
-    onApplyCustom(startDate, endDate);
+    onApply(startDate, endDate);
     setShowPicker(false);
   };
 
@@ -60,31 +60,18 @@ const DateRangeSelector = ({
     setDateError('');
   };
 
-  // ✅ Fonction pour formater l'affichage de la période sélectionnée
   const getDisplayRange = () => {
-    if (!currentStartDate || !currentEndDate) {
-      return "Sélectionner une période";
-    }
-    
+    if (!currentStartDate || !currentEndDate) return "Sélectionner une période";
     const start = new Date(currentStartDate);
     const end = new Date(currentEndDate);
-    
-    const formatDate = (date) => {
-      return date.toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
-      });
-    };
-    
+    const formatDate = (date) => date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
 
-  // ✅ Fonction pour réinitialiser
   const handleReset = () => {
     setStartDate('');
     setEndDate('');
-    onApplyCustom('', '');
+    onApply('', '');
     setShowPicker(false);
   };
 
@@ -98,9 +85,7 @@ const DateRangeSelector = ({
         className="px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center gap-2"
       >
         <Calendar className="w-4 h-4 text-blue-500" />
-        <span className="text-sm font-medium text-gray-700">
-          {getDisplayRange()}
-        </span>
+        <span className="text-sm font-medium text-gray-700">{getDisplayRange()}</span>
       </motion.button>
       
       {/* Bouton rafraîchir */}
@@ -159,9 +144,7 @@ const DateRangeSelector = ({
             <div className="space-y-3 mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Date de début
-                  </label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Date de début</label>
                   <input 
                     type="date" 
                     value={startDate} 
@@ -170,9 +153,7 @@ const DateRangeSelector = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Date de fin
-                  </label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Date de fin</label>
                   <input 
                     type="date" 
                     value={endDate} 
@@ -198,7 +179,7 @@ const DateRangeSelector = ({
                 Annuler
               </button>
               <button 
-                onClick={handleApplyCustom} 
+                onClick={handleApply} 
                 disabled={!startDate || !endDate} 
                 className="flex-1 px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 shadow-md flex items-center justify-center gap-2"
               >
@@ -213,4 +194,4 @@ const DateRangeSelector = ({
   );
 };
 
-export default DateRangeSelector;
+export default DateRangeSelectorAchats;
