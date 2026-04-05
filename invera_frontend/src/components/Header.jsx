@@ -1,10 +1,12 @@
 // src/components/Header.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { BellIcon, UserCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BellIcon, ChevronDownIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import logo from '../assets/images/logo.png';
 import { notificationService } from '../services/notificationService';
+import commandeFournisseurService from '../services/commandeFournisseurService';
+import procurementReminderService from '../services/procurementReminderService';
 import { useSidebar } from '../context/SidebarContext';
 
 const normalizeRole = (value) => String(value || '').trim().toUpperCase().replace(/^ROLE_/, '');
@@ -12,19 +14,17 @@ const normalizeRole = (value) => String(value || '').trim().toUpperCase().replac
 const Header = ({ userRole }) => {
   const { collapsed } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
+  const [serverUnreadCount, setServerUnreadCount] = useState(0);
+  const [serverNotifications, setServerNotifications] = useState([]);
+  const [localReminders, setLocalReminders] = useState([]);
 
-  // detect new notifications (for toast popup)
   const lastUnreadRef = useRef(0);
-  const announcedExistingUnreadRef = useRef(false);
-
-  const navigate = useNavigate();
-
+  const initialUnreadSnapshotRef = useRef(false);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
 
@@ -48,7 +48,7 @@ const Header = ({ userRole }) => {
     const initials = name
       .split(' ')
       .filter(Boolean)
-      .map((n) => n[0])
+      .map((part) => part[0])
       .join('')
       .toUpperCase()
       .substring(0, 2);
@@ -58,12 +58,28 @@ const Header = ({ userRole }) => {
       email,
       roleRaw: role,
       normalizedRole,
-      role: roleTranslations[role] || roleTranslations[normalizedRole] || roleTranslations[normalizedRole.toLowerCase()] || role,
+      role:
+        roleTranslations[role] ||
+        roleTranslations[normalizedRole] ||
+        roleTranslations[normalizedRole.toLowerCase()] ||
+        role,
       initials: initials || 'U',
       isAdmin: normalizedRole === 'ADMIN',
       canUseNotifications: ['ADMIN', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
+      canUseProcurementReminders: ['RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
     };
   }, [userRole]);
+
+  const unreadCount = useMemo(() => {
+    const localUnreadCount = localReminders.filter((item) => !item.read).length;
+    return serverUnreadCount + localUnreadCount;
+  }, [localReminders, serverUnreadCount]);
+
+  const notifications = useMemo(() => {
+    return [...serverNotifications, ...localReminders].sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }, [localReminders, serverNotifications]);
 
   const handleLogout = () => {
     ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((item) => {
@@ -72,7 +88,6 @@ const Header = ({ userRole }) => {
     navigate('/login');
   };
 
-  // ✅ Confirm dialog using react-hot-toast (no browser alert)
   const confirmToast = (message, onConfirm) => {
     toast(
       (t) => (
@@ -108,8 +123,10 @@ const Header = ({ userRole }) => {
 
   const formatDate = (value) => {
     try {
-      const d = new Date(value);
-      if (!isNaN(d.getTime())) return d.toLocaleString();
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleString();
+      }
       return value;
     } catch {
       return value;
@@ -119,65 +136,54 @@ const Header = ({ userRole }) => {
   const groupByMonth = (list) => {
     const map = new Map();
 
-    for (const n of list) {
-      const d = new Date(n.createdAt);
-      const monthValue = !isNaN(d.getTime())
-        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    list.forEach((notification) => {
+      const date = new Date(notification.createdAt);
+      const monthValue = !Number.isNaN(date.getTime())
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         : 'unknown';
 
-      const monthLabel = !isNaN(d.getTime())
-        ? d.toLocaleString(undefined, { month: 'long', year: 'numeric' })
+      const monthLabel = !Number.isNaN(date.getTime())
+        ? date.toLocaleString(undefined, { month: 'long', year: 'numeric' })
         : 'Inconnu';
 
-      const enriched = { ...n, __monthValue: monthValue };
+      const enriched = { ...notification, __monthValue: monthValue };
 
-      if (!map.has(monthLabel)) map.set(monthLabel, []);
+      if (!map.has(monthLabel)) {
+        map.set(monthLabel, []);
+      }
+
       map.get(monthLabel).push(enriched);
-    }
+    });
 
     return Array.from(map.entries());
   };
 
-  const loadUnreadCount = async ({ withToast = false, announceExisting = false } = {}) => {
-    if (!user.canUseNotifications) return;
+  const loadUnreadCount = async () => {
+    if (!user.canUseNotifications) return 0;
+
     try {
       const res = await notificationService.getUnreadCount();
       const n = typeof res.data === 'number' ? res.data : Number(res.data || 0);
       const safe = Number.isFinite(n) ? n : 0;
-
-      if (announceExisting && !announcedExistingUnreadRef.current && safe > 0) {
-        toast(`Vous avez ${safe} notification(s) non lue(s)`);
-        announcedExistingUnreadRef.current = true;
-      }
-
-      // ✅ only toast if dropdown is NOT open
-      if (withToast && !isNotifOpen && safe > lastUnreadRef.current) {
-        toast.success(`🔔 Vous avez ${safe} notification(s) non lue(s)`);
-      }
-
-      lastUnreadRef.current = safe;
-      setUnreadCount(safe);
-      if (safe === 0) {
-        announcedExistingUnreadRef.current = false;
-      }
+      setServerUnreadCount(safe);
       return safe;
     } catch {
-      // silent
       return 0;
     }
   };
 
   const loadNotifications = async () => {
     if (!user.canUseNotifications) return;
+
     setNotifLoading(true);
     try {
       const res = await notificationService.getAll();
-      setNotifications(Array.isArray(res.data) ? res.data : []);
-    } catch (e) {
+      setServerNotifications(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
       const msg =
-        e?.response?.data?.message ||
-        e?.response?.data ||
-        e?.message ||
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
         'Erreur notifications';
       toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
     } finally {
@@ -185,384 +191,546 @@ const Header = ({ userRole }) => {
     }
   };
 
+  const loadLocalReminders = async ({ sync = true } = {}) => {
+    if (!user.canUseProcurementReminders) {
+      setLocalReminders([]);
+      return [];
+    }
+
+    try {
+      if (!sync) {
+        const storedReminders = procurementReminderService.getStoredReminders();
+        setLocalReminders(storedReminders);
+        return storedReminders;
+      }
+
+      const data = await commandeFournisseurService.getAllCommandes();
+      const reminders = procurementReminderService.syncCommandes(Array.isArray(data) ? data : []);
+      setLocalReminders(reminders);
+      return reminders;
+    } catch {
+      const storedReminders = procurementReminderService.getStoredReminders();
+      setLocalReminders(storedReminders);
+      return storedReminders;
+    }
+  };
+
   const markRead = async (id) => {
+    if (procurementReminderService.isReminderId(id)) {
+      procurementReminderService.markRead(id);
+      return;
+    }
+
     try {
       await notificationService.markRead(id);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-      lastUnreadRef.current = Math.max(0, lastUnreadRef.current - 1);
+      setServerNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+      setServerUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
       toast.error('Impossible de marquer comme lu');
     }
   };
 
   const markAllRead = async () => {
+    procurementReminderService.markAllRead();
+
     try {
       await notificationService.markAllRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setUnreadCount(0);
-      lastUnreadRef.current = 0;
+      setServerNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+      setServerUnreadCount(0);
     } catch {
       toast.error('Impossible de tout marquer comme lu');
     }
   };
 
-  // ✅ Poll unread count (ADMIN only)
+  const handleReminderAction = (reminder) => {
+    procurementReminderService.markRead(reminder.id);
+    setIsNotifOpen(false);
+    navigate(reminder.reminderPath);
+  };
+
+  const handleDeleteNotification = async (notification) => {
+    if (notification.source === 'procurement-reminder') {
+      procurementReminderService.dismiss(notification.id);
+      toast.success('Notification supprimee');
+      return;
+    }
+
+    try {
+      await notificationService.deleteOne(notification.id);
+      toast.success('Notification supprimee');
+      setServerNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+      await loadUnreadCount();
+    } catch {
+      toast.error('Erreur suppression notification');
+    }
+  };
+
+  const handleDeleteRange = async (range) => {
+    let deleted = 0;
+
+    try {
+      const res = await notificationService.deleteRange(range);
+      deleted += Number(res?.data?.deleted || 0);
+    } catch {
+      toast.error(`Erreur suppression (${range === 'week' ? '7 jours' : '30 jours'})`);
+      return;
+    }
+
+    deleted += procurementReminderService.dismissRange(range);
+    toast.success(`Supprime: ${deleted}`);
+    await loadNotifications();
+    await loadUnreadCount();
+  };
+
+  const handleDeleteMonth = async (monthValue) => {
+    let deleted = 0;
+
+    try {
+      const res = await notificationService.deleteMonth(monthValue);
+      deleted += Number(res?.data?.deleted || 0);
+    } catch {
+      toast.error('Erreur suppression mois');
+      return;
+    }
+
+    deleted += procurementReminderService.dismissMonth(monthValue);
+    toast.success(`Supprime (${monthValue}): ${deleted}`);
+    await loadNotifications();
+    await loadUnreadCount();
+  };
+
+  const handleDeleteAll = async () => {
+    let deleted = 0;
+
+    try {
+      const res = await notificationService.deleteAll();
+      deleted += Number(res?.data?.deleted || 0);
+    } catch {
+      toast.error('Erreur suppression totale');
+      return;
+    }
+
+    deleted += procurementReminderService.dismissAll();
+    toast.success(`Supprime: ${deleted}`);
+    await loadNotifications();
+    await loadUnreadCount();
+  };
+
   useEffect(() => {
-    if (!user.canUseNotifications) return;
+    if (!user.canUseNotifications) return undefined;
 
-    loadUnreadCount({ withToast: false, announceExisting: true });
+    loadUnreadCount();
 
-    const t = setInterval(() => {
-      loadUnreadCount({ withToast: true });
+    const unreadInterval = window.setInterval(() => {
+      loadUnreadCount();
     }, 15000);
 
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.canUseNotifications, isNotifOpen]);
+    let reminderInterval = null;
+    if (user.canUseProcurementReminders) {
+      loadLocalReminders();
+      reminderInterval = window.setInterval(() => {
+        loadLocalReminders();
+      }, 60000);
+    }
 
-  // ✅ Close menus on outside click (capture)
+    return () => {
+      window.clearInterval(unreadInterval);
+      if (reminderInterval) {
+        window.clearInterval(reminderInterval);
+      }
+    };
+  }, [user.canUseNotifications, user.canUseProcurementReminders]);
+
   useEffect(() => {
-    const onPointerDown = (e) => {
-      const inProfile = profileRef.current?.contains(e.target);
-      const inNotif = notifRef.current?.contains(e.target);
+    if (!user.canUseNotifications) {
+      setServerUnreadCount(0);
+      setServerNotifications([]);
+      setLocalReminders([]);
+      lastUnreadRef.current = 0;
+      initialUnreadSnapshotRef.current = false;
+      return;
+    }
 
-      if (!inProfile) setIsProfileOpen(false);
-      if (!inNotif) setIsNotifOpen(false);
+    if (!initialUnreadSnapshotRef.current) {
+      if (unreadCount > 0) {
+        toast(`Vous avez ${unreadCount} notification(s) non lue(s)`);
+      }
+      lastUnreadRef.current = unreadCount;
+      initialUnreadSnapshotRef.current = true;
+      return;
+    }
+
+    if (!isNotifOpen && unreadCount > lastUnreadRef.current) {
+      toast.success(`Vous avez ${unreadCount} notification(s) non lue(s)`);
+    }
+
+    lastUnreadRef.current = unreadCount;
+  }, [isNotifOpen, unreadCount, user.canUseNotifications]);
+
+  useEffect(() => {
+    const onPointerDown = (event) => {
+      const inProfile = profileRef.current?.contains(event.target);
+      const inNotif = notifRef.current?.contains(event.target);
+
+      if (!inProfile) {
+        setIsProfileOpen(false);
+      }
+
+      if (!inNotif) {
+        setIsNotifOpen(false);
+      }
     };
 
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, []);
 
-  // when notif dropdown opens, refresh list + count
   useEffect(() => {
     if (!isNotifOpen) return;
+
     loadNotifications();
-    loadUnreadCount({ withToast: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadUnreadCount();
+    loadLocalReminders();
   }, [isNotifOpen]);
 
-  // ✅ Toggle handlers (close the other dropdown)
+  useEffect(() => {
+    if (!user.canUseProcurementReminders) return undefined;
+
+    const handleReminderUpdate = () => {
+      setLocalReminders(procurementReminderService.getStoredReminders());
+    };
+
+    window.addEventListener(procurementReminderService.REMINDER_EVENT, handleReminderUpdate);
+    return () => window.removeEventListener(procurementReminderService.REMINDER_EVENT, handleReminderUpdate);
+  }, [user.canUseProcurementReminders]);
+
   const toggleNotifications = () => {
     setIsProfileOpen(false);
-    setIsNotifOpen((p) => !p);
+    setIsNotifOpen((prev) => !prev);
   };
 
   const toggleProfile = () => {
     setIsNotifOpen(false);
-    setIsProfileOpen((p) => !p);
+    setIsProfileOpen((prev) => !prev);
   };
 
-  // Vérifier si on est sur une page avec sidebar (admin, procurement, sales)
   const isDashboardPage = location.pathname.startsWith('/dashboard/');
-
-  // Marge gauche sur pages dashboard
-  const leftMarginClass = isDashboardPage
-    ? (collapsed ? 'left-20' : 'left-64')
-    : 'left-0'; // Pas de marge sur profile/settings
-
+  const leftMarginClass = isDashboardPage ? (collapsed ? 'left-20' : 'left-64') : 'left-0';
   const widthClass = isDashboardPage
-    ? (collapsed ? 'w-[calc(100%-80px)]' : 'w-[calc(100%-256px)]')
-    : 'w-full'; // Pleine largeur sur profile/settings
+    ? collapsed
+      ? 'w-[calc(100%-80px)]'
+      : 'w-[calc(100%-256px)]'
+    : 'w-full';
 
   return (
-  <header
-    className={`fixed top-0 z-40 transition-all duration-300 ${leftMarginClass} ${widthClass}`}
-  >
-    <div className="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg w-full">
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center space-x-3">
-              {logo && <img src={logo} alt="InVera ERP Logo" className="h-10 w-auto" />}
-              {/* Afficher le texte dans TOUS les cas */}
-              <div className="hidden md:block">
-                <h1 className="text-lg font-bold text-white">InVera ERP</h1>
-                <p className="text-xs text-blue-200">Système de Gestion Intégré</p>
-              </div>
-            </Link>
-          </div>
-
-          {/* Right Section */}
-          <div className="flex items-center space-x-4">
-            {/* 🔔 Notifications */}
-            {user.canUseNotifications && (
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={toggleNotifications}
-                className="relative p-2 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
-                title="Notifications"
-              >
-                <BellIcon className="h-5 w-5" />
-
-                {unreadCount > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center ring-2 ring-blue-900">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                ) : (
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-green-400 rounded-full ring-2 ring-blue-900"></span>
-                )}
-              </button>
-
-              {/* Dropdown notifications */}
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-[420px] bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
-                  <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold">Notifications</p>
-                        <p className="text-xs text-blue-100">Non lues: {unreadCount}</p>
-                      </div>
-
-                      <button
-                        onClick={markAllRead}
-                        className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full"
-                      >
-                        Tout lire
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await notificationService.deleteRange('week');
-                            toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
-                            await loadNotifications();
-                            await loadUnreadCount({ withToast: false });
-                          } catch {
-                            toast.error('Erreur suppression (7 jours)');
-                          }
-                        }}
-                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                      >
-                        Supprimer 7 jours
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await notificationService.deleteRange('month');
-                            toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
-                            await loadNotifications();
-                            await loadUnreadCount({ withToast: false });
-                          } catch {
-                            toast.error('Erreur suppression (30 jours)');
-                          }
-                        }}
-                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                      >
-                        Supprimer 30 jours
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          try {
-                            const current = new Date();
-                            const ym = `${current.getFullYear()}-${String(
-                              current.getMonth() + 1
-                            ).padStart(2, '0')}`;
-                            const res = await notificationService.deleteMonth(ym);
-                            toast.success(`Supprimé (${ym}): ${res?.data?.deleted ?? 0}`);
-                            await loadNotifications();
-                            await loadUnreadCount({ withToast: false });
-                          } catch {
-                            toast.error('Erreur suppression (ce mois)');
-                          }
-                        }}
-                        className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
-                      >
-                        Supprimer ce mois
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          confirmToast('Supprimer TOUTES les notifications ?', async () => {
-                            try {
-                              const res = await notificationService.deleteAll();
-                              toast.success(`Supprimé: ${res?.data?.deleted ?? 0}`);
-                              await loadNotifications();
-                              await loadUnreadCount({ withToast: false });
-                            } catch {
-                              toast.error('Erreur suppression totale');
-                            }
-                          });
-                        }}
-                        className="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full"
-                      >
-                        Tout supprimer
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="max-h-[380px] overflow-auto">
-                    {notifLoading ? (
-                      <div className="p-4 text-sm text-gray-500">Chargement...</div>
-                    ) : notifications.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-gray-500">Aucune notification</div>
-                    ) : (
-                      <div className="p-2">
-                        {groupByMonth(notifications).map(([monthLabel, items]) => (
-                          <div key={monthLabel} className="mb-3">
-                            <div className="px-3 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
-                              <span>{monthLabel}</span>
-
-                              <button
-                                onClick={() => {
-                                  const monthValue = items?.[0]?.__monthValue;
-                                  if (!monthValue) return;
-
-                                  confirmToast(`Supprimer toutes les notifications de ${monthValue} ?`, async () => {
-                                    try {
-                                      const res = await notificationService.deleteMonth(monthValue);
-                                      toast.success(`Supprimé (${monthValue}): ${res?.data?.deleted ?? 0}`);
-                                      await loadNotifications();
-                                      await loadUnreadCount({ withToast: false });
-                                    } catch {
-                                      toast.error('Erreur suppression mois');
-                                    }
-                                  });
-                                }}
-                                className="text-[11px] px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
-                              >
-                                Supprimer mois
-                              </button>
-                            </div>
-
-                            <div className="divide-y divide-gray-100 rounded-xl overflow-hidden border border-gray-100">
-                              {items.map((n) => (
-                                <div key={n.id} className={`px-3 py-3 ${n.read ? 'bg-white' : 'bg-yellow-50'}`}>
-                                  <div className="flex items-start justify-between gap-3">
-                                    <button
-                                      onClick={() => !n.read && markRead(n.id)}
-                                      className="text-left flex-1"
-                                      title={!n.read ? 'Cliquer pour marquer comme lu' : ''}
-                                    >
-                                      <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
-                                        {n.message}
-                                      </p>
-                                      <p className="text-xs text-gray-500 mt-1">{formatDate(n.createdAt)}</p>
-                                    </button>
-
-                                    <button
-                                      onClick={() => {
-                                        confirmToast('Supprimer cette notification ?', async () => {
-                                          try {
-                                            await notificationService.deleteOne(n.id);
-                                            toast.success('Notification supprimée');
-                                            setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-                                            await loadUnreadCount({ withToast: false });
-                                          } catch {
-                                            toast.error('Erreur suppression notification');
-                                          }
-                                        });
-                                      }}
-                                      className="text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700"
-                                      title="Supprimer"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
-                    Cliquez sur une notification non lue pour la marquer comme lue.
-                  </div>
+    <header className={`fixed top-0 z-40 transition-all duration-300 ${leftMarginClass} ${widthClass}`}>
+      <div className="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg w-full">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Link to="/dashboard" className="flex items-center space-x-3">
+                {logo && <img src={logo} alt="InVera ERP Logo" className="h-10 w-auto" />}
+                <div className="hidden md:block">
+                  <h1 className="text-lg font-bold text-white">InVera ERP</h1>
+                  <p className="text-xs text-blue-200">Systeme de Gestion Integre</p>
                 </div>
-              )}
+              </Link>
             </div>
-            )}
 
-            <div className="hidden lg:block h-6 w-px bg-white/20"></div>
-
-            {/* Profile */}
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={toggleProfile}
-                className="flex items-center space-x-3 p-2 rounded-xl hover:bg-white/10 transition-all duration-200 group"
-                aria-label="Menu profil"
-              >
-                <div className="h-9 w-9 bg-gradient-to-r from-green-400 to-blue-400 rounded-full flex items-center justify-center ring-2 ring-white/30 group-hover:ring-white/50">
-                  <span className="text-white font-bold text-sm">{user.initials}</span>
-                </div>
-
-                <div className="hidden lg:block text-left">
-                  <p className="font-semibold text-sm truncate max-w-[150px]">{user.name.split(' ')[0]}</p>
-                  <p className="text-xs text-blue-200 opacity-90 truncate max-w-[150px]">{user.role}</p>
-                </div>
-
-                <ChevronDownIcon
-                  className={`h-4 w-4 text-blue-200 group-hover:text-white transition-transform ${
-                    isProfileOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[9999]">
-                  <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
-                    <p className="font-semibold truncate">{user.name}</p>
-                    <p className="text-sm text-blue-100 truncate">{user.email}</p>
-                    <span className="inline-block mt-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                      {user.role}
-                    </span>
-                  </div>
-
-                  <div className="py-2">
-                    <Link
-                      to="/profile"
-                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <UserCircleIcon className="h-5 w-5 mr-3 text-blue-600" />
-                      Mon profil
-                    </Link>
-
-                    <Link
-                      to="/settings"
-                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <svg className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Paramètres
-                    </Link>
-                  </div>
-
-                  <div className="border-t border-gray-100"></div>
-
+            <div className="flex items-center space-x-4">
+              {user.canUseNotifications && (
+                <div className="relative" ref={notifRef}>
                   <button
-                    onClick={() => {
-                      handleLogout();
-                      setIsProfileOpen(false);
-                    }}
-                    className="w-full text-left flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-b-xl"
+                    onClick={toggleNotifications}
+                    className="relative p-2 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                    title="Notifications"
                   >
-                    <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Déconnexion
+                    <BellIcon className="h-5 w-5" />
+
+                    {unreadCount > 0 ? (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center ring-2 ring-blue-900">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : (
+                      <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-green-400 rounded-full ring-2 ring-blue-900"></span>
+                    )}
                   </button>
+
+                  {isNotifOpen && (
+                    <div className="absolute right-0 mt-2 w-[420px] bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
+                      <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold">Notifications</p>
+                            <p className="text-xs text-blue-100">Non lues: {unreadCount}</p>
+                          </div>
+
+                          <button
+                            onClick={markAllRead}
+                            className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full"
+                          >
+                            Tout lire
+                          </button>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => handleDeleteRange('week')}
+                            className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                          >
+                            Supprimer 7 jours
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteRange('month')}
+                            className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                          >
+                            Supprimer 30 jours
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const current = new Date();
+                              const monthValue = `${current.getFullYear()}-${String(
+                                current.getMonth() + 1
+                              ).padStart(2, '0')}`;
+                              handleDeleteMonth(monthValue);
+                            }}
+                            className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
+                          >
+                            Supprimer ce mois
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              confirmToast('Supprimer TOUTES les notifications ?', async () => {
+                                await handleDeleteAll();
+                              });
+                            }}
+                            className="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full"
+                          >
+                            Tout supprimer
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[380px] overflow-auto">
+                        {notifLoading ? (
+                          <div className="p-4 text-sm text-gray-500">Chargement...</div>
+                        ) : notifications.length === 0 ? (
+                          <div className="p-6 text-center text-sm text-gray-500">Aucune notification</div>
+                        ) : (
+                          <div className="p-2">
+                            {groupByMonth(notifications).map(([monthLabel, items]) => (
+                              <div key={monthLabel} className="mb-3">
+                                <div className="px-3 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
+                                  <span>{monthLabel}</span>
+
+                                  <button
+                                    onClick={() => {
+                                      const monthValue = items?.[0]?.__monthValue;
+                                      if (!monthValue) return;
+
+                                      confirmToast(`Supprimer toutes les notifications de ${monthValue} ?`, async () => {
+                                        await handleDeleteMonth(monthValue);
+                                      });
+                                    }}
+                                    className="text-[11px] px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                  >
+                                    Supprimer mois
+                                  </button>
+                                </div>
+
+                                <div className="divide-y divide-gray-100 rounded-xl overflow-hidden border border-gray-100">
+                                  {items.map((notification) => {
+                                    const isReminder = notification.source === 'procurement-reminder';
+                                    const containerClasses = notification.read
+                                      ? 'bg-white'
+                                      : isReminder
+                                      ? 'bg-amber-50'
+                                      : 'bg-yellow-50';
+
+                                    return (
+                                      <div key={notification.id} className={`px-3 py-3 ${containerClasses}`}>
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex-1">
+                                            <button
+                                              onClick={() => {
+                                                if (!notification.read) {
+                                                  markRead(notification.id);
+                                                }
+                                              }}
+                                              className="text-left w-full"
+                                              title={!notification.read ? 'Cliquer pour marquer comme lu' : ''}
+                                            >
+                                              {(notification.title || notification.badgeLabel) && (
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  {notification.title && (
+                                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                                      {notification.title}
+                                                    </span>
+                                                  )}
+                                                  {notification.badgeLabel && (
+                                                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
+                                                      {notification.badgeLabel}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              )}
+
+                                              <p
+                                                className={`text-sm ${
+                                                  notification.read ? 'text-gray-700' : 'text-gray-900 font-semibold'
+                                                }`}
+                                              >
+                                                {notification.message}
+                                              </p>
+
+                                              {notification.fournisseurNom && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                  Fournisseur: {notification.fournisseurNom}
+                                                </p>
+                                              )}
+
+                                              <p className="text-xs text-gray-500 mt-1">{formatDate(notification.createdAt)}</p>
+                                            </button>
+
+                                            {isReminder && (
+                                              <div className="mt-3 flex items-center justify-between gap-3">
+                                                <p className="text-xs text-amber-700">
+                                                  {notification.actionHint || 'Traitez cette commande rapidement.'}
+                                                </p>
+
+                                                <button
+                                                  onClick={() => handleReminderAction(notification)}
+                                                  className="px-3 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+                                                >
+                                                  {notification.actionLabel || 'Voir'}
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          <button
+                                            onClick={() => {
+                                              confirmToast('Supprimer cette notification ?', async () => {
+                                                await handleDeleteNotification(notification);
+                                              });
+                                            }}
+                                            className="text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700"
+                                            title="Supprimer"
+                                          >
+                                            x
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
+                        Cliquez sur une notification pour la marquer comme lue. Les rappels achat incluent aussi un acces direct a la commande concernee.
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
+              <div className="hidden lg:block h-6 w-px bg-white/20"></div>
+
+              <div className="relative" ref={profileRef}>
+                <button
+                  onClick={toggleProfile}
+                  className="flex items-center space-x-3 p-2 rounded-xl hover:bg-white/10 transition-all duration-200 group"
+                  aria-label="Menu profil"
+                >
+                  <div className="h-9 w-9 bg-gradient-to-r from-green-400 to-blue-400 rounded-full flex items-center justify-center ring-2 ring-white/30 group-hover:ring-white/50">
+                    <span className="text-white font-bold text-sm">{user.initials}</span>
+                  </div>
+
+                  <div className="hidden lg:block text-left">
+                    <p className="font-semibold text-sm truncate max-w-[150px]">{user.name.split(' ')[0]}</p>
+                    <p className="text-xs text-blue-200 opacity-90 truncate max-w-[150px]">{user.role}</p>
+                  </div>
+
+                  <ChevronDownIcon
+                    className={`h-4 w-4 text-blue-200 group-hover:text-white transition-transform ${
+                      isProfileOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[9999]">
+                    <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
+                      <p className="font-semibold truncate">{user.name}</p>
+                      <p className="text-sm text-blue-100 truncate">{user.email}</p>
+                      <span className="inline-block mt-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                        {user.role}
+                      </span>
+                    </div>
+
+                    <div className="py-2">
+                      <Link
+                        to="/profile"
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <UserCircleIcon className="h-5 w-5 mr-3 text-blue-600" />
+                        Mon profil
+                      </Link>
+
+                      <Link
+                        to="/settings"
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <svg className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Parametres
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-gray-100"></div>
+
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsProfileOpen(false);
+                      }}
+                      className="w-full text-left flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-b-xl"
+                    >
+                      <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      Deconnexion
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
 };
 
 export default Header;

@@ -1,25 +1,23 @@
-// components/TableauCommandes.jsx - Version avec tri ET pagination
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircleIcon,
-  TruckIcon,
-  XCircleIcon,
-  PaperAirplaneIcon,
-  DocumentCheckIcon,
-  EyeIcon,
-  PencilIcon,
-  TrashIcon,
-  ShoppingCartIcon,
   ArchiveBoxIcon,
-  ArrowUpIcon,
   ArrowDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ArrowPathIcon,
+  ArrowUpIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DocumentCheckIcon,
+  EyeIcon,
+  PaperAirplaneIcon,
+  PencilIcon,
+  ShoppingCartIcon,
+  TrashIcon,
+  TruckIcon,
+  XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-// ✅ Constantes locales
 const StatutCommande = {
   BROUILLON: 'BROUILLON',
   VALIDEE: 'VALIDEE',
@@ -30,9 +28,9 @@ const StatutCommande = {
   REJETEE: 'REJETEE',
 };
 
-// ✅ Formatage
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
+
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
@@ -45,13 +43,13 @@ const formatDate = (dateString) => {
 
 const formatPrice = (price) => {
   if (price === null || price === undefined) return 'N/A';
+
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'TND',
   }).format(price);
 };
 
-// ✅ Badge de statut
 const getStatusBadge = (statut) => {
   const colors = {
     [StatutCommande.BROUILLON]: 'bg-gray-100 text-gray-800',
@@ -62,11 +60,8 @@ const getStatusBadge = (statut) => {
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
     [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[statut]}`}>
-      {statut}
-    </span>
-  );
+
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[statut]}`}>{statut}</span>;
 };
 
 const TableauCommandes = ({
@@ -74,118 +69,137 @@ const TableauCommandes = ({
   onView,
   onEdit,
   onDelete,
+  onRestore,
   onStatusChange,
   onRecevoir,
   actionInProgress,
   statuts = StatutCommande,
   onNouvelleCommande,
   showArchives = false,
+  highlightedCommandeId = '',
+  highlightedReminderStage = '',
 }) => {
-
-  // ✅ État pour le tri par date de commande
-  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' ou 'desc'
-  
-  // ✅ État pour la pagination
+  const [sortDirection, setSortDirection] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // 5, 10, 20, 50
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const rowRefs = useRef({});
 
-  // ✅ Fonction pour changer le tri
+  const normalizedHighlightedId = highlightedCommandeId ? String(highlightedCommandeId) : '';
+
+  const highlightedBadgeText =
+    highlightedReminderStage === statuts.VALIDEE ? 'Rappel envoi 24h' : 'Rappel confirmation 24h';
+
   const toggleSortDirection = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    setCurrentPage(1); // Reset à la première page quand on change le tri
+    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    setCurrentPage(1);
   };
 
-  // ✅ Fonction de tri par date de commande
-  const sortCommandes = (commandesList) => {
-    if (!commandesList || commandesList.length === 0) return commandesList;
-    
-    const sorted = [...commandesList];
-    
-    sorted.sort((a, b) => {
-      const dateA = new Date(a.dateCommande);
-      const dateB = new Date(b.dateCommande);
-      
+  const sortedCommandes = useMemo(() => {
+    if (!Array.isArray(commandes) || commandes.length === 0) return [];
+
+    return [...commandes].sort((a, b) => {
+      const dateA = new Date(a.dateCommande).getTime();
+      const dateB = new Date(b.dateCommande).getTime();
+
       if (sortDirection === 'asc') {
-        return dateA - dateB; // Plus ancien d'abord
-      } else {
-        return dateB - dateA; // Plus récent d'abord
+        return dateA - dateB;
       }
+
+      return dateB - dateA;
     });
-    
-    return sorted;
-  };
+  }, [commandes, sortDirection]);
 
-  // ✅ Appliquer le tri aux commandes
-  const sortedCommandes = useMemo(() => sortCommandes(commandes), [commandes, sortDirection]);
-
-  // ✅ Calcul de la pagination
   const totalItems = sortedCommandes.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedCommandes = sortedCommandes.slice(startIndex, endIndex);
 
-  // ✅ Fonctions de pagination
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (!normalizedHighlightedId) return;
+
+    const highlightedIndex = sortedCommandes.findIndex(
+      (commande) => String(commande.idCommandeFournisseur) === normalizedHighlightedId
+    );
+
+    if (highlightedIndex === -1) return;
+
+    const highlightedPage = Math.floor(highlightedIndex / itemsPerPage) + 1;
+    if (highlightedPage !== currentPage) {
+      setCurrentPage(highlightedPage);
+    }
+  }, [currentPage, itemsPerPage, normalizedHighlightedId, sortedCommandes]);
+
+  useEffect(() => {
+    if (!normalizedHighlightedId) return;
+
+    const isVisible = paginatedCommandes.some(
+      (commande) => String(commande.idCommandeFournisseur) === normalizedHighlightedId
+    );
+
+    if (!isVisible) return;
+
+    const rafId = window.requestAnimationFrame(() => {
+      rowRefs.current[normalizedHighlightedId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [normalizedHighlightedId, paginatedCommandes]);
+
   const goToPage = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  const goToFirstPage = () => goToPage(1);
-  const goToLastPage = () => goToPage(totalPages);
-  const goToPreviousPage = () => goToPage(currentPage - 1);
-  const goToNextPage = () => goToPage(currentPage + 1);
-
-  // ✅ Changer le nombre d'éléments par page
-  const handleItemsPerPageChange = (e) => {
-    setItemsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset à la première page
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(Number(event.target.value));
+    setCurrentPage(1);
   };
 
-  // ✅ Rendu de l'icône de tri
   const getSortIcon = () => {
     if (sortDirection === 'asc') {
       return <ArrowUpIcon className="w-4 h-4 text-blue-600" />;
-    } else {
-      return <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
     }
+
+    return <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
   };
 
-  // ✅ Rendu des numéros de pages
   const renderPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
     let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-    
+
     if (endPage - startPage + 1 < maxVisible) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
-    
-    for (let i = startPage; i <= endPage; i++) {
+
+    for (let page = startPage; page <= endPage; page += 1) {
       pages.push(
         <button
-          key={i}
-          onClick={() => goToPage(i)}
+          key={page}
+          onClick={() => goToPage(page)}
           className={`px-3 py-1 rounded-md text-sm transition-colors ${
-            currentPage === i
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+            currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
-          {i}
+          {page}
         </button>
       );
     }
-    
+
     return pages;
   };
 
-  // Statuts "archivés" (lecture seule)
-  const statutsArchives = [
-    statuts.ANNULEE,
-    statuts.REJETEE,
-    statuts.FACTUREE,
-  ];
+  const statutsArchives = [statuts.ANNULEE, statuts.REJETEE, statuts.FACTUREE];
 
   if (commandes.length === 0) {
     return (
@@ -195,15 +209,15 @@ const TableauCommandes = ({
         ) : (
           <ShoppingCartIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
         )}
-        <p className="text-gray-500 text-lg">
-          {showArchives ? 'Aucune commande archivée' : 'Aucune commande trouvée'}
-        </p>
+
+        <p className="text-gray-500 text-lg">{showArchives ? 'Aucune commande archivee' : 'Aucune commande trouvee'}</p>
+
         {!showArchives && (
           <button
             onClick={onNouvelleCommande}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Créer votre première commande
+            Creer votre premiere commande
           </button>
         )}
       </div>
@@ -217,7 +231,7 @@ const TableauCommandes = ({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                N° Bon De Commande
+                N° Commande
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Fournisseur
@@ -227,61 +241,72 @@ const TableauCommandes = ({
                 onClick={toggleSortDirection}
               >
                 <div className="flex items-center gap-1">
-                  Date 
+                  Date commande
                   <span className="ml-1">
                     {getSortIcon()}
                   </span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Livraison prévue
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Total TTC
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Statut
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Livraison prevue</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total TTC</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
+
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedCommandes.map((commande) => {
               const isArchived = showArchives || statutsArchives.includes(commande.statut);
+              const isHighlighted = String(commande.idCommandeFournisseur) === normalizedHighlightedId;
+              const rowClassName = `${isArchived ? 'opacity-75 bg-gray-50' : 'hover:bg-gray-50'} ${
+                isHighlighted ? 'bg-amber-50/80' : ''
+              } transition-colors`;
 
               return (
                 <tr
                   key={commande.idCommandeFournisseur}
-                  className={`hover:bg-gray-50 ${isArchived ? 'opacity-75 bg-gray-50' : ''}`}
+                  ref={(node) => {
+                    if (node) {
+                      rowRefs.current[String(commande.idCommandeFournisseur)] = node;
+                    } else {
+                      delete rowRefs.current[String(commande.idCommandeFournisseur)];
+                    }
+                  }}
+                  data-commande-id={commande.idCommandeFournisseur}
+                  className={rowClassName}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {commande.numeroCommande || 'N/A'}
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${
+                      isHighlighted ? 'border-l-4 border-amber-500' : ''
+                    }`}
+                  >
+                    <div>{commande.numeroCommande || 'N/A'}</div>
+                    {isHighlighted && (
+                      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                        {highlightedBadgeText}
+                      </div>
+                    )}
                   </td>
+
                   <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {commande.fournisseur?.nomFournisseur || 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {commande.fournisseur?.email || ''}
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">{commande.fournisseur?.nomFournisseur || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">{commande.fournisseur?.email || ''}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(commande.dateCommande)}
-                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(commande.dateCommande)}</td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(commande.dateLivraisonPrevue)}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                     {formatPrice(commande.totalTTC)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(commande.statut)}
-                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(commande.statut)}</td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* BROUILLON */}
                       {commande.statut === statuts.BROUILLON && !isArchived && onStatusChange && (
                         <>
                           <button
@@ -292,6 +317,7 @@ const TableauCommandes = ({
                           >
                             <DocumentCheckIcon className="w-4 h-4" />
                           </button>
+
                           {onEdit && (
                             <button
                               onClick={() => onEdit(commande)}
@@ -301,6 +327,7 @@ const TableauCommandes = ({
                               <PencilIcon className="w-4 h-4" />
                             </button>
                           )}
+
                           {onDelete && (
                             <button
                               onClick={() => onDelete(commande)}
@@ -313,7 +340,6 @@ const TableauCommandes = ({
                         </>
                       )}
 
-                      {/* VALIDEE */}
                       {commande.statut === statuts.VALIDEE && !isArchived && onStatusChange && (
                         <>
                           <button
@@ -324,6 +350,7 @@ const TableauCommandes = ({
                           >
                             <PaperAirplaneIcon className="w-4 h-4" />
                           </button>
+
                           <button
                             onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
                             disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
@@ -335,7 +362,6 @@ const TableauCommandes = ({
                         </>
                       )}
 
-                      {/* ENVOYEE */}
                       {commande.statut === statuts.ENVOYEE && !isArchived && (
                         <>
                           {onRecevoir && (
@@ -343,11 +369,12 @@ const TableauCommandes = ({
                               onClick={() => onRecevoir(commande)}
                               disabled={actionInProgress === `recevoir-${commande.idCommandeFournisseur}`}
                               className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded disabled:opacity-50"
-                              title="Réceptionner"
+                              title="Receptionner"
                             >
                               <TruckIcon className="w-4 h-4" />
                             </button>
                           )}
+
                           {onStatusChange && (
                             <button
                               onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
@@ -361,7 +388,6 @@ const TableauCommandes = ({
                         </>
                       )}
 
-                      {/* RECUE */}
                       {commande.statut === statuts.RECUE && !isArchived && onStatusChange && (
                         <button
                           onClick={() => onStatusChange(commande.idCommandeFournisseur, 'facturer')}
@@ -373,11 +399,21 @@ const TableauCommandes = ({
                         </button>
                       )}
 
-                      {/* Bouton Voir */}
+                      {showArchives && onRestore && (
+                        <button
+                          onClick={() => onRestore(commande.idCommandeFournisseur)}
+                          disabled={actionInProgress === `restore-${commande.idCommandeFournisseur}`}
+                          className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded disabled:opacity-50"
+                          title="Restaurer"
+                        >
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </button>
+                      )}
+
                       <button
                         onClick={() => onView(commande)}
                         className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        title="Voir détails"
+                        title="Voir details"
                       >
                         <EyeIcon className="w-4 h-4" />
                       </button>
@@ -390,11 +426,9 @@ const TableauCommandes = ({
         </table>
       </div>
 
-      {/* ✅ PAGINATION */}
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            {/* Sélecteur de nombre d'éléments */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Afficher :</span>
               <select
@@ -402,33 +436,32 @@ const TableauCommandes = ({
                 onChange={handleItemsPerPageChange}
                 className="border rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500"
               >
-                <option value={5}>5 </option>
-                <option value={10}>10 </option>
-                <option value={20}>20 </option>
-                <option value={50}>50 </option>
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
               </select>
             </div>
 
-            {/* Informations */}
             <div className="text-sm text-gray-600">
-              Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} commandes
+              Affichage de {startIndex + 1} a {Math.min(endIndex, totalItems)} sur {totalItems} commandes
             </div>
 
-            {/* Contrôles de pagination */}
             <div className="flex items-center gap-1">
               <button
-                onClick={goToFirstPage}
+                onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Première page"
+                title="Premiere page"
               >
                 <ChevronDoubleLeftIcon className="w-4 h-4 text-gray-600" />
               </button>
+
               <button
-                onClick={goToPreviousPage}
+                onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Page précédente"
+                title="Page precedente"
               >
                 <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
               </button>
@@ -436,18 +469,19 @@ const TableauCommandes = ({
               {renderPageNumbers()}
 
               <button
-                onClick={goToNextPage}
+                onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
                 title="Page suivante"
               >
                 <ChevronRightIcon className="w-4 h-4 text-gray-600" />
               </button>
+
               <button
-                onClick={goToLastPage}
+                onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Dernière page"
+                title="Derniere page"
               >
                 <ChevronDoubleRightIcon className="w-4 h-4 text-gray-600" />
               </button>
