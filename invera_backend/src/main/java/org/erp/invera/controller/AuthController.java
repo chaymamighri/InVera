@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -327,6 +328,7 @@ public class AuthController {
     @GetMapping("/all")
     public ResponseEntity<?> getAllUsers() {
         List<UserInfoResponse> users = userRepository.findAll().stream()
+                .filter(u -> u.getRole() != Role.ADMIN)
                 .map(u -> new UserInfoResponse(
                         u.getId(),
                         u.getEmail(),
@@ -436,4 +438,44 @@ public class AuthController {
 
         return ResponseEntity.ok(new MessageResponse("Password created successfully"));
     }
+
+
+    // ===== CREATE ADMIN (SIMPLE METHOD) =====
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/create-admin")
+    @Transactional
+    public ResponseEntity<?> createAdmin(@RequestBody Map<String, String> request) {
+
+        String email = request.get("email");
+        String nom = request.get("nom");
+        String prenom = request.get("prenom");
+        String password = request.get("password");
+
+        // Vérifications simples
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Email requis"));
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Email déjà utilisé"));
+        }
+
+        if (password == null || password.length() < 6) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Mot de passe minimum 6 caractères"));
+        }
+
+        // Création de l'admin
+        User admin = new User();
+        admin.setEmail(email.toLowerCase());
+        admin.setNom(nom != null ? nom : "");
+        admin.setPrenom(prenom != null ? prenom : "");
+        admin.setRole(Role.ADMIN);
+        admin.setActive(true);
+        admin.setPassword(passwordEncoder.encode(password));
+
+        userRepository.save(admin);
+
+        return ResponseEntity.ok(new MessageResponse("Admin créé avec succès"));
+    }
+
 }
