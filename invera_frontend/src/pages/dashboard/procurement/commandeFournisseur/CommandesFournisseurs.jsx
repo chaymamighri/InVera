@@ -1,17 +1,17 @@
-// CommandesFournisseurs.jsx - VERSION AVEC MODAL DE RÉCEPTION
-import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowPathIcon, ExclamationTriangleIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ArchiveBoxIcon, ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useCommandeFournisseur } from '../../../../hooks/useCommandeFournisseur';
+import procurementReminderService from '../../../../services/procurementReminderService';
 import CommandeModal from './components/commandeModal';
 import CommandeDetailsModal from './components/CommandeDetailsModal';
-import ReceptionModal from './components/ReceptionModal'; 
+import ReceptionModal from './components/ReceptionModal';
 import StatsCartes from './components/StatsCartes';
 import BarreRecherche from './components/BarreRecherche';
 import TableauCommandes from './components/TableauCommandes';
 import ConfirmationModal from './components/ConfirmationModal';
 
-// Constantes exportées pour les composants enfants
 export const StatutCommande = {
   BROUILLON: 'BROUILLON',
   VALIDEE: 'VALIDEE',
@@ -19,12 +19,13 @@ export const StatutCommande = {
   RECUE: 'RECUE',
   FACTUREE: 'FACTUREE',
   ANNULEE: 'ANNULEE',
+  REJETEE: 'REJETEE',
 };
 
-// Fonctions de formatage exportées
 export const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
+
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -36,13 +37,13 @@ export const formatDate = (dateString) => {
 
 export const formatPrice = (price) => {
   if (price === null || price === undefined) return 'N/A';
+
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'TND',
   }).format(price);
 };
 
-// Badge de statut exporté
 export const getStatusBadge = (statut) => {
   const colors = {
     [StatutCommande.BROUILLON]: 'bg-gray-100 text-gray-800',
@@ -51,15 +52,17 @@ export const getStatusBadge = (statut) => {
     [StatutCommande.RECUE]: 'bg-green-100 text-green-800',
     [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800',
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
+    [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[statut]}`}>
-      {statut}
-    </span>
-  );
+
+  return <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[statut]}`}>{statut}</span>;
 };
 
 const CommandesFournisseurs = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedCommandeId = searchParams.get('focusCommande') || '';
+  const focusedReminderStage = (searchParams.get('reminderStage') || '').toUpperCase();
+
   const {
     commandes,
     loading,
@@ -72,178 +75,209 @@ const CommandesFournisseurs = () => {
     deleteCommande,
     validerCommande,
     envoyerCommande,
-    recevoirCommande, // ✅ Gardé mais on va l'utiliser différemment
+    recevoirCommande,
     annulerCommande,
     facturerCommande,
     searchByNumero,
     searchByPeriode,
   } = useCommandeFournisseur();
 
-  // États
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatut, setSelectedStatut] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isReceptionModalOpen, setIsReceptionModalOpen] = useState(false); 
+  const [isReceptionModalOpen, setIsReceptionModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [actionInProgress, setActionInProgress] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
 
-  // ✅ Charger les commandes selon le mode
   useEffect(() => {
     if (showArchives) {
       fetchArchivedCommandes();
     } else {
       fetchCommandes();
     }
-  }, [showArchives, fetchCommandes, fetchArchivedCommandes]);
+  }, [showArchives, fetchArchivedCommandes, fetchCommandes]);
 
-  // Statistiques (cachées en mode archives)
+  useEffect(() => {
+    if (showArchives) return;
+    procurementReminderService.syncCommandes(commandes);
+  }, [commandes, showArchives]);
+
+  useEffect(() => {
+    if (!focusedCommandeId || !focusedReminderStage) return;
+    procurementReminderService.markReadByCommande(focusedCommandeId, focusedReminderStage);
+  }, [focusedCommandeId, focusedReminderStage]);
+
+  const clearFocus = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('focusCommande');
+    nextParams.delete('reminderStage');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const focusedCommande = useMemo(() => {
+    return commandes.find((commande) => String(commande.idCommandeFournisseur) === String(focusedCommandeId)) || null;
+  }, [commandes, focusedCommandeId]);
+
+  const focusMessage = useMemo(() => {
+    if (focusedReminderStage === StatutCommande.VALIDEE) {
+      return 'Cette commande a ete validee mais elle doit encore etre envoyee au fournisseur.';
+    }
+
+    return 'Cette commande est en brouillon depuis plus de 24 heures et attend votre confirmation.';
+  }, [focusedReminderStage]);
+
   const stats = useMemo(() => {
     if (!commandes.length || showArchives) return null;
+
     return {
       total: commandes.length,
-      enAttente: commandes.filter(c => c.statut === StatutCommande.BROUILLON || c.statut === StatutCommande.VALIDEE).length,
-      totalHT: commandes.reduce((acc, c) => acc + (c.totalHT || 0), 0),
-      totalTTC: commandes.reduce((acc, c) => acc + (c.totalTTC || 0), 0),
+      enAttente: commandes.filter(
+        (commande) => commande.statut === StatutCommande.BROUILLON || commande.statut === StatutCommande.VALIDEE
+      ).length,
+      totalHT: commandes.reduce((total, commande) => total + (commande.totalHT || 0), 0),
+      totalTTC: commandes.reduce((total, commande) => total + (commande.totalTTC || 0), 0),
     };
   }, [commandes, showArchives]);
 
-  // Filtrage
   const filteredCommandes = useMemo(() => {
-    return commandes.filter(commande => {
+    return commandes.filter((commande) => {
       const matchesSearch =
         commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
       const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
       return matchesSearch && matchesStatut;
     });
   }, [commandes, searchTerm, selectedStatut]);
 
-  // Handlers
   const handleShowArchives = () => {
-    setShowArchives(!showArchives);
+    setShowArchives((prev) => !prev);
     setSearchTerm('');
     setSelectedStatut('');
   };
 
   const handleSearch = async () => {
-    if (searchTerm) {
-      try {
-        const result = await searchByNumero(searchTerm);
-        if (result) {
-          setSelectedCommande(result);
-          setIsDetailsModalOpen(true);
-        }
-      } catch (error) {
-        console.error('Erreur:', error);
-        toast.error('Aucune commande trouvée avec ce numéro');
+    if (!searchTerm) return;
+
+    try {
+      const result = await searchByNumero(searchTerm);
+      if (result) {
+        setSelectedCommande(result);
+        setIsDetailsModalOpen(true);
       }
+    } catch (searchError) {
+      console.error('Erreur recherche commande:', searchError);
+      toast.error('Aucune commande trouvee avec ce numero');
     }
   };
 
   const handleSearchByPeriode = async () => {
-    if (dateDebut && dateFin) {
-      try {
-        await searchByPeriode(new Date(dateDebut), new Date(dateFin));
-        toast.success('Recherche par période effectuée');
-      } catch (error) {
-        console.error('Erreur:', error);
-        toast.error('Erreur lors de la recherche');
-      }
+    if (!dateDebut || !dateFin) return;
+
+    try {
+      await searchByPeriode(new Date(dateDebut), new Date(dateFin));
+      toast.success('Recherche par periode effectuee');
+    } catch (searchError) {
+      console.error('Erreur recherche periode:', searchError);
+      toast.error('Erreur lors de la recherche');
     }
   };
 
-  // ✅ NOUVEAU Handler pour ouvrir le modal de réception
   const handleRecevoirClick = (commande) => {
     setSelectedCommande(commande);
     setIsReceptionModalOpen(true);
   };
 
-  // ✅ NOUVEAU Handler pour confirmer la réception
   const handleReceptionConfirm = async (receptionData) => {
     try {
       setActionInProgress(`reception-${selectedCommande.idCommandeFournisseur}`);
       await recevoirCommande(selectedCommande.idCommandeFournisseur, receptionData);
-      toast.success('Réception enregistrée avec succès');
+      toast.success('Reception enregistree avec succes');
       setIsReceptionModalOpen(false);
+
+      if (focusedCommandeId && String(selectedCommande.idCommandeFournisseur) === String(focusedCommandeId)) {
+        clearFocus();
+      }
+
       await fetchCommandes();
-    } catch (error) {
-      console.error('Erreur réception:', error);
-      toast.error('Erreur lors de la réception');
+    } catch (receiveError) {
+      console.error('Erreur reception:', receiveError);
+      toast.error('Erreur lors de la reception');
     } finally {
       setActionInProgress(null);
     }
   };
 
-  // ✅ Handlers pour les changements de statut (SANS recevoir ici)
   const handleStatusChange = async (id, action) => {
     try {
       setActionInProgress(`${action}-${id}`);
-      let result;
+
       switch (action) {
         case 'valider':
-          result = await validerCommande(id);
-          toast.success('Commande validée avec succès');
+          await validerCommande(id);
+          toast.success('Commande validee avec succes');
           break;
         case 'envoyer':
-          result = await envoyerCommande(id);
-          toast.success('Commande envoyée avec succès');
+          await envoyerCommande(id);
+          toast.success('Commande envoyee avec succes');
           break;
-        // ⚠️ 'recevoir' n'est plus géré ici - on utilise le modal
         case 'facturer':
-          result = await facturerCommande(id);
-          toast.success('Commande facturée avec succès');
+          await facturerCommande(id);
+          toast.success('Commande facturee avec succes');
           break;
         case 'annuler':
-          result = await annulerCommande(id);
-          toast.success('Commande annulée avec succès');
+          await annulerCommande(id);
+          toast.success('Commande annulee avec succes');
           break;
         default:
-          console.warn('Action inconnue:', action);
           return;
       }
+
+      if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
+        clearFocus();
+      }
+
       await fetchCommandes();
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error(`Erreur lors de ${action === 'annuler' ? 'l\'annulation' : 'l\'action'}`);
+    } catch (statusError) {
+      console.error('Erreur changement statut:', statusError);
+      toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
     } finally {
       setActionInProgress(null);
     }
   };
 
-  // ✅ Restaurer une commande archivée
   const handleRestore = async (id) => {
     try {
       setActionInProgress(`restore-${id}`);
       await restoreCommande(id);
-      toast.success('Commande restaurée avec succès');
+      toast.success('Commande restauree avec succes');
+
       if (showArchives) {
         await fetchArchivedCommandes();
       }
-    } catch (error) {
-      console.error('Erreur restauration:', error);
+    } catch (restoreError) {
+      console.error('Erreur restauration:', restoreError);
       toast.error('Erreur lors de la restauration');
     } finally {
       setActionInProgress(null);
     }
   };
 
-  // ✅ HandleDelete adapté au mode archives
   const handleDelete = (commande) => {
     if (showArchives) {
-      toast.info('Utilisez le bouton de restauration pour réactiver la commande');
+      toast.info('Utilisez le bouton de restauration pour reactiver la commande');
       return;
     }
 
     if (commande.statut !== StatutCommande.BROUILLON) {
-      toast.error('Seules les commandes en brouillon peuvent être supprimées');
+      toast.error('Seules les commandes en brouillon peuvent etre supprimees');
       return;
     }
 
@@ -257,12 +291,17 @@ const CommandesFournisseurs = () => {
     try {
       setActionInProgress('delete');
       await deleteCommande(selectedCommande.idCommandeFournisseur);
-      toast.success('Commande supprimée avec succès');
+      toast.success('Commande supprimee avec succes');
       setIsDeleteModalOpen(false);
       setSelectedCommande(null);
+
+      if (focusedCommandeId && String(selectedCommande.idCommandeFournisseur) === String(focusedCommandeId)) {
+        clearFocus();
+      }
+
       await fetchCommandes();
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+    } catch (deleteError) {
+      console.error('Erreur suppression commande:', deleteError);
       toast.error('Erreur lors de la suppression');
     } finally {
       setActionInProgress(null);
@@ -270,7 +309,6 @@ const CommandesFournisseurs = () => {
   };
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
     fetchCommandes();
   };
 
@@ -286,10 +324,12 @@ const CommandesFournisseurs = () => {
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
             <ArrowPathIcon className="w-4 h-4" />
-            Réessayer
+            Reessayer
           </button>
           <button
-            onClick={() => window.location.href = '/login'}
+            onClick={() => {
+              window.location.href = '/login';
+            }}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             Retour au login
@@ -309,30 +349,60 @@ const CommandesFournisseurs = () => {
 
   return (
     <div className="space-y-6">
-      {/* Indicateur de mode archives */}
       {showArchives && (
         <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ArchiveBoxIcon className="w-5 h-5 text-purple-600" />
-              <span className="text-purple-700 font-medium">
-                Mode Archives - Commandes supprimées
-              </span>
+              <span className="text-purple-700 font-medium">Mode Archives - Commandes supprimees</span>
             </div>
-            <button
-              onClick={handleShowArchives}
-              className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-            >
+            <button onClick={handleShowArchives} className="text-purple-600 hover:text-purple-800 text-sm font-medium">
               Retour aux commandes actives
             </button>
           </div>
         </div>
       )}
 
-      {/* Statistiques (cachées en mode archives) */}
+      {!showArchives && focusedCommande && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Commande a traiter en priorite</p>
+            <p className="text-sm text-amber-800 mt-1">
+              <span className="font-semibold">{focusedCommande.numeroCommande}</span> - {focusMessage}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectedCommande(focusedCommande);
+                setIsDetailsModalOpen(true);
+              }}
+              className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 text-sm font-medium"
+            >
+              Voir details
+            </button>
+            <button
+              onClick={clearFocus}
+              className="px-3 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 text-sm font-medium"
+            >
+              Retirer le focus
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!showArchives && focusedCommandeId && !focusedCommande && !loading && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-gray-700">La commande ciblee n a pas ete trouvee dans la liste active.</p>
+          <button onClick={clearFocus} className="px-3 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-900 text-sm">
+            Fermer
+          </button>
+        </div>
+      )}
+
       {!showArchives && <StatsCartes stats={stats} />}
 
-      {/* Barre de recherche et filtres */}
       <BarreRecherche
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -355,21 +425,24 @@ const CommandesFournisseurs = () => {
         onSearchByPeriode={handleSearchByPeriode}
       />
 
-      {/* Tableau des commandes */}
       <TableauCommandes
         commandes={filteredCommandes}
         onView={(commande) => {
           setSelectedCommande(commande);
           setIsDetailsModalOpen(true);
         }}
-        onEdit={!showArchives ? (commande) => {
-          setSelectedCommande(commande);
-          setIsModalOpen(true);
-        } : undefined}
+        onEdit={
+          !showArchives
+            ? (commande) => {
+                setSelectedCommande(commande);
+                setIsModalOpen(true);
+              }
+            : undefined
+        }
         onDelete={handleDelete}
         onRestore={showArchives ? handleRestore : undefined}
         onStatusChange={!showArchives ? handleStatusChange : undefined}
-        onRecevoir={!showArchives ? handleRecevoirClick : undefined} // ✅ NOUVEAU prop
+        onRecevoir={!showArchives ? handleRecevoirClick : undefined}
         actionInProgress={actionInProgress}
         statuts={StatutCommande}
         onNouvelleCommande={() => {
@@ -377,9 +450,10 @@ const CommandesFournisseurs = () => {
           setIsModalOpen(true);
         }}
         showArchives={showArchives}
+        highlightedCommandeId={focusedCommandeId}
+        highlightedReminderStage={focusedReminderStage}
       />
 
-      {/* Modals */}
       <CommandeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -387,27 +461,26 @@ const CommandesFournisseurs = () => {
         onSave={selectedCommande ? updateCommande : createCommande}
         onSuccess={fetchCommandes}
       />
-      
+
       <CommandeDetailsModal
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         commande={selectedCommande}
       />
-      
-      {/* ✅ NOUVEAU Modal de réception */}
+
       <ReceptionModal
         isOpen={isReceptionModalOpen}
         onClose={() => setIsReceptionModalOpen(false)}
         commande={selectedCommande}
         onConfirm={handleReceptionConfirm}
       />
-      
+
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
         title="Supprimer la commande"
-        message={`Êtes-vous sûr de vouloir supprimer la commande ${selectedCommande?.numeroCommande || ''} ?`}
+        message={`Etes-vous sur de vouloir supprimer la commande ${selectedCommande?.numeroCommande || ''} ?`}
         isLoading={actionInProgress === 'delete'}
       />
     </div>
