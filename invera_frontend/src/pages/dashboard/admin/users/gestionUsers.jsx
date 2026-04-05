@@ -8,7 +8,8 @@ import {
   PencilIcon,
   TrashIcon,
   XCircleIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
 
@@ -53,7 +54,7 @@ const ConfirmModal = ({ open, onCancel, onConfirm, title, message, confirmText =
   );
 };
 
-const InputField = ({ label, value, onChange, placeholder, type = "text" }) => (
+const InputField = ({ label, value, onChange, placeholder, type = "text", error }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <input
@@ -61,8 +62,16 @@ const InputField = ({ label, value, onChange, placeholder, type = "text" }) => (
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
+      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+        error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+      }`}
     />
+    {error && (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <ExclamationCircleIcon className="w-3 h-3" />
+        {error}
+      </p>
+    )}
   </div>
 );
 
@@ -78,6 +87,31 @@ const SelectField = ({ label, value, onChange, options }) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
     </select>
+  </div>
+);
+
+const EmailField = ({ label, value, onChange, placeholder, error, onBlur }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <div className="relative">
+      <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      <input
+        type="email"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+          error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+        }`}
+      />
+    </div>
+    {error && (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <ExclamationCircleIcon className="w-3 h-3" />
+        {error}
+      </p>
+    )}
   </div>
 );
 
@@ -139,6 +173,11 @@ const GestionUsers = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [localError, setLocalError] = useState(null);
 
+  // États pour les erreurs de validation d'email
+  const [emailError, setEmailError] = useState('');
+  const [editEmailError, setEditEmailError] = useState('');
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
 
@@ -154,39 +193,123 @@ const GestionUsers = () => {
     }
   };
 
+  // Vérifier si l'email existe déjà
+  const checkEmailExists = (email, excludeUserId = null) => {
+    if (!email.trim()) return false;
+    const emailLower = email.trim().toLowerCase();
+    return users.some(user => 
+      user.email.toLowerCase() === emailLower && user.id !== excludeUserId
+    );
+  };
+
+  // Valider l'email pour l'ajout
+  const validateNewEmail = (email) => {
+    if (!email.trim()) {
+      setEmailError('');
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Format d\'email invalide');
+      return false;
+    }
+    
+    if (checkEmailExists(email)) {
+      setEmailError('Cet email est déjà utilisé par un autre utilisateur');
+      return false;
+    }
+    
+    setEmailError('');
+    return true;
+  };
+
+  // Valider l'email pour la modification
+  const validateEditEmail = (email, userId) => {
+    if (!email.trim()) {
+      setEditEmailError('');
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEditEmailError('Format d\'email invalide');
+      return false;
+    }
+    
+    if (checkEmailExists(email, userId)) {
+      setEditEmailError('Cet email est déjà utilisé par un autre utilisateur');
+      return false;
+    }
+    
+    setEditEmailError('');
+    return true;
+  };
+
   const handleAddUser = async () => {
-    if (!newUser.name.trim() || !newUser.email.trim()) {
-      toast.error("Veuillez remplir le nom et l'email.");
+    if (!newUser.name.trim()) {
+      toast.error("Veuillez remplir le nom.");
       return;
     }
+    
+    if (!newUser.email.trim()) {
+      toast.error("Veuillez remplir l'email.");
+      return;
+    }
+    
+    // Vérifier l'email avant d'ajouter
+    if (!validateNewEmail(newUser.email)) {
+      toast.error("Email invalide ou déjà utilisé.");
+      return;
+    }
+    
     try {
       await addUser(newUser);
       await fetchUsers();
       setNewUser({ name: '', email: '', role: 'sales' });
+      setEmailError('');
       setAddModalOpen(false);
       toast.success("Utilisateur ajouté avec succès");
-    } catch {
-      // toast handled in hook
+    } catch (err) {
+      if (err.message?.includes('email') || err.message?.includes('duplicate')) {
+        setEmailError('Cet email est déjà utilisé par un autre utilisateur');
+      }
     }
   };
 
   const handleEditUser = async () => {
-    if (!editingUser?.name?.trim() || !editingUser?.email?.trim()) {
-      toast.error("Nom et email requis.");
+    if (!editingUser?.name?.trim()) {
+      toast.error("Nom requis.");
       return;
     }
+    
+    if (!editingUser?.email?.trim()) {
+      toast.error("Email requis.");
+      return;
+    }
+    
     if (editingUser?.role === 'admin') {
       toast.error("Le compte administrateur principal ne peut pas etre modifie ici.");
       return;
     }
+    
+    // Vérifier l'email avant de modifier
+    if (!validateEditEmail(editingUser.email, editingUser.id)) {
+      toast.error("Email invalide ou déjà utilisé.");
+      return;
+    }
+    
     try {
       await updateUser(editingUser.id, editingUser);
       await fetchUsers();
       setEditingUser(null);
+      setEditEmailError('');
       setEditModalOpen(false);
       toast.success("Utilisateur modifié avec succès");
-    } catch {
-      // toast handled
+    } catch (err) {
+      if (err.message?.includes('email') || err.message?.includes('duplicate')) {
+        setEditEmailError('Cet email est déjà utilisé par un autre utilisateur');
+      }
     }
   };
 
@@ -312,19 +435,18 @@ const GestionUsers = () => {
       )}
 
       {/* Tableau des utilisateurs */}
-<div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full">
-      <thead className="bg-gray-100">
-        <tr>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nom</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rôle</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Statut</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
-        </tr>
-      </thead>
-  
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rôle</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-emerald-100">
               {filteredUsers.map((user, index) => (
                 <tr
@@ -341,20 +463,17 @@ const GestionUsers = () => {
                       <span className="text-sm font-medium text-gray-900">{user.name}</span>
                     </div>
                   </td>
-
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <EnvelopeIcon className="w-4 h-4 text-emerald-500" />
                       <span className="text-sm text-gray-600">{user.email}</span>
                     </div>
                   </td>
-
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
                       {roleLabel(user.role)}
                     </span>
                   </td>
-
                   <td className="px-4 py-3 whitespace-nowrap">
                     <ToggleSwitch
                       checked={user.active}
@@ -362,7 +481,6 @@ const GestionUsers = () => {
                       disabled={loading}
                     />
                   </td>
-
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <button
@@ -402,7 +520,7 @@ const GestionUsers = () => {
       </div>
 
       {/* Modal Ajout */}
-      <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)}>
+      <Modal open={addModalOpen} onClose={() => { setAddModalOpen(false); setEmailError(''); }}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Nouvel utilisateur</h2>
         <div className="space-y-4">
           <InputField
@@ -411,19 +529,17 @@ const GestionUsers = () => {
             onChange={val => setNewUser({ ...newUser, name: val })}
             placeholder="Jean Dupont"
           />
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="relative">
-              <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="email"
-                value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="email@example.com"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
-              />
-            </div>
-          </div>
+          <EmailField
+            label="Email"
+            value={newUser.email}
+            onChange={(val) => {
+              setNewUser({ ...newUser, email: val });
+              if (emailError) validateNewEmail(val);
+            }}
+            onBlur={() => validateNewEmail(newUser.email)}
+            placeholder="email@example.com"
+            error={emailError}
+          />
           <SelectField
             label="Rôle"
             value={newUser.role}
@@ -436,13 +552,13 @@ const GestionUsers = () => {
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleAddUser}
-              disabled={loading}
+              disabled={loading || !!emailError}
               className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
             >
               Ajouter
             </button>
             <button
-              onClick={() => setAddModalOpen(false)}
+              onClick={() => { setAddModalOpen(false); setEmailError(''); }}
               className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Annuler
@@ -452,7 +568,7 @@ const GestionUsers = () => {
       </Modal>
 
       {/* Modal Modification */}
-      <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+      <Modal open={editModalOpen} onClose={() => { setEditModalOpen(false); setEditEmailError(''); }}>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Modifier l'utilisateur</h2>
         {editingUser && (
           <div className="space-y-4">
@@ -461,18 +577,17 @@ const GestionUsers = () => {
               value={editingUser.name}
               onChange={val => setEditingUser({ ...editingUser, name: val })}
             />
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <div className="relative">
-                <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
-                />
-              </div>
-            </div>
+            <EmailField
+              label="Email"
+              value={editingUser.email}
+              onChange={(val) => {
+                setEditingUser({ ...editingUser, email: val });
+                if (editEmailError) validateEditEmail(val, editingUser.id);
+              }}
+              onBlur={() => validateEditEmail(editingUser.email, editingUser.id)}
+              placeholder="email@example.com"
+              error={editEmailError}
+            />
             <SelectField
               label="Rôle"
               value={editingUser.role}
@@ -482,13 +597,13 @@ const GestionUsers = () => {
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}
-                disabled={loading}
+                disabled={loading || !!editEmailError}
                 className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
                 Sauvegarder
               </button>
               <button
-                onClick={() => setEditModalOpen(false)}
+                onClick={() => { setEditModalOpen(false); setEditEmailError(''); }}
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Annuler

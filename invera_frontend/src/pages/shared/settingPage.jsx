@@ -533,19 +533,6 @@ const SettingsPage = () => {
                           </div>
                         </form>
                       </div>
-
-                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                          <ShieldCheckIcon className="h-5 w-5 inline mr-2 text-blue-600" />
-                          Sécurité supplémentaire
-                        </h3>
-                        <div className="p-4 bg-white rounded-lg border border-gray-200">
-                          <div className="font-medium text-gray-800">Sessions actives</div>
-                          <div className="text-sm text-gray-600">
-                            (Optionnel) Cette page peut être ajoutée plus tard.
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   )}
 
