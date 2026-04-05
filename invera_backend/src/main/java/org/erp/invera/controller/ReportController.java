@@ -137,18 +137,6 @@ public class ReportController {
     }
 
     /**
-     * HEALTH CHECK - Vérifier que le service fonctionne
-     */
-    @GetMapping("/health")
-    public ResponseEntity<?> healthCheck() {
-        return ResponseEntity.ok(Map.of(
-                "status", "OK",
-                "message", "Report service is running",
-                "timestamp", LocalDate.now().toString()
-        ));
-    }
-
-    /**
      * LISTE DES TYPES DE RAPPORTS DISPONIBLES
      */
     @GetMapping("/types")
@@ -185,15 +173,5 @@ public class ReportController {
         ));
     }
 
-    /**
-     * TEST - Pour vérifier que l'authentification fonctionne
-     */
-    @GetMapping("/test-auth")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMMERCIAL')")
-    public ResponseEntity<?> testAuth() {
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Authentification réussie"
-        ));
-    }
+
 }

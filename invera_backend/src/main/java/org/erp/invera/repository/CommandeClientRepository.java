@@ -60,7 +60,10 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
             @Param("statut") CommandeClient.StatutCommande statut,
             @Param("clientId") Integer clientId);
 
-    // Dans CommandeClientRepository.java - Modifie ces signatures
+    // ========================
+    // MÉTHODES POUR STATISTIQUES (SANS FETCH)
+    // ========================
+
     @Query("SELECT COALESCE(SUM(c.total), 0) FROM CommandeClient c " +
             "WHERE c.dateCommande BETWEEN :debut AND :fin")
     BigDecimal sumTotalByPeriode(@Param("debut") LocalDateTime debut,
@@ -83,7 +86,7 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
     BigDecimal sumTotalByDate(@Param("date") LocalDate date);
 
     // ========================
-    // TOP PRODUITS - AVEC LES BONS NOMS D'ATTRIBUTS
+    // TOP PRODUITS
     // ========================
 
     @Query("SELECT NEW org.erp.invera.dto.DashboardDTO$ProduitVente(" +
@@ -108,7 +111,6 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
     // RÉPARTITION PAR STATUT
     // ========================
 
-    // Dans CommandeClientRepository.java
     @Query("SELECT c.statut, COUNT(c), COALESCE(SUM(c.total), 0) " +
             "FROM CommandeClient c " +
             "WHERE c.dateCommande BETWEEN :debut AND :fin " +
@@ -124,7 +126,6 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
     List<Object[]> getDailyOrdersStats(@Param("debut") LocalDateTime debut,
                                        @Param("fin") LocalDateTime fin);
 
-    // Dans le backend - UNIQUEMENT les clients avec commandes
     @Query("SELECT cl.typeClient, " +
             "COUNT(DISTINCT cl.idClient), " +
             "COALESCE(SUM(c.total), 0) " +
@@ -135,20 +136,58 @@ public interface CommandeClientRepository extends JpaRepository<CommandeClient, 
     List<Object[]> getSalesByClientType(@Param("debut") LocalDateTime debut,
                                         @Param("fin") LocalDateTime fin);
 
+    // ========================
+    // MÉTHODES POUR RAPPORTS (SANS FETCH POUR ÉVITER LazyInitializationException)
+    // ========================
 
+    /**
+     * Récupère les commandes avec les lignes chargées - À utiliser dans les transactions
+     */
     @Query("SELECT DISTINCT c FROM CommandeClient c " +
             "LEFT JOIN FETCH c.client " +
-            "LEFT JOIN FETCH c.lignesCommande " +
+            "LEFT JOIN FETCH c.lignesCommande l " +
+            "LEFT JOIN FETCH l.produit " +
             "WHERE c.dateCommande BETWEEN :debut AND :fin " +
             "ORDER BY c.dateCommande DESC")
     List<CommandeClient> findByDateCommandeBetweenWithDetails(
             @Param("debut") LocalDateTime debut,
-            @Param("fin") LocalDateTime fin
-    );
+            @Param("fin") LocalDateTime fin);
 
+    /**
+     * Récupère les commandes SANS les lignes - Plus léger, sans risque LazyInitialization
+     * À utiliser quand on n'a pas besoin des détails des lignes
+     */
+    @Query("SELECT c FROM CommandeClient c " +
+            "LEFT JOIN FETCH c.client " +
+            "WHERE c.dateCommande BETWEEN :debut AND :fin " +
+            "ORDER BY c.dateCommande DESC")
+    List<CommandeClient> findByDateCommandeBetweenWithClientOnly(
+            @Param("debut") LocalDateTime debut,
+            @Param("fin") LocalDateTime fin);
+
+    /**
+     * Récupère TOUTES les commandes avec les lignes chargées
+     */
+    @Query("SELECT DISTINCT c FROM CommandeClient c " +
+            "LEFT JOIN FETCH c.client " +
+            "LEFT JOIN FETCH c.lignesCommande l " +
+            "LEFT JOIN FETCH l.produit " +
+            "ORDER BY c.dateCommande DESC")
+    List<CommandeClient> findAllWithLinesAndClient();
+
+    /**
+     * Récupère TOUTES les commandes SANS les lignes (pour les rapports)
+     */
+    @Query("SELECT c FROM CommandeClient c " +
+            "LEFT JOIN FETCH c.client " +
+            "ORDER BY c.dateCommande DESC")
+    List<CommandeClient> findAllWithClientOnly();
+
+    /**
+     * Méthode simple pour les rapports - Récupère les commandes entre dates SANS les lignes
+     */
     @Query("SELECT c FROM CommandeClient c WHERE c.dateCommande BETWEEN :debut AND :fin")
     List<CommandeClient> findByDateCommandeBetween(
             @Param("debut") LocalDateTime debut,
-            @Param("fin") LocalDateTime fin
-    );
+            @Param("fin") LocalDateTime fin);
 }
