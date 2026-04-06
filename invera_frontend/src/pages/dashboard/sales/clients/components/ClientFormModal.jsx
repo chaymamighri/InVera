@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
+/**
+ * Composant ClientFormModal - Formulaire de création/modification client
+ * @param {boolean} open - Ouvre/ferme la modale
+ * @param {function} onClose - Ferme la modale
+ * @param {object} client - Données client (pour modification)
+ * @param {function} onSuccess - Callback après succès
+ * @param {function} checkTelephone - Vérifie si téléphone existe
+ * @param {function} getRemiseForType - Récupère remise selon type client
+ * @param {array} clientTypes - Liste des types de clients
+ * @param {function} createClient - Envoie données à l'API
+ */
+
 const ClientFormModal = ({ 
   open, 
   onClose, 

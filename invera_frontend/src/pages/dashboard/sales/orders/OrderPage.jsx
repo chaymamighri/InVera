@@ -1,4 +1,29 @@
 // src/pages/dashboard/sales/orders/OrdersPage.jsx
+
+/**
+ * OrdersPage - Gestion des commandes clients
+ * 
+ * RÔLE : Gérer toutes les commandes clients (consultation, validation, rejet, création)
+ * ROUTE : /dashboard/sales/orders
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des commandes avec filtres (recherche, statut, client, type client)
+ * - Tri des colonnes (client, date, montant)
+ * - Création de commande (client + produits)
+ * - Validation/rejet de commande
+ * - Consultation des détails
+ * - Statistiques (total, en attente, confirmées, refusées)
+ * 
+ * COMPOSANTS UTILISÉS :
+ * - OrderFilters : Barre de filtres
+ * - OrderTable : Tableau des commandes
+ * - CreateOrderModal : Modal création commande
+ * - OrderDetailsModal : Modal détails commande
+ * 
+ * HOOK UTILISÉ : useOrders()
+ * SERVICES : clientService, commandeService
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import OrderFilters from './components/OrderFilters';
 import OrderTable from './components/OrderTable';

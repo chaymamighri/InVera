@@ -1,4 +1,26 @@
-// src/pages/dashboard/sales/sales/components/OrderDetailsModal.jsx
+/**
+ * OrderDetailsModal - Modale affichant les détails d'une commande
+ *
+ * Affiche :
+ * - Infos client (nom, contact, entreprise)
+ * - Produits commandés avec quantité et prix
+ * - Total de la commande
+ * - Statut : validée / facturée
+ *
+ * Permet :
+ * - Générer une facture si elle n'existe pas
+ * - Consulter la facture si elle existe
+ * - Fermer la modale
+ *
+ * Props :
+ * - commande : objet commande
+ * - isOpen : booléen ouverture modale
+ * - onClose : fonction fermeture
+ * - onGenerateInvoice : fonction génération facture
+ * - onViewInvoice : fonction consulter facture
+ * - hasInvoice : booléen facture existante
+ */
+
 import React, { useState } from 'react';
 import { 
   XMarkIcon,

@@ -1,3 +1,29 @@
+/**
+ * AdminDashboard - Dashboard d'administration
+ * 
+ * RÔLE : Interface principale pour les utilisateurs ayant le rôle "ADMIN"
+ * ROUTE : /dashboard/admin
+ * 
+ * FONCTIONNALITÉS :
+ * - Barre latérale (sidebar) réductible
+ * - Navigation vers les pages d'administration
+ * - Gestion des utilisateurs
+ * - Gestion des remises
+ * - Gestion des fournisseurs
+ * - Statistiques globales
+ * - Profil utilisateur
+ * 
+ * SOUS-PAGES (via renderPage) :
+ * - Statistiques (stats)
+ * - Gestion utilisateurs (users)
+ * - Gestion remises (remises)
+ * - Gestion fournisseurs (fournisseurs)
+ * 
+ * OPTIMISATIONS :
+ * - React.memo sur les pages pour éviter les re-rendus inutiles
+ * - useMemo pour le rendu des pages
+ * - useCallback pour les gestionnaires
+ */
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   UsersIcon,

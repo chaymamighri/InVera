@@ -1,4 +1,24 @@
 // src/pages/dashboard/sales/reports/tabs/SalesTab.jsx
+
+/**
+ * SalesTab - Onglet des ventes dans les rapports
+ * 
+ * RÔLE : Afficher, filtrer et exporter le rapport des ventes
+ * ROUTE : /dashboard/sales/reports/sales
+ * 
+ * FONCTIONNALITÉS :
+ * - Filtrage par période (dates personnalisées)
+ * - Filtrage par type de client (VIP, Entreprise, Fidèle, Particulier)
+ * - Filtrage par statut commande (Confirmée, En attente, Annulée)
+ * - Export PDF (template professionnel avec pagination automatique 25 lignes/page)
+ * - Export Excel (XLSX avec 4 feuilles : Résumé, Ventes, Statistiques, Clients)
+ * - Affichage des KPIs (CA total, nombre de commandes)
+ * - Tableau détaillé des ventes
+ * 
+ * HOOK UTILISÉ : useReports('sales', filters)
+ * LIBRAIRIES : html2pdf.js (PDF), xlsx (Excel)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { RefreshCw, Filter, Calendar, X, FileText, FileSpreadsheet } from 'lucide-react';

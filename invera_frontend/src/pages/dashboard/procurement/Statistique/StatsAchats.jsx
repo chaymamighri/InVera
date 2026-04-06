@@ -1,4 +1,22 @@
-// StatsAchats.jsx - Version connectée à l'API avec useStatsAchat
+/**
+ * StatsAchats - Page des statistiques achats
+ * 
+ * RÔLE : Afficher les indicateurs de performance du module achats
+ * ROUTE : /dashboard/procurement/stats
+ * 
+ * FONCTIONNALITÉS :
+ * - Cartes KPI (commandes, produits, stock, factures)
+ * - Graphique évolution des commandes (ligne)
+ * - Graphique mouvements de stock (barres)
+ * - Répartition produits par catégorie (donut)
+ * - Alertes stock (rupture, critique)
+ * - Commandes à traiter (en attente, en cours)
+ * - Filtrage par période (DateRangeSelectorAchats)
+ * - Rafraîchissement des données
+ * 
+ * HOOK UTILISÉ : useStatsAchat(startDate, endDate)
+ * COMPOSANTS : DateRangeSelectorAchats
+ */
 import React, { useState } from 'react';
 import {
   ShoppingCartIcon,

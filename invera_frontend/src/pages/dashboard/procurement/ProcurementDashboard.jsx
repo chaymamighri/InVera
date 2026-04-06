@@ -1,4 +1,28 @@
 // ProcurementDashboard.jsx - Version avec style d'écriture et positionnement optimisés
+/**
+ * ProcurementDashboard - Dashboard du module Achats
+ * 
+ * RÔLE : Interface principale pour les utilisateurs ayant le rôle "RESPONSABLE_ACHAT"
+ * ROUTE : /dashboard/procurement/*
+ * 
+ * FONCTIONNALITÉS :
+ * - Barre latérale (sidebar) réductible
+ * - Navigation vers les différentes sections (stats, produits, catégories, commandes, stock, factures)
+ * - Titre et description dynamiques selon la page active
+ * - Profil utilisateur avec initiales
+ * - Footer cohérent
+ * 
+ * SOUS-PAGES (via Outlet) :
+ * - /dashboard/procurement/stats       → Statistiques achats
+ * - /dashboard/procurement/demandes    → Demandes d'approvisionnement
+ * - /dashboard/procurement/produits    → Catalogue produits
+ * - /dashboard/procurement/categories  → Gestion catégories
+ * - /dashboard/procurement/commandes   → Bons de commande fournisseurs
+ * - /dashboard/procurement/mouvements  → Mouvements de stock
+ * - /dashboard/procurement/etat_stock  → État du stock
+ * - /dashboard/procurement/factures    → Factures fournisseurs
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {

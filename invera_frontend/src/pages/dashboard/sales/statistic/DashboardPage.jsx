@@ -1,4 +1,20 @@
-// src/pages/dashboard/sales/DashboardPage.jsx
+/**
+ * DashboardPage - Page d'accueil du module Ventes
+ * 
+ * Affiche les statistiques et graphiques des ventes.
+ * Route : /dashboard/sales/dashboard
+ * 
+ * Composants utilisés :
+ * - KPICard : Cartes CA et commandes
+ * - EvolutionChart : Graphique évolution du CA
+ * - OrdersEvolutionChart : Graphique évolution commandes
+ * - TopProducts : Classement des produits
+ * - StatusDonutChart : Répartition par statut
+ * - ClientTypeChart : Répartition par type de client
+ * - DateRangeSelector : Filtre par période
+ * - SkeletonLoader : Écran de chargement
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RotateCcw, X } from 'lucide-react';
@@ -13,24 +29,27 @@ import SkeletonLoader from './components/SkeletonLoader';
 import DateRangeSelector from './components/DateRangeSelector';
 
 const DashboardPage = () => {
+  // ===== RÉCUPÉRATION DES DONNÉES DEPUIS LE HOOK =====
   const {
-    loading,
-    error,
-    data,
-    applyCustomRange,
-    refresh,
-    formatCurrency,
-    refreshing,
-    dateRange,
-    filterActive: hookFilterActive
+    loading,           // État de chargement
+    error,             // Message d'erreur
+    data,              // Données du dashboard (kpi, charts, etc.)
+    applyCustomRange,  // Appliquer une période personnalisée
+    refresh,           // Rafraîchir les données
+    formatCurrency,    // Formater un montant en euros
+    refreshing,        // État de rafraîchissement
+    dateRange,         // Période sélectionnée
+    filterActive: hookFilterActive  // Indique si un filtre est actif
   } = useDashboardData();
 
-  // État local pour les dates (synchronisé avec le hook)
+  // ===== ÉTATS LOCAUX =====
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterActive, setFilterActive] = useState(false);
 
-  // ✅ Synchroniser les dates avec le hook
+  // ===== SYNCHRONISATION AVEC LE HOOK =====
+  
+  // Synchronise les dates lorsque le hook change
   useEffect(() => {
     if (dateRange?.startDate && dateRange?.endDate) {
       setStartDate(dateRange.startDate);
@@ -43,12 +62,12 @@ const DashboardPage = () => {
     }
   }, [dateRange]);
 
-  // ✅ Mettre à jour filterActive quand le hook change
+  // Synchronise l'état du filtre
   useEffect(() => {
     setFilterActive(hookFilterActive);
   }, [hookFilterActive]);
 
-  // ✅ VALEURS PAR DÉFAUT VIDES
+  // ===== VALEURS PAR DÉFAUT (évite les erreurs si data est vide) =====
   const defaultKPI = {
     caJour: 0,
     commandesJour: 0,
@@ -64,10 +83,10 @@ const DashboardPage = () => {
   //  PRÉPARATION DES DONNÉES POUR LES GRAPHIQUES
   // ============================================
 
-  // Données pour StatusDonutChart
+  // Données pour le donut chart des statuts
   const statusData = useMemo(() => data?.statusRepartition || [], [data]);
 
-  // Données pour OrdersEvolutionChart
+  // Données pour l'évolution des commandes
   const ordersEvolutionData = useMemo(() => {
     if (data?.ordersEvolution && data.ordersEvolution.length > 0) {
       return data.ordersEvolution;
@@ -75,7 +94,7 @@ const DashboardPage = () => {
     return [];
   }, [data]);
 
-  // Données pour ClientTypeChart
+  // Données pour la répartition par type de client
   const clientTypeData = useMemo(() => {
     if (data?.clientTypeRepartition && data.clientTypeRepartition.length > 0) {
       return data.clientTypeRepartition;
@@ -83,6 +102,11 @@ const DashboardPage = () => {
     return [];
   }, [data]);
 
+  // ============================================
+  //  GESTION DES ÉTATS DE CHARGEMENT / ERREUR
+  // ============================================
+
+  // Affichage du skeleton loader pendant le chargement
   if (loading) {
     return (
       <div className="space-y-6">
@@ -91,6 +115,7 @@ const DashboardPage = () => {
     );
   }
 
+  // Affichage du message d'erreur
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
@@ -109,9 +134,13 @@ const DashboardPage = () => {
     );
   }
 
-  // ✅ Utilisation des valeurs par défaut si data n'existe pas
+  // Données finales avec valeurs par défaut
   const kpi = data?.kpi || defaultKPI;
   const charts = data?.charts || defaultCharts;
+
+  // ============================================
+  //  RENDU PRINCIPAL
+  // ============================================
 
   return (
     <motion.div 
@@ -119,7 +148,7 @@ const DashboardPage = () => {
       animate={{ opacity: 1 }}
       className="space-y-8"
     >
-      {/* ===== SÉLECTEUR DE DATES EN HAUT ===== */}
+      {/* ===== SECTION 1: SÉLECTEUR DE PÉRIODE ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -146,13 +175,14 @@ const DashboardPage = () => {
         )}
       </div>
 
-      {/* ===== SECTION 1: KPI PRINCIPAUX ===== */}
+      {/* ===== SECTION 2: INDICATEURS CLÉS (KPI) ===== */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
           <span className="w-1 h-6 bg-blue-500 rounded-full mr-3"></span>
           Indicateurs clés
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          {/* Carte Chiffre d'Affaires */}
           <KPICard
             title="Chiffre d'Affaires"
             value={kpi.caJour}
@@ -162,6 +192,7 @@ const DashboardPage = () => {
             formatValue={formatCurrency}
           />
           
+          {/* Carte Commandes */}
           <KPICard
             title="Commandes"
             value={kpi.commandesJour}
@@ -172,16 +203,17 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* ===== SECTION 2: GRAPHIQUES PRINCIPAUX ===== */}
+      {/* ===== SECTION 3: GRAPHIQUES D'ANALYSE ===== */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
           <span className="w-1 h-6 bg-green-500 rounded-full mr-3"></span>
           Analyse des ventes
         </h2>
         
-        {/* Ligne 1: Évolution CA et Top produits */}
+        {/* Ligne 1: Évolution CA + Top produits */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Évolution du CA */}
+          
+          {/* Graphique Évolution du CA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -203,7 +235,7 @@ const DashboardPage = () => {
             />
           </motion.div>
 
-          {/* Top produits */}
+          {/* Top 5 Produits */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -226,9 +258,10 @@ const DashboardPage = () => {
           </motion.div>
         </div>
 
-        {/* Ligne 2: Répartition par statut et Évolution des commandes */}
+        {/* Ligne 2: Répartition statut + Évolution commandes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Répartition par statut */}
+          
+          {/* Donut chart - Répartition par statut */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -250,7 +283,7 @@ const DashboardPage = () => {
             />
           </motion.div>
 
-          {/* Évolution des commandes */}
+          {/* Graphique - Évolution des commandes */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -319,7 +352,7 @@ const DashboardPage = () => {
         </motion.div>
       </section>
 
-      {/* ===== FOOTER ===== */}
+      {/* ===== SECTION 4: FOOTER AVEC RÉSUMÉ PÉRIODE ===== */}
       {filterActive && (startDate || endDate) && (
         <motion.div
           initial={{ opacity: 0 }}

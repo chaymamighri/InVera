@@ -1,3 +1,21 @@
+/**
+ * FournisseurTable - Tableau des fournisseurs
+ * 
+ * RÔLE : Afficher la liste des fournisseurs avec actions (modifier, activer/désactiver)
+ * 
+ * FONCTIONNALITÉS :
+ * - Affichage des fournisseurs avec avatar (initiale)
+ * - Icônes pour email, téléphone, ville
+ * - Badge pays coloré
+ * - Statut (Actif/Inactif) avec toggle switch
+ * - Actions : modifier, activer/désactiver
+ * - Popup de confirmation avant changement de statut
+ * - Message si liste vide
+ * 
+ * @param {Array} fournisseurs - Liste des fournisseurs
+ * @param {Function} onEdit - Callback pour modifier un fournisseur
+ * @param {Function} onToggleStatus - Callback pour activer/désactiver
+ */
 import React, { useState } from 'react';
 
 const FournisseurTable = ({ fournisseurs, onEdit, onToggleStatus }) => {

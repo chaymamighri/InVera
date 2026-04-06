@@ -1,3 +1,29 @@
+/**
+ * ClientManagePage - Gestion des clients
+ * 
+ * RÔLE : Gérer le CRUD des clients (création, modification, suppression, consultation)
+ * ROUTE : /dashboard/sales/clients
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des clients avec pagination
+ * - Filtres (recherche par nom/téléphone)
+ * - Tri (ID, date de création)
+ * - Création de client (modale)
+ * - Modification de client (modale)
+ * - Suppression avec confirmation
+ * - Consultation des détails
+ * - Cartes statistiques
+ * 
+ * COMPOSANTS UTILISÉS : * - ClientFilters : Barre de filtres et tri
+ * - ClientStats : Cartes statistiques
+ * - ClientFormModal : Modal création client
+ * - UpdateClientModal : Modal modification client
+ * - ClientDetailsModal : Modal détails client
+ * - ConfirmDeleteModal : Modal confirmation suppression
+ * 
+ * HOOK UTILISÉ : useClients()
+ */
+
 import React, { useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import ClientFormModal from './components/ClientFormModal';

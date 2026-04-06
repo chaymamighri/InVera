@@ -1,18 +1,42 @@
-// src/pages/dashboard/sales/SalesDashboard.jsx
+/**
+ * SalesDashboard - Dashboard du module commercial (Ventes)
+ * 
+ * RÔLE : Interface principale pour les utilisateurs ayant le rôle "COMMERCIAL"
+ * ROUTE : /dashboard/sales/*
+ * 
+ * FONCTIONNALITÉS :
+ * - Barre latérale (sidebar) avec navigation
+ * - Affichage du contenu dynamique via Outlet (React Router)
+ * - Titre et description dynamiques selon la page active
+ * - Profil utilisateur avec initiales
+ * - Footer cohérent avec le reste de l'application
+ * 
+ * SOUS-PAGES (via Outlet) :
+ * - /dashboard/sales/dashboard    → Statistiques ventes
+ * - /dashboard/sales/products     → Catalogue produits
+ * - /dashboard/sales/clients      → Gestion clients
+ * - /dashboard/sales/orders       → Commandes clients
+ * - /dashboard/sales/sales        → Historique ventes
+ * - /dashboard/sales/invoices     → Facturation
+ * - /dashboard/sales/reports      → Rapports et analyses
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../../../context/SidebarContext';
 import Footer from '../../../components/Footer';
 
-// Icônes Heroicons pour le sales
+// ============================================
+// ICÔNES (Heroicons)
+// ============================================
 import {
-  ChartBarIcon,
-  CubeIcon,
-  ShoppingCartIcon,
-  CurrencyDollarIcon,
-  UsersIcon,
-  DocumentTextIcon,
-  PresentationChartLineIcon,
+  ChartBarIcon,           // Dashboard / Statistiques
+  CubeIcon,               // Catalogue produits
+  ShoppingCartIcon,       // Commandes clients
+  CurrencyDollarIcon,     // Ventes
+  UsersIcon,              // Clients
+  DocumentTextIcon,       // Facturation
+  PresentationChartLineIcon, // Rapports
 } from '@heroicons/react/24/outline';
 
 const SalesDashboard = () => {
@@ -20,6 +44,7 @@ const SalesDashboard = () => {
   const navigate = useNavigate();
   const { collapsed, toggleSidebar } = useSidebar();
   
+  // ===== ÉTAT UTILISATEUR =====
   const [currentUser, setCurrentUser] = useState({
     name: 'Responsable Commercial',
     role: 'Responsable Ventes',
@@ -27,8 +52,12 @@ const SalesDashboard = () => {
     initials: 'RC'
   });
 
-  // ========== CHARGEMENT DES INFOS UTILISATEUR ==========
+  // ============================================
+  // CHARGEMENT DES INFOS UTILISATEUR
+  // ============================================
+  
   useEffect(() => {
+    // Tentative de récupération depuis localStorage
     const userData = localStorage.getItem('userData');
     if (userData) {
       const parsedUser = JSON.parse(userData);
@@ -44,6 +73,7 @@ const SalesDashboard = () => {
         initials
       });
     } else {
+      // Fallback : données depuis les clés individuelles
       const userName = localStorage.getItem('userName') || 'Responsable Commercial';
       const userEmail = localStorage.getItem('userEmail') || 'commercial@invera.com';
       const userRole = localStorage.getItem('userRole') || 'Responsable Ventes';
@@ -63,76 +93,55 @@ const SalesDashboard = () => {
     }
   }, []);
 
-  // ========== FONCTIONS UTILITAIRES ==========
+  // ============================================
+  // FONCTIONS UTILITAIRES
+  // ============================================
+  
   const getFirstName = (fullName) => fullName.split(' ')[0];
 
-  // ========== STRUCTURE DE NAVIGATION ==========
+  // ============================================
+  // STRUCTURE DE NAVIGATION
+  // ============================================
+  
   const sections = [
     {
       title: 'TABLEAU DE BORD',
       items: [
-        { 
-          id: 'dashboard', 
-          label: 'Statistiques', 
-          icon: ChartBarIcon,
-          path: 'dashboard'
-        },
+        { id: 'dashboard', label: 'Statistiques', icon: ChartBarIcon, path: 'dashboard' },
       ]
     },
     {
       title: 'GESTION COMMERCIALE',
       items: [
-        { 
-          id: 'products', 
-          label: 'Catalogue produits', 
-          icon: CubeIcon,
-          path: 'products'
-        },
-        { 
-          id: 'clients', 
-          label: 'Clients', 
-          icon: UsersIcon,
-          path: 'clients'
-        },
+        { id: 'products', label: 'Catalogue produits', icon: CubeIcon, path: 'products' },
+        { id: 'clients', label: 'Clients', icon: UsersIcon, path: 'clients' },
       ]
     },
     {
       title: 'TRANSACTIONS',
       items: [
-        { 
-          id: 'orders', 
-          label: 'Commandes clients', 
-          icon: ShoppingCartIcon,
-          path: 'orders'
-        },
-        { 
-          id: 'sales', 
-          label: 'Ventes', 
-          icon: CurrencyDollarIcon,
-          path: 'sales'
-        },
-        { 
-          id: 'invoices', 
-          label: 'Facturation', 
-          icon: DocumentTextIcon,
-          path: 'invoices'
-        },
+        { id: 'orders', label: 'Commandes clients', icon: ShoppingCartIcon, path: 'orders' },
+        { id: 'sales', label: 'Ventes', icon: CurrencyDollarIcon, path: 'sales' },
+        { id: 'invoices', label: 'Facturation', icon: DocumentTextIcon, path: 'invoices' },
       ]
     },
     {
       title: 'ANALYSE',
       items: [
-        { 
-          id: 'reports', 
-          label: 'Rapports', 
-          icon: PresentationChartLineIcon,
-          path: 'reports'
-        },
+        { id: 'reports', label: 'Rapports', icon: PresentationChartLineIcon, path: 'reports' },
       ]
     }
   ];
 
-  // ========== FONCTION POUR VÉRIFIER SI UNE PAGE EST ACTIVE ==========
+  // ============================================
+  // DÉTECTION DE LA PAGE ACTIVE
+  // ============================================
+  
+  /**
+   * Vérifie si un élément de navigation est actif
+   * @param {string} itemPath - Chemin de l'élément
+   * @returns {boolean}
+   */
   const isActive = (itemPath) => {
     const currentPath = location.pathname;
     
@@ -147,102 +156,67 @@ const SalesDashboard = () => {
     return currentPath === `/dashboard/sales/${itemPath}`;
   };
 
-  // ========== TITRE DYNAMIQUE CORRIGÉ ==========
+  // ============================================
+  // TITRE ET DESCRIPTION DYNAMIQUES
+  // ============================================
+  
+  /**
+   * Détermine le titre de la page selon l'URL active
+   * @returns {string}
+   */
   const getPageTitle = () => {
     const currentPath = location.pathname;
     
-    // Tableau de bord
     if (currentPath === '/dashboard/sales' || 
         currentPath === '/dashboard/sales/' ||
         currentPath === '/dashboard/sales/dashboard') {
       return 'Tableau de bord commercial';
     }
-    
-    // Catalogue produits
-    if (currentPath.includes('/products')) {
-      return 'Catalogue produits';
-    }
-    
-    // Clients
-    if (currentPath.includes('/clients')) {
-      return 'Gestion des clients';
-    }
-    
-    // Commandes
-    if (currentPath.includes('/orders')) {
-      return 'Commandes clients';
-    }
-    
-    // Ventes
-    if (currentPath.includes('/sales')) {
-      return 'Ventes';
-    }
-    
-    // Facturation
-    if (currentPath.includes('/invoices')) {
-      return 'Facturation';
-    }
-    
-    // Rapports
-    if (currentPath.includes('/reports')) {
-      return 'Rapports et analyses';
-    }
+    if (currentPath.includes('/products')) return 'Catalogue produits';
+    if (currentPath.includes('/clients')) return 'Gestion des clients';
+    if (currentPath.includes('/orders')) return 'Commandes clients';
+    if (currentPath.includes('/sales')) return 'Ventes';
+    if (currentPath.includes('/invoices')) return 'Facturation';
+    if (currentPath.includes('/reports')) return 'Rapports et analyses';
     
     return 'Tableau de bord commercial';
   };
 
-  // ========== DESCRIPTION DYNAMIQUE CORRIGÉE ==========
+  /**
+   * Détermine la description de la page selon l'URL active
+   * @returns {string}
+   */
   const getPageDescription = () => {
     const currentPath = location.pathname;
     
-    // Tableau de bord
     if (currentPath === '/dashboard/sales' || 
         currentPath === '/dashboard/sales/' ||
         currentPath === '/dashboard/sales/dashboard') {
       return 'Statistiques et indicateurs de performance commerciale';
     }
-    
-    // Catalogue produits
-    if (currentPath.includes('/products')) {
-      return 'Consultez le catalogue des produits disponibles à la vente';
-    }
-    
-    // Clients
-    if (currentPath.includes('/clients')) {
-      return 'Gérez votre portefeuille clients et leurs informations';
-    }
-    
-    // Commandes
-    if (currentPath.includes('/orders')) {
-      return 'Suivez et gérez toutes les commandes clients';
-    }
-    
-    // Ventes
-    if (currentPath.includes('/sales')) {
-      return 'Historique et suivi des ventes réalisées';
-    }
-    
-    // Facturation
-    if (currentPath.includes('/invoices')) {
-      return 'Gérez la facturation et les paiements clients';
-    }
-    
-    // Rapports
-    if (currentPath.includes('/reports')) {
-      return 'Analysez les performances commerciales et les tendances';
-    }
+    if (currentPath.includes('/products')) return 'Consultez le catalogue des produits disponibles à la vente';
+    if (currentPath.includes('/clients')) return 'Gérez votre portefeuille clients et leurs informations';
+    if (currentPath.includes('/orders')) return 'Suivez et gérez toutes les commandes clients';
+    if (currentPath.includes('/sales')) return 'Historique et suivi des ventes réalisées';
+    if (currentPath.includes('/invoices')) return 'Gérez la facturation et les paiements clients';
+    if (currentPath.includes('/reports')) return 'Analysez les performances commerciales et les tendances';
     
     return 'Gestion commerciale et suivi des opérations';
   };
 
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      
       {/* ========== SIDEBAR ========== */}
       <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
         collapsed ? 'w-20' : 'w-64'
       }`}>
         
-        {/* ========== EN-TÊTE DE LA SIDEBAR ========== */}
+        {/* En-tête de la sidebar */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             {!collapsed && (
@@ -265,7 +239,7 @@ const SalesDashboard = () => {
           </div>
         </div>
 
-        {/* ========== NAVIGATION ========== */}
+        {/* Navigation */}
         <nav className="p-4 flex flex-col h-[calc(100vh-140px)]">
           <ul className="space-y-1 flex-1 overflow-y-auto">
             {sections.map((section) => (
@@ -316,7 +290,7 @@ const SalesDashboard = () => {
             ))}
           </ul>
 
-          {/* ========== PROFIL UTILISATEUR ========== */}
+          {/* Profil utilisateur */}
           <div className={`border-t pt-4 ${collapsed ? 'px-3' : 'px-4'} mt-auto`}>
             <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
               <div 
@@ -355,10 +329,10 @@ const SalesDashboard = () => {
         collapsed ? 'ml-20' : 'ml-64'
       }`}>
         
-        {/* ESPACE POUR LE HEADER FIXE */}
+        {/* Espace pour compenser le Header fixe */}
         <div className="h-16"></div>
 
-        {/* ========== BARRE DE TITRE STICKY ========== */}
+        {/* Barre de titre sticky */}
         <div className="sticky top-16 z-20 bg-white/90 backdrop-blur-sm border-b shadow-sm">
           <div className="px-8 py-4">
             <div className="flex items-center justify-between">
@@ -374,12 +348,12 @@ const SalesDashboard = () => {
           </div>
         </div>
 
-        {/* ========== CONTENU DE LA PAGE ========== */}
+        {/* Contenu dynamique de la page */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto">
           <Outlet />
         </div>
 
-        {/* ========== FOOTER ========== */}
+        {/* Footer */}
         <Footer />
       </div>
     </div>

@@ -1,4 +1,28 @@
 // pages/dashboard/procurement/factures/FactureFournisseur.jsx
+/**
+ * FactureFournisseur - Gestion des factures fournisseurs
+ * 
+ * RÔLE : Gérer les factures des commandes fournisseurs (génération, consultation, export)
+ * ROUTE : /dashboard/procurement/factures
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des factures avec pagination
+ * - Génération de facture à partir d'une commande reçue
+ * - Export PDF des factures
+ * - Consultation des détails d'une facture
+ * - Mise à jour du statut de paiement (Payée/Non payée)
+ * - 2 onglets : Liste des factures / Générer une facture
+ * 
+ * HOOKS UTILISÉS :
+ * - useCommandeFournisseur() : Gestion des commandes fournisseurs
+ * - factureFournisseur service : Appels API factures
+ * 
+ * COMPOSANTS :
+ * - FactureTabs : Navigation entre les onglets
+ * - FactureListeTab : Tableau des factures existantes
+ * - GenererFactureTab : Formulaire de génération
+ * - FactureDetailModal : Modal de visualisation détaillée
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';

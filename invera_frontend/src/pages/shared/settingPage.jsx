@@ -1,4 +1,21 @@
-// src/pages/settings/SettingsPage.jsx
+/**
+ * SettingsPage - Page des paramètres utilisateur
+ * 
+ * RÔLE : Centraliser tous les paramètres du compte utilisateur
+ * 
+ * FONCTIONNALITÉS :
+ * 1. Gestion du profil (nom, prénom, username)
+ * 2. Sécurité (changement de mot de passe)
+ * 3. Centre de notifications (lecture, suppression)
+ * 
+ * ROUTE : /settings
+ * 
+ * TABS DISPONIBLES :
+ * - Profil     : Modification des infos personnelles
+ * - Sécurité   : Changement de mot de passe
+ * - Notifications : Gestion des notifications reçues
+ */
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -20,13 +37,12 @@ import { notificationService } from '../../services/notificationService';
 import Header from '../../components/Header';
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [loadingMe, setLoadingMe] = useState(true);
+  // ===== ÉTATS =====
+  const [activeTab, setActiveTab] = useState('profile');     // Onglet actif
+  const [loadingMe, setLoadingMe] = useState(true);          // Chargement du profil
+  const [me, setMe] = useState(null);                        // Données utilisateur
 
-  // data from /me
-  const [me, setMe] = useState(null);
-
-  // profile form
+  // Formulaire profil
   const [profileForm, setProfileForm] = useState({
     username: '',
     nom: '',
@@ -34,32 +50,30 @@ const SettingsPage = () => {
     email: ''
   });
 
-  // password form
+  // Formulaire mot de passe
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  // single toggle for all password fields
-  const [showPasswords, setShowPasswords] = useState(false);
-
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [notifLoading, setNotifLoading] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false); // Afficher/masquer MDP
+  const [savingProfile, setSavingProfile] = useState(false); // Sauvegarde profil
+  const [savingPassword, setSavingPassword] = useState(false); // Sauvegarde MDP
+  const [notifLoading, setNotifLoading] = useState(false);    // Chargement notifications
   const [notifActionLoading, setNotifActionLoading] = useState(false);
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState([]);     // Liste notifications
 
-  // ---------- Load /me ----------
+  // ===== CHARGEMENT DU PROFIL =====
   useEffect(() => {
     const load = async () => {
       setLoadingMe(true);
       try {
         const res = await authService.getCurrentUser();
         const data = res?.data;
-
         setMe(data);
 
+        // Remplir le formulaire
         setProfileForm({
           username: data?.username || '',
           nom: data?.lastName || data?.nom || '',
@@ -67,6 +81,7 @@ const SettingsPage = () => {
           email: data?.email || ''
         });
 
+        // Mise à jour localStorage
         const fullName = `${data?.nom || data?.lastName || ''} ${data?.prenom || data?.firstName || ''}`.trim();
         if (data?.role) localStorage.setItem('userRole', data.role);
         if (fullName) localStorage.setItem('userName', fullName);
@@ -77,11 +92,10 @@ const SettingsPage = () => {
         setLoadingMe(false);
       }
     };
-
     load();
   }, []);
 
-  // ---------- Tabs ----------
+  // ===== CONFIGURATION DES ONGLETS =====
   const tabs = useMemo(
     () => [
       {
@@ -106,12 +120,32 @@ const SettingsPage = () => {
     []
   );
 
+  // ===== NOTIFICATIONS =====
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications]
   );
 
-  // ---------- Helpers ----------
+  const loadNotifications = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await notificationService.getAll();
+      setNotifications(Array.isArray(res?.data) ? res.data : []);
+    } catch (error) {
+      const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur notifications';
+      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  // Charge les notifications quand l'onglet est actif
+  useEffect(() => {
+    if (activeTab !== 'notifications') return;
+    loadNotifications();
+  }, [activeTab, loadNotifications]);
+
+  // ===== VALIDATIONS =====
   const validateProfile = () => {
     if (!profileForm.username.trim()) return "Le nom d'utilisateur est requis.";
     if (!profileForm.nom.trim()) return 'Le nom est requis.';
@@ -127,35 +161,7 @@ const SettingsPage = () => {
     return '';
   };
 
-  const formatNotificationDate = (value) => {
-    if (!value) return '-';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString();
-  };
-
-  const loadNotifications = useCallback(async () => {
-    setNotifLoading(true);
-    try {
-      const res = await notificationService.getAll();
-      setNotifications(Array.isArray(res?.data) ? res.data : []);
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        error?.message ||
-        'Erreur notifications';
-      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
-    } finally {
-      setNotifLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab !== 'notifications') return;
-    loadNotifications();
-  }, [activeTab, loadNotifications]);
-
+  // ===== ACTIONS NOTIFICATIONS =====
   const handleMarkAsRead = async (id) => {
     try {
       await notificationService.markRead(id);
@@ -189,7 +195,7 @@ const SettingsPage = () => {
     }
   };
 
-  // ---------- Profile submit ----------
+  // ===== ACTIONS PROFIL =====
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
 
@@ -204,6 +210,7 @@ const SettingsPage = () => {
         prenom: profileForm.prenom.trim()
       });
 
+      // Recharger les données
       const res = await authService.getCurrentUser({ force: true });
       const data = res?.data;
       setMe(data);
@@ -220,18 +227,14 @@ const SettingsPage = () => {
 
       toast.success('Profil mis à jour avec succès.');
     } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        error?.message ||
-        'Erreur lors de la mise à jour du profil.';
+      const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur lors de la mise à jour du profil.';
       toast.error(typeof msg === 'string' ? msg : 'Erreur lors de la mise à jour du profil.');
     } finally {
       setSavingProfile(false);
     }
   };
 
-  // ---------- Password submit ----------
+  // ===== ACTIONS MOT DE PASSE =====
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
 
@@ -249,17 +252,22 @@ const SettingsPage = () => {
       setShowPasswords(false);
       toast.success('Mot de passe modifié avec succès.');
     } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        error?.message ||
-        'Erreur lors de la modification du mot de passe';
+      const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur lors de la modification du mot de passe';
       toast.error(typeof msg === 'string' ? msg : 'Erreur lors de la modification du mot de passe');
     } finally {
       setSavingPassword(false);
     }
   };
 
+  // Formatage date notification
+  const formatNotificationDate = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString();
+  };
+
+  // ===== AFFICHAGE CHARGEMENT =====
   if (loadingMe) {
     return (
       <>
@@ -273,24 +281,24 @@ const SettingsPage = () => {
     );
   }
 
+  // ===== RENDU PRINCIPAL =====
   return (
     <>
       <Header />
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Link
-            to="/profile"
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-6"
-          >
+          
+          {/* Lien retour */}
+          <Link to="/profile" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-6">
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             Retour au profil
           </Link>
 
           <div className="flex flex-col lg:flex-row gap-8">
+            {/* ===== SIDEBAR GAUCHE : ONGLETS ===== */}
             <div className="lg:w-1/4">
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Paramètres</h2>
-
                 <nav className="space-y-2">
                   {tabs.map((tab) => (
                     <button
@@ -302,7 +310,7 @@ const SettingsPage = () => {
                           : 'text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      <span className={`${activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'}`}>
+                      <span className={activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'}>
                         {tab.icon}
                       </span>
                       <span>{tab.name}</span>
@@ -312,8 +320,11 @@ const SettingsPage = () => {
               </div>
             </div>
 
+            {/* ===== CONTENU PRINCIPAL ===== */}
             <div className="lg:w-3/4">
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                
+                {/* En-tête */}
                 <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100 p-8">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -328,7 +339,10 @@ const SettingsPage = () => {
                   </p>
                 </div>
 
+                {/* Corps */}
                 <div className="p-8">
+                  
+                  {/* ONGLET PROFIL */}
                   {activeTab === 'profile' && (
                     <div className="space-y-6">
                       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
@@ -346,9 +360,7 @@ const SettingsPage = () => {
                               <input
                                 type="text"
                                 value={profileForm.username}
-                                onChange={(e) =>
-                                  setProfileForm((p) => ({ ...p, username: e.target.value }))
-                                }
+                                onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 placeholder="Votre nom d'utilisateur"
                               />
@@ -373,9 +385,7 @@ const SettingsPage = () => {
                               <input
                                 type="text"
                                 value={profileForm.nom}
-                                onChange={(e) =>
-                                  setProfileForm((p) => ({ ...p, nom: e.target.value }))
-                                }
+                                onChange={(e) => setProfileForm((p) => ({ ...p, nom: e.target.value }))}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 placeholder="Votre nom"
                               />
@@ -388,9 +398,7 @@ const SettingsPage = () => {
                               <input
                                 type="text"
                                 value={profileForm.prenom}
-                                onChange={(e) =>
-                                  setProfileForm((p) => ({ ...p, prenom: e.target.value }))
-                                }
+                                onChange={(e) => setProfileForm((p) => ({ ...p, prenom: e.target.value }))}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 placeholder="Votre prénom"
                               />
@@ -426,6 +434,7 @@ const SettingsPage = () => {
                     </div>
                   )}
 
+                  {/* ONGLET SÉCURITÉ */}
                   {activeTab === 'security' && (
                     <div className="space-y-8">
                       <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
@@ -439,7 +448,6 @@ const SettingsPage = () => {
                             type="button"
                             onClick={() => setShowPasswords((prev) => !prev)}
                             className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 transition-colors select-none"
-                            title={showPasswords ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
                           >
                             {showPasswords ? (
                               <>
@@ -461,51 +469,39 @@ const SettingsPage = () => {
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mot de passe actuel
                               </label>
-                              <div className="relative">
-                                <input
-                                  type={showPasswords ? 'text' : 'password'}
-                                  value={passwordForm.oldPassword}
-                                  onChange={(e) =>
-                                    setPasswordForm((p) => ({ ...p, oldPassword: e.target.value }))
-                                  }
-                                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Entrez votre mot de passe actuel"
-                                />
-                              </div>
+                              <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={passwordForm.oldPassword}
+                                onChange={(e) => setPasswordForm((p) => ({ ...p, oldPassword: e.target.value }))}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Entrez votre mot de passe actuel"
+                              />
                             </div>
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Nouveau mot de passe
                               </label>
-                              <div className="relative">
-                                <input
-                                  type={showPasswords ? 'text' : 'password'}
-                                  value={passwordForm.newPassword}
-                                  onChange={(e) =>
-                                    setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
-                                  }
-                                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Minimum 8 caractères"
-                                />
-                              </div>
+                              <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={passwordForm.newPassword}
+                                onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Minimum 8 caractères"
+                              />
                             </div>
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Confirmer le nouveau mot de passe
                               </label>
-                              <div className="relative">
-                                <input
-                                  type={showPasswords ? 'text' : 'password'}
-                                  value={passwordForm.confirmPassword}
-                                  onChange={(e) =>
-                                    setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                                  }
-                                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Retapez votre nouveau mot de passe"
-                                />
-                              </div>
+                              <input
+                                type={showPasswords ? 'text' : 'password'}
+                                value={passwordForm.confirmPassword}
+                                onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Retapez votre nouveau mot de passe"
+                              />
                             </div>
 
                             <p className="text-xs text-gray-500">
@@ -536,6 +532,7 @@ const SettingsPage = () => {
                     </div>
                   )}
 
+                  {/* ONGLET NOTIFICATIONS */}
                   {activeTab === 'notifications' && (
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
@@ -574,13 +571,9 @@ const SettingsPage = () => {
                       </div>
 
                       {notifLoading ? (
-                        <div className="py-12 text-center text-gray-500">
-                          Chargement des notifications...
-                        </div>
+                        <div className="py-12 text-center text-gray-500">Chargement des notifications...</div>
                       ) : notifications.length === 0 ? (
-                        <div className="py-12 text-center text-gray-500">
-                          Aucune notification
-                        </div>
+                        <div className="py-12 text-center text-gray-500">Aucune notification</div>
                       ) : (
                         <div className="space-y-3">
                           {notifications.map((n) => (

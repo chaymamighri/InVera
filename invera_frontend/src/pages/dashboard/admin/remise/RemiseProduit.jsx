@@ -1,4 +1,24 @@
-
+/**
+ * Remise - Gestion des remises (administration)
+ * 
+ * RÔLE : Gérer les remises clients par type et remises produits
+ * ROUTE : /dashboard/admin/remises
+ * 
+ * FONCTIONNALITÉS :
+ * - 2 onglets : Clients / Produits
+ * - Clients : Statistiques par type, tableau clients, configuration remises par type
+ * - Produits : Recherche produits, modification remise inline, pagination
+ * - Sauvegarde avec confirmation
+ * 
+ * HOOKS UTILISÉS :
+ * - useClients() : Gestion clients et remises par type
+ * - useProducts() : Gestion produits et remises produits
+ * 
+ * COMPOSANTS INTERNES :
+ * - StatCard : Carte statistique colorée
+ * 
+ * TYPES CLIENTS CONFIGURABLES : VIP, ENTREPRISE, FIDELE (PARTICULIER exclu)
+ */
 
 import React, { useState, useEffect, useMemo } from "react";
 import useClients from "../../../../hooks/useClient";

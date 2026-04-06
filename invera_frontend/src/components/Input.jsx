@@ -1,4 +1,4 @@
-import React from 'react';
+/*port React from 'react';
 
 const Input = ({
   label,
@@ -43,4 +43,4 @@ const Input = ({
   );
 };
 
-export default Input;
+export default Input;*/

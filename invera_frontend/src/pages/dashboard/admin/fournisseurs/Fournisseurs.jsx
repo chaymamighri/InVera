@@ -1,3 +1,26 @@
+/**
+ * FournisseurManagement - Gestion des fournisseurs (administration)
+ * 
+ * RÔLE : Gérer les fournisseurs (CRUD, activation/désactivation)
+ * ROUTE : /dashboard/admin/fournisseurs
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des fournisseurs (actifs, inactifs, tous)
+ * - Recherche par nom, email, téléphone
+ * - Création de fournisseur (modal)
+ * - Modification de fournisseur (modal)
+ * - Désactivation/réactivation (soft delete)
+ * - Tri par date de création (récent en premier)
+ * 
+ * COMPOSANTS :
+ * - FournisseurSearch : Barre de recherche et filtres
+ * - FournisseurTable : Tableau des fournisseurs
+ * - FournisseurModal : Modal générique
+ * - FournisseurForm : Formulaire création/modification
+ * 
+ * HOOK UTILISÉ : useFournisseur()
+ */
+
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useFournisseur } from '../../../../hooks/useFournisseur';

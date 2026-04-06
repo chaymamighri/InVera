@@ -1,3 +1,22 @@
+/**
+ * FournisseurForm - Formulaire de création/modification fournisseur
+ * 
+ * RÔLE : Gérer la saisie des informations d'un fournisseur
+ * 
+ * FONCTIONNALITÉS :
+ * - Champs : nom, email, téléphone, adresse, ville, pays
+ * - Validation HTML5 (required)
+ * - Pré-remplissage en mode modification
+ * - En-tête gradient avec titre dynamique
+ * - Boutons Annuler / Créer (ou Modifier)
+ * - État de chargement (loading)
+ * 
+ * @param {Object} initialData - Données du fournisseur (mode modification)
+ * @param {Function} onSubmit - Callback à la soumission
+ * @param {Function} onCancel - Callback à l'annulation
+ * @param {boolean} loading - État de chargement
+ */
+
 import React, { useState, useEffect } from "react";
 
 const FournisseurForm = ({ initialData, onSubmit, onCancel, loading }) => {

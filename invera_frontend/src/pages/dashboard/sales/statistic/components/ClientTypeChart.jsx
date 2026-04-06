@@ -1,14 +1,53 @@
-// src/pages/dashboard/sales/components/ClientTypeChart.jsx
+/**
+ * ClientTypeChart - Graphique de répartition des clients par type
+ * 
+ * RÔLE : Afficher la distribution des clients par catégorie (VIP, Entreprise, Particulier, etc.)
+ * 
+ * FONCTIONNALITÉS :
+ * - Affichage des données sous forme de cartes par type de client
+ * - Barres de progression pour le pourcentage de clients
+ * - Barres de progression pour le pourcentage du CA
+ * - Cartes récapitulatives (total clients, CA total)
+ * - Mini barre de répartition (camembert horizontal)
+ * - Légende interactive
+ * - Animations fluides (Framer Motion)
+ * 
+ * @param {Object} props
+ * @param {Array|Object} props.data - Données des clients
+ * @param {Function} props.formatCurrency - Fonction de formatage monétaire
+ * 
+ * @example
+ * // Format attendu des données
+ * data = [
+ *   { type: "VIP", nombre: 45, ca: 150000 },
+ *   { type: "ENTREPRISE", nombre: 120, ca: 320000 },
+ *   { type: "PARTICULIER", nombre: 300, ca: 180000 }
+ * ]
+ * 
+ * // Format alternatif (objet)
+ * data = {
+ *   VIP: { nombre: 45, ca: 150000 },
+ *   ENTREPRISE: { nombre: 120, ca: 320000 }
+ * }
+ */
+
 import React from 'react';
 import { motion } from 'framer-motion';
 
 const ClientTypeChart = ({ data, formatCurrency }) => {
-  // ✅ Log pour déboguer
+  
+  // ============================================
+  //  LOGS DE DÉBOGUAGE (à supprimer en production)
+  // ============================================
   console.log('📊 ClientTypeChart - Données reçues:', data);
   console.log('📊 Type de données:', typeof data);
   console.log('📊 Est un tableau?', Array.isArray(data));
 
-  // ✅ Vérification plus robuste
+  // ============================================
+  //  VALIDATION DES DONNÉES
+  // ============================================
+  
+  // Cas 1: Pas de données
   if (!data) {
     console.log('❌ Aucune donnée reçue');
     return (
@@ -18,7 +57,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     );
   }
 
-  // ✅ Vérifier si l'objet est vide
+  // Cas 2: Objet vide
   if (typeof data === 'object' && Object.keys(data).length === 0) {
     console.log('❌ Objet vide reçu');
     return (
@@ -28,7 +67,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     );
   }
 
-  // ✅ Vérifier si c'est un tableau vide
+  // Cas 3: Tableau vide
   if (Array.isArray(data) && data.length === 0) {
     console.log('❌ Tableau vide reçu');
     return (
@@ -38,28 +77,27 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     );
   }
 
-  // ✅ Transformer les données de manière plus robuste
+  // ============================================
+  //  TRANSFORMATION DES DONNÉES (format flexible)
+  // ============================================
+  
   let chartData = [];
   
   if (Array.isArray(data)) {
-    // Cas: tableau d'objets
+    // Format: tableau d'objets
     chartData = data.map(item => ({
       type: item.type || item.categorie || 'NON_DEFINI',
       nombre: item.nombre || item.count || item.clients || 0,
       ca: item.ca || item.montant || item.chiffreAffaires || 0
     }));
   } else if (typeof data === 'object') {
-    // Cas: objet avec clés
+    // Format: objet avec clés
     chartData = Object.entries(data)
       .filter(([key, value]) => value !== null && value !== undefined)
       .map(([type, stats]) => {
         // Si stats est un nombre directement
         if (typeof stats === 'number') {
-          return {
-            type: type,
-            nombre: stats,
-            ca: 0
-          };
+          return { type, nombre: stats, ca: 0 };
         }
         // Si stats est un objet
         return {
@@ -72,7 +110,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
 
   console.log('📊 ChartData transformé:', chartData);
 
-  // ✅ Vérifier si après transformation on a des données
+  // Vérification finale
   if (chartData.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
@@ -81,13 +119,25 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     );
   }
 
+  // ============================================
+  //  CALCUL DES TOTAUX
+  // ============================================
+  
   const totalClients = chartData.reduce((sum, d) => sum + (d.nombre || 0), 0);
   const totalCA = chartData.reduce((sum, d) => sum + (d.ca || 0), 0);
 
   console.log('📊 Total clients:', totalClients);
   console.log('📊 Total CA:', totalCA);
 
-  // Mapping des types avec leurs icônes et couleurs
+  // ============================================
+  //  MAPPING DES STYLES PAR TYPE DE CLIENT
+  // ============================================
+  
+  /**
+   * Couleur de fond pour chaque type de client
+   * @param {string} type - Type de client
+   * @returns {string} Classe Tailwind CSS
+   */
   const getTypeColor = (type) => {
     const colors = {
       'VIP': 'bg-yellow-500',
@@ -100,6 +150,11 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     return colors[type] || 'bg-indigo-500';
   };
 
+  /**
+   * Dégradé pour chaque type de client
+   * @param {string} type - Type de client
+   * @returns {string} Classes Tailwind CSS pour le dégradé
+   */
   const getTypeGradient = (type) => {
     const gradients = {
       'VIP': 'from-yellow-500 to-yellow-600',
@@ -112,6 +167,11 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     return gradients[type] || 'from-indigo-500 to-indigo-600';
   };
 
+  /**
+   * Icône pour chaque type de client
+   * @param {string} type - Type de client
+   * @returns {string} Emoji
+   */
   const getTypeIcon = (type) => {
     const icons = {
       'VIP': '👑',
@@ -124,7 +184,11 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     return icons[type] || '📊';
   };
 
-  // ✅ Si pas de clients, afficher un message
+  // ============================================
+  //  GESTION DES CAS LIMITES
+  // ============================================
+  
+  // Pas de clients → message
   if (totalClients === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
@@ -136,9 +200,14 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
     );
   }
 
+  // ============================================
+  //  RENDU PRINCIPAL
+  // ============================================
+
   return (
     <div className="space-y-6">
-      {/* ✅ Répartition par type - Version carte élégante */}
+      
+      {/* ===== SECTION 1: CARTES PAR TYPE DE CLIENT ===== */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b bg-gray-50">
           <h3 className="font-semibold">Répartition par type de client</h3>
@@ -159,6 +228,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                   transition={{ delay: index * 0.1 }}
                   className="bg-gray-50 rounded-xl p-5 hover:shadow-md transition-shadow"
                 >
+                  {/* En-tête de la carte */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${getTypeColor(item.type)}`}></div>
@@ -167,6 +237,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
                   
+                  {/* Barre de progression - Clients */}
                   <div className="mb-4">
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-gray-500">Part des clients</span>
@@ -182,6 +253,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
                   
+                  {/* Valeurs numériques */}
                   <div className="grid grid-cols-2 gap-3 text-center mb-3">
                     <div className="bg-white p-3 rounded-lg">
                       <p className="text-xs text-gray-500">Clients</p>
@@ -193,7 +265,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
 
-                  {/* Barre de progression du CA */}
+                  {/* Barre de progression - CA */}
                   <div className="mt-2">
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-gray-500">Part du CA</span>
@@ -215,14 +287,16 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
         </div>
       </div>
 
-      {/* Cartes récapitulatives */}
+      {/* ===== SECTION 2: CARTES RÉCAPITULATIVES ===== */}
       <div className="grid grid-cols-2 gap-4">
+        {/* Total clients */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
           <p className="text-xs text-blue-600 mb-1">Total clients</p>
           <p className="text-2xl font-bold text-blue-800">{totalClients}</p>
           <p className="text-xs text-blue-600 mt-1">clients répartis par type</p>
         </div>
 
+        {/* Chiffre d'affaires total */}
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
           <p className="text-xs text-green-600 mb-1">Chiffre d'affaires</p>
           <p className="text-2xl font-bold text-green-800">{formatCurrency(totalCA)}</p>
@@ -230,7 +304,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
         </div>
       </div>
 
-      {/* Mini camembert de répartition */}
+      {/* ===== SECTION 3: MINI CAMEMBERT (barre horizontale) ===== */}
       {chartData.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-gray-500 text-center">Répartition des clients par type</p>
@@ -250,6 +324,8 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
               );
             })}
           </div>
+          
+          {/* Légende */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-gray-400 pt-2">
             {chartData.map(item => (
               <div key={`legend-${item.type}`} className="flex items-center gap-1">

@@ -1,4 +1,30 @@
-// produits/Produits.jsx - Version corrigée
+/**
+ * Produits - Gestion des produits (catalogue)
+ * 
+ * RÔLE : Gérer le catalogue des produits (CRUD, filtres, pagination)
+ * ROUTE : /dashboard/procurement/produits
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des produits sous forme de cartes
+ * - Recherche par nom/référence
+ * - Filtres (catégorie, statut)
+ * - Création de produit
+ * - Modification de produit
+ * - Activation/Désactivation de produit
+ * - Pagination (6, 9, 12, 18, 24 par page)
+ * - Rafraîchissement des données
+ * 
+ * HOOKS UTILISÉS :
+ * - useProducts() : Gestion des produits (CRUD, pagination, filtres)
+ * - useCategories() : Récupération des catégories
+ * - useAuth() : Rôle utilisateur
+ * 
+ * COMPOSANTS :
+ * - ProduitToolbar : Barre d'outils (recherche, filtres, actions)
+ * - ProduitCard : Carte produit individuelle
+ * - CreateProduitForm : Modal création produit
+ * - EditProduitForm : Modal modification produit
+ */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
 import {
