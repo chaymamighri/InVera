@@ -1,4 +1,35 @@
 // src/pages/dashboard/sales/products/ProductsConsultationPage.jsx
+
+/**
+ * ProductsConsultationPage - Catalogue produits et création commandes
+ * 
+ * RÔLE : Gérer le catalogue produits et créer des commandes clients
+ * ROUTE : /dashboard/sales/products
+ * 
+ * FONCTIONNALITÉS :
+ * - Affichage du catalogue produits (uniquement actifs)
+ * - Filtres (recherche texte, catégorie)
+ * - Tri des colonnes (nom, prix, stock)
+ * - Pagination
+ * - Sélection produits pour commande
+ * - Création commande avec client existant ou nouveau
+ * - Remise automatique selon type client
+ * - Vérification disponibilité stock
+ * - Mise à jour stock après commande
+ * 
+ * COMPOSANTS UTILISÉS :
+ * - ProductFilters : Barre de filtres
+ * - ProductStats : Cartes statistiques
+ * - ProductTable : Tableau des produits
+ * - OrderModal : Modal création commande
+ * - OrderRecapModal : Modal récapitulatif
+ * - SuccessModal : Modal confirmation
+ * 
+ * SERVICES :
+ * - productService : Gestion produits
+ * - clientService : Gestion clients
+ * - useAuth : Authentification
+ */
 import React, { useState, useEffect } from 'react';
 import ProductFilters from './components/ProductFilterSection';
 import ProductStats from './components/ProductStatis';

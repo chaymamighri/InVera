@@ -1,3 +1,19 @@
+/**
+ * GestionCategories - Gestion des catégories de produits
+ * 
+ * RÔLE : Gérer les catégories de produits (CRUD)
+ * ROUTE : /dashboard/procurement/categories
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des catégories avec tableau
+ * - Création de catégorie (nom, description, taux TVA)
+ * - Modification de catégorie
+ * - Suppression avec confirmation
+ * - Validation des champs (nom requis, TVA requis)
+ * - Rafraîchissement automatique après action
+ * 
+ * SERVICES : categorieService
+ */
 import React, { useState, useEffect } from 'react';
 import { TrashIcon, PlusIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import categorieService from '../../../../services/categorieService';

@@ -1,4 +1,22 @@
 // src/pages/Statistiques.jsx
+/**
+ * Statistiques - Page des statistiques et rapports (administration)
+ * 
+ * RÔLE : Afficher les statistiques de ventes et clients
+ * ROUTE : /dashboard/admin/stats
+ * 
+ * FONCTIONNALITÉS :
+ * - 3 onglets : Ventes, Achats, Clients
+ * - Filtrage par période (dates personnalisées)
+ * - KPIs (CA total, nombre ventes, panier moyen, taux transformation)
+ * - Graphique d'évolution du CA (AreaChart)
+ * - Graphique de performance par responsable (BarChart)
+ * - Top clients (tableau)
+ * - Export via useReports hook
+ * 
+ * HOOK UTILISÉ : useReports()
+ * LIBRAIRIES : recharts (graphiques)
+ */
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   ResponsiveContainer,

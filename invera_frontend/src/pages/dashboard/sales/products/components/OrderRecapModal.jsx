@@ -1,4 +1,31 @@
 // src/pages/dashboard/sales/products/components/OrderRecapModal.jsx
+
+/**
+ * OrderRecapModal - Modal de récapitulatif de commande
+ * 
+ * RÔLE : Afficher le résumé de la commande avant validation finale
+ * 
+ * FONCTIONNALITÉS :
+ * - Affichage des informations client
+ * - Liste des produits sélectionnés avec quantités et prix
+ * - Calcul des totaux (sous-total, remise, total)
+ * - Validation et envoi au backend
+ * - Redirection vers la page des commandes après succès
+ * - Gestion des erreurs
+ * 
+ * @param {Object} props
+ * @param {boolean} props.showRecap - Ouvre/ferme le modal
+ * @param {Function} props.setShowRecap - Ferme le modal
+ * @param {Array} props.selectedProducts - Produits sélectionnés
+ * @param {Object} props.selectedClient - Client sélectionné
+ * @param {number} props.remiseAppliquee - Pourcentage de remise
+ * @param {Function} props.calculerTotaux - Calcule les totaux
+ * @param {Function} props.setShowSuccessPopup - Affiche popup succès
+ * @param {Function} props.setSelectedProducts - Vide la sélection
+ * @param {Function} props.setSelectedClient - Vide le client
+ * @param {Function} props.onOrderCreated - Callback après création
+ */
+
 import React, { useState } from 'react';
 import { XMarkIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { commandeService } from '../../../../../services/commandeService';

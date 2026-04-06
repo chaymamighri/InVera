@@ -1,4 +1,18 @@
 // src/pages/dashboard/sales/reports/components/ReportCard.jsx
+
+/**
+ * ReportCard - Carte des rapports
+ * 
+ * Affiche une carte cliquable pour accéder à un rapport.
+ * 
+ * @param {string} title - Titre du rapport
+ * @param {string} description - Description
+ * @param {string} icon - Emoji (💰, 📊, etc.)
+ * @param {string} link - Lien de navigation
+ * @param {string[]} formats - Formats (PDF, Excel)
+ * @param {Object} stats - Statistique optionnelle
+ * @param {string} color - Couleur (blue, green, purple, orange)
+ */
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 

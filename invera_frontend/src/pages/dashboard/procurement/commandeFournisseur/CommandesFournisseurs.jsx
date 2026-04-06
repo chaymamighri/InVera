@@ -1,3 +1,36 @@
+/**
+ * CommandesFournisseurs - Gestion des commandes fournisseurs
+ * 
+ * RÔLE : Gérer le cycle de vie des commandes fournisseurs (CRUD, statuts, réception)
+ * ROUTE : /dashboard/procurement/commandes
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des commandes avec filtres (recherche, statut)
+ * - Création, modification, suppression de commande
+ * - Changement de statut (brouillon → validée → envoyée → reçue → facturée)
+ * - Gestion des archives (commandes supprimées)
+ * - Recherche par numéro ou période
+ * - Réception de commande avec gestion des stocks
+ * - Focus sur commande prioritaire (depuis rappels)
+ * - Cartes statistiques (total, en attente, montants)
+ * 
+ * HOOKS UTILISÉS :
+ * - useCommandeFournisseur() : CRUD, statuts, recherche
+ * - procurementReminderService : Gestion des rappels
+ * 
+ * COMPOSANTS :
+ * - StatsCartes : Cartes statistiques
+ * - BarreRecherche : Recherche et filtres
+ * - TableauCommandes : Liste des commandes
+ * - CommandeModal : Création/modification
+ * - CommandeDetailsModal : Détails commande
+ * - ReceptionModal : Réception commande
+ * - ConfirmationModal : Confirmation suppression
+ * 
+ * STATUTS DISPONIBLES :
+ * - BROUILLON → VALIDEE → ENVOYEE → RECUE → FACTUREE
+ * - ANNULEE, REJETEE
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArchiveBoxIcon, ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';

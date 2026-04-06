@@ -1,4 +1,20 @@
-// src/pages/dashboard/sales/reports/ReportsPage.jsx
+/**
+ * ReportsPage - Page principale des rapports
+ *
+ * Affiche :
+ * - Navigation entre les sections Ventes, Factures et Clients
+ * - Cartes de rapports (avec aperçu des stats) sur la page "home"
+ * - Exports disponibles (PDF/Excel)
+ * - Contenu des routes enfants via <Outlet>
+ * - Indicateur de chargement
+ *
+ * Fonctionnalités clés :
+ * - Récupère l'utilisateur connecté depuis localStorage ou token JWT
+ * - Charge les statistiques de rapports depuis reportService
+ * - Permet de forcer le rechargement des enfants via RefreshContext
+ * - Navigation active mise en avant
+ *
+ */
 import React, { useState, useEffect } from 'react';
 import { useLocation, Outlet, NavLink } from 'react-router-dom';
 import { FileText, Receipt, Users, BarChart3 } from 'lucide-react';

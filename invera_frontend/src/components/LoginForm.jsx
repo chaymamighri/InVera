@@ -1,3 +1,22 @@
+/**
+ * COMPOSANT LOGIN FORM - Formulaire d'authentification principal
+ * 
+ * @description
+ * Formulaire complet gérant :
+ * - La connexion utilisateur avec "Se souvenir de moi"
+ * - La réinitialisation du mot de passe (3 étapes)
+ * - L'affichage des erreurs et messages de succès
+ * 
+ * 
+ * @example
+ * // Utilisation dans une page de connexion
+ * <LoginForm 
+ *   onSubmit={handleLogin}
+ *   loading={isLoggingIn}
+ *   savedEmail={storedEmail}
+ * />
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from './Button';
@@ -7,7 +26,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   const navigate = useNavigate();
   const { forgotPassword, resetPassword, loading: authLoading } = useAuth(); 
   
-  const [mode, setMode] = useState('login');
+  // ===== ÉTATS =====
+  const [mode, setMode] = useState('login');              // 'login' ou 'forgot'
   const [formData, setFormData] = useState({
     email: savedEmail || '',
     password: '',
@@ -16,40 +36,49 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     newPassword: '',
     confirmPassword: ''
   });
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1);                    // Étape réinitialisation (1,2,3)
   const [internalLoading, setInternalLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [showPassword, setShowPassword] = useState({
+  const [errors, setErrors] = useState({});               // Erreurs de validation
+  const [message, setMessage] = useState({ type: '', text: '' }); // Messages succès/erreur
+  const [showPassword, setShowPassword] = useState({      // Visibilité des mots de passe
     password: false,
     newPassword: false,
     confirmPassword: false
   });
-  const [countdown, setCountdown] = useState(0);
+  const [countdown, setCountdown] = useState(0);          // Timer renvoi code (60s)
 
-// Dans LoginForm.jsx
-useEffect(() => {
-  const rememberMe = localStorage.getItem('rememberMe');
-  const savedEmail = localStorage.getItem('savedEmail');
-  const expiry = localStorage.getItem('tokenExpiry');
+  // ===== EFFETS =====
   
-  // Vérifier si rememberMe est encore valide
-  if (expiry && new Date(expiry) < new Date()) {
-    localStorage.removeItem('rememberMe');
-    localStorage.removeItem('savedEmail');
-    localStorage.removeItem('tokenExpiry');
-    return;
-  }
-  
-  if (rememberMe === 'true' && savedEmail) {
-    setFormData(prev => ({
-      ...prev,
-      email: savedEmail,
-      rememberMe: true
-    }));
-  }
-}, []);
+  /**
+   * Effet : Restaure l'email sauvegardé si "Se souvenir de moi" était actif
+   * Vérifie également l'expiration du token
+   */
+  useEffect(() => {
+    const rememberMe = localStorage.getItem('rememberMe');
+    const savedEmail = localStorage.getItem('savedEmail');
+    const expiry = localStorage.getItem('tokenExpiry');
+    
+    // Nettoyer si token expiré
+    if (expiry && new Date(expiry) < new Date()) {
+      localStorage.removeItem('rememberMe');
+      localStorage.removeItem('savedEmail');
+      localStorage.removeItem('tokenExpiry');
+      return;
+    }
+    
+    // Restaurer l'email
+    if (rememberMe === 'true' && savedEmail) {
+      setFormData(prev => ({
+        ...prev,
+        email: savedEmail,
+        rememberMe: true
+      }));
+    }
+  }, []);
 
+  /**
+   * Effet : Gère le compte à rebours pour le renvoi de code
+   */
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -57,9 +86,16 @@ useEffect(() => {
     }
   }, [countdown]);
 
+  // ===== VARIABLES DÉRIVÉES =====
   const isLoading = externalLoading || internalLoading || authLoading;
 
-  // Validations
+  // ===== VALIDATIONS =====
+  
+  /**
+   * Valide le format d'un email
+   * @param {string} email - Email à valider
+   * @returns {string} Message d'erreur ou chaîne vide
+   */
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email?.trim()) return 'Email requis';
@@ -67,12 +103,22 @@ useEffect(() => {
     return '';
   };
 
+  /**
+   * Valide le mot de passe de connexion
+   * @param {string} password - Mot de passe à valider
+   * @returns {string} Message d'erreur ou chaîne vide
+   */
   const validatePassword = (password) => {
     if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 6) return 'Minimum 6 caractères';
     return '';
   };
 
+  /**
+   * Valide le nouveau mot de passe (réinitialisation)
+   * @param {string} password - Nouveau mot de passe
+   * @returns {string} Message d'erreur ou chaîne vide
+   */
   const validateNewPassword = (password) => {
     if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 8) return 'Minimum 8 caractères';
@@ -82,6 +128,12 @@ useEffect(() => {
     return '';
   };
 
+  // ===== GESTIONNAIRES DE FORMULAIRE =====
+  
+  /**
+   * Gère les changements dans les champs du formulaire
+   * @param {Event} e - Événement de changement
+   */
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -89,10 +141,15 @@ useEffect(() => {
       [name]: type === 'checkbox' ? checked : value
     }));
     
+    // Efface les erreurs du champ modifié
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     if (message.text) setMessage({ type: '', text: '' });
   };
 
+  /**
+   * Affiche/masque un champ de mot de passe
+   * @param {string} field - Champ à basculer ('password', 'newPassword', 'confirmPassword')
+   */
   const togglePasswordVisibility = (field) => {
     setShowPassword(prev => ({
       ...prev,
@@ -100,11 +157,16 @@ useEffect(() => {
     }));
   };
 
-  // LOGIN
+  // ===== CONNEXION =====
+  
+  /**
+   * Soumet le formulaire de connexion
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
     
+    // Validation des champs
     const newErrors = {};
     const emailError = validateEmail(formData.email);
     if (emailError) newErrors.email = emailError;
@@ -123,6 +185,8 @@ useEffect(() => {
       await onSubmit(formData);
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Gestion des erreurs par type
       if (error.message) {
         if (error.message.includes('Email ou mot de passe incorrect') || 
             error.message.includes('401')) {
@@ -152,7 +216,11 @@ useEffect(() => {
     }
   };
 
-  // FORGOT PASSWORD - Step 1: Email
+  // ===== RÉINITIALISATION MOT DE PASSE =====
+  
+  /**
+   * Étape 1 : Envoie le code de réinitialisation par email
+   */
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -182,7 +250,9 @@ useEffect(() => {
     }
   };
 
-  // Step 2: Code
+  /**
+   * Étape 2 : Vérifie le code saisi
+   */
   const handleVerifyCode = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -203,17 +273,21 @@ useEffect(() => {
     });
   };
 
-  // Step 3: New Password - CORRIGÉ avec resetPassword du hook
+  /**
+   * Étape 3 : Réinitialise le mot de passe avec le code validé
+   */
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setErrors({});
 
+    // Validation du nouveau mot de passe
     const passwordError = validateNewPassword(formData.newPassword);
     if (passwordError) {
       setErrors({ newPassword: passwordError });
       return;
     }
 
+    // Vérification de la confirmation
     if (formData.newPassword !== formData.confirmPassword) {
       setErrors({ confirmPassword: 'Les mots de passe ne correspondent pas' });
       return;
@@ -221,13 +295,6 @@ useEffect(() => {
 
     setInternalLoading(true);
     try {
-      console.log('Envoi reset password:', {
-        code: formData.resetCode,
-        email: formData.email,
-        newPassword: formData.newPassword
-      });
-
-      // UTILISEZ resetPassword DU HOOK (déjà importé)
       await resetPassword(
         formData.resetCode,
         formData.email,
@@ -238,6 +305,8 @@ useEffect(() => {
         type: 'success',
         text: 'Mot de passe réinitialisé avec succès ! Redirection...'
       });
+      
+      // Retour à la connexion après 3 secondes
       setTimeout(() => {
         setMode('login');
         setStep(1);
@@ -260,6 +329,9 @@ useEffect(() => {
     }
   };
 
+  /**
+   * Renvoie un nouveau code de réinitialisation
+   */
   const handleResendCode = async () => {
     if (countdown > 0) return;
     setInternalLoading(true);
@@ -280,10 +352,14 @@ useEffect(() => {
     }
   };
 
-  // RENDER LOGIN FORM
+  // ===== RENDU DES FORMULAIRES =====
+  
+  /**
+   * Rendu du formulaire de connexion
+   */
   const renderLoginForm = () => (
     <form className="space-y-5" onSubmit={handleSubmit}>
-      {/* Email */}
+      {/* Champ Email avec icône */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
           Adresse email
@@ -311,7 +387,7 @@ useEffect(() => {
         {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
       </div>
 
-      {/* Password */}
+      {/* Champ Mot de passe avec icône et bouton d'affichage */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -369,6 +445,7 @@ useEffect(() => {
         {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
       </div>
 
+      {/* Lien Activation compte */}
       <div className="flex justify-start text-sm">
         <button
           type="button"
@@ -379,7 +456,7 @@ useEffect(() => {
         </button>
       </div>
 
-      {/* Remember me */}
+      {/* Checkbox "Se souvenir de moi" */}
       <div className="flex items-center">
         <input
           id="remember-me"
@@ -395,17 +472,18 @@ useEffect(() => {
         </label>
       </div>
 
-     {/* Submit button */}
-<Button
-  type="submit"
-  loading={isLoading}
-  fullWidth
-  size="lg"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-900 hover:to-blue-900 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
->
-  {isLoading ? 'Connexion...' : 'Se connecter'}
-</Button>
+      {/* Bouton de soumission */}
+      <Button
+        type="submit"
+        loading={isLoading}
+        fullWidth
+        size="lg"
+        className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-900 hover:to-blue-900 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+      >
+        {isLoading ? 'Connexion...' : 'Se connecter'}
+      </Button>
 
+      {/* Message d'erreur général */}
       {errors.submit && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           <div className="flex items-center">
@@ -419,8 +497,13 @@ useEffect(() => {
     </form>
   );
 
-  // RENDER FORGOT PASSWORD FORM
+  /**
+   * Rendu du formulaire de réinitialisation (3 étapes)
+   */
   const renderForgotForm = () => {
+    /**
+     * Indicateur visuel des étapes (1,2,3)
+     */
     const renderStepIndicator = () => (
       <div className="flex items-center justify-center mb-6">
         {[1, 2, 3].map((stepNumber) => (
@@ -445,7 +528,7 @@ useEffect(() => {
 
     return (
       <div className="space-y-5">
-        {/* Back button */}
+        {/* Bouton retour à la connexion */}
         <button
           type="button"
           onClick={() => {
@@ -462,6 +545,7 @@ useEffect(() => {
           <span>Retour à la connexion</span>
         </button>
 
+        {/* En-tête de l'étape */}
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {step === 1 && 'Réinitialisation du mot de passe'}
@@ -475,8 +559,10 @@ useEffect(() => {
           </p>
         </div>
 
+        {/* Indicateur d'étapes */}
         {renderStepIndicator()}
 
+        {/* Message de succès/erreur */}
         {message.text && (
           <div className={`p-3 rounded-lg ${
             message.type === 'success' 
@@ -498,7 +584,7 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Step 1: Email */}
+        {/* ÉTAPE 1 : Email */}
         {step === 1 && (
           <form onSubmit={handleForgotPassword}>
             <div className="mb-4">
@@ -526,20 +612,19 @@ useEffect(() => {
               </div>
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
             </div>
-
-           <Button
-  type="submit"
-  loading={isLoading}
-  fullWidth
-  size="md"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
->
-  {isLoading ? 'Envoi...' : 'Envoyer le code'}
-</Button>
+            <Button
+              type="submit"
+              loading={isLoading}
+              fullWidth
+              size="md"
+              className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+            >
+              {isLoading ? 'Envoi...' : 'Envoyer le code'}
+            </Button>
           </form>
         )}
 
-        {/* Step 2: Code */}
+        {/* ÉTAPE 2 : Code de vérification */}
         {step === 2 && (
           <form onSubmit={handleVerifyCode}>
             <div className="mb-4">
@@ -580,7 +665,6 @@ useEffect(() => {
               >
                 {countdown > 0 ? `Renvoyer (${countdown}s)` : 'Renvoyer le code'}
               </button>
-              
               <button
                 type="button"
                 onClick={() => setStep(1)}
@@ -589,19 +673,19 @@ useEffect(() => {
                 Modifier l'email
               </button>
             </div>
-<Button
-  type="submit"
-  loading={isLoading}
-  fullWidth
-  size="md"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
->
-  {isLoading ? 'Vérification...' : 'Vérifier le code'}
-</Button>
+            <Button
+              type="submit"
+              loading={isLoading}
+              fullWidth
+              size="md"
+              className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+            >
+              {isLoading ? 'Vérification...' : 'Vérifier le code'}
+            </Button>
           </form>
         )}
 
-        {/* Step 3: New Password */}
+        {/* ÉTAPE 3 : Nouveau mot de passe */}
         {step === 3 && (
           <form onSubmit={handleResetPassword}>
             <div className="mb-4">
@@ -687,21 +771,22 @@ useEffect(() => {
               </div>
               {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
             </div>
-<Button
-  type="submit"
-  loading={isLoading}
-  fullWidth
-  size="md"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
->
-  {isLoading ? 'Réinitialisation...' : 'Réinitialiser'}
-</Button>
+            <Button
+              type="submit"
+              loading={isLoading}
+              fullWidth
+              size="md"
+              className="bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-700 hover:to-blue-800 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl text-white font-medium"
+            >
+              {isLoading ? 'Réinitialisation...' : 'Réinitialiser'}
+            </Button>
           </form>
         )}
       </div>
     );
   };
 
+  // ===== RENDU PRINCIPAL =====
   return (
     <div className="max-w-lg w-full space-y-6">
       <div className="text-center">

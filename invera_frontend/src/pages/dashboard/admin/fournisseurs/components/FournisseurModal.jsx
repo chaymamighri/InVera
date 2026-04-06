@@ -1,4 +1,19 @@
-import React from "react";
+/**
+ * FournisseurModal - Modal générique pour les fournisseurs
+ * 
+ * RÔLE : Afficher une fenêtre modale avec overlay pour la création/modification
+ * 
+ * FONCTIONNALITÉS :
+ * - Overlay semi-transparent avec blur
+ * - Fermeture au clic sur l'overlay
+ * - Contenu dynamique (children)
+ * - Centrage vertical/horizontal
+ * - Largeur max: 512px (max-w-lg)
+ * 
+ * @param {boolean} isOpen - Ouvre/ferme le modal
+ * @param {Function} onClose - Ferme le modal (clic overlay)
+ * @param {ReactNode} children - Contenu du modal (formulaire)
+ */
 
 const FournisseurModal = ({ isOpen, onClose, children }) => {
   if (!isOpen) return null;

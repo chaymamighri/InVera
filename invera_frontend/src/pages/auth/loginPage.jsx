@@ -1,3 +1,24 @@
+/**
+ * LoginPage - Page de connexion
+ * 
+ * DESCRIPTION :
+ * Page d'accueil de l'application avec :
+ * - Présentation du produit (colonne gauche)
+ * - Formulaire de connexion (colonne droite)
+ * 
+ * REDIRECTIONS :
+ * - ADMIN → /dashboard/admin
+ * - COMMERCIAL → /dashboard/sales/dashboard  
+ * - RESPONSABLE_ACHAT → /dashboard/procurement
+ * 
+ * SOUS-COMPOSANTS :
+ * - LoginForm (formulaire d'authentification)
+ * 
+ * GESTION DES ERREURS :
+ * - Erreurs API (email/mot de passe incorrect)
+ * - Erreurs interceptor (sessionStorage)
+ */
+
 import React, { useState, useEffect } from 'react';
 import LoginForm from '../../components/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,8 +30,8 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
 
+  // Récupère les erreurs de l'interceptor
   useEffect(() => {
-    // ✅ show message from interceptor
     const msg = sessionStorage.getItem('authError');
     if (msg) {
       setLoginError(msg);
@@ -18,6 +39,7 @@ const LoginPage = () => {
     }
   }, []);
 
+  // Connexion + redirection
   const handleSubmit = async (credentials) => {
     setLoginError(null);
 

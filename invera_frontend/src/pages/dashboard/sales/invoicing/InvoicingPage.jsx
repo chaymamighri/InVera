@@ -1,3 +1,21 @@
+/**
+ * InvoicingPage - Gestion des factures
+ * 
+ * Affiche la liste des factures avec filtres, tri et téléchargement PDF.
+ * Route : /dashboard/sales/invoices
+ * 
+ * Fonctionnalités :
+ * - Filtres (recherche, statut, date)
+ * - Tri (référence, client, date, montant, statut)
+ * - Pagination
+ * - Téléchargement PDF
+ * - Changement de statut (payée/non payée)
+ * - Cartes statistiques
+ * 
+ * Composants : FacturesFilters, FacturesTable, InvoiceModal, InvoiceTemplate
+ * Services : commandeService
+ * Librairies : date-fns, html2pdf.js
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   DocumentTextIcon,

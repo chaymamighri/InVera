@@ -1,4 +1,32 @@
 // src/pages/admin/users/gestionUsers.jsx
+
+/**
+ * GestionUsers - Gestion des utilisateurs (administration)
+ * 
+ * RÔLE : Gérer les utilisateurs de l'application (CRUD, activation/désactivation)
+ * ROUTE : /dashboard/admin/users
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des utilisateurs avec tableau
+ * - Recherche par nom, email, rôle
+ * - Filtre par rôle (Commercial, Achat, Admin)
+ * - Ajout d'utilisateur (nom, email, rôle)
+ * - Modification d'utilisateur (nom, email, rôle)
+ * - Suppression d'utilisateur avec confirmation
+ * - Activation/Désactivation (toggle switch)
+ * - Validation email (format, unicité)
+ * - Protection du compte admin (non modifiable)
+ * 
+ * COMPOSANTS INTERNES :
+ * - Modal : Fenêtre modale générique
+ * - ConfirmModal : Confirmation de suppression
+ * - InputField : Champ texte avec label
+ * - EmailField : Champ email avec icône
+ * - SelectField : Menu déroulant
+ * - ToggleSwitch : Bouton activer/désactiver
+ * 
+ * HOOK UTILISÉ : useUserManagement()
+ */
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {

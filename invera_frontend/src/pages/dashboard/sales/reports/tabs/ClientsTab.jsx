@@ -1,24 +1,41 @@
-// src/pages/dashboard/sales/reports/tabs/ClientsTab.jsx
+/**
+ * ClientsTab - Onglet d'analyse des clients dans les rapports
+ * 
+ * Rôle : Afficher les statistiques et l'analyse détaillée des clients
+ * Route : /dashboard/sales/reports/clients
+ * 
+ * Fonctionnalités :
+ * - Filtrage par période (dates personnalisées)
+ * - Filtrage par type de client (VIP, Entreprise, Fidèle, Particulier)
+ * - Filtrage par statut commercial (Normal, Fidèle, VIP)
+ * - Affichage des KPIs (total clients, actifs, inactifs)
+ * - Répartition par statut commercial
+ * - Top 10 des meilleurs clients (CA total)
+ * 
+ * Sous-composants : Aucun (composant autonome)
+ * Hook utilisé : useReports('clients', filters)
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Filter, Calendar } from 'lucide-react';
 import { useReports } from '../../../../../hooks/useReports';
 
 const ClientsTab = () => {
+  // ===== ÉTATS =====
   const [filters, setFilters] = useState({
-    period: 'custom',     
-    startDate: null,
-    endDate: null,
-    clientType: undefined,
-    commercialStatus: undefined
+    period: 'custom',        // Période fixée à 'custom'
+    startDate: null,         // Date de début
+    endDate: null,           // Date de fin
+    clientType: undefined,   // Type de client (VIP, ENTREPRISE, etc.)
+    commercialStatus: undefined // Statut commercial (Normal, FIDELE, VIP)
   });
 
-  const [showSpecificFilters, setShowSpecificFilters] = useState(false);
-  const [localDates, setLocalDates] = useState({
-    startDate: '',
-    endDate: ''
-  });
+  const [showSpecificFilters, setShowSpecificFilters] = useState(false); // Afficher/masquer filtres avancés
+  const [localDates, setLocalDates] = useState({ startDate: '', endDate: '' }); // Dates temporaires
 
-  // ✅ Types de clients
+  // ===== DONNÉES STATIQUES POUR LES FILTRES =====
+  
+  // Types de clients disponibles
   const clientTypes = [
     { id: undefined, label: 'Tous les types' },
     { id: 'VIP', label: 'VIP' },
@@ -27,7 +44,7 @@ const ClientsTab = () => {
     { id: 'PARTICULIER', label: 'Particulier' }
   ];
 
-  // ✅ Statuts commerciaux
+  // Statuts commerciaux disponibles
   const commercialStatusOptions = [
     { id: undefined, label: 'Tous les statuts' },
     { id: 'Normal', label: 'Normal' },
@@ -35,7 +52,9 @@ const ClientsTab = () => {
     { id: 'VIP', label: 'VIP' }
   ];
 
-  // ✅ Fonction pour obtenir le badge de statut commercial
+  // ===== FONCTIONS UTILITAIRES =====
+  
+  // Retourne la classe CSS du badge selon le statut commercial
   const getCommercialStatusBadge = (status) => {
     const badges = {
       'Normal': 'bg-blue-100 text-blue-700',
@@ -45,7 +64,7 @@ const ClientsTab = () => {
     return badges[status] || 'bg-gray-100 text-gray-700';
   };
 
-  // ✅ Fonction pour obtenir le libellé du statut commercial
+  // Retourne le libellé du statut commercial
   const getCommercialStatusLabel = (status) => {
     const labels = {
       'Normal': 'Normal',
@@ -55,15 +74,19 @@ const ClientsTab = () => {
     return labels[status] || status;
   };
 
-  // ✅ Utiliser le hook useReports avec tous les filtres
+  // ===== HOOK useReports =====
   const { 
-    loading, 
-    error, 
-    data, 
+    loading,     // État de chargement
+    error,       // Message d'erreur
+    data,        // Données des clients (summary, topClients, repartitionParStatutCommercial)
     setFilters: updateReportsFilters
   } = useReports('clients', filters);
 
-  // ✅ Appliquer la période personnalisée
+  // ============================================
+  //  GESTIONNAIRES DE FILTRES
+  // ============================================
+  
+  // Applique la période personnalisée (dates début/fin)
   const handleApplyCustom = () => {
     if (localDates.startDate && localDates.endDate) {
       console.log('📅 Application dates personnalisées:', localDates);
@@ -80,17 +103,14 @@ const ClientsTab = () => {
     }
   };
 
-  // ✅ Gestionnaire pour les filtres spécifiques
+  // Gère les changements de filtres spécifiques (type client, statut commercial)
   const handleSpecificFilterChange = (key, value) => {
-    const newFilters = {
-      ...filters,
-      [key]: value
-    };
+    const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     updateReportsFilters(newFilters);
   };
 
-  // ✅ Réinitialiser TOUS les filtres
+  // Réinitialise TOUS les filtres
   const resetAllFilters = () => {
     const defaultFilters = {
       period: 'custom',
@@ -105,6 +125,10 @@ const ClientsTab = () => {
     setLocalDates({ startDate: '', endDate: '' });
   };
 
+  // ============================================
+  //  GESTION DES ÉTATS DE CHARGEMENT/ERREUR
+  // ============================================
+  
   if (loading && !data) {
     return (
       <div className="text-center py-10">
@@ -136,9 +160,14 @@ const ClientsTab = () => {
     );
   }
 
+  // ============================================
+  //  RENDU PRINCIPAL
+  // ============================================
+
   return (
     <div className="space-y-6">
-      {/* ✅ En-tête */}
+      
+      {/* ===== EN-TÊTE ===== */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold">Analyse clientèle</h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -146,9 +175,10 @@ const ClientsTab = () => {
         </p>
       </div>
 
-      {/* ✅ SECTION FILTRES */}
+      {/* ===== SECTION FILTRES ===== */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-4">
+          
           {/* En-tête des filtres */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2">
@@ -157,6 +187,7 @@ const ClientsTab = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Bouton filtres clients (affiche/masque les filtres avancés) */}
               <button
                 onClick={() => setShowSpecificFilters(!showSpecificFilters)}
                 className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors
@@ -166,6 +197,7 @@ const ClientsTab = () => {
                 <span className="hidden sm:inline">Filtres clients</span>
               </button>
 
+              {/* Bouton réinitialisation */}
               <button
                 onClick={resetAllFilters}
                 className="px-4 py-2 border rounded-lg text-sm hover:bg-blue-100 bg-blue-50 text-blue-700 border-blue-200"
@@ -223,13 +255,13 @@ const ClientsTab = () => {
             </div>
           </div>
 
-          {/* FILTRES SPÉCIFIQUES */}
+          {/* FILTRES SPÉCIFIQUES (type client + statut commercial) - Affichage conditionnel */}
           {showSpecificFilters && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <h4 className="text-sm font-medium text-gray-700 mb-3">Filtres clients</h4>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Type de client */}
+                {/* Sélecteur type de client */}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Type de client</label>
                   <select
@@ -248,7 +280,7 @@ const ClientsTab = () => {
                   </select>
                 </div>
 
-                {/* Statut commercial */}
+                {/* Sélecteur statut commercial */}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Statut commercial</label>
                   <select
@@ -271,49 +303,51 @@ const ClientsTab = () => {
           )}
         </div>
       </div>
-{/* ✅ Cartes résumé - Version avec couleurs harmonisées */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-  {/* Total clients */}
-  <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all">
-    <div className="flex items-start justify-between">
-      <p className="text-sm font-medium text-blue-700 mb-1">Total clients</p>
-      <span className="text-2xl text-blue-600">👥</span>
-    </div>
-    <p className="text-3xl font-bold text-blue-800">{data.summary?.totalClients || 0}</p>
-    <p className="text-xs text-blue-600/70 mt-2 flex items-center gap-1">
-      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-      Base totale de clients
-    </p>
-  </div>
-  
-  {/* Clients inactifs */}
-  <div className="bg-gradient-to-br from-amber-50 to-orange-100/50 p-6 rounded-xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
-    <div className="flex items-start justify-between">
-      <p className="text-sm font-medium text-amber-700 mb-1">Clients inactifs</p>
-      <span className="text-2xl text-amber-600">😴</span>
-    </div>
-    <p className="text-3xl font-bold text-amber-800">{data.summary?.clientsInactifs || 0}</p>
-    <p className="text-xs text-amber-600/70 mt-2 flex items-center gap-1">
-      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-      Aucune commande passée
-    </p>
-  </div>
-  
-  {/* Clients actifs */}
-  <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-all">
-    <div className="flex items-start justify-between">
-      <p className="text-sm font-medium text-purple-700 mb-1">Clients actifs</p>
-      <span className="text-2xl text-purple-600">🛒</span>
-    </div>
-    <p className="text-3xl font-bold text-purple-800">{data.summary?.clientsActifs || 0}</p>
-    <p className="text-xs text-purple-600/70 mt-2 flex items-center gap-1">
-      <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-      Ont passé commande
-    </p>
-  </div>
-</div>
 
-      {/* ✅ Statistiques par statut commercial */}
+      {/* ===== CARTES RÉSUMÉ (KPIs) ===== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Total clients */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-start justify-between">
+            <p className="text-sm font-medium text-blue-700 mb-1">Total clients</p>
+            <span className="text-2xl text-blue-600">👥</span>
+          </div>
+          <p className="text-3xl font-bold text-blue-800">{data.summary?.totalClients || 0}</p>
+          <p className="text-xs text-blue-600/70 mt-2 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+            Base totale de clients
+          </p>
+        </div>
+        
+        {/* Clients inactifs (aucune commande) */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-100/50 p-6 rounded-xl border border-amber-200 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-start justify-between">
+            <p className="text-sm font-medium text-amber-700 mb-1">Clients inactifs</p>
+            <span className="text-2xl text-amber-600">😴</span>
+          </div>
+          <p className="text-3xl font-bold text-amber-800">{data.summary?.clientsInactifs || 0}</p>
+          <p className="text-xs text-amber-600/70 mt-2 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+            Aucune commande passée
+          </p>
+        </div>
+        
+        {/* Clients actifs (ont passé commande) */}
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 rounded-xl border border-purple-200 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-start justify-between">
+            <p className="text-sm font-medium text-purple-700 mb-1">Clients actifs</p>
+            <span className="text-2xl text-purple-600">🛒</span>
+          </div>
+          <p className="text-3xl font-bold text-purple-800">{data.summary?.clientsActifs || 0}</p>
+          <p className="text-xs text-purple-600/70 mt-2 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+            Ont passé commande
+          </p>
+        </div>
+      </div>
+
+      {/* ===== STATISTIQUES PAR STATUT COMMERCIAL ===== */}
       {data.repartitionParStatutCommercial && (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="px-6 py-4 border-b bg-gray-50">
@@ -337,7 +371,7 @@ const ClientsTab = () => {
         </div>
       )}
 
-      {/* Top clients avec statut commercial */}
+      {/* ===== TOP 10 CLIENTS ===== */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
           <h3 className="font-semibold">Top 10 clients</h3>
@@ -374,7 +408,6 @@ const ClientsTab = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{client.commandes}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-800">{client.ca} DT</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{client.panierMoyen || 0} DT</td>
                   </tr>
                 ))}
               </tbody>

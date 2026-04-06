@@ -1,4 +1,25 @@
-// src/pages/dashboard/sales/sales/components/SalesFilters.jsx
+/**
+ * SalesFilters - Barre de filtres pour les commandes validées
+ * 
+ * Permet de filtrer et trier la liste des commandes.
+ * 
+ * FONCTIONNALITÉS :
+ * - Recherche par texte (n° commande, client, produit)
+ * - Filtre par date de création
+ * - Tri par (date, numéro, client, montant)
+ * - Ordre croissant/décroissant
+ * - Réinitialisation des filtres
+ * - Affichage des filtres actifs
+ * 
+ * @param {Object} filters - État des filtres
+ * @param {string} filters.searchTerm - Terme de recherche
+ * @param {Object} filters.dateRange - Plage de dates { from, to }
+ * @param {string} filters.sortBy - Champ de tri (date_creation, numero_commande, client, montant)
+ * @param {string} filters.sortOrder - Ordre de tri (asc/desc)
+ * @param {Function} onFilterChange - (key, value) => void
+ * @param {number} totalFiltered - Nombre de résultats après filtrage
+ */
+
 import React from 'react';
 import {
   MagnifyingGlassIcon,
@@ -10,7 +31,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
-  // ✅ Options de tri - valeurs exactes attendues par le filtre
+  // Options de tri disponibles
   const sortOptions = [
     { value: 'date_creation', label: 'Date création' },
     { value: 'numero_commande', label: 'N° Commande' },
@@ -18,7 +39,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     { value: 'montant', label: 'Montant' }
   ];
 
-  // ✅ Valeurs par défaut
+  // Valeurs par défaut des filtres
   const defaultFilters = {
     searchTerm: '',
     dateRange: { from: '', to: '' },
@@ -26,19 +47,19 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     sortOrder: 'desc'
   };
 
-  // ✅ Vérifier si des filtres sont actifs
+  // Vérifie si des filtres sont actifs (recherche ou date)
   const hasActiveFilters = () => {
     return filters.searchTerm?.trim() !== '' || 
            filters.dateRange?.from?.trim() !== '';
   };
 
-  // ✅ Vérifier si le tri est modifié par rapport au défaut
+  // Vérifie si le tri est différent des valeurs par défaut
   const isSortModified = () => {
     return filters.sortBy !== defaultFilters.sortBy || 
            filters.sortOrder !== defaultFilters.sortOrder;
   };
 
-  // ✅ Réinitialisation complète des filtres
+  // Réinitialise tous les filtres
   const handleReset = () => {
     onFilterChange('searchTerm', defaultFilters.searchTerm);
     onFilterChange('dateRange', defaultFilters.dateRange);
@@ -46,27 +67,23 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     onFilterChange('sortOrder', defaultFilters.sortOrder);
   };
 
-  // ✅ Inversion de l'ordre de tri
+  // Inverse l'ordre de tri (asc ↔ desc)
   const handleSortToggle = () => {
     onFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc');
   };
 
-  // ✅ Gestionnaire pour le champ de date - CORRIGÉ
+  // Gère le changement de date
   const handleDateChange = (e) => {
     const value = e.target.value;
-    const newDateRange = { 
-      from: value,
-      to: '' // On n'utilise que 'from' pour le moment
-    };
-    onFilterChange('dateRange', newDateRange);
+    onFilterChange('dateRange', { from: value, to: '' });
   };
 
-  // ✅ Suppression du filtre date
+  // Supprime le filtre date
   const handleClearDate = () => {
     onFilterChange('dateRange', { from: '', to: '' });
   };
 
-  // ✅ Formatage de date sécurisé - CORRIGÉ
+  // Formate une date pour l'affichage (ex: "15 janvier 2024")
   const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
@@ -82,7 +99,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     }
   };
 
-  // ✅ Obtenir le libellé du filtre actif
+  // Génère le libellé des filtres actifs (ex: "recherche & date")
   const getActiveFilterLabel = () => {
     const activeFilters = [];
     if (filters.searchTerm) activeFilters.push('recherche');
@@ -92,9 +109,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-      {/* En-tête */}
+      
+      {/* ===== EN-TÊTE ===== */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
+          {/* Icône Filtre avec style conditionnel */}
           <div className={`
             p-2 rounded-lg transition-all duration-200
             ${hasActiveFilters() 
@@ -106,6 +125,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               hasActiveFilters() ? 'text-white' : 'text-blue-600'
             }`} />
           </div>
+          
           <div>
             <h3 className="font-semibold text-gray-900">
               Filtres de commandes
@@ -124,7 +144,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           </div>
         </div>
         
-        {/* ✅ Bouton réinitialiser - visible si des filtres sont actifs OU tri modifié */}
+        {/* Bouton Réinitialiser (visible si filtre actif OU tri modifié) */}
         {(hasActiveFilters() || isSortModified()) && (
           <button
             onClick={handleReset}
@@ -142,9 +162,10 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         )}
       </div>
 
-      {/* Champs de filtrage */}
+      {/* ===== CHAMPS DE FILTRAGE ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ✅ Recherche - optimisée */}
+        
+        {/* 1. Recherche textuelle */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
             Rechercher
@@ -187,7 +208,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           )}
         </div>
 
-        {/* ✅ Date - CORRIGÉ - Gestion robuste */}
+        {/* 2. Filtre par date */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
             Date de création
@@ -229,12 +250,13 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           )}
         </div>
 
-        {/* ✅ Tri - amélioré avec indicateurs */}
+        {/* 3. Tri */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
             Trier par
           </label>
           <div className="flex gap-2">
+            {/* Sélecteur du champ de tri */}
             <div className="relative flex-1 group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <ArrowsUpDownIcon className={`h-5 w-5 transition-colors duration-200 ${
@@ -266,7 +288,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               </div>
             </div>
             
-            {/* ✅ Bouton d'ordre de tri - avec animation */}
+            {/* Bouton d'inversion de l'ordre (asc/desc) */}
             <button
               onClick={handleSortToggle}
               className={`
@@ -291,11 +313,10 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               )}
             </button>
           </div>
-         
         </div>
       </div>
 
-      {/* ✅ Filtres actifs - CORRIGÉ - Affichage conditionnel */}
+      {/* ===== FILTRES ACTIFS (badges) ===== */}
       {hasActiveFilters() && (
         <div className="mt-6 pt-5 border-t border-gray-200 animate-fadeIn">
           <div className="flex items-center gap-2 mb-3">
@@ -317,6 +338,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           </div>
           
           <div className="flex flex-wrap gap-2">
+            {/* Badge Recherche */}
             {filters.searchTerm && (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 
                             bg-gradient-to-r from-blue-50 to-indigo-50 
@@ -331,8 +353,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 </span>
                 <button
                   onClick={() => onFilterChange('searchTerm', '')}
-                  className="ml-1 p-0.5 hover:bg-blue-200/50 rounded transition-colors
-                           hover:text-blue-800"
+                  className="ml-1 p-0.5 hover:bg-blue-200/50 rounded transition-colors"
                   title="Supprimer ce filtre"
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
@@ -340,6 +361,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               </div>
             )}
             
+            {/* Badge Date */}
             {filters.dateRange?.from && (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 
                             bg-gradient-to-r from-emerald-50 to-teal-50 
@@ -354,8 +376,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 </span>
                 <button
                   onClick={handleClearDate}
-                  className="ml-1 p-0.5 hover:bg-emerald-200/50 rounded transition-colors
-                           hover:text-emerald-800"
+                  className="ml-1 p-0.5 hover:bg-emerald-200/50 rounded transition-colors"
                   title="Supprimer ce filtre"
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
@@ -364,7 +385,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             )}
           </div>
           
-          {/* ✅ Indicateur de résultats */}
+          {/* Indicateur de nombre de résultats */}
           <div className="mt-3 text-xs text-gray-500 flex items-center gap-2">
             <span className="font-medium text-gray-700">{totalFiltered}</span>
             <span>commande{totalFiltered > 1 ? 's' : ''} trouvée{totalFiltered > 1 ? 's' : ''}</span>
@@ -378,9 +399,10 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         </div>
       )}
 
-      {/* ✅ Statut - avec effet de glow amélioré */}
+      {/* ===== STATUT (indicateur visuel) ===== */}
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex items-center justify-between">
+          {/* État des commandes */}
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -396,7 +418,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             </span>
           </div>
           
-          {/* ✅ Indicateur de statut des filtres */}
+          {/* Indicateur de statut des filtres */}
           {!hasActiveFilters() && !isSortModified() && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
@@ -420,6 +442,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         </div>
       </div>
 
+      {/* Animations CSS */}
       <style >{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }
