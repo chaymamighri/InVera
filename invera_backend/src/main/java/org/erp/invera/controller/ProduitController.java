@@ -20,6 +20,25 @@ import java.util.Objects;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Contrôleur de gestion des produits.
+ *
+ * Endpoints :
+ * - POST   /add                    → Ajouter un produit (avec image)
+ * - GET    /all                    → Tous les produits
+ * - GET    /actifs                 → Produits actifs uniquement
+ * - GET    /{id}                   → Détail d'un produit
+ * - PUT    /update/{id}            → Modifier un produit
+ * - DELETE /delete/{id}            → Désactiver un produit (soft delete)
+ * - PATCH  /{id}/reactiver         → Réactiver un produit
+ * - GET    /search                 → Rechercher (mot-clé, statut, catégorie)
+ * - GET    /categorie/{id}         → Produits par catégorie
+ * - GET    /low-stock              → Produits en stock faible
+ * - PATCH  /{id}/stock             → Mettre à jour la quantité
+ * - GET    /{id}/verifier-disponibilite → Vérifier disponibilité
+ *
+ * Upload d'images : les photos sont stockées dans /uploads/produits/
+ */
 @RestController
 @RequestMapping("/api/produits")
 @CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})

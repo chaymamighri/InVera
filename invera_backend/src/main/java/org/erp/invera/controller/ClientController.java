@@ -14,6 +14,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+/**
+ * Contrôleur de gestion des clients.
+ *
+ * Endpoints CRUD :
+ * - POST   /creer                      → Créer un client
+ * - GET    /liste                      → Liste de tous les clients
+ * - POST   /update/{id}                → Modifier un client
+ * - DELETE /{id}                       → Supprimer un client
+ *
+ * Endpoints recherche :
+ * - GET    /rechercher?q=              → Rechercher par nom/téléphone/email
+ * - GET    /verifier-telephone?telephone= → Vérifier si un téléphone existe
+ *
+ * Endpoints types et remises :
+ * - GET    /types                      → Types de clients disponibles
+ * - GET    /remise/{typeClient}        → Remise pour un type (VIP, FIDELE, ENTREPRISE)
+ * - PUT    /type/{typeClient}/remise   → Mettre à jour la remise (ADMIN)
+ *
+ * Types clients : PARTICULIER, VIP, FIDELE, ENTREPRISE
+ * Règle : PARTICULIER = remise 0% fixe (non modifiable)
+ */
 @RestController
 @RequestMapping("/api/clients")
 public class ClientController {

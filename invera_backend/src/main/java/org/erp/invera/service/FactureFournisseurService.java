@@ -21,6 +21,34 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Random;
 
+
+/**
+ * Service de gestion des factures fournisseurs.
+ *
+ * Ce fichier gère tout le cycle de vie des factures fournisseurs :
+ *
+ * 1. GÉNÉRATION D'UNE FACTURE :
+ *    - À partir d'une commande réceptionnée (statut RECUE)
+ *    - Vérifie qu'une facture n'existe pas déjà
+ *    - Génère une référence unique (ex: FAC-2025-0412-1234)
+ *    - Statut initial : NON_PAYE
+ *
+ * 2. EXPORT PDF :
+ *    - Génère un PDF professionnel de la facture
+ *    - Utilise PdfGenerationService pour la mise en page
+ *    - Retourne le fichier en byte[] pour téléchargement
+ *
+ * 3. CONSULTATION :
+ *    - Détail complet d'une facture (avec lignes de commande)
+ *    - Liste paginée des factures (sans les lignes pour performance)
+ *
+ * 4. GESTION DES PAIEMENTS :
+ *    - Mise à jour du statut (NON_PAYE → PAYE)
+ *
+ * Règles métier :
+ * - Une facture ne peut être créée que si la commande est réceptionnée (RECUE)
+ * - Une seule facture par commande
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

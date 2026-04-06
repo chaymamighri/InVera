@@ -14,6 +14,18 @@ import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service de statistiques pour le tableau de bord des achats et stocks.
+ *
+ * Ce fichier fournit toutes les données nécessaires au tableau de bord :
+ * - Commandes (total, en attente, en cours, livrées)
+ * - Produits (total, actifs, en rupture, en alerte)
+ * - Stock (valeur totale, mouvements, rotation)
+ * - Factures (total, payées, impayées, montant)
+ * - KPIs (chiffre d'affaires, panier moyen, taux de service...)
+ *
+ * Permet de filtrer par dates et d'avoir des tendances (graphiques).
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

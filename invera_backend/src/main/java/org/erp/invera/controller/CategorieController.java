@@ -11,6 +11,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Contrôleur de gestion des catégories de produits.
+ *
+ * Endpoints :
+ * - GET    /                    → Liste de toutes les catégories
+ * - GET    /{id}                → Détail d'une catégorie
+ * - POST   /                    → Créer une nouvelle catégorie
+ * - PUT    /{id}                → Modifier une catégorie
+ * - DELETE /{id}                → Supprimer (uniquement si aucun produit associé)
+ * - GET    /search?keyword=     → Rechercher par mot-clé
+ *
+ * Règles :
+ * - Le nom de la catégorie est unique
+ * - TVA par défaut : 19%
+ * - Impossible de supprimer une catégorie contenant des produits
+ */
 @RestController
 @RequestMapping("/api/categories")
 public class CategorieController {

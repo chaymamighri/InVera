@@ -9,6 +9,33 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Service de gestion des catégories de produits.
+ *
+ * Ce fichier gère les catégories qui classent les produits :
+ *
+ * 1. CRÉATION D'UNE CATÉGORIE :
+ *    - Vérifie qu'une catégorie avec le même nom n'existe pas déjà
+ *    - Applique un taux de TVA par défaut (19%) si non fourni
+ *    - Nettoie les données (supprime les espaces inutiles)
+ *
+ * 2. MODIFICATION :
+ *    - Vérifie que le nouveau nom n'est pas déjà utilisé
+ *    - Met à jour la description et le taux de TVA
+ *
+ * 3. SUPPRESSION :
+ *    - Vérifie qu'aucun produit n'est associé à la catégorie
+ *    - Impossible de supprimer une catégorie qui contient des produits
+ *
+ * 4. RECHERCHE :
+ *    - Liste toutes les catégories (triées par nom)
+ *    - Recherche par mot-clé dans le nom
+ *
+ * Utilité :
+ * - Organiser les produits (ex: Électronique, Alimentaire, Vêtements...)
+ * - Définir des taux de TVA spécifiques par catégorie
+ * - Filtrer les produits par catégorie
+ */
 @Service
 @Transactional
 public class CategorieService {

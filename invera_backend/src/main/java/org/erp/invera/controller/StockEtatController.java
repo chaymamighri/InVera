@@ -9,6 +9,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Contrôleur de l'état des stocks.
+ *
+ * Endpoints :
+ * - GET /                         → État complet des stocks (filtres : catégorie, alerte, rupture)
+ * - GET /ruptures                 → Liste des produits en rupture de stock
+ *
+ * Accès : Réservé au rôle RESPONSABLE_ACHAT
+ */
+
 @RestController
 @RequestMapping("/api/stock/etat")
 @RequiredArgsConstructor

@@ -20,6 +20,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Filtre JWT pour l'authentification des requêtes.
+ *
+ * Ce filtre s'exécute avant chaque requête HTTP. Il :
+ * 1. Extrait le token JWT de l'en-tête "Authorization"
+ * 2. Vérifie sa validité
+ * 3. Extrait les infos utilisateur (email, rôle, nom, etc.)
+ * 4. Crée un objet User avec ces infos
+ * 5. Place l'utilisateur dans le contexte Spring Security
+ *
+ * Ainsi, Spring sait qui est l'utilisateur connecté pour les requêtes suivantes.
+ * Les routes publiques (/api/auth/login, etc.) sont ignorées par ce filtre.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

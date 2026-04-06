@@ -24,6 +24,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
+/**
+ * Service de gestion des commandes fournisseurs (achats).
+ *
+ * Ce fichier gère tout le cycle de vie d'une commande d'achat :
+ *
+ * 1. CRÉATION (BROUILLON) :
+ *    - Génère un numéro unique (ex: BC-202504-0001)
+ *    - Calcule les totaux (HT, TVA, TTC)
+ *    - Statut initial : BROUILLON
+ *
+ * 2. MODIFICATION (uniquement en brouillon) :
+ *    - Modifier produits, quantités, prix
+ *    - Recalcule automatiquement les totaux
+ *
+ * 3. VALIDATION (BROUILLON → VALIDEE)
+ *
+ * 4. ENVOI AU FOURNISSEUR (VALIDEE → ENVOYEE)
+ *
+ * 5. RÉCEPTION DE LA MARCHANDISE (ENVOYEE → RECUE) :
+ *    - Enregistre le bon de livraison
+ *    - Crée des mouvements de stock (entrées)
+ *    - Met à jour les quantités des produits
+ *    - Peut réactiver des produits inactifs
+ *
+ * 6. FACTURATION (RECUE → FACTUREE)
+ *
+ * 7. ANNULATION (possible avant réception/facturation)
+ *
+ * 8. ARCHIVAGE (soft delete)
+ *
+ * Règles métier importantes :
+ * - Une commande ne peut être modifiée qu'en BROUILLON
+ * - La réception met automatiquement à jour le stock
+ * - Les totaux sont calculés automatiquement
+ * - Une commande facturée ne peut plus être annulée
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional

@@ -22,6 +22,33 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
+/**
+ * Contrôleur des commandes clients (ventes).
+ *
+ * Cycle de vie d'une commande client :
+ * EN_ATTENTE → CONFIRMEE (déstockage) → ANNULEE (restitution stock)
+ *
+ * Endpoints :
+ *
+ *  CONSULTATION :
+ * - GET    /getAllCommandes            → Liste des commandes (filtres: statut, client)
+ * - GET    /validated                  → Commandes confirmées uniquement
+ * - GET    /{id}                       → Détail d'une commande
+ * - GET    /client/{clientId}          → Commandes d'un client spécifique
+ *
+ *  CRÉATION ET MODIFICATION :
+ * - POST   /creer                      → Créer une commande (EN_ATTENTE)
+ * - PUT    /{id}                       → Modifier (uniquement EN_ATTENTE)
+ * - POST   /verifier-disponibilite     → Vérifier le stock avant commande
+ *
+ *  VALIDATION / REJET :
+ * - PUT    /{id}/valider               → EN_ATTENTE → CONFIRMEE (déstockage)
+ * - PUT    /{id}/rejeter               → Annulation (restitution si confirmée)
+ *
+ *  UTILITAIRES :
+ * - GET    /remise-client/{type}       → Remise selon type de client (VIP, ENTREPRISE...)
+ */
 @RestController
 @RequestMapping("/api/commandes")
 public class CommandeClientController {

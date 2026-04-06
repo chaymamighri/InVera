@@ -14,6 +14,18 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Gestionnaire des tokens JWT (JSON Web Tokens).
+ *
+ * Ce fichier s'occupe de :
+ * - Générer un token JWT quand l'utilisateur se connecte
+ * - Stocker les infos de l'utilisateur dans le token (id, email, nom, rôle...)
+ * - Extraire ces infos depuis un token reçu
+ * - Vérifier qu'un token est valide (non expiré, signature correcte)
+ *
+ * Le token JWT est comme une carte d'identité sécurisée que l'utilisateur
+ * présente à chaque requête pour prouver qu'il est authentifié.
+ */
 @Component
 public class JwtTokenProvider {
 

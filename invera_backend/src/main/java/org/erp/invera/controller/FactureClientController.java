@@ -15,6 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Contrôleur des factures clients.
+ *
+ * Endpoints :
+ * - GET    /all                     → Toutes les factures (rôle COMMERCIAL)
+ * - GET    /{factureId}             → Détail d'une facture
+ * - GET    /client/{clientId}       → Factures d'un client spécifique
+ * - GET    /commande/{commandeId}   → Facture associée à une commande
+ * - POST   /generer/{commandeId}    → Générer une facture depuis une commande confirmée
+ * - PUT    /{factureId}/payer       → Marquer une facture comme payée
+ */
 @RestController
 @RequestMapping("/api/factures")
 @Transactional

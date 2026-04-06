@@ -12,6 +12,24 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
+
+/**
+ * Contrôleur des rapports d'analyse commerciale.
+ *
+ * Endpoints (accès ADMIN ou COMMERCIAL) :
+ * - GET /sales      → Rapport des ventes (CA, commandes, panier moyen...)
+ * - GET /invoices   → Rapport des factures (payées/impayées, recouvrement...)
+ * - GET /clients    → Rapport des clients (top clients, répartition par type)
+ * - GET /dashboard  → Aperçu rapide pour le tableau de bord
+ * - GET /types      → Liste des types de rapports disponibles (utile pour le front-end)
+ *
+ * Paramètres communs :
+ * - period     : today, week, month, quarter, year
+ * - startDate  : début période personnalisée (format ISO)
+ * - endDate    : fin période personnalisée
+ * - clientType : VIP, ENTREPRISE, FIDELE, PARTICULIER
+ * - status     : statut commande ou facture
+ */
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor

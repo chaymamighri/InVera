@@ -8,6 +8,14 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/**
+ * Configuration de l'authentification.
+ *
+ * Ce fichier dit à Spring Security comment vérifier les identifiants des utilisateurs :
+ * - Il utilise CustomUserDetailsService pour trouver l'utilisateur en base de données
+ * - Il utilise PasswordEncoder pour comparer les mots de passe (BCrypt)
+ * - Il fournit l'AuthenticationManager qui orchestre la vérification
+ */
 @Configuration
 public class AuthenticationConfig {
 
@@ -28,11 +36,8 @@ public class AuthenticationConfig {
         return provider;
     }
 
-    // Utiliser AuthenticationConfiguration
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-
-
 }

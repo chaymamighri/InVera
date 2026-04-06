@@ -1,4 +1,4 @@
-/// DashboardController.java
+// DashboardController.java
 package org.erp.invera.controller;
 
 import org.erp.invera.dto.DashboardDTO;
@@ -10,6 +10,21 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
+
+/**
+ * Contrôleur du tableau de bord.
+ *
+ * Endpoint unique :
+ * - GET /summary?period=today/week/month&startDate=&endDate=
+ *
+ * Périodes disponibles :
+ * - today   → Aujourd'hui
+ * - week    → Cette semaine (lundi à aujourd'hui)
+ * - month   → Ce mois
+ * - custom  → Dates personnalisées (via startDate et endDate)
+ *
+ * Retourne : KPIs, graphiques, répartitions (commandes, clients, etc.)
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor

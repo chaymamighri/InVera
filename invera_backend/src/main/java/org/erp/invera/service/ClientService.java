@@ -14,6 +14,39 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+
+/**
+ * Service de gestion des clients.
+ *
+ * Ce fichier gère tout ce qui concerne les clients :
+ *
+ * 1. CRÉATION D'UN CLIENT :
+ *    - Vérifie l'unicité du téléphone et de l'email
+ *    - Enregistre automatiquement la date de création et l'utilisateur connecté
+ *    - Applique la remise selon le type de client (VIP, FIDÈLE, ENTREPRISE...)
+ *
+ * 2. MODIFICATION :
+ *    - Met à jour les informations personnelles
+ *    - Change le type de client (et ajuste la remise automatiquement)
+ *
+ * 3. RECHERCHE :
+ *    - Liste complète des clients
+ *    - Recherche par mot-clé (nom, prénom, téléphone, email)
+ *
+ * 4. GESTION DES REMISES PAR TYPE :
+ *    - Chaque type de client a une remise configurable (ex: VIP = 15%)
+ *    - Mise à jour dynamique de la remise pour tous les clients d'un même type
+ *    - Le type PARTICULIER a toujours 0% de remise
+ *
+ * 5. SUPPRESSION :
+ *    - Suppression définitive d'un client
+ *
+ * Types de clients disponibles :
+ * - PARTICULIER (remise 0%)
+ * - VIP (remise configurable)
+ * - FIDELE (remise configurable)
+ * - ENTREPRISE (remise configurable)
+ */
 @Service
 @Transactional
 public class ClientService {

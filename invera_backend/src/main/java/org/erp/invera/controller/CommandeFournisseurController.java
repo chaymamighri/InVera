@@ -16,6 +16,31 @@ import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
+/**
+ * Contrôleur des commandes fournisseurs (achats).
+ *
+ * Cycle de vie d'une commande :
+ * BROUILLON → VALIDEE → ENVOYEE → RECUE → FACTUREE
+ *
+ * Endpoints :
+ * - GET    /All                 → Toutes les commandes
+ * - GET    /{id}                → Détail d'une commande
+ * - POST   /add                 → Créer une commande (BROUILLON)
+ * - PUT    /update/{id}         → Modifier (uniquement BROUILLON)
+ * - DELETE /delete/{id}         → Supprimer (soft delete)
+ *
+ * - PUT    /{id}/valider        → BROUILLON → VALIDEE
+ * - PUT    /{id}/envoyer        → VALIDEE → ENVOYEE
+ * - PUT    /{id}/recevoir       → ENVOYEE → RECUE (mouvements stock + réactivation)
+ * - PUT    /{id}/facturer       → RECUE → FACTUREE
+ * - PUT    /{id}/annuler        → Annulation (raison optionnelle)
+ *
+ * - GET    /recherche/periode   → Commandes sur une période
+ * - GET    /recherche/numero    → Commande par numéro
+ * - GET    /archived            → Commandes archivées
+ * - PUT    /{id}/restore        → Restaurer une commande archivée
+ */
 @RestController
 @RequestMapping("/api/commandes-fournisseurs")
 @RequiredArgsConstructor

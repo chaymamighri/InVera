@@ -14,6 +14,23 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
+
+/**
+ * Contrôleur des statistiques achats et stocks.
+ *
+ * Endpoints :
+ * - GET /dashboard              → Vue d'ensemble (commandes, produits, stock, factures)
+ * - GET /commandes              → Statistiques des commandes
+ * - GET /stocks                 → Statistiques des stocks (entrées/sorties)
+ * - GET /evolution-commandes    → Évolution mensuelle sur l'année
+ * - GET /mouvements-stock       → Mouvements par période (8 semaines par défaut)
+ * - GET /repartition-categories → Répartition des produits par catégorie (camembert)
+ * - GET /alertes-stock          → Produits en rupture ou critique
+ * - GET /commandes-attente      → Commandes en attente/en cours
+ * - GET /kpis                   → Indicateurs clés (CA, panier moyen, rotation stock...)
+ * - GET /valeur-stock           → Valeur du stock par catégorie
+ * - GET /rotation-stock         → Taux de rotation des stocks
+ */
 @RestController
 @RequestMapping("/api/procurement/stats")
 @RequiredArgsConstructor

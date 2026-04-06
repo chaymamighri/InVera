@@ -16,6 +16,18 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service d'état des stocks.
+ *
+ * Ce fichier calcule et fournit la situation actuelle des stocks :
+ * - Quantité disponible pour chaque produit
+ * - Statut du stock (EN_STOCK, FAIBLE, CRITIQUE, RUPTURE)
+ * - Valeur totale du stock (quantité x prix unitaire)
+ * - Filtrage par catégorie, seuil d'alerte ou rupture
+ *
+ * Il met également à jour automatiquement le statut des produits
+ * dans la base de données quand leur niveau de stock change.
+ */
 @Service
 @RequiredArgsConstructor
 public class StockEtatService {

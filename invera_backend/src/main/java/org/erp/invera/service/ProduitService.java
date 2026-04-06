@@ -13,6 +13,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Service de gestion des produits.
+ *
+ * Ce fichier gère tout ce qui concerne les produits :
+ * - Création, modification, suppression (désactivation)
+ * - Gestion du stock (quantités, seuils d'alerte)
+ * - Recherche et filtrage (par catégorie, statut, mot-clé)
+ * - Vérification de disponibilité
+ * - Mise à jour automatique du statut (EN_STOCK, FAIBLE, CRITIQUE, RUPTURE)
+ * - Création d'un mouvement de stock initial à la création
+ * - Déclenchement de notifications quand le stock devient critique
+ */
 @Service
 @Transactional
 public class ProduitService {

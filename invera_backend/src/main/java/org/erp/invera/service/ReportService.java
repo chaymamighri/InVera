@@ -19,6 +19,33 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
+/**
+ * Service de génération de rapports (ventes, factures, clients).
+ *
+ * Ce fichier génère des rapports pour l'analyse commerciale :
+ *
+ * 1. RAPPORT DES VENTES :
+ *    - Chiffre d'affaires total
+ *    - Nombre de commandes et panier moyen
+ *    - Taux de transformation
+ *    - Détail des commandes
+ *    - Statistiques par statut (confirmée, livrée, annulée...)
+ *
+ * 2. RAPPORT DES FACTURES :
+ *    - Montant total facturé
+ *    - Factures payées vs impayées
+ *    - Taux de recouvrement
+ *    - Factures en retard (+30 jours)
+ *
+ * 3. RAPPORT DES CLIENTS :
+ *    - Clients actifs vs inactifs
+ *    - Top 10 clients (par chiffre d'affaires)
+ *    - Répartition par type (particulier, professionnel...)
+ *
+ * Tous les rapports peuvent être filtrés par période (aujourd'hui,
+ * semaine, mois, trimestre, année) ou par dates personnalisées.
+ */
 @Service
 @RequiredArgsConstructor
 public class ReportService {

@@ -31,6 +31,30 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+/**
+ * Contrôleur d'authentification et de gestion des utilisateurs.
+ *
+ * Endpoints publics (sans token) :
+ * - POST /login                    → Connexion
+ * - POST /forgot-password          → Mot de passe oublié
+ * - POST /reset-password           → Réinitialisation MDP
+ * - POST /create-password          → Activation compte (premier MDP)
+ *
+ * Endpoints utilisateur connecté :
+ * - PUT /change-password           → Changer son MDP
+ * - PUT /update-profile            → Modifier son profil
+ * - GET /me                        → Infos de l'utilisateur connecté
+ *
+ * Endpoints administrateur :
+ * - POST /register                 → Créer un utilisateur
+ * - POST /create-admin             → Créer un admin
+ * - GET /all                       → Liste des utilisateurs
+ * - GET /filter                    → Rechercher
+ * - PUT /update/{email}            → Modifier
+ * - DELETE /delete/{email}         → Supprimer
+ * - PATCH /activate/{email}        → Activer/Désactiver
+ */
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

@@ -13,6 +13,33 @@ import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Service du tableau de bord (Dashboard).
+ *
+ * Ce fichier fournit toutes les données nécessaires au tableau de bord
+ * pour visualiser la performance commerciale :
+ *
+ * 1. KPI (INDICATEURS CLÉS) :
+ *    - Chiffre d'affaires (période actuelle vs précédente)
+ *    - Nombre de commandes
+ *    - Panier moyen
+ *    - Taux de transformation
+ *    - Créances (factures impayées et en retard)
+ *    - Variations (semaine, mois, année)
+ *
+ * 2. GRAPHIQUES :
+ *    - Évolution du CA sur la période
+ *    - Top 5 des produits les plus vendus
+ *    - Répartition des commandes par statut (confirmée, en attente, annulée)
+ *    - Évolution quotidienne des commandes et CA
+ *    - Répartition par type de client (VIP, entreprise, particulier...)
+ *
+ * 3. FILTRES :
+ *    - Périodes prédéfinies : aujourd'hui, semaine, mois
+ *    - Période personnalisée (dates libres)
+ *
+ * Toutes les données sont calculées en temps réel depuis la base.
+ */
 @Service
 @RequiredArgsConstructor
 public class DashboardService {

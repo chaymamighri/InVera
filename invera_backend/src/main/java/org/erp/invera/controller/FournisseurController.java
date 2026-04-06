@@ -17,6 +17,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+/**
+ * Contrôleur de gestion des fournisseurs.
+ *
+ * Endpoints :
+ * - GET    /all           → Tous les fournisseurs (actifs + inactifs)
+ * - GET    /active        → Fournisseurs actifs uniquement
+ * - GET    /inactive      → Fournisseurs inactifs
+ * - POST   /add           → Créer un fournisseur
+ * - PUT    /{id}          → Modifier un fournisseur
+ * - DELETE /{id}          → Désactiver (soft delete)
+ * - PATCH  /{id}/reactivate → Réactiver un fournisseur
+ * - GET    /search        → Recherche paginée (fournisseurs actifs)
+ * - GET    /search/all    → Recherche paginée (tous, admin)
+ * - GET    /stats         → Statistiques (total, actifs/inactifs, par ville/pays)
+ */
 @RestController
 @RequestMapping("/api/fournisseurs")
 @RequiredArgsConstructor
