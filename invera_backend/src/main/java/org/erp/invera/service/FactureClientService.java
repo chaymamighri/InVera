@@ -12,6 +12,30 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Service de gestion des factures clients. *
+ * Ce fichier gère le cycle de vie des factures pour les clients :
+ *
+ * 1. GÉNÉRATION D'UNE FACTURE :
+ *    - À partir d'une commande confirmée (statut CONFIRMEE)
+ *    - Vérifie qu'une facture n'existe pas déjà
+ *    - Génère une référence unique (ex: FAC-20250412-1234)
+ *    - Statut initial : NON_PAYE
+ *
+ * 2. CONSULTATION :
+ *    - Détail d'une facture par son ID
+ *    - Trouver une facture par ID de commande
+ *    - Liste de toutes les factures
+ *    - Liste des factures d'un client spécifique
+ *
+ * 3. GESTION DES PAIEMENTS :
+ *    - Marquer une facture comme PAYEE
+ *
+ * Règles métier :
+ * - Une facture ne peut être créée que si la commande est CONFIRMEE
+ * - Une seule facture par commande
+ * - Une facture peut être NON_PAYE ou PAYE
+ */
 @Service
 public class FactureClientService {
 

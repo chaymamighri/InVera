@@ -18,6 +18,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Contrôleur des notifications.
+ *
+ * Accès réservé à : ADMIN et RESPONSABLE_ACHAT
+ *
+ * Endpoints :
+ * - GET /                    → Liste toutes les notifications visibles
+ * - GET /unread-count        → Nombre de notifications non lues
+ * - PATCH /{id}/read         → Marquer une notification comme lue
+ * - PATCH /read-all          → Marquer toutes les notifications comme lues
+ * - DELETE /{id}             → Supprimer une notification
+ * - DELETE /                 → Supprimer toutes les notifications visibles
+ * - DELETE /by-range?range=week/month → Supprimer les 7/30 derniers jours
+ * - DELETE /by-month?month=YYYY-MM → Supprimer les notifications d'un mois
+ *
+ * Les notifications sont filtrées par rôle :
+ * - ADMIN voit toutes les notifications
+ * - RESPONSABLE_ACHAT voit uniquement celles qui le concernent
+ */
 @RestController
 @RequestMapping("/api/notifications")
 @PreAuthorize("hasAnyRole('ADMIN', 'RESPONSABLE_ACHAT')")

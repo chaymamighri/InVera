@@ -16,6 +16,16 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Contrôleur des factures fournisseurs.
+ *
+ * Endpoints :
+ * - POST   /generer/{commandeId}           → Générer une facture à partir d'une commande réceptionnée
+ * - GET    /exporter/{factureId}           → Télécharger le PDF de la facture
+ * - GET    /liste                          → Liste paginée des factures (sans détails)
+ * - GET    /{factureId}                    → Détail complet d'une facture (avec lignes)
+ * - PATCH  /{factureId}/statut?statut=...  → Mettre à jour le statut de paiement (PAYE/NON_PAYE)
+ */
 @RestController
 @RequestMapping("/api/facture-fournisseur")
 @RequiredArgsConstructor

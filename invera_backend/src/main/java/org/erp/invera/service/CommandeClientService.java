@@ -22,6 +22,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
+/**
+ * Service de gestion des commandes clients (ventes).
+ *
+ * Ce fichier gère tout le cycle de vie d'une commande client :
+ *
+ * 1. CRÉATION D'UNE COMMANDE (statut EN_ATTENTE) :
+ *    - Vérifie la disponibilité des produits
+ *    - Calcule les totaux (sous-total, remise, total)
+ *    - Génère une référence unique (ex: CMD-20250412-143052-123)
+ *
+ * 2. MODIFICATION D'UNE COMMANDE (uniquement en EN_ATTENTE) :
+ *    - Ajouter/supprimer/modifier des produits
+ *    - Recalcule automatiquement les totaux
+ *    - Met à jour l'adresse de livraison si besoin
+ *
+ * 3. CONFIRMATION DE COMMANDE (EN_ATTENTE → CONFIRMEE) :
+ *    - Vérifie le stock une dernière fois
+ *    - Déduit les quantités du stock
+ *    - Crée des mouvements de stock (SORTIE)
+ *    - La commande est maintenant validée pour expédition
+ *
+ * 4. REJET/ANNULATION :
+ *    - Si commande confirmée : restitue le stock
+ *    - Passe le statut à ANNULEE
+ *
+ * Règles métier importantes :
+ * - Une commande en attente peut être modifiée
+ * - La confirmation est irréversible (sauf annulation)
+ * - La confirmation déclenche automatiquement la sortie de stock
+ * - Une commande annulée après confirmation remet le stock
+ */
 @Service
 public class CommandeClientService {
 

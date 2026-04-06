@@ -14,6 +14,34 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service de gestion des fournisseurs.
+ *
+ * Ce fichier gère tout ce qui concerne les fournisseurs :
+ *
+ * 1. CONSULTATION :
+ *    - Liste de tous les fournisseurs (actifs + inactifs)
+ *    - Liste des fournisseurs actifs uniquement
+ *    - Liste des fournisseurs inactifs (soft delete)
+ *    - Détail d'un fournisseur par son ID
+ *
+ * 2. CRÉATION ET MODIFICATION :
+ *    - Créer un nouveau fournisseur
+ *    - Mettre à jour les informations d'un fournisseur
+ *
+ * 3. SUPPRESSION :
+ *    - Soft delete : désactivation (le fournisseur reste en base)
+ *    - Hard delete : suppression physique (admin uniquement)
+ *    - Réactivation d'un fournisseur désactivé
+ *
+ * 4. RECHERCHE :
+ *    - Recherche paginée (avec ou sans filtre actif/inactif)
+ *
+ * 5. STATISTIQUES :
+ *    - Nombre total de fournisseurs
+ *    - Répartition actifs/inactifs
+ *    - Répartition par ville et par pays
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -20,6 +20,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+/**
+ * Configuration principale de la sécurité.
+ *
+ * Ce fichier gère :
+ * - Qui peut accéder à quelles URLs (rôles : ADMIN, COMMERCIAL, RESPONSABLE_ACHAT)
+ * - Les mots de passe (chiffrés avec BCrypt)
+ * - Les requêtes sans session (stateless) car on utilise JWT
+ * - Le filtre JWT pour vérifier les tokens
+ * - CORS pour autoriser les appels depuis Flutter, React, Vite sur différents ports
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity

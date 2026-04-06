@@ -13,6 +13,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Contrôleur des mouvements de stock.
+ *
+ * Endpoints :
+ * - GET /                         → Liste tous les mouvements (filtres optionnels : dates, type)
+ * - GET /produit/{produitId}      → Historique d'un produit spécifique
+ * - GET /periode                  → Mouvements sur une période (dates obligatoires)
+ * - GET /stats/theorique/{produitId} → Stock théorique calculé (entrées - sorties)
+ */
 @RestController
 @RequestMapping("/api/stock/mouvements")
 @RequiredArgsConstructor

@@ -12,8 +12,19 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 
 /**
- * Service qui charge les détails de l'utilisateur depuis la base de données
- * Utilisé par Spring Security pour l'authentification
+ * Service qui charge les détails de l'utilisateur depuis la base de données.
+ *
+ * Ce fichier est le cœur de l'authentification Spring Security :
+ * - Spring Security l'appelle automatiquement quand un utilisateur tente de se connecter
+ * - Il cherche l'utilisateur par son email dans la base
+ * - Il vérifie que le compte est activé et que le mot de passe existe
+ * - Il retourne les informations (email, mot de passe, rôle) à Spring Security
+ * - Spring Security compare alors le mot de passe fourni avec celui stocké
+ *
+ * Règles de validation :
+ * - Compte désactivé (active = false) → authentification refusée
+ * - Mot de passe non créé (password = null) → authentification refusée
+ * - Email non trouvé → authentification refusée
  */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {

@@ -24,6 +24,32 @@ import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
+/**
+ * Service de génération de PDF pour les factures fournisseurs.
+ *
+ * Ce fichier crée un document PDF professionnel à partir des données
+ * d'une facture fournisseur. Le PDF contient :
+ *
+ * 1. EN-TÊTE :
+ *    - Coordonnées du fournisseur (nom, adresse, téléphone, email)
+ *    - Titre "FACTURE" avec numéro et date
+ *
+ * 2. DESTINATAIRE :
+ *    - Coordonnées de l'entreprise InVera (acheteur)
+ *
+ * 3. RÉFÉRENCES :
+ *    - N° bon de commande, date, bon de livraison
+ *
+ * 4. TABLEAU DES PRODUITS :
+ *    - Désignation, quantité, prix HT, TVA, total TTC
+ *
+ * 5. TOTAUX :
+ *    - Total HT, total TVA, total TTC
+ *
+ * Le PDF est généré avec une mise en page professionnelle (couleurs,
+ * bordures, alignements) et renvoyé sous forme de tableau d'octets
+ * pour être téléchargé ou envoyé par email.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -12,6 +12,27 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+
+
+/**
+ * Service d'envoi d'emails.
+ *
+ * Ce fichier gère l'envoi des emails transactionnels :
+ *
+ * 1. RÉINITIALISATION DE MOT DE PASSE :
+ *    - Envoie un code à 6 chiffres à l'utilisateur
+ *    - Code valable 10 minutes
+ *    - Format HTML professionnel
+ *
+ * 2. CRÉATION DE COMPTE / ACTIVATION :
+ *    - Envoyé lorsqu'un administrateur crée un compte
+ *    - Contient les infos du compte (nom, prénom, email)
+ *    - Code d'activation valable 24 heures
+ *    - Permet à l'utilisateur de créer son mot de passe
+ *
+ * Les emails sont envoyés en HTML avec mise en page responsive,
+ * couleurs professionnelles (bleu Invera) et instructions claires.
+ */
 @Service
 public class EmailService {
 
