@@ -21,8 +21,7 @@ import java.util.stream.Collectors;
  * - Commandes (total, en attente, en cours, livrées)
  * - Produits (total, actifs, en rupture, en alerte)
  * - Stock (valeur totale, mouvements, rotation)
- * - Factures (total, payées, impayées, montant)
- * - KPIs (chiffre d'affaires, panier moyen, taux de service...)
+ * - KPIs (panier moyen, taux de service, rotation stock...)
  *
  * Permet de filtrer par dates et d'avoir des tendances (graphiques).
  */
@@ -34,7 +33,6 @@ public class StatsAchatService {
     private final CommandeFournisseurRepository commandeRepository;
     private final ProduitRepository produitRepository;
     private final StockMovementRepository mouvementStockRepository;
-    private final FactureFournisseurRepository factureRepository;
 
     /**
      * Statistiques principales du tableau de bord
@@ -74,13 +72,6 @@ public class StatsAchatService {
                         .mouvementsMois(getMouvementsMois(startDateTime, endDateTime))
                         .rotation(getRotationStock())
                         .tendance(calculateTendanceStock())
-                        .build())
-                .factures(DashboardStatsDTO.FacturesStats.builder()
-                        .total(factureRepository.count())
-                        .payees(factureRepository.countByStatut("PAYEE"))
-                        .impayees(factureRepository.countByStatut("IMPAYEE"))
-                        .montantTotal(factureRepository.sumMontantTotal())
-                        .tendance(calculateTendanceFactures())
                         .build())
                 .build();
     }
@@ -295,20 +286,18 @@ public class StatsAchatService {
     public KPIsDTO getKPIs() {
         LocalDate now = LocalDate.now();
         LocalDateTime debutMois = now.withDayOfMonth(1).atStartOfDay();
-        LocalDateTime debutAnnee = now.withDayOfYear(1).atStartOfDay();
         LocalDateTime finJour = now.atTime(23, 59, 59);
 
-        Double caMois = factureRepository.sumMontantByDateBetween(debutMois, finJour);
-        Double caAnnee = factureRepository.sumMontantByDateBetween(debutAnnee, finJour);
         Long nbCommandesMois = commandeRepository.countByDateBetween(debutMois, finJour);
-        Double panierMoyen = (nbCommandesMois != null && nbCommandesMois > 0 && caMois != null) ? caMois / nbCommandesMois : 0.0;
+        Double panierMoyen = 0.0;
+        // Note: Le panier moyen ne peut plus être calculé sans le CA des factures
+        // Vous devrez adapter cette logique selon vos besoins
+
         Double rotationStock = calculateRotationStock();
         Double tauxService = calculateTauxService();
         double rotationValue = (rotationStock != null && rotationStock > 0) ? rotationStock : 1.0;
 
         return KPIsDTO.builder()
-                .chiffreAffairesMois(caMois != null ? caMois : 0.0)
-                .chiffreAffairesAnnee(caAnnee != null ? caAnnee : 0.0)
                 .nombreCommandesMois(nbCommandesMois != null ? nbCommandesMois.intValue() : 0)
                 .panierMoyen(panierMoyen)
                 .tauxRotationStock(rotationStock != null ? rotationStock : 0.0)
@@ -359,7 +348,6 @@ public class StatsAchatService {
 
     private Double calculateTendanceProduits() { return 5.0; }
     private Double calculateTendanceStock() { return 3.5; }
-    private Double calculateTendanceFactures() { return 8.0; }
 
     private Double calculateTauxService() {
         Long commandesLivrees = commandeRepository.countByStatut("LIVREE");
