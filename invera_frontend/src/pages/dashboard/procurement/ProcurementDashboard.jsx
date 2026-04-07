@@ -14,7 +14,6 @@
  * 
  * SOUS-PAGES (via Outlet) :
  * - /dashboard/procurement/stats       → Statistiques achats
- * - /dashboard/procurement/demandes    → Demandes d'approvisionnement
  * - /dashboard/procurement/produits    → Catalogue produits
  * - /dashboard/procurement/categories  → Gestion catégories
  * - /dashboard/procurement/commandes   → Bons de commande fournisseurs
@@ -68,7 +67,6 @@ const ProcurementDashboard = () => {
   // ========== DÉTERMINER LA PAGE ACTIVE DEPUIS L'URL ==========
   const getActivePage = () => {
     const path = location.pathname;
-    if (path.includes('/demandes')) return 'demandes';
     if (path.includes('/produits')) return 'produits';
     if (path.includes('/categories')) return 'categories'; 
     if (path.includes('/commandes')) return 'commandes';
@@ -99,7 +97,6 @@ const ProcurementDashboard = () => {
     {
       title: 'RÉAPPROVISIONNEMENT',
       items: [
-        { id: 'demandes', label: 'Demandes', icon: DocumentPlusIcon },
         { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
       ]
     },
@@ -123,9 +120,6 @@ const ProcurementDashboard = () => {
     switch(pageId) {
       case 'stats':
         navigate('/dashboard/procurement/stats');
-        break;
-      case 'demandes':
-        navigate('/dashboard/procurement/demandes');
         break;
       case 'produits':
         navigate('/dashboard/procurement/produits');
@@ -154,7 +148,6 @@ const ProcurementDashboard = () => {
   const getPageTitle = () => {
     switch (activePage) {
       case 'stats': return 'Statistiques Achats';
-      case 'demandes': return 'Demandes d\'approvisionnement';
       case 'produits': return 'Gestion des Produits';
       case 'categories': return 'Gestion des Catégories';
       case 'commandes': return 'Bons de commande fournisseurs';
@@ -168,7 +161,6 @@ const ProcurementDashboard = () => {
   const getPageDescription = () => {
     switch (activePage) {
       case 'stats': return 'Indicateurs de performance achats et stocks';
-      case 'demandes': return 'Gérez vos demandes d\'approvisionnement';
       case 'produits': return 'Gérez votre catalogue produits';
       case 'categories': return 'Gérez les catégories de vos produits';
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';

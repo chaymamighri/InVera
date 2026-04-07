@@ -23,7 +23,6 @@ const StatutCommande = {
   VALIDEE: 'VALIDEE',
   ENVOYEE: 'ENVOYEE',
   RECUE: 'RECUE',
-  FACTUREE: 'FACTUREE',
   ANNULEE: 'ANNULEE',
   REJETEE: 'REJETEE',
 };
@@ -56,7 +55,6 @@ const getStatusBadge = (statut) => {
     [StatutCommande.VALIDEE]: 'bg-blue-100 text-blue-800',
     [StatutCommande.ENVOYEE]: 'bg-yellow-100 text-yellow-800',
     [StatutCommande.RECUE]: 'bg-green-100 text-green-800',
-    [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800',
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
     [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
@@ -69,7 +67,6 @@ const TableauCommandes = ({
   onView,
   onEdit,
   onDelete,
-  onRestore,
   onStatusChange,
   onRecevoir,
   actionInProgress,
@@ -78,6 +75,7 @@ const TableauCommandes = ({
   showArchives = false,
   highlightedCommandeId = '',
   highlightedReminderStage = '',
+  isAdmin = false,
 }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,7 +166,6 @@ const TableauCommandes = ({
     if (sortDirection === 'asc') {
       return <ArrowUpIcon className="w-4 h-4 text-blue-600" />;
     }
-
     return <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
   };
 
@@ -195,7 +192,6 @@ const TableauCommandes = ({
         </button>
       );
     }
-
     return pages;
   };
 
@@ -230,27 +226,24 @@ const TableauCommandes = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 N° Commande
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Fournisseur
               </th>
               <th 
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={toggleSortDirection}
               >
                 <div className="flex items-center gap-1">
                   Date commande
-                  <span className="ml-1">
-                    {getSortIcon()}
-                  </span>
+                  <span className="ml-1">{getSortIcon()}</span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Livraison prevue</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total TTC</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total TTC</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
 
@@ -276,7 +269,7 @@ const TableauCommandes = ({
                   className={rowClassName}
                 >
                   <td
-                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${
+                    className={`px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${
                       isHighlighted ? 'border-l-4 border-amber-500' : ''
                     }`}
                   >
@@ -288,134 +281,125 @@ const TableauCommandes = ({
                     )}
                   </td>
 
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4">
                     <div className="text-sm font-medium text-gray-900">{commande.fournisseur?.nomFournisseur || 'N/A'}</div>
                     <div className="text-xs text-gray-500">{commande.fournisseur?.email || ''}</div>
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(commande.dateCommande)}</td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(commande.dateLivraisonPrevue)}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(commande.dateCommande)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                     {formatPrice(commande.totalTTC)}
                   </td>
+                  <td className="px-4 py-4 whitespace-nowrap">{getStatusBadge(commande.statut)}</td>
 
-                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(commande.statut)}</td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {commande.statut === statuts.BROUILLON && !isArchived && onStatusChange && (
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      
+                      {/* STATUT BROUILLON - Création/Modification/Suppression */}
+                      {commande.statut === statuts.BROUILLON && !isArchived && (
                         <>
-                          <button
-                            onClick={() => onStatusChange(commande.idCommandeFournisseur, 'valider')}
-                            disabled={actionInProgress === `valider-${commande.idCommandeFournisseur}`}
-                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:opacity-50"
-                            title="Valider"
-                          >
-                            <DocumentCheckIcon className="w-4 h-4" />
-                          </button>
+                          {/* Valider - Seulement pour l'ADMIN */}
+                          {isAdmin && onStatusChange && (
+                            <button
+                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'valider')}
+                              disabled={actionInProgress === `valider-${commande.idCommandeFournisseur}`}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
+                              title="Valider la commande"
+                            >
+                              <DocumentCheckIcon className="w-5 h-5" />
+                            </button>
+                          )}
 
+                          {/* Modifier - Responsable et Admin */}
                           {onEdit && (
                             <button
                               onClick={() => onEdit(commande)}
-                              className="p-1 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 rounded"
-                              title="Modifier"
+                              className="p-1.5 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 rounded-lg transition-colors"
+                              title="Modifier la commande"
                             >
-                              <PencilIcon className="w-4 h-4" />
+                              <PencilIcon className="w-5 h-5" />
                             </button>
                           )}
 
+                          {/* Supprimer - Responsable et Admin */}
                           {onDelete && (
                             <button
                               onClick={() => onDelete(commande)}
-                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                              title="Supprimer"
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Supprimer la commande"
                             >
-                              <TrashIcon className="w-4 h-4" />
+                              <TrashIcon className="w-5 h-5" />
                             </button>
                           )}
                         </>
                       )}
 
-                      {commande.statut === statuts.VALIDEE && !isArchived && onStatusChange && (
+                      {/* STATUT VALIDEE - Envoi au fournisseur */}
+                      {commande.statut === statuts.VALIDEE && !isArchived && (
                         <>
-                          <button
-                            onClick={() => onStatusChange(commande.idCommandeFournisseur, 'envoyer')}
-                            disabled={actionInProgress === `envoyer-${commande.idCommandeFournisseur}`}
-                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:opacity-50"
-                            title="Envoyer"
-                          >
-                            <PaperAirplaneIcon className="w-4 h-4" />
-                          </button>
+                          {/* Envoyer - Responsable et Admin */}
+                          {onStatusChange && (
+                            <button
+                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'envoyer')}
+                              disabled={actionInProgress === `envoyer-${commande.idCommandeFournisseur}`}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
+                              title="Envoyer au fournisseur"
+                            >
+                              <PaperAirplaneIcon className="w-5 h-5" />
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
-                            disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
-                            className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded disabled:opacity-50"
-                            title="Annuler"
-                          >
-                            <XCircleIcon className="w-4 h-4" />
-                          </button>
+                          {/* Annuler - Seulement pour l'ADMIN */}
+                          {isAdmin && onStatusChange && (
+                            <button
+                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
+                              disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
+                              className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg disabled:opacity-50 transition-colors"
+                              title="Annuler la commande"
+                            >
+                              <XCircleIcon className="w-5 h-5" />
+                            </button>
+                          )}
                         </>
                       )}
 
+                      {/* STATUT ENVOYEE - Réception */}
                       {commande.statut === statuts.ENVOYEE && !isArchived && (
                         <>
+                          {/* Réceptionner - Responsable et Admin */}
                           {onRecevoir && (
                             <button
                               onClick={() => onRecevoir(commande)}
                               disabled={actionInProgress === `recevoir-${commande.idCommandeFournisseur}`}
-                              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded disabled:opacity-50"
-                              title="Receptionner"
+                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg disabled:opacity-50 transition-colors"
+                              title="Réceptionner la commande"
                             >
-                              <TruckIcon className="w-4 h-4" />
+                              <TruckIcon className="w-5 h-5" />
                             </button>
                           )}
 
-                          {onStatusChange && (
+                          {/* Annuler - Seulement pour l'ADMIN */}
+                          {isAdmin && onStatusChange && (
                             <button
                               onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
                               disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
-                              className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded disabled:opacity-50"
-                              title="Annuler"
+                              className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg disabled:opacity-50 transition-colors"
+                              title="Annuler la commande"
                             >
-                              <XCircleIcon className="w-4 h-4" />
+                              <XCircleIcon className="w-5 h-5" />
                             </button>
                           )}
                         </>
                       )}
 
-                      {commande.statut === statuts.RECUE && !isArchived && onStatusChange && (
-                        <button
-                          onClick={() => onStatusChange(commande.idCommandeFournisseur, 'facturer')}
-                          disabled={actionInProgress === `facturer-${commande.idCommandeFournisseur}`}
-                          className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded disabled:opacity-50"
-                          title="Facturer"
-                        >
-                          <DocumentCheckIcon className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      {showArchives && onRestore && (
-                        <button
-                          onClick={() => onRestore(commande.idCommandeFournisseur)}
-                          disabled={actionInProgress === `restore-${commande.idCommandeFournisseur}`}
-                          className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded disabled:opacity-50"
-                          title="Restaurer"
-                        >
-                          <ArrowPathIcon className="w-4 h-4" />
-                        </button>
-                      )}
-
+                    
+                      {/* Voir détails - Tout le monde */}
                       <button
                         onClick={() => onView(commande)}
-                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        title="Voir details"
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Voir détails"
                       >
-                        <EyeIcon className="w-4 h-4" />
+                        <EyeIcon className="w-5 h-5" />
                       </button>
                     </div>
                   </td>
@@ -444,7 +428,7 @@ const TableauCommandes = ({
             </div>
 
             <div className="text-sm text-gray-600">
-              Affichage de {startIndex + 1} a {Math.min(endIndex, totalItems)} sur {totalItems} commandes
+              Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} commandes
             </div>
 
             <div className="flex items-center gap-1">
@@ -452,7 +436,7 @@ const TableauCommandes = ({
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Premiere page"
+                title="Première page"
               >
                 <ChevronDoubleLeftIcon className="w-4 h-4 text-gray-600" />
               </button>
@@ -461,7 +445,7 @@ const TableauCommandes = ({
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Page precedente"
+                title="Page précédente"
               >
                 <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
               </button>
@@ -481,7 +465,7 @@ const TableauCommandes = ({
                 onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
-                title="Derniere page"
+                title="Dernière page"
               >
                 <ChevronDoubleRightIcon className="w-4 h-4 text-gray-600" />
               </button>
