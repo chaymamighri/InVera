@@ -199,13 +199,13 @@ const MovementTable = ({ movements }) => {
                 <td className="px-6 py-4 text-center">
                   {getTypeBadge(movement.typeMouvement)}
                 </td>
-                <td className="px-6 py-4 text-right font-medium tabular-nums">
+                <td className="px-6 py-4 text-center font-medium tabular-nums">
                   {movement.quantite}
                 </td>
-                <td className="px-6 py-4 text-right text-gray-500 tabular-nums">
+                <td className="px-6 py-4 text-center text-gray-500 tabular-nums">
                   {movement.stockAvant}
                 </td>
-                <td className="px-6 py-4 text-right font-medium text-blue-600 tabular-nums">
+                <td className="px-6 py-4 text-center font-medium text-blue-600 tabular-nums">
                   {movement.stockApres}
                 </td>
                <td className="px-6 py-4 text-sm text-gray-500">

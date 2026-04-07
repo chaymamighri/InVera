@@ -28,7 +28,7 @@
  * - ConfirmationModal : Confirmation suppression
  * 
  * STATUTS DISPONIBLES :
- * - BROUILLON → VALIDEE → ENVOYEE → RECUE → FACTUREE
+ * - BROUILLON → VALIDEE → ENVOYEE → RECUE 
  * - ANNULEE, REJETEE
  */
 import React, { useEffect, useMemo, useState } from 'react';
@@ -50,7 +50,6 @@ export const StatutCommande = {
   VALIDEE: 'VALIDEE',
   ENVOYEE: 'ENVOYEE',
   RECUE: 'RECUE',
-  FACTUREE: 'FACTUREE',
   ANNULEE: 'ANNULEE',
   REJETEE: 'REJETEE',
 };
@@ -83,7 +82,6 @@ export const getStatusBadge = (statut) => {
     [StatutCommande.VALIDEE]: 'bg-blue-100 text-blue-800',
     [StatutCommande.ENVOYEE]: 'bg-yellow-100 text-yellow-800',
     [StatutCommande.RECUE]: 'bg-green-100 text-green-800',
-    [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800',
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
     [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
@@ -178,17 +176,33 @@ const CommandesFournisseurs = () => {
     };
   }, [commandes, showArchives]);
 
-  const filteredCommandes = useMemo(() => {
-    return commandes.filter((commande) => {
-      const matchesSearch =
-        commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+const filteredCommandes = useMemo(() => {
+  console.log("=== FILTRAGE COMMANDES ===");
+  console.log("selectedStatut:", selectedStatut);
+  console.log("searchTerm:", searchTerm);
+  console.log("Total commandes avant filtre:", commandes.length);
+  console.log("Statuts disponibles:", commandes.map(c => c.statut));
+  
+  const filtered = commandes.filter((commande) => {
+    const matchesSearch =
+      commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
-      return matchesSearch && matchesStatut;
-    });
-  }, [commandes, searchTerm, selectedStatut]);
+    const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
+    
+    if (!matchesStatut && selectedStatut === 'VALIDEE') {
+      console.log("Commande exclue:", commande.numeroCommande, "statut:", commande.statut);
+    }
+    
+    return matchesSearch && matchesStatut;
+  });
+  
+  console.log("Commandes après filtre:", filtered.length);
+  console.log("Commandes VALIDEE dans le résultat:", filtered.filter(c => c.statut === 'VALIDEE').length);
+  
+  return filtered;
+}, [commandes, searchTerm, selectedStatut]);
 
   const handleShowArchives = () => {
     setShowArchives((prev) => !prev);
@@ -261,9 +275,6 @@ const CommandesFournisseurs = () => {
           await envoyerCommande(id);
           toast.success('Commande envoyee avec succes');
           break;
-        case 'facturer':
-          await facturerCommande(id);
-          toast.success('Commande facturee avec succes');
           break;
         case 'annuler':
           await annulerCommande(id);
