@@ -73,7 +73,6 @@ const ProcurementDashboard = () => {
     if (path.includes('/stats')) return 'stats';
     if (path.includes('/mouvements')) return 'mouvements';
     if (path.includes('/etat_stock')) return 'etat_stock';
-    if (path.includes('/factures')) return 'factures';
     return 'stats';
   };
 
@@ -107,12 +106,7 @@ const ProcurementDashboard = () => {
         { id: 'etat_stock', label: 'État du stock', icon: ArchiveBoxIcon },
       ]
     },
-    {
-      title: 'FACTURATION',
-      items: [
-        { id: 'factures', label: 'Factures', icon: DocumentTextIcon },
-      ]
-    },
+   
   ];
 
   // ========== NAVIGATION AVEC URLs DIRECTES ==========
@@ -136,9 +130,6 @@ const ProcurementDashboard = () => {
       case 'etat_stock': 
         navigate('/dashboard/procurement/etat_stock');
         break;
-      case 'factures':
-        navigate('/dashboard/procurement/factures');
-        break;
       default:
         navigate('/dashboard/procurement/stats');
     }
@@ -153,7 +144,6 @@ const ProcurementDashboard = () => {
       case 'commandes': return 'Bons de commande fournisseurs';
       case 'mouvements': return 'Mouvements de stock'; 
       case 'etat_stock': return 'État de stock';
-      case 'factures': return 'Factures fournisseurs';  
       default: return 'Tableau de bord';
     }
   };
@@ -166,7 +156,6 @@ const ProcurementDashboard = () => {
       case 'commandes': return 'Gérez vos bons de commande fournisseurs';
       case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
       case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques';
-      case 'factures': return 'Gérez les factures des commandes réceptionnées';
       default: return '';
     }
   };
