@@ -148,9 +148,4 @@ public class CommandeFournisseurController {
         return ResponseEntity.ok(commandeService.getArchivedCommandes());
     }
 
-    @PutMapping("/{id}/restore")
-    public ResponseEntity<CommandeFournisseurDTO> restoreCommande(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.restoreCommande(id));
-    }
-
 }

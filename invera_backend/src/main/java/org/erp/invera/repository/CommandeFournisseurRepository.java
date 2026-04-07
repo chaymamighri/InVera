@@ -122,4 +122,7 @@ public interface CommandeFournisseurRepository extends JpaRepository<CommandeFou
             return 0L;
         }
     }
+    // Commandes archivées (inactives OU de plus de 5 ans)
+    @Query("SELECT c FROM CommandeFournisseur c WHERE c.actif = false OR c.dateCommande <= :dateLimite")
+    List<CommandeFournisseur> findArchivedCommandes(@Param("dateLimite") LocalDateTime dateLimite);
 }
