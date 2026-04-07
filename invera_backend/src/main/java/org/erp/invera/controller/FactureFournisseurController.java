@@ -1,4 +1,4 @@
-package org.erp.invera.controller;
+/*package org.erp.invera.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,14 +7,13 @@ import org.erp.invera.dto.FactureFournisseurDTO.FactureGenerationDTO;
 import org.erp.invera.dto.FactureFournisseurDTO.FactureListeDTO;
 import org.erp.invera.dto.FactureFournisseurDTO.FactureStatutDTO;
 import org.erp.invera.model.Fournisseurs.FactureFournisseur;
-import org.erp.invera.service.FactureFournisseurService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.*;*/
 
 /**
  * Contrôleur des factures fournisseurs.
@@ -26,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
  * - GET    /{factureId}                    → Détail complet d'une facture (avec lignes)
  * - PATCH  /{factureId}/statut?statut=...  → Mettre à jour le statut de paiement (PAYE/NON_PAYE)
  */
-@RestController
+/*@RestController
 @RequestMapping("/api/facture-fournisseur")
 @RequiredArgsConstructor
 @Slf4j
@@ -67,4 +66,4 @@ public class FactureFournisseurController {
             @RequestParam FactureFournisseur.StatutFacture statut) {
         return ResponseEntity.ok(factureService.updateStatutPaiement(factureId, statut));
     }
-}
+}*/

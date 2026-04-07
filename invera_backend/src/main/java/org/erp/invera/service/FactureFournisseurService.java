@@ -1,6 +1,6 @@
-package org.erp.invera.service;
+//package org.erp.invera.service;
 
-import lombok.RequiredArgsConstructor;
+/*import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.FactureFournisseurDTO.FactureDetailDTO;
 import org.erp.invera.dto.FactureFournisseurDTO.FactureGenerationDTO;
@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Random;
+import java.util.Random;*/
 
 
 /**
@@ -49,14 +49,13 @@ import java.util.Random;
  * - Une facture ne peut être créée que si la commande est réceptionnée (RECUE)
  * - Une seule facture par commande
  */
-@Service
+/*@Service
 @RequiredArgsConstructor
 @Slf4j
 public class FactureFournisseurService {
 
     private final CommandeFournisseurRepository commandeRepository;
     private final FactureFournisseurRepository factureRepository;
-    private final PdfGenerationService pdfGenerationService;
 
     @Transactional
     public FactureGenerationDTO genererEtSauvegarderFacture(Integer commandeId) {
@@ -231,4 +230,4 @@ public class FactureFournisseurService {
         String randomPart = String.format("%04d", new Random().nextInt(10000));
         return String.format("FAC-%s-%s", datePart, randomPart);
     }
-}
+}*/

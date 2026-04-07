@@ -1,5 +1,6 @@
 package org.erp.invera.service;
 
+import ch.qos.logback.classic.Logger;
 import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.commandeFornisseurdto.LigneCommandeDTO;
@@ -11,6 +12,7 @@ import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.Produit;
 import org.erp.invera.model.stock.StockMovement;
 import org.erp.invera.repository.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 /**
@@ -71,6 +74,9 @@ public class CommandeFournisseurService {
     private final ProduitRepository produitRepository;
     private final LigneCommandeFournisseurRepository ligneRepository;
     private final StockMovementRepository stockMovementRepository;
+
+    private final BonCommandePdfService bonCommandePdfService;
+    private final EmailService emailService;
 
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
@@ -251,7 +257,48 @@ public class CommandeFournisseurService {
         }
 
         commande.setStatut(CommandeFournisseur.StatutCommande.ENVOYEE);
-        return convertToDTO(commandeRepository.save(commande));
+        CommandeFournisseur savedCommande = commandeRepository.save(commande);
+
+        final CommandeFournisseur commandeFinale = savedCommande;
+        new Thread(() -> {
+            try {
+                System.out.println("📧 [1] Début thread pour: " + commandeFinale.getNumeroCommande());
+                System.out.println("📧 [2] Email fournisseur: " + commandeFinale.getFournisseur().getEmail());
+                System.out.println("📧 [3] Nom fournisseur: " + commandeFinale.getFournisseur().getNomFournisseur());
+
+                if (bonCommandePdfService == null) {
+                    System.err.println("❌ bonCommandePdfService est NULL !");
+                    return;
+                }
+                System.out.println("📧 [4] bonCommandePdfService OK");
+
+                byte[] pdfContent = bonCommandePdfService.genererBonCommandePdf(commandeFinale);
+                System.out.println("📧 [5] PDF généré, taille: " + pdfContent.length + " bytes");
+
+                if (emailService == null) {
+                    System.err.println("❌ emailService est NULL !");
+                    return;
+                }
+                System.out.println("📧 [6] emailService OK, appel en cours...");
+
+                emailService.envoyerBonCommande(
+                        commandeFinale.getFournisseur().getEmail(),
+                        commandeFinale.getFournisseur().getNomFournisseur(),
+                        commandeFinale.getNumeroCommande(),
+                        pdfContent
+                );
+
+                System.out.println("📧 [7] Retour de emailService.envoyerBonCommande");
+                System.out.println("✅ Email envoyé pour commande: " + commandeFinale.getNumeroCommande());
+
+            } catch (Exception e) {
+                System.err.println("❌ Erreur détaillée: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+
+        System.out.println("⚡ Réponse immédiate pour commande: " + savedCommande.getNumeroCommande());
+        return convertToDTO(savedCommande);
     }
 
     public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
@@ -408,24 +455,42 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes en brouillon ou annulées peuvent être supprimées");
         }
 
-        commande.setActif(false);
-        commandeRepository.save(commande);
+        commandeRepository.delete(commande);
     }
 
-    public CommandeFournisseurDTO restoreCommande(Integer id) {
-        CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        commande.setActif(true);
-        return convertToDTO(commandeRepository.save(commande));
-    }
-
+    // Récupérer les commandes archivées (actif = false)
     public List<CommandeFournisseurDTO> getArchivedCommandes() {
+        // Mettre à jour le statut des commandes de plus de 5 ans avant de les retourner
+        mettreAJourCommandesAnciennes();
+
         return commandeRepository.findByActifFalse()
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
+
+    // Méthode pour mettre à jour le statut des commandes de plus de 5 ans
+    @Transactional
+    public void mettreAJourCommandesAnciennes() {
+        LocalDateTime dateLimite = LocalDateTime.now().minusYears(5);
+
+        // Récupérer les commandes actives de plus de 5 ans
+        List<CommandeFournisseur> commandesASupprimer = commandeRepository.findByActifTrue()
+                .stream()
+                .filter(commande -> commande.getDateCommande().isBefore(dateLimite))
+                .collect(Collectors.toList());
+
+        for (CommandeFournisseur commande : commandesASupprimer) {
+            commande.setActif(false);
+            commandeRepository.save(commande);
+        }
+
+        if (!commandesASupprimer.isEmpty()) {
+            System.out.println(commandesASupprimer.size() + " commande(s) de plus de 5 ans ont été archivées");
+        }
+    }
+
 
     public CommandeFournisseurDTO getCommandeByNumero(String numero) {
         CommandeFournisseur commande = commandeRepository.findByNumeroCommande(numero)
