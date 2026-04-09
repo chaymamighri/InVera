@@ -8,7 +8,6 @@ import {
   ChevronDoubleRightIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  DocumentCheckIcon,
   EyeIcon,
   PaperAirplaneIcon,
   PencilIcon,
@@ -75,7 +74,6 @@ const TableauCommandes = ({
   showArchives = false,
   highlightedCommandeId = '',
   highlightedReminderStage = '',
-  isAdmin = false,
 }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -195,8 +193,6 @@ const TableauCommandes = ({
     return pages;
   };
 
-  const statutsArchives = [statuts.ANNULEE, statuts.REJETEE, statuts.FACTUREE];
-
   if (commandes.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -249,7 +245,7 @@ const TableauCommandes = ({
 
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedCommandes.map((commande) => {
-              const isArchived = showArchives || statutsArchives.includes(commande.statut);
+             const isArchived = showArchives;
               const isHighlighted = String(commande.idCommandeFournisseur) === normalizedHighlightedId;
               const rowClassName = `${isArchived ? 'opacity-75 bg-gray-50' : 'hover:bg-gray-50'} ${
                 isHighlighted ? 'bg-amber-50/80' : ''
@@ -290,38 +286,28 @@ const TableauCommandes = ({
                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                     {formatPrice(commande.totalTTC)}
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap">{getStatusBadge(commande.statut)}</td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex flex-col items-start gap-1">
+                      {getStatusBadge(commande.statut)}
+                      
+                      {/* AFFICHAGE DU MOTIF DE REJET - Visible par le responsable */}
+                      {commande.statut === statuts.REJETEE && commande.motifRejet && (
+                        <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-md max-w-xs">
+                          <span className="font-semibold">Motif du rejet : </span>
+                          {commande.motifRejet}
+                        </div>
+                      )}
+                    </div>
+                  </td>
 
                   <td className="px-4 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-3">
                       
-                      {/* STATUT BROUILLON - Création/Modification/Suppression */}
+                      {/* ========== STATUT BROUILLON ========== */}
+                      {/* Le responsable ne peut que supprimer en BROUILLON, pas modifier */}
                       {commande.statut === statuts.BROUILLON && !isArchived && (
                         <>
-                          {/* Valider - Seulement pour l'ADMIN */}
-                          {isAdmin && onStatusChange && (
-                            <button
-                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'valider')}
-                              disabled={actionInProgress === `valider-${commande.idCommandeFournisseur}`}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
-                              title="Valider la commande"
-                            >
-                              <DocumentCheckIcon className="w-5 h-5" />
-                            </button>
-                          )}
-
-                          {/* Modifier - Responsable et Admin */}
-                          {onEdit && (
-                            <button
-                              onClick={() => onEdit(commande)}
-                              className="p-1.5 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 rounded-lg transition-colors"
-                              title="Modifier la commande"
-                            >
-                              <PencilIcon className="w-5 h-5" />
-                            </button>
-                          )}
-
-                          {/* Supprimer - Responsable et Admin */}
+                          {/* Supprimer - Responsable */}
                           {onDelete && (
                             <button
                               onClick={() => onDelete(commande)}
@@ -334,10 +320,66 @@ const TableauCommandes = ({
                         </>
                       )}
 
-                      {/* STATUT VALIDEE - Envoi au fournisseur */}
+                      {/* ========== STATUT REJETEE ========== */}
+                      {/* Le responsable peut modifier et renvoyer en attente */}
+                      {console.log('🔍 Vérification REJETEE:', {
+  statut: commande.statut,
+  expected: statuts.REJETEE,
+  isRejetee: commande.statut === statuts.REJETEE,
+  isArchived: isArchived,
+  show: commande.statut === statuts.REJETEE && !isArchived
+})}
+
+                      {commande.statut === statuts.REJETEE && !isArchived && (
+                        <>
+                          {/* Modifier - Responsable (pour corriger la commande rejetée) */}
+                          {onEdit && (
+                            <button
+                              onClick={() => onEdit(commande)}
+                              className="p-1.5 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 rounded-lg transition-colors"
+                              title="Modifier la commande rejetée pour corriger les erreurs"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
+                          )}
+
+                          {/* Renvoyer en attente - Responsable */}
+{onStatusChange && (
+  <button
+    onClick={() => {
+      console.log('=== RENVOYER EN ATTENTE ===');
+      console.log('ID commande:', commande.idCommandeFournisseur);
+      console.log('Statut actuel:', commande.statut);
+      console.log('Motif rejet:', commande.motifRejet);
+      console.log('Appel de onStatusChange avec:', commande.idCommandeFournisseur, 'renvoyer_attente');
+      onStatusChange(commande.idCommandeFournisseur, 'renvoyer_attente');
+    }}
+    disabled={actionInProgress === `renvoyer_attente-${commande.idCommandeFournisseur}`}
+    className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
+    title="Renvoyer en attente après correction"
+  >
+    <ArrowPathIcon className="w-5 h-5" />
+  </button>
+)}
+
+                          {/* Supprimer - Responsable */}
+                          {onDelete && (
+                            <button
+                              onClick={() => onDelete(commande)}
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Supprimer la commande"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* ========== STATUT VALIDEE ========== */}
+                      {/* Le responsable peut envoyer au fournisseur */}
                       {commande.statut === statuts.VALIDEE && !isArchived && (
                         <>
-                          {/* Envoyer - Responsable et Admin */}
+                          {/* Envoyer - Responsable */}
                           {onStatusChange && (
                             <button
                               onClick={() => onStatusChange(commande.idCommandeFournisseur, 'envoyer')}
@@ -348,25 +390,14 @@ const TableauCommandes = ({
                               <PaperAirplaneIcon className="w-5 h-5" />
                             </button>
                           )}
-
-                          {/* Annuler - Seulement pour l'ADMIN */}
-                          {isAdmin && onStatusChange && (
-                            <button
-                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
-                              disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
-                              className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg disabled:opacity-50 transition-colors"
-                              title="Annuler la commande"
-                            >
-                              <XCircleIcon className="w-5 h-5" />
-                            </button>
-                          )}
                         </>
                       )}
 
-                      {/* STATUT ENVOYEE - Réception */}
+                      {/* ========== STATUT ENVOYEE ========== */}
+                      {/* Le responsable peut réceptionner */}
                       {commande.statut === statuts.ENVOYEE && !isArchived && (
                         <>
-                          {/* Réceptionner - Responsable et Admin */}
+                          {/* Réceptionner - Responsable */}
                           {onRecevoir && (
                             <button
                               onClick={() => onRecevoir(commande)}
@@ -377,23 +408,10 @@ const TableauCommandes = ({
                               <TruckIcon className="w-5 h-5" />
                             </button>
                           )}
-
-                          {/* Annuler - Seulement pour l'ADMIN */}
-                          {isAdmin && onStatusChange && (
-                            <button
-                              onClick={() => onStatusChange(commande.idCommandeFournisseur, 'annuler')}
-                              disabled={actionInProgress === `annuler-${commande.idCommandeFournisseur}`}
-                              className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg disabled:opacity-50 transition-colors"
-                              title="Annuler la commande"
-                            >
-                              <XCircleIcon className="w-5 h-5" />
-                            </button>
-                          )}
                         </>
                       )}
 
-                    
-                      {/* Voir détails - Tout le monde */}
+                      {/* ========== VOIR DÉTAILS - Toujours visible ========== */}
                       <button
                         onClick={() => onView(commande)}
                         className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"

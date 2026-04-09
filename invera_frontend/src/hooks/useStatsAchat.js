@@ -91,10 +91,17 @@ export const useStatsAchat = () => {
       );
 
       // Mouvements stock
-      setMouvementsStock(Array.isArray(mouvementsData)
-        ? mouvementsData.map(item => ({ label: item.label ?? '', entrees: item.entrees ?? 0 }))
-        : []
-      );
+     // ✅ LIGNE 73 - Corrigé (bon)
+setMouvementsStock(Array.isArray(mouvementsData)
+  ? mouvementsData.map(item => ({ 
+      label: item.label ?? '', 
+      entrees: item.entrees ?? 0,
+      sorties: item.sorties ?? 0,    
+      max: item.max ?? 0,           
+      dateRange: item.dateRange ?? '' 
+    }))
+  : []
+);
 
       // Répartition catégories
       setRepartitionCategories(Array.isArray(categoriesData)

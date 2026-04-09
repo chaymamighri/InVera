@@ -43,18 +43,24 @@ public class StockEtatService {
             Boolean seuilAlerte,
             Boolean rupture) {
 
-        List<Produit> produits = produitRepository.findAll();
-        List<StockMovement> allMovements = stockMovementRepository.findAll();
-        Map<Integer, Integer> stockActuelMap = calculerStockActuel(allMovements);
+        // Prendre les produits actifs
+        List<Produit> produits = produitRepository.findByActiveTrue();
+
+        // 🔍 LOG pour voir les statuts en base
+        System.out.println("========== STATUTS PRODUITS EN BASE ==========");
+        for (Produit p : produits) {
+            System.out.println("Produit: " + p.getLibelle() + " | Stock: " + p.getQuantiteStock() + " | Seuil: " + p.getSeuilMinimum() + " | Statut BD: " + p.getStatus());
+        }
 
         List<StockEtatDTO> result = produits.stream()
                 .map(produit -> {
-                    Integer quantiteActuelle = stockActuelMap.getOrDefault(produit.getIdProduit(), 0);
+                    // ✅ Utilisez directement la quantité du produit
+                    Integer quantiteActuelle = produit.getQuantiteStock();
 
-                    // ✅ Mettre à jour le statut du produit dans la base de données
+                    // Mettre à jour le statut du produit dans la base de données
                     mettreAJourStatutProduit(produit, quantiteActuelle);
 
-                    // ✅ Utiliser le statut du produit
+                    // Utiliser le statut du produit
                     String statutStock = produit.getStatus().name();
 
                     return convertToDTO(produit, quantiteActuelle, statutStock);
@@ -70,7 +76,7 @@ public class StockEtatService {
      *  Mettre à jour le statut du produit en fonction de la quantité actuelle
      */
     @Transactional
-    private void mettreAJourStatutProduit(Produit produit, Integer quantiteActuelle) {
+    public void mettreAJourStatutProduit(Produit produit, Integer quantiteActuelle) {
         StockStatus nouveauStatut = determinerStatut(produit, quantiteActuelle);
 
         if (produit.getStatus() != nouveauStatut) {
@@ -80,7 +86,7 @@ public class StockEtatService {
     }
 
     /**
-     *  Définir et Déterminer le statut en fonction de la quantité et du seuil
+     *  Définir et Déterminer le statut en fonction de la === quantité et du seuil ====
      */
     private StockStatus determinerStatut(Produit produit, Integer quantiteActuelle) {
         Integer seuilMinimum = produit.getSeuilMinimum();

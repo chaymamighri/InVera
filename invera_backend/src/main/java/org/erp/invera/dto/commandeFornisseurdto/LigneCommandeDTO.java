@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 public class LigneCommandeDTO {
@@ -32,4 +33,9 @@ public class LigneCommandeDTO {
     private String notes;
 
     private Boolean estInactif;
+
+
+    // CHAMPS POUR LE REJET
+    private String motifRejet;
+    private LocalDateTime dateRejet;
 }

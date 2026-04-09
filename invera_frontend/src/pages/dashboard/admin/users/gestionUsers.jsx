@@ -445,7 +445,6 @@ const GestionUsers = () => {
               <option value="all">Tous</option>
               <option value="sales">Commercial</option>
               <option value="procurement">Achat</option>
-              <option value="admin">Admin</option>
             </select>
           </div>
 

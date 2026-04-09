@@ -189,10 +189,10 @@ const ProduitToolbar = ({
                 >
                   <option value="">Toutes les catégories</option>
                   {categories.map(cat => (
-                    <option key={cat.idCategorie} value={cat.idCategorie}>
-                      {cat.libelle}
-                    </option>
-                  ))}
+  <option key={cat.idCategorie} value={cat.idCategorie}>
+    {cat.nomCategorie} 
+  </option>
+))}
                 </select>
               )}
             </div>

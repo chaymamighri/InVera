@@ -71,6 +71,11 @@ import SettingsPage from './pages/shared/settingPage';
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
 import { SidebarProvider } from './context/SidebarContext';
+import ValidationCommande from './pages/dashboard/admin/ValidationCommande/ValidationCommande';
+import Statistiques from './pages/dashboard/admin/statestiques/Statistiques';
+import GestionUsers from './pages/dashboard/admin/users/gestionUsers';
+import Remise from './pages/dashboard/admin/remise/RemiseProduit';
+import FournisseurManagement from './pages/dashboard/admin/fournisseurs/Fournisseurs';
 
 // ============================================
 // MAPPING DES RÔLES (Backend → Frontend)
@@ -318,15 +323,22 @@ function App() {
             // ============================================
             // ROUTES ADMIN
             // ============================================
-            <Route
-              path="/dashboard/admin/*" 
-              element={
-                <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            /> 
-
+           <Route
+  path="/dashboard/admin" 
+  element={
+    <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
+      <AdminDashboard />
+    </ProtectedRoute>
+  }
+>
+  {/* Sous-routes */}
+  <Route index element={<Navigate to="stats" replace />} />
+  <Route path="stats" element={<Statistiques />} />
+  <Route path="validation-commandes" element={<ValidationCommande />} />
+  <Route path="users" element={<GestionUsers />} />
+  <Route path="remises" element={<Remise />} />
+  <Route path="fournisseurs" element={<FournisseurManagement />} />
+</Route>
             // ============================================
             // ROUTES PROCUREMENT (Achats)
             // ============================================

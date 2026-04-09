@@ -55,7 +55,7 @@ class CommandeFournisseurService {
   }
 
   /**
-   * Supprime une commande (soft delete) - DELETE /delete/{id}
+   * Supprime une commande (hard delete) - DELETE /delete/{id}
    */
   async deleteCommande(id) {
     try {
@@ -79,6 +79,38 @@ class CommandeFournisseurService {
       throw error;
     }
   }
+
+  /**
+ * Rejette une commande (Admin uniquement)
+ * BROUILLON → REJETEE
+ * PUT /api/commandes-fournisseurs/{id}/rejeter?motifRejet=...
+ */
+async rejeterCommande(id, motifRejet) {
+  try {
+    const response = await api.put(`/commandes-fournisseurs/${id}/rejeter`, null, {
+      params: { motifRejet }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors du rejet de la commande:', error);
+    throw error;
+  }
+}
+
+/**
+ * Renvoie une commande rejetée en attente (Responsable ou Admin)
+ * REJETEE → BROUILLON
+ * PUT /api/commandes-fournisseurs/{id}/renvoyer-attente
+ */
+async renvoyerAttente(id) {
+  try {
+    const response = await api.put(`/commandes-fournisseurs/${id}/renvoyer-attente`);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors du renvoi en attente:', error);
+    throw error;
+  }
+}
 
   /**
    * Envoie une commande au fournisseur - PUT /{id}/envoyer
@@ -109,34 +141,6 @@ class CommandeFournisseurService {
   }
 }
 
-  /**
-   * Annule une commande - PUT /{id}/annuler?raison=
-   */
-  async annulerCommande(id, raison) {
-    try {
-      const url = raison 
-        ? `/commandes-fournisseurs/${id}/annuler?raison=${encodeURIComponent(raison)}`
-        : `/commandes-fournisseurs/${id}/annuler`;
-      const response = await api.put(url);
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de l\'annulation de la commande:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Marque une commande comme facturée - PUT /{id}/facturer
-   */
-  async facturerCommande(id) {
-    try {
-      const response = await api.put(`/commandes-fournisseurs/${id}/facturer`);
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la facturation de la commande:', error);
-      throw error;
-    }
-  }
 
   /**
    * Recherche une commande par son numéro - GET /recherche/numero?numero=
@@ -184,18 +188,7 @@ class CommandeFournisseurService {
     }
   }
 
-  /**
-   * Restaure une commande archivée - PUT /{id}/restore
-   */
-  async restoreCommande(id) {
-    try {
-      const response = await api.put(`/commandes-fournisseurs/${id}/restore`);
-      return response.data;
-    } catch (error) {
-      console.error('Erreur lors de la restauration:', error);
-      throw error;
-    }
-  }
+  
 }
 
 export default new CommandeFournisseurService();

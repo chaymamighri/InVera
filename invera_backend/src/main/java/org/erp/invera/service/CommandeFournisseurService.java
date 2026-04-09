@@ -184,15 +184,16 @@ public class CommandeFournisseurService {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
-        if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON) {
-            throw new RuntimeException("Seules les commandes en brouillon peuvent être modifiées");
+        //  Seules les commandes REJETEE peuvent être modifiées
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
+            throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées. Statut actuel: " + commande.getStatut());
         }
 
-        // ✅ Update champs simples
+        // Update champs simples
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
 
-        // 🔥 MAP des lignes existantes
+        // MAP des lignes existantes
         Map<Integer, LigneCommandeFournisseur> lignesExistantes = commande.getLignesCommande()
                 .stream()
                 .collect(Collectors.toMap(LigneCommandeFournisseur::getIdLigneCommandeFournisseur, l -> l));
@@ -220,14 +221,13 @@ public class CommandeFournisseurService {
             ligne.setQuantite(ligneDTO.getQuantite());
             ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
-            // 🔥 Calculer les totaux en fonction du taux de TVA de la catégorie du produit
-            BigDecimal tauxTVA = produit.getCategorie().getTauxTVA(); // taux par catégorie
+            //  Calculer les totaux
+            BigDecimal tauxTVA = produit.getCategorie().getTauxTVA();
             ligne.calculerTotaux(tauxTVA);
 
             nouvellesLignes.add(ligne);
         }
 
-        // 🔥 orphanRemoval = true → supprime automatiquement les anciennes lignes non présentes
         commande.getLignesCommande().clear();
         commande.getLignesCommande().addAll(nouvellesLignes);
 
@@ -412,52 +412,83 @@ public class CommandeFournisseurService {
         return convertToDTO(savedCommande);
     }
 
-    public CommandeFournisseurDTO facturerCommande(Integer id) {
-        CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        if (commande.getStatut() != CommandeFournisseur.StatutCommande.RECUE) {
-            throw new RuntimeException("Seules les commandes reçues peuvent être facturées");
+// ==================== MÉTHODES POUR LE REJET ====================
+
+    /**
+     * Rejeter une commande (BROUILLON → REJETEE)
+     * Écrase l'ancien motif s'il existe
+     *
+     * @param id ID de la commande
+     * @param motifRejet Motif du rejet (obligatoire)
+     * @return CommandeFournisseurDTO mis à jour
+     */
+    @Transactional
+    public CommandeFournisseurDTO rejeterCommande(Integer id, String motifRejet) {
+        CommandeFournisseur commande = commandeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+
+        // Vérifier que la commande est en BROUILLON (en attente)
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON) {
+            throw new RuntimeException("Seules les commandes en attente (BROUILLON) peuvent être rejetées. Statut actuel: " + commande.getStatut());
         }
 
-        commande.setStatut(CommandeFournisseur.StatutCommande.FACTUREE);
-        return convertToDTO(commandeRepository.save(commande));
+        // Vérifier que le motif n'est pas vide
+        if (motifRejet == null || motifRejet.trim().isEmpty()) {
+            throw new RuntimeException("Le motif de rejet est obligatoire");
+        }
+
+        // Mettre à jour la commande (ÉCRASE l'ancien motif)
+        commande.setStatut(CommandeFournisseur.StatutCommande.REJETEE);
+        commande.setMotifRejet(motifRejet);
+        commande.setDateRejet(LocalDateTime.now());
+
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        System.out.println("❌ Commande " + commande.getNumeroCommande() + " rejetée. Motif: " + motifRejet);
+
+        return convertToDTO(saved);
     }
 
-    public CommandeFournisseurDTO annulerCommande(Integer id, String raison) {
+    /**
+     * Renvoyer une commande rejetée en attente (REJETEE → BROUILLON)
+     * Efface le motif de rejet
+     *
+     * @param id ID de la commande
+     * @return CommandeFournisseurDTO mis à jour
+     */
+    @Transactional
+    public CommandeFournisseurDTO renvoyerAttente(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
-        if (commande.getStatut() == CommandeFournisseur.StatutCommande.FACTUREE ||
-                commande.getStatut() == CommandeFournisseur.StatutCommande.RECUE) {
-            throw new RuntimeException("Impossible d'annuler une commande déjà reçue ou facturée");
+        // Vérifier que la commande est en REJETEE
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
+            throw new RuntimeException("Seules les commandes rejetées peuvent être renvoyées en attente. Statut actuel: " + commande.getStatut());
         }
 
-        commande.setStatut(CommandeFournisseur.StatutCommande.ANNULEE);
+        // Retour en BROUILLON et EFFACE le motif
+        commande.setStatut(CommandeFournisseur.StatutCommande.BROUILLON);
+        commande.setMotifRejet(null);  // ← Efface le motif comme demandé
+        commande.setDateRejet(null);
 
-        if (raison != null && !raison.isEmpty()) {
-            String notesActuelles = commande.getNotesReception();
-            String raisonAnnotation = "Annulation: " + raison;
-            commande.setNotesReception(notesActuelles != null
-                    ? notesActuelles + " | " + raisonAnnotation
-                    : raisonAnnotation);
-        }
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        System.out.println("🔄 Commande " + commande.getNumeroCommande() + " renvoyée en attente après correction");
 
-        return convertToDTO(commandeRepository.save(commande));
+        return convertToDTO(saved);
     }
 
     public void supprimerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON &&
-                commande.getStatut() != CommandeFournisseur.StatutCommande.ANNULEE) {
-            throw new RuntimeException("Seules les commandes en brouillon ou annulées peuvent être supprimées");
+        // ✅ Correction : ajout de la parenthèse fermante manquante et gestion du REJETEE
+        if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON
+                && commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
+            throw new RuntimeException("Seules les commandes en brouillon ou rejetées peuvent être supprimées");
         }
 
         commandeRepository.delete(commande);
     }
-
 
     // Récupérer les commandes archivées (actif = false)
     public List<CommandeFournisseurDTO> getArchivedCommandes() {
@@ -528,6 +559,8 @@ public class CommandeFournisseurService {
         dto.setTotalTTC(commande.getTotalTTC());
         dto.setTauxTVA(commande.getTauxTVA());
         dto.setActif(commande.getActif());
+        dto.setMotifRejet(commande.getMotifRejet());
+        dto.setDateRejet(commande.getDateRejet());
 
         if (commande.getFournisseur() != null) {
             dto.setFournisseur(new FournisseurDTO(commande.getFournisseur()));

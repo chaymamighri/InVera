@@ -217,7 +217,7 @@ export const useCommandeFournisseur = () => {
   };
 
   /**
-   * Valide une commande
+   * Valide une commande (BROUILLON → VALIDEE)
    */
   const validerCommande = async (id) => {
     if (!checkAuth()) {
@@ -241,7 +241,7 @@ export const useCommandeFournisseur = () => {
   };
 
   /**
-   * Envoie une commande
+   * Envoie une commande au fournisseur (VALIDEE → ENVOYEE)
    */
   const envoyerCommande = async (id) => {
     if (!checkAuth()) {
@@ -265,9 +265,49 @@ export const useCommandeFournisseur = () => {
   };
 
   /**
-   * Enregistre la réception d'une commande
+   * Rejette une commande (Admin uniquement)
+   * BROUILLON → REJETEE
+   * @param {number} id - ID de la commande
+   * @param {string} motifRejet - Motif du rejet (obligatoire)
    */
-const recevoirCommande = async (id, receptionData) => { 
+  const rejeterCommande = async (id, motifRejet) => {
+    if (!checkAuth()) {
+      showToast('Session expirée', 'error');
+      throw new Error('Non authentifié');
+    }
+
+    if (!motifRejet || motifRejet.trim() === '') {
+      showToast('Le motif de rejet est obligatoire', 'error');
+      throw new Error('Motif de rejet obligatoire');
+    }
+
+    try {
+      setLoading(true);
+      const commande = await commandeFournisseurService.rejeterCommande(id, motifRejet);
+      showToast('Commande rejetée avec succès', 'success');
+      await refresh();
+      return commande;
+    } catch (err) {
+      console.error('❌ Erreur rejet:', err);
+      
+      let errorMessage = "Erreur lors du rejet";
+      if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      showToast(errorMessage, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Renvoie une commande rejetée en attente (Responsable ou Admin)
+   * REJETEE → BROUILLON (efface le motif)
+   * @param {number} id - ID de la commande
+   */
+  const renvoyerAttente = async (id) => {
     if (!checkAuth()) {
       showToast('Session expirée', 'error');
       throw new Error('Non authentifié');
@@ -275,7 +315,36 @@ const recevoirCommande = async (id, receptionData) => {
 
     try {
       setLoading(true);
-      // ✅ Passer receptionData au service
+      const commande = await commandeFournisseurService.renvoyerAttente(id);
+      showToast('Commande renvoyée en attente après correction', 'success');
+      await refresh();
+      return commande;
+    } catch (err) {
+      console.error('❌ Erreur renvoi en attente:', err);
+      
+      let errorMessage = "Erreur lors du renvoi en attente";
+      if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      showToast(errorMessage, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Enregistre la réception d'une commande (ENVOYEE → RECUE)
+   */
+  const recevoirCommande = async (id, receptionData) => { 
+    if (!checkAuth()) {
+      showToast('Session expirée', 'error');
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      setLoading(true);
       const commande = await commandeFournisseurService.recevoirCommande(id, receptionData);
       showToast('Réception enregistrée avec succès', 'success');
       await refresh();
@@ -290,7 +359,8 @@ const recevoirCommande = async (id, receptionData) => {
   };
 
   /**
-   * Annule une commande
+   * Annule une commande (→ ANNULEE)
+   * Différent du rejet : peut être fait à différents stades
    */
   const annulerCommande = async (id, raison) => {
     if (!checkAuth()) {
@@ -314,7 +384,7 @@ const recevoirCommande = async (id, receptionData) => {
   };
 
   /**
-   * Marque une commande comme facturée
+   * Marque une commande comme facturée (RECUE → FACTUREE)
    */
   const facturerCommande = async (id) => {
     if (!checkAuth()) {
@@ -448,6 +518,8 @@ const recevoirCommande = async (id, receptionData) => {
     // Actions statut
     validerCommande,
     envoyerCommande,
+    rejeterCommande,      
+    renvoyerAttente,   
     recevoirCommande,
     annulerCommande,
     facturerCommande,  
