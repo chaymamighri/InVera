@@ -1,60 +1,25 @@
-/**
- * AdminDashboard - Dashboard d'administration
- * 
- * RÔLE : Interface principale pour les utilisateurs ayant le rôle "ADMIN"
- * ROUTE : /dashboard/admin
- * 
- * FONCTIONNALITÉS :
- * - Barre latérale (sidebar) réductible
- * - Navigation vers les pages d'administration
- * - Gestion des utilisateurs
- * - Gestion des remises
- * - Gestion des fournisseurs
- * - Statistiques globales
- * - Profil utilisateur
- * 
- * SOUS-PAGES (via renderPage) :
- * - Statistiques (stats)
- * - Gestion utilisateurs (users)
- * - Gestion remises (remises)
- * - Gestion fournisseurs (fournisseurs)
- * 
- * OPTIMISATIONS :
- * - React.memo sur les pages pour éviter les re-rendus inutiles
- * - useMemo pour le rendu des pages
- * - useCallback pour les gestionnaires
- */
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+// AdminDashboard.jsx - Version avec Outlet pour les sous-routes
+
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'; // Ajouter useLocation
 import {
   UsersIcon,
   ChartBarIcon,
-  Cog6ToothIcon,
   TagIcon,
   UserGroupIcon,
+  DocumentCheckIcon, // Ajouter l'icône pour validation commandes
 } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
 import Footer from '../../../components/Footer';
-
-// Pages
-import GestionUsers from './users/gestionUsers';
-import Statistiques from './statestiques/Statistiques';
-import Fournisseurs from './fournisseurs/Fournisseurs';
-import Remise from "./remise/RemiseProduit";
-
-const MemoizedGestionUsers = React.memo(GestionUsers);
-const MemoizedStatistiques = React.memo(Statistiques);
-const MemoizedFournisseurs = React.memo(Fournisseurs);
-const MemoizedRemise = React.memo(Remise);
 
 const AdminDashboard = () => {
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
   const navigate = useNavigate();
+  const location = useLocation(); // Pour détecter la route active
   const { collapsed, toggleSidebar } = useSidebar();
 
-  const [activePage, setActivePage] = useState('stats');
   const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
 
   useEffect(() => {
@@ -73,37 +38,45 @@ const AdminDashboard = () => {
 
   const getFirstName = (fullName) => fullName.split(' ')[0];
 
+  // Détecter la page active depuis l'URL
+  const getActivePage = () => {
+    const path = location.pathname;
+    if (path.includes('/validation-commandes')) return 'validation-commandes';
+    if (path.includes('/stats')) return 'stats';
+    if (path.includes('/users')) return 'users';
+    if (path.includes('/remises')) return 'remises';
+    if (path.includes('/fournisseurs')) return 'fournisseurs';
+    return 'stats';
+  };
+
+  const activePage = getActivePage();
+
   const sections = [
     {
-      title: 'Tableau de bord',
+      title: 'TABLEAU DE BORD',
       items: [
-        { id: 'stats', label: 'Statistiques', icon: ChartBarIcon },
+        { id: 'stats', label: 'Statistiques', icon: ChartBarIcon, path: '/dashboard/admin/stats' },
       ]
     },
     {
-      title: 'Gestion',
+      title: 'COMMANDES',
       items: [
-        { id: 'users', label: 'Utilisateurs', icon: UsersIcon },
-        { id: 'remises', label: 'Remises', icon: TagIcon },
-        { id: 'fournisseurs', label: 'Fournisseurs', icon: UserGroupIcon  },
-
+        { id: 'validation-commandes', label: 'Validation commandes', icon: DocumentCheckIcon, path: '/dashboard/admin/validation-commandes' },
+      ]
+    },
+    {
+      title: 'GESTION',
+      items: [
+        { id: 'users', label: 'Utilisateurs', icon: UsersIcon, path: '/dashboard/admin/users' },
+        { id: 'remises', label: 'Remises', icon: TagIcon, path: '/dashboard/admin/remises' },
+        { id: 'fournisseurs', label: 'Fournisseurs', icon: UserGroupIcon, path: '/dashboard/admin/fournisseurs' },
       ]
     }
   ];
 
-  const handleSetActivePage = useCallback((pageId) => {
-    setActivePage(pageId);
-  }, []);
-
-  const renderPage = useMemo(() => {
-    switch (activePage) {
-      case 'stats': return <MemoizedStatistiques />;
-      case 'users': return <MemoizedGestionUsers />;
-      case 'remises': return <MemoizedRemise />;
-      case 'fournisseurs': return <MemoizedFournisseurs />;
-      default: return <MemoizedStatistiques />;
-    }
-  }, [activePage]);
+  const handleNavigation = (path) => {
+    navigate(path);
+  };
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -152,12 +125,12 @@ const AdminDashboard = () => {
                     return (
                       <li key={item.id}>
                         <button
-                          onClick={() => handleSetActivePage(item.id)}
+                          onClick={() => handleNavigation(item.path)}
                           className={`w-full flex items-center ${
                             collapsed ? 'justify-center px-3 py-3' : 'px-4 py-3'
                           } rounded-lg transition-all duration-200 relative group ${
                             isActive
-                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold border-l-3 border-blue-500'
+                              ? 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 font-semibold'
                               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                           }`}
                           title={collapsed ? item.label : ''}
@@ -201,13 +174,6 @@ const AdminDashboard = () => {
                   <p className="text-xs text-gray-400 truncate">{user.email}</p>
                 </div>
               )}
-              {collapsed && (
-                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-lg">
-                  <div className="font-medium">{user.name}</div>
-                  <div className="text-gray-300 text-xs">{user.role}</div>
-                  <div className="text-gray-400 text-xs">{user.email}</div>
-                </div>
-              )}
             </div>
           </div>
         </nav>
@@ -217,7 +183,7 @@ const AdminDashboard = () => {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${
         collapsed ? 'ml-20' : 'ml-64'
       }`}>
-        {/* ESPACE POUR LE HEADER FIXED (du Layout) */}
+        {/* Espace pour le header */}
         <div className="h-16"></div>
 
         {/* Top Bar locale (sticky) */}
@@ -227,12 +193,14 @@ const AdminDashboard = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">
                   {activePage === 'stats' && 'Statistiques'}
+                  {activePage === 'validation-commandes' && 'Validation commandes'}
                   {activePage === 'users' && 'Gestion utilisateurs'}
                   {activePage === 'remises' && 'Gestion Remises'}
                   {activePage === 'fournisseurs' && 'Gestion Fournisseurs'}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                   {activePage === 'stats' && "Statistiques et indicateurs de performance"}
+                  {activePage === 'validation-commandes' && "Validez ou rejetez les commandes en attente"}
                   {activePage === 'users' && "Gérez les utilisateurs et leurs permissions"}
                   {activePage === 'remises' && "Gérez les remises clients et produits"}
                   {activePage === 'fournisseurs' && "Gérez les fournisseurs"}
@@ -242,9 +210,9 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Contenu de la page */}
+        {/* Contenu de la page avec Outlet */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-          {renderPage}
+          <Outlet />
         </div>
 
         {/* Footer */}

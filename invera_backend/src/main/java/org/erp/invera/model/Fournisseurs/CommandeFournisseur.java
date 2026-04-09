@@ -94,13 +94,20 @@ public class CommandeFournisseur {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "motif_rejet",nullable = false ,length = 500)
+    private String motifRejet;
+
+    // Optionnel : date du rejet pour traçabilité
+    @Column(name = "date_rejet" )
+    private LocalDateTime dateRejet;
+
     public enum StatutCommande {
         BROUILLON("Brouillon"),
         VALIDEE("Validée"),
         ENVOYEE("Envoyée au fournisseur"),
         RECUE("Reçue"),
         FACTUREE("Facturée"),
-        ANNULEE("Annulée");
+        REJETEE("Rejetée");
 
         private final String libelle;
 
@@ -109,5 +116,4 @@ public class CommandeFournisseur {
         }
 
     }
-
 }

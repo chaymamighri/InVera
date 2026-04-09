@@ -58,4 +58,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     BigDecimal sumQuantiteByTypeAndPeriod(@Param("type") StockMovement.MovementType type,
                                           @Param("debut") LocalDateTime debut,
                                           @Param("fin") LocalDateTime fin);
+
+    List<StockMovement> findByDateMouvementBetween(LocalDateTime start, LocalDateTime end);
+
 }

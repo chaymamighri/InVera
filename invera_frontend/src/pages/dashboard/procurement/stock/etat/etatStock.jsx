@@ -167,7 +167,6 @@ const EtatStock = () => {
     });
   };
 
-  // ✅ Fonction d'export CSV intégrée localement
   const handleExportCSV = () => {
     try {
       if (!produitsFiltres || produitsFiltres.length === 0) {
@@ -175,7 +174,6 @@ const EtatStock = () => {
         return;
       }
       
-      // Définir les colonnes CSV
       const colonnes = [
         'Référence',
         'Produit',
@@ -188,7 +186,6 @@ const EtatStock = () => {
         'Statut'
       ];
       
-      // Créer les lignes CSV
       const lignes = produitsFiltres.map(produit => [
         produit.reference || '',
         produit.libelle || '',
@@ -203,13 +200,11 @@ const EtatStock = () => {
         produit.statutStock === 'CRITIQUE' ? 'Critique' : 'Rupture'
       ]);
       
-      // Ajouter les statistiques en résumé
       const date = new Date().toLocaleString('fr-FR');
       const resume = [
         [''],
         ['=== RÉSUMÉ ==='],
         [`Date d'export: ${date}`],
-        [`Filtres: ${filtres.categorieId ? `Catégorie: ${produits.find(p => p.categorieId === parseInt(filtres.categorieId))?.categorieNom || filtres.categorieId} / ` : ''}${filtres.seuilAlerte ? 'Stock faible/critique / ' : ''}${filtres.rupture ? 'Rupture' : ''}${!filtres.categorieId && !filtres.seuilAlerte && !filtres.rupture ? 'Aucun' : ''}`],
         [`Valeur totale du stock: ${stats.totalValeurStock?.toLocaleString()} TND`],
         [`Nombre total de produits: ${stats.totalProduits}`],
         [`Produits en stock normal: ${stats.produitsNormaux}`],
@@ -218,17 +213,13 @@ const EtatStock = () => {
         [`Produits en rupture: ${stats.produitsRupture}`]
       ];
       
-      // Construire le contenu CSV
       const csvContent = [
         colonnes.join(';'),
         ...lignes.map(ligne => ligne.join(';')),
         ...resume.map(r => r.join(';'))
       ].join('\n');
       
-      // Ajouter BOM pour UTF-8 (compatible Excel)
       const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-      
-      // Télécharger
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
@@ -239,10 +230,8 @@ const EtatStock = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      console.log('✅ Export CSV réussi');
-      
     } catch (error) {
-      console.error('❌ Erreur export CSV:', error);
+      console.error('Erreur export CSV:', error);
       alert('Erreur lors de l\'export du fichier CSV');
     }
   };
@@ -255,20 +244,29 @@ const EtatStock = () => {
     });
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle }) => (
-    <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-2xl font-bold mt-2">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-        </div>
-        <div className={`p-3 rounded-full ${color}`}>
-          <Icon className="w-6 h-6 text-white" />
+  // ✅ NOUVEAU COMPOSANT STATCARD AVEC EFFET GRIS
+  const StatCard = ({ title, value, icon: Icon, color, subtitle, hasData }) => {
+    const isEmpty = !hasData && (value === 0 || value === '0 TND' || value === '0');
+    
+    return (
+      <div className={`rounded-lg shadow p-6 transition-shadow ${isEmpty ? 'bg-gray-50' : 'bg-white hover:shadow-lg'}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`text-sm font-medium ${isEmpty ? 'text-gray-400' : 'text-gray-500'}`}>{title}</p>
+            {isEmpty ? (
+              <p className="text-2xl font-bold mt-2 text-gray-400">—</p>
+            ) : (
+              <p className="text-2xl font-bold mt-2 text-gray-800">{value}</p>
+            )}
+            {subtitle && !isEmpty && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+          </div>
+          <div className={`p-3 rounded-full ${isEmpty ? 'bg-gray-300' : color}`}>
+            <Icon className={`w-6 h-6 ${isEmpty ? 'text-gray-400' : 'text-white'}`} />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const StatutBadge = ({ statut }) => {
     const config = {
@@ -298,7 +296,6 @@ const EtatStock = () => {
     return `${value.toLocaleString('fr-FR')} TND`;
   };
 
-  // Composant de pagination
   const Pagination = () => {
     const getPageNumbers = () => {
       const pages = [];
@@ -401,9 +398,11 @@ const EtatStock = () => {
     );
   }
 
+  const categoriesUniques = [...new Map(produits.map(p => [p.categorieId, p.categorieNom])).entries()];
+
   return (
     <div className="p-6">
-      {/* En-tête - bouton export avec fonction locale */}
+      {/* En-tête */}
       <div className="flex justify-end mb-6">
         <button
           onClick={handleExportCSV}
@@ -414,29 +413,32 @@ const EtatStock = () => {
         </button>
       </div>
 
-      {/* Statistiques - Ligne 1 */}
+      {/* Statistiques - Ligne 1 avec effet gris */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Valeur totale du stock"
           value={formatPrice(stats.totalValeurStock)}
           icon={CurrencyDollarIcon}
           color="bg-blue-500"
+          hasData={stats.totalValeurStock > 0}
         />
         <StatCard
           title="Total produits"
           value={formatNumber(stats.totalProduits)}
           icon={ShoppingBagIcon}
           color="bg-purple-500"
+          hasData={stats.totalProduits > 0}
         />
         <StatCard
           title="Produits en stock"
           value={formatNumber(stats.produitsNormaux)}
           icon={CheckCircleIcon}
           color="bg-green-500"
+          hasData={stats.produitsNormaux > 0}
         />
       </div>
 
-      {/* Statistiques - Ligne 2 */}
+      {/* Statistiques - Ligne 2 avec effet gris */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Stock critique"
@@ -444,6 +446,7 @@ const EtatStock = () => {
           icon={ExclamationTriangleIcon}
           color="bg-red-500"
           subtitle="Action immédiate"
+          hasData={stats.produitsCritique > 0}
         />
         <StatCard
           title="Stock faible"
@@ -451,6 +454,7 @@ const EtatStock = () => {
           icon={ClockIcon}
           color="bg-yellow-500"
           subtitle="À réapprovisionner"
+          hasData={stats.produitsFaible > 0}
         />
         <StatCard
           title="Produits en rupture"
@@ -458,6 +462,7 @@ const EtatStock = () => {
           icon={XCircleIcon}
           color="bg-gray-500"
           subtitle={`${stats.pourcentageRupture.toFixed(1)}% du total`}
+          hasData={stats.produitsRupture > 0}
         />
       </div>
 
@@ -474,9 +479,8 @@ const EtatStock = () => {
               className="w-full border border-gray-300 rounded-lg px-3 py-2"
             >
               <option value="">Toutes les catégories</option>
-              {[...new Map(produits.map(p => [p.categorieId, p.categorieNom])).entries()]
-                .map(([id, nom]) => (
-                  <option key={id} value={id}>{nom}</option>
+              {categoriesUniques.map(([id, nom]) => (
+                <option key={id} value={id}>{nom}</option>
               ))}
             </select>
           </div>
@@ -537,7 +541,7 @@ const EtatStock = () => {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valeur stock</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Statut</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Seuil</th>
-                </tr>
+              </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {produitsPagines.length === 0 ? (
@@ -545,50 +549,47 @@ const EtatStock = () => {
                   <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                     <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                     <p>Aucun produit ne correspond aux filtres sélectionnés</p>
-                      </td>
-                   </tr>
-                 
-                ) : (
-                  produitsPagines.map((produit) => (
-                  
-                    <tr key={produit.produitId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {produit.reference}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {produit.libelle}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {produit.categorieNom || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                        <span className={produit.quantiteActuelle === 0 ? 'text-red-600 font-bold' : 'text-gray-900'}>
-                          {formatNumber(produit.quantiteActuelle)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {produit.unite || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                        {formatPrice(produit.prixUnitaire)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-blue-600">
-                        {formatPrice(produit.valeurStock)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <StatutBadge statut={produit.statutStock} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                        {produit.seuilAlerte || '-'}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                  </td>
+                </tr>
+              ) : (
+                produitsPagines.map((produit) => (
+                  <tr key={produit.produitId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {produit.reference}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {produit.libelle}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {produit.categorieNom || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                      <span className={produit.quantiteActuelle === 0 ? 'text-red-600 font-bold' : 'text-gray-900'}>
+                        {formatNumber(produit.quantiteActuelle)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {produit.unite || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
+                      {formatPrice(produit.prixUnitaire)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-blue-600">
+                      {formatPrice(produit.valeurStock)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <StatutBadge statut={produit.statutStock} />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                      {produit.seuilAlerte || '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         
-        {/* Pagination */}
         <Pagination />
       </div>
     </div>

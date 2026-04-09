@@ -11,4 +11,5 @@ public class MouvementStockPeriodDTO {
     private Long entrees;    // Nombre d'entrées
     private Long sorties;    // Nombre de sorties
     private Long max;        // Valeur max pour l'affichage
+    private String dateRange; // Plage de dates réelle sélectionnée
 }

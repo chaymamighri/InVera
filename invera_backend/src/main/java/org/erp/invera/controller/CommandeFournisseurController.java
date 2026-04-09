@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -111,16 +112,36 @@ public class CommandeFournisseurController {
         return ResponseEntity.ok(commandeService.recevoirCommande(id, receptionData));
     }
 
-    @PutMapping("/{id}/annuler")
-    public ResponseEntity<CommandeFournisseurDTO> annulerCommande(
+    /**
+     * Rejeter une commande (Admin uniquement)
+     */
+    @PutMapping("/{id}/rejeter")
+    public ResponseEntity<?> rejeterCommande(
             @PathVariable Integer id,
-            @RequestParam(required = false) String raison) {
-        return ResponseEntity.ok(commandeService.annulerCommande(id, raison));
+            @RequestParam String motifRejet) {
+        try {
+            CommandeFournisseurDTO commande = commandeService.rejeterCommande(id, motifRejet);
+            return ResponseEntity.ok(commande);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Erreur interne: " + e.getMessage()));
+        }
     }
 
-    @PutMapping("/{id}/facturer")
-    public ResponseEntity<CommandeFournisseurDTO> facturerCommande(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.facturerCommande(id));
+    /**
+     * Renvoyer une commande rejetée en attente (Responsable ou Admin)
+     */
+    @PutMapping("/{id}/renvoyer-attente")
+    public ResponseEntity<?> renvoyerAttente(@PathVariable Integer id) {
+        try {
+            CommandeFournisseurDTO commande = commandeService.renvoyerAttente(id);
+            return ResponseEntity.ok(commande);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Erreur interne: " + e.getMessage()));
+        }
     }
 
     // ========= RECHERCHE PAR PERIODE =========

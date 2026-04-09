@@ -7,7 +7,7 @@
  * FONCTIONNALITÉS :
  * - Liste des commandes avec filtres (recherche, statut)
  * - Création, modification, suppression de commande
- * - Changement de statut (brouillon → validée → envoyée → reçue → facturée)
+ * - Changement de statut (brouillon → validée → envoyée → reçue)
  * - Gestion des archives (commandes supprimées)
  * - Recherche par numéro ou période
  * - Réception de commande avec gestion des stocks
@@ -108,7 +108,8 @@ const CommandesFournisseurs = () => {
     envoyerCommande,
     recevoirCommande,
     annulerCommande,
-    facturerCommande,
+    rejeterCommande,      // ✅ NOUVEAU
+    renvoyerAttente,      // ✅ NOUVEAU
     searchByNumero,
     searchByPeriode,
   } = useCommandeFournisseur();
@@ -262,40 +263,44 @@ const filteredCommandes = useMemo(() => {
     }
   };
 
-  const handleStatusChange = async (id, action) => {
-    try {
-      setActionInProgress(`${action}-${id}`);
+  // handleStatusChange pour gérer toutes les actions
+const handleStatusChange = async (id, action) => {
+  try {
+    setActionInProgress(`${action}-${id}`);
 
-      switch (action) {
-        case 'valider':
-          await validerCommande(id);
-          toast.success('Commande validee avec succes');
-          break;
-        case 'envoyer':
-          await envoyerCommande(id);
-          toast.success('Commande envoyee avec succes');
-          break;
-          break;
-        case 'annuler':
-          await annulerCommande(id);
-          toast.success('Commande annulee avec succes');
-          break;
-        default:
-          return;
-      }
-
-      if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
-        clearFocus();
-      }
-
-      await fetchCommandes();
-    } catch (statusError) {
-      console.error('Erreur changement statut:', statusError);
-      toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
-    } finally {
-      setActionInProgress(null);
+    switch (action) {
+      case 'envoyer':
+        await envoyerCommande(id);
+        toast.success('Commande envoyee avec succes');
+        break;
+      
+      case 'renvoyer_attente':  
+        await renvoyerAttente(id);
+        toast.success('Commande renvoyee en attente apres correction');
+        break;
+      
+      case 'annuler':
+        await annulerCommande(id);
+        toast.success('Commande annulee avec succes');
+        break;
+      
+      default:
+        console.warn('Action non reconnue:', action);
+        return;
     }
-  };
+
+    if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
+      clearFocus();
+    }
+
+    await fetchCommandes();
+  } catch (statusError) {
+    console.error('Erreur changement statut:', statusError);
+    toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
+  } finally {
+    setActionInProgress(null);
+  }
+};
 
   const handleRestore = async (id) => {
     try {
@@ -314,14 +319,16 @@ const filteredCommandes = useMemo(() => {
     }
   };
 
+  // ✅ MODIFICATION : handleDelete - Permet suppression pour BROUILLON et REJETEE
   const handleDelete = (commande) => {
     if (showArchives) {
       toast.info('Utilisez le bouton de restauration pour reactiver la commande');
       return;
     }
 
-    if (commande.statut !== StatutCommande.BROUILLON) {
-      toast.error('Seules les commandes en brouillon peuvent etre supprimees');
+    // Permettre suppression pour BROUILLON et REJETEE
+    if (commande.statut !== StatutCommande.BROUILLON && commande.statut !== StatutCommande.REJETEE) {
+      toast.error('Seules les commandes en brouillon ou rejetees peuvent etre supprimees');
       return;
     }
 

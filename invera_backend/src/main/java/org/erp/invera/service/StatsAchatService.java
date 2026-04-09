@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -55,9 +56,9 @@ public class StatsAchatService {
         return DashboardStatsDTO.builder()
                 .commandes(DashboardStatsDTO.CommandesStats.builder()
                         .total(commandeRepository.countByDateBetween(startDateTime, endDateTime))
-                        .enAttente(commandeRepository.countByStatutAndDateBetween("EN_ATTENTE", startDateTime, endDateTime))
-                        .enCours(commandeRepository.countByStatutAndDateBetween("EN_COURS", startDateTime, endDateTime))
-                        .livre(commandeRepository.countByStatutAndDateBetween("LIVREE", startDateTime, endDateTime))
+                        .enAttente(commandeRepository.countByStatutAndDateBetween("BROUILLON", startDateTime, endDateTime))  // ✅ BROUILLON
+                        .enCours(commandeRepository.countByStatutAndDateBetween("ENVOYEE", startDateTime, endDateTime))      // ✅ ENVOYEE
+                        .livre(commandeRepository.countByStatutAndDateBetween("RECUE", startDateTime, endDateTime))          // ✅ RECUE
                         .tendance(calculateTendanceCommandes(startDateTime, endDateTime))
                         .build())
                 .produits(DashboardStatsDTO.ProduitsStats.builder()
@@ -88,11 +89,11 @@ public class StatsAchatService {
         LocalDateTime debut = startDate.atStartOfDay();
         LocalDateTime fin = endDate.atTime(23, 59, 59);
 
-        // Récupération des stats avec les méthodes SANS IS NULL OR
+        // Récupération des stats avec les BONS statuts
         Long total = Optional.ofNullable(commandeRepository.countByDateBetween(debut, fin)).orElse(0L);
-        Long enAttente = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("EN_ATTENTE", debut, fin)).orElse(0L);
-        Long enCours = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("EN_COURS", debut, fin)).orElse(0L);
-        Long livre = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("LIVREE", debut, fin)).orElse(0L);
+        Long enAttente = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("BROUILLON", debut, fin)).orElse(0L);
+        Long enCours = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("ENVOYEE", debut, fin)).orElse(0L);
+        Long livre = Optional.ofNullable(commandeRepository.countByStatutAndDateBetween("RECUE", debut, fin)).orElse(0L);
 
         // Calcul tendance
         Double tendance = total > 0 ? (enCours + livre) * 100.0 / total : 0.0;
@@ -151,39 +152,60 @@ public class StatsAchatService {
                 .max(max != 0 ? max : 100L)
                 .build();
     }
-
     /**
      * Récupère les mouvements de stock par période ou dates personnalisées
      */
     public List<MouvementStockPeriodDTO> getMouvementsStock(String periode, LocalDate startDate, LocalDate endDate) {
         List<MouvementStockPeriodDTO> result = new ArrayList<>();
+        String dateRangeLabel = "";
 
         if (startDate != null && endDate != null) {
-            // Convertir LocalDate en LocalDateTime
+            // ✅ Cas 1 : Dates personnalisées (par mois)
+            dateRangeLabel = formatDateRange(startDate, endDate);
+
             LocalDateTime startDateTime = startDate.atStartOfDay();
             LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-            // Entrées et sorties sur la période personnalisée
-            Long entrees = Optional.ofNullable(
-                            mouvementStockRepository.countEntreesByWeek(StockMovement.MovementType.ENTREE, startDateTime, endDateTime))
-                    .orElse(0L);
+            LocalDate current = startDate.withDayOfMonth(1);
+            LocalDate endMonth = endDate.withDayOfMonth(1);
 
-            Long sorties = Optional.ofNullable(
-                            mouvementStockRepository.countSortiesByWeek(StockMovement.MovementType.SORTIE, startDateTime, endDateTime))
-                    .orElse(0L);
+            while (!current.isAfter(endMonth)) {
+                LocalDateTime monthStart = current.atStartOfDay();
+                LocalDateTime monthEnd = current.withDayOfMonth(current.lengthOfMonth()).atTime(23, 59, 59);
 
-            Long max = Math.max(entrees, sorties);
+                if (current.isEqual(endMonth)) {
+                    monthEnd = endDateTime;
+                }
 
-            result.add(MouvementStockPeriodDTO.builder()
-                    .label("Période")
-                    .entrees(entrees)
-                    .sorties(sorties)
-                    .max(max != 0 ? max : 100L)
-                    .build());
+                // ✅ Entrées ET Sorties
+                Long entrees = Optional.ofNullable(
+                                mouvementStockRepository.countEntreesByWeek(StockMovement.MovementType.ENTREE, monthStart, monthEnd))
+                        .orElse(0L);
+
+                Long sorties = Optional.ofNullable(
+                                mouvementStockRepository.countSortiesByWeek(StockMovement.MovementType.SORTIE, monthStart, monthEnd))
+                        .orElse(0L);
+
+                String monthLabel = current.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.FRENCH)
+                        + " " + current.getYear();
+
+                result.add(MouvementStockPeriodDTO.builder()
+                        .label(monthLabel)
+                        .entrees(entrees)
+                        .sorties(sorties)
+                        .max(Math.max(entrees, sorties))
+                        .dateRange(dateRangeLabel)
+                        .build());
+
+                current = current.plusMonths(1);
+            }
 
         } else if ("8weeks".equals(periode)) {
-            // Filtrage par 8 dernières semaines
+            // ✅ Cas 2 : 8 semaines (déjà correct avec entrées+sorties)
             LocalDate now = LocalDate.now();
+            LocalDate startDate8Weeks = now.minusWeeks(8);
+            dateRangeLabel = formatDateRange(startDate8Weeks, now);
+
             for (int i = 7; i >= 0; i--) {
                 LocalDate weekStart = now.minusWeeks(i).with(DayOfWeek.MONDAY);
                 LocalDate weekEnd = weekStart.plusDays(6);
@@ -199,36 +221,119 @@ public class StatsAchatService {
                                 mouvementStockRepository.countSortiesByWeek(StockMovement.MovementType.SORTIE, weekStartDateTime, weekEndDateTime))
                         .orElse(0L);
 
-                Long max = Math.max(entrees, sorties);
+                String weekLabel = String.format("Sem %d (%s)",
+                        weekStart.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()),
+                        weekStart.getDayOfMonth() + "/" + (weekStart.getMonthValue()));
 
                 result.add(MouvementStockPeriodDTO.builder()
-                        .label("Sem " + (8 - i))
+                        .label(weekLabel)
                         .entrees(entrees)
                         .sorties(sorties)
-                        .max(max != 0 ? max : 100L)
+                        .max(0L)
+                        .dateRange(dateRangeLabel)
                         .build());
             }
+
+            // Calcul du max
+            long max = result.stream()
+                    .mapToLong(dto -> Math.max(dto.getEntrees(), dto.getSorties()))
+                    .max()
+                    .orElse(100L);
+
+            for (MouvementStockPeriodDTO dto : result) {
+                dto.setMax(max != 0 ? max : 100L);
+            }
+
         } else {
-            // Valeurs par défaut : 30 derniers jours
+            // ✅ Cas 3 : 30 jours (utilise getMouvementsParSemaine qui gère déjà entrées+sorties)
             LocalDateTime endDateTime = LocalDateTime.now();
             LocalDateTime startDateTime = endDateTime.minusDays(30);
+            dateRangeLabel = formatDateRange(startDateTime.toLocalDate(), endDateTime.toLocalDate());
+
+            result = getMouvementsParSemaine(startDateTime, endDateTime);
+
+            for (MouvementStockPeriodDTO dto : result) {
+                dto.setDateRange(dateRangeLabel);
+            }
+        }
+
+        // Si aucun résultat
+        if (result.isEmpty()) {
+            result.add(MouvementStockPeriodDTO.builder()
+                    .label("Aucune donnée")
+                    .entrees(0L)
+                    .sorties(0L)
+                    .max(100L)
+                    .dateRange(dateRangeLabel)
+                    .build());
+        }
+
+        return result;
+    }
+
+    /**
+     * ✅ Méthode utilitaire pour formater la plage de dates
+     */
+    private String formatDateRange(LocalDate startDate, LocalDate endDate) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return startDate.format(formatter) + " → " + endDate.format(formatter);
+    }
+
+    /**
+     * ✅ NOUVEAU : Regroupe les mouvements par SEMAINE
+     */
+    private List<MouvementStockPeriodDTO> getMouvementsParSemaine(LocalDateTime startDate, LocalDateTime endDate) {
+        List<MouvementStockPeriodDTO> result = new ArrayList<>();
+
+        // Calculer le nombre de semaines entre les dates
+        LocalDate start = startDate.toLocalDate();
+        LocalDate end = endDate.toLocalDate();
+        long weeksBetween = java.time.temporal.ChronoUnit.WEEKS.between(start, end);
+
+        // Limiter à 12 semaines max pour l'affichage
+        int maxWeeks = (int) Math.min(weeksBetween + 1, 12);
+
+        for (int i = 0; i < maxWeeks; i++) {
+            LocalDate weekStart = start.plusWeeks(i).with(DayOfWeek.MONDAY);
+            LocalDate weekEnd = weekStart.plusDays(6);
+
+            // Éviter de dépasser la date de fin
+            if (weekStart.isAfter(end)) break;
+            if (weekEnd.isAfter(end)) weekEnd = end;
+
+            LocalDateTime weekStartDateTime = weekStart.atStartOfDay();
+            LocalDateTime weekEndDateTime = weekEnd.atTime(23, 59, 59);
 
             Long entrees = Optional.ofNullable(
-                            mouvementStockRepository.countEntreesByWeek(StockMovement.MovementType.ENTREE, startDateTime, endDateTime))
+                            mouvementStockRepository.countEntreesByWeek(StockMovement.MovementType.ENTREE, weekStartDateTime, weekEndDateTime))
                     .orElse(0L);
 
             Long sorties = Optional.ofNullable(
-                            mouvementStockRepository.countSortiesByWeek(StockMovement.MovementType.SORTIE, startDateTime, endDateTime))
+                            mouvementStockRepository.countSortiesByWeek(StockMovement.MovementType.SORTIE, weekStartDateTime, weekEndDateTime))
                     .orElse(0L);
 
-            Long max = Math.max(entrees, sorties);
+            // Format: "Sem 45 (12-18 Nov)"
+            String weekLabel = String.format("Sem %d (%s)",
+                    weekStart.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()),
+                    weekStart.getDayOfMonth() + "/" + (weekStart.getMonthValue()) + " → " +
+                            weekEnd.getDayOfMonth() + "/" + (weekEnd.getMonthValue()));
 
             result.add(MouvementStockPeriodDTO.builder()
-                    .label("30 jours")
+                    .label(weekLabel)
                     .entrees(entrees)
                     .sorties(sorties)
-                    .max(max != 0 ? max : 100L)
+                    .max(0L)
                     .build());
+        }
+
+        // Calculer le max
+        long max = result.stream()
+                .mapToLong(dto -> Math.max(dto.getEntrees(), dto.getSorties()))
+                .max()
+                .orElse(100L);
+
+        for (MouvementStockPeriodDTO dto : result) {
+            dto.setMax(max != 0 ? max : 100L);
         }
 
         return result;
@@ -254,9 +359,23 @@ public class StatsAchatService {
     public List<AlerteStockDTO> getAlertesStock(LocalDate startDate, LocalDate endDate) {
         List<Produit> produitsRupture = produitRepository.findProduitsEnRupture();
         List<Produit> produitsCritiques = produitRepository.findProduitsStockCritique();
+
+        // 🔍 LOGS
+        System.out.println("========== ALERTES STOCK ==========");
+        System.out.println("Produits en rupture: " + produitsRupture.size());
+        for (Produit p : produitsRupture) {
+            System.out.println("  - RUPTURE: " + p.getLibelle() + " | stock: " + p.getQuantiteStock());
+        }
+        System.out.println("Produits critiques: " + produitsCritiques.size());
+        for (Produit p : produitsCritiques) {
+            System.out.println("  - CRITIQUE: " + p.getLibelle() + " | stock: " + p.getQuantiteStock() + " | seuil: " + p.getSeuilMinimum());
+        }
+
         List<AlerteStockDTO> alertes = new ArrayList<>();
         for (Produit p : produitsRupture) alertes.add(buildAlerte(p, "RUPTURE"));
         for (Produit p : produitsCritiques) alertes.add(buildAlerte(p, "CRITIQUE"));
+
+        System.out.println("Total alertes retournées: " + alertes.size());
         return alertes;
     }
 
@@ -275,8 +394,8 @@ public class StatsAchatService {
      */
     public Map<String, Object> getCommandesATraiter() {
         Map<String, Object> result = new HashMap<>();
-        result.put("enAttente", Optional.ofNullable(commandeRepository.countByStatut("EN_ATTENTE")).orElse(0L));
-        result.put("enCours", Optional.ofNullable(commandeRepository.countByStatut("EN_COURS")).orElse(0L));
+        result.put("enAttente", commandeRepository.countByStatut("BROUILLON"));
+        result.put("enCours", commandeRepository.countByStatut("ENVOYEE"));
         return result;
     }
 
@@ -350,7 +469,7 @@ public class StatsAchatService {
     private Double calculateTendanceStock() { return 3.5; }
 
     private Double calculateTauxService() {
-        Long commandesLivrees = commandeRepository.countByStatut("LIVREE");
+        Long commandesLivrees = commandeRepository.countByStatut("RECUE");
         Long commandesTotales = commandeRepository.countTotalCommandes();
         if (commandesTotales == null || commandesTotales == 0) return 100.0;
         return (commandesLivrees != null ? commandesLivrees : 0L) * 100.0 / commandesTotales;

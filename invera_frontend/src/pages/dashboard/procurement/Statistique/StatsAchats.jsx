@@ -3,39 +3,24 @@
  * 
  * RÔLE : Afficher les indicateurs de performance du module achats
  * ROUTE : /dashboard/procurement/stats
- * 
- * FONCTIONNALITÉS :
- * - Cartes KPI (commandes, produits, stock, factures)
- * - Graphique évolution des commandes (ligne)
- * - Graphique mouvements de stock (barres)
- * - Répartition produits par catégorie (donut)
- * - Alertes stock (rupture, critique)
- * - Commandes à traiter (en attente, en cours)
- * - Filtrage par période (DateRangeSelectorAchats)
- * - Rafraîchissement des données
- * 
- * HOOK UTILISÉ : useStatsAchat(startDate, endDate)
- * COMPOSANTS : DateRangeSelectorAchats
  */
 import React, { useState } from 'react';
 import {
   ShoppingCartIcon,
   CubeIcon,
   ArchiveBoxIcon,
-  DocumentTextIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
   TruckIcon,
-  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { useStatsAchat } from '../../../../hooks/useStatsAchat';
 import DateRangeSelectorAchats from './componentes/DateRangeSelectorAchats';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 const StatsAchats = () => {
-  // État local pour les dates
   const [selectedStartDate, setSelectedStartDate] = useState(null);
   const [selectedEndDate, setSelectedEndDate] = useState(null);
 
@@ -51,7 +36,18 @@ const StatsAchats = () => {
     refetch
   } = useStatsAchat(selectedStartDate, selectedEndDate);
 
-  // Fonction pour formater les dates au format YYYY-MM-DD
+const navigate = useNavigate();
+
+
+  // ✅ Vérifier si un filtre date est actif
+  const hasDateFilter = selectedStartDate !== null && selectedEndDate !== null;
+
+  const handleManageReplenishment = () => {
+
+    navigate('/dashboard/procurement/commandes'); 
+  };
+  
+
   const formatDateForAPI = (date) => {
     if (!date) return '';
     const d = new Date(date);
@@ -61,17 +57,20 @@ const StatsAchats = () => {
     return `${year}-${month}-${day}`;
   };
 
-  // Fonction appelée quand on applique les dates
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const handleApplyDates = (start, end) => {
     const formattedStart = formatDateForAPI(start);
     const formattedEnd = formatDateForAPI(end);
     setSelectedStartDate(formattedStart);
     setSelectedEndDate(formattedEnd);
-    // Refetch avec les nouvelles dates
     refetch({ startDate: formattedStart, endDate: formattedEnd });
   };
 
-  // Fonction pour rafraîchir avec les dates actuelles
   const handleRefresh = () => {
     if (selectedStartDate && selectedEndDate) {
       refetch({ startDate: selectedStartDate, endDate: selectedEndDate });
@@ -80,65 +79,97 @@ const StatsAchats = () => {
     }
   };
 
-  // Composant graphique à barres simple
-  const SimpleBarChart = ({ data, labels, title }) => {
-    if (!data || data.length === 0) return null;
-    const maxValue = Math.max(...data);
+  const tauxRupture = stats.produits?.actifs > 0 
+    ? ((stats.produits?.rupture || 0) / stats.produits?.actifs) * 100 
+    : 0;
+
+  // ✅ Composant StatCard avec effet gris si pas de filtre date
+  const StatCard = ({ title, value, unit = '', icon: Icon, color, subtitle, trend }) => {
+    const isEmpty = !hasDateFilter;
     
     return (
-      <div>
-        <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
-        <div className="space-y-3">
-          {labels.map((label, index) => (
-            <div key={index}>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">{label}</span>
-                <span className="text-gray-800 font-medium">{data[index]}</span>
+      <div className={`rounded-xl shadow-sm border p-5 transition-shadow ${isEmpty ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100 hover:shadow-md'}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className={`text-sm font-medium mb-1 ${isEmpty ? 'text-gray-400' : 'text-gray-500'}`}>{title}</p>
+            {isEmpty ? (
+              <p className="text-2xl font-bold mt-2 text-gray-400">—</p>
+            ) : (
+              <p className="text-2xl font-bold text-gray-800">
+                {typeof value === 'number' 
+                  ? `${value.toLocaleString()}${unit ? ' ' + unit : ''}`
+                  : value}
+              </p>
+            )}
+            {subtitle && !isEmpty && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+            {isEmpty && <p className="text-xs text-gray-400 mt-2">Sélectionnez une période</p>}
+            {trend !== undefined && trend !== 0 && !isEmpty && (
+              <div className="flex items-center gap-1 mt-2">
+                {trend > 0 ? (
+                  <ArrowTrendingUpIcon className="w-3 h-3 text-green-500" />
+                ) : (
+                  <ArrowTrendingDownIcon className="w-3 h-3 text-red-500" />
+                )}
+                <span className={`text-xs ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {Math.abs(trend)}% vs mois dernier
+                </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${(data[index] / maxValue) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            )}
+          </div>
+          <div className={`p-3 rounded-xl ${isEmpty ? 'bg-gray-300' : color}`}>
+            <Icon className={`w-6 h-6 ${isEmpty ? 'text-gray-400' : 'text-white'}`} />
+          </div>
         </div>
       </div>
     );
   };
 
-  // Composant graphique linéaire simple
+  // ✅ Composant graphique linéaire avec effet gris
   const SimpleLineChart = ({ data, labels, title }) => {
-    if (!data || data.length === 0) return null;
+    const isEmpty = !hasDateFilter || !data || data.length === 0 || data.every(v => v === 0);
+    
+    if (isEmpty) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
+          <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+            <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mb-2" />
+            <p className="text-gray-400 text-sm">Aucune donnée disponible</p>
+            <p className="text-gray-400 text-xs mt-1">Sélectionnez une période</p>
+          </div>
+        </div>
+      );
+    }
+    
     const maxValue = Math.max(...data);
     const minValue = Math.min(...data);
-    const height = 150;
-    const width = 500;
+    const height = 250;
+    const width = 600;
+    
     const points = data.map((value, index) => ({
       x: (index / (data.length - 1)) * width,
       y: height - ((value - minValue) / (maxValue - minValue || 1)) * height,
     }));
 
     return (
-      <div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
-        <div className="relative" style={{ height: `${height}px` }}>
-          <svg width="100%" height={height} className="overflow-visible">
+        <div className="relative w-full overflow-x-auto">
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
             <polyline
               points={points.map(p => `${p.x},${p.y}`).join(' ')}
               fill="none"
               stroke="#3B82F6"
-              strokeWidth="2"
+              strokeWidth="3"
               className="transition-all duration-500"
             />
             {points.map((point, idx) => (
-              <circle key={idx} cx={point.x} cy={point.y} r="4" fill="#3B82F6" />
+              <circle key={idx} cx={point.x} cy={point.y} r="5" fill="#3B82F6" stroke="white" strokeWidth="2" />
             ))}
           </svg>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
+          <div className="flex justify-between mt-3 text-xs text-gray-500">
             {labels.map((label, idx) => (
-              <span key={idx}>{label}</span>
+              <span key={idx} className="text-center" style={{ width: `${100 / labels.length}%` }}>{label}</span>
             ))}
           </div>
         </div>
@@ -146,9 +177,117 @@ const StatsAchats = () => {
     );
   };
 
-  // Composant donut simple
+  // ✅ NOUVEAU : Graphique à barres groupées pour entrées ET sorties
+  const MouvementsStockChart = ({ data, title }) => {
+    const isEmpty = !hasDateFilter || !data || data.length === 0 || data.every(item => item.entrees === 0 && item.sorties === 0);
+    
+    if (isEmpty) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
+          <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+            <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mb-2" />
+            <p className="text-gray-400 text-sm">Aucune donnée disponible</p>
+            <p className="text-gray-400 text-xs mt-1">Sélectionnez une période</p>
+          </div>
+        </div>
+      );
+    }
+    
+    const maxValue = Math.max(...data.flatMap(item => [item.entrees, item.sorties]), 1);
+    const barWidth = 30;
+    const groupWidth = barWidth * 2 + 10;
+    const chartHeight = 250;
+    const chartWidth = Math.max(data.length * groupWidth + 80, 500);
+    
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
+        <div className="relative w-full overflow-x-auto">
+          <svg width={chartWidth} height={chartHeight + 60} viewBox={`0 0 ${chartWidth} ${chartHeight + 60}`}>
+            {/* Lignes de grille */}
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+              const y = chartHeight - 10 - (ratio * (chartHeight - 40));
+              return (
+                <g key={i}>
+                  <line x1="40" y1={y} x2={chartWidth - 20} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                  <text x="35" y={y + 3} textAnchor="end" className="text-xs fill-gray-400">
+                    {Math.round(maxValue * (1 - ratio))}
+                  </text>
+                </g>
+              );
+            })}
+            
+            {/* Barres pour chaque période */}
+            {data.map((item, idx) => {
+              const x = idx * groupWidth + 50;
+              const entreesHeight = (item.entrees / maxValue) * (chartHeight - 50);
+              const sortiesHeight = (item.sorties / maxValue) * (chartHeight - 50);
+              
+              return (
+                <g key={idx}>
+                  {/* Barre des entrées (bleue) */}
+                  <rect
+                    x={x}
+                    y={chartHeight - 10 - entreesHeight}
+                    width={barWidth}
+                    height={entreesHeight}
+                    fill="#3B82F6"
+                    rx="4"
+                    className="transition-all duration-500"
+                  />
+                  {/* Barre des sorties (rouge) */}
+                  <rect
+                    x={x + barWidth + 10}
+                    y={chartHeight - 10 - sortiesHeight}
+                    width={barWidth}
+                    height={sortiesHeight}
+                    fill="#EF4444"
+                    rx="4"
+                    className="transition-all duration-500"
+                  />
+                  {/* Label */}
+                  <text x={x + barWidth + 5} y={chartHeight + 10} textAnchor="middle" className="text-xs fill-gray-500">
+                    {item.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+          
+          {/* Légende */}
+          <div className="flex justify-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <span className="text-sm text-gray-600">Entrées</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <span className="text-sm text-gray-600">Sorties</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ✅ Composant graphique donut avec effet gris
   const SimpleDonutChart = ({ data, labels, colors, title }) => {
-    if (!data || data.length === 0 || data.reduce((a, b) => a + b, 0) === 0) return null;
+    const isEmpty = !hasDateFilter || !data || data.length === 0 || data.reduce((a, b) => a + b, 0) === 0;
+    
+    if (isEmpty) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
+          <div className="flex flex-col items-center justify-center h-48 bg-gray-50 rounded-lg">
+            <ExclamationTriangleIcon className="w-12 h-12 text-gray-300 mb-2" />
+            <p className="text-gray-400 text-sm">Aucune donnée disponible</p>
+            <p className="text-gray-400 text-xs mt-1">Sélectionnez une période</p>
+          </div>
+        </div>
+      );
+    }
+    
     const total = data.reduce((a, b) => a + b, 0);
     let currentAngle = 0;
     const size = 150;
@@ -169,7 +308,7 @@ const StatsAchats = () => {
     };
 
     return (
-      <div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <h3 className="text-base font-semibold text-gray-800 mb-4">{title}</h3>
         <div className="flex flex-col items-center">
           <svg width={size} height={size} className="mb-4">
@@ -196,37 +335,7 @@ const StatsAchats = () => {
     );
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle, trend }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-500 font-medium mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-800">
-            {typeof value === 'number' && title.includes('Valeur')
-              ? `${value.toLocaleString()} DH`
-              : value.toLocaleString()}
-          </p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-          {trend !== undefined && trend !== 0 && (
-            <div className="flex items-center gap-1 mt-2">
-              {trend > 0 ? (
-                <ArrowTrendingUpIcon className="w-3 h-3 text-green-500" />
-              ) : (
-                <ArrowTrendingDownIcon className="w-3 h-3 text-red-500" />
-              )}
-              <span className={`text-xs ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {Math.abs(trend)}% vs mois dernier
-              </span>
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${color}`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-
+  // ✅ Composant d'alerte stock
   const StockAlert = ({ type, count, message, onViewDetails }) => (
     <div className={`flex items-center justify-between p-3 ${type === 'rupture' ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'} rounded-lg border`}>
       <div className="flex items-center gap-3">
@@ -241,6 +350,18 @@ const StatsAchats = () => {
       </button>
     </div>
   );
+
+  // ✅ Composant d'affichage de la période sélectionnée
+  const PeriodeInfo = () => {
+    if (!hasDateFilter) return null;
+    
+    return (
+      <div className="mt-3 inline-flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-1.5 text-sm text-blue-700">
+        <span className="font-medium">Période sélectionnée :</span>
+        <span>{formatDateForDisplay(selectedStartDate)} → {formatDateForDisplay(selectedEndDate)}</span>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -270,33 +391,34 @@ const StatsAchats = () => {
     );
   }
 
-  // Préparer les données pour les graphiques
   const evolutionLabels = evolutionCommandes.map(item => item.label);
   const evolutionValues = evolutionCommandes.map(item => item.valeur);
-  
-  const mouvementsLabels = mouvementsStock.map(item => item.label);
-  const mouvementsEntrees = mouvementsStock.map(item => item.entrees);
   
   const categoriesLabels = repartitionCategories.map(item => item.categorie);
   const categoriesValues = repartitionCategories.map(item => item.nombreProduits);
   const categoriesColors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#6B7280', '#EC4899', '#14B8A6'];
 
-  // Compter les alertes par type
   const alertesRupture = alertesStock.filter(a => a.typeAlerte === 'RUPTURE').length;
   const alertesCritique = alertesStock.filter(a => a.typeAlerte === 'CRITIQUE').length;
 
+  const getTauxRuptureColor = () => {
+    if (!hasDateFilter) return "bg-gradient-to-r from-gray-400 to-gray-500";
+    if (tauxRupture === 0) return "bg-gradient-to-r from-emerald-500 to-emerald-600";
+    if (tauxRupture < 5) return "bg-gradient-to-r from-yellow-500 to-yellow-600";
+    return "bg-gradient-to-r from-red-500 to-red-600";
+  };
+
   return (
     <div className="space-y-6">
-      {/* En-tête avec filtre et bouton rafraîchir */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Aperçu général</h2>
           <p className="text-sm text-gray-500 mt-1">
             Synthèse des activités d'achat et de gestion de stock
           </p>
+          <PeriodeInfo />
         </div>
         
-        {/* Groupe filtre + rafraîchissement */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="flex-1 sm:flex-none">
             <DateRangeSelectorAchats
@@ -310,7 +432,7 @@ const StatsAchats = () => {
         </div>
       </div>
 
-      {/* Cartes principales */}
+      {/* 4 Cartes KPI essentielles */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Bons de commande"
@@ -331,145 +453,148 @@ const StatsAchats = () => {
         <StatCard
           title="Valeur du stock"
           value={stats.stock?.valeurTotale || 0}
+          unit="DH"
           icon={ArchiveBoxIcon}
           color="bg-gradient-to-r from-purple-500 to-purple-600"
           subtitle={`Rotation: ${stats.stock?.rotation || 0} tours/an`}
           trend={stats.stock?.tendance}
         />
         <StatCard
-          title="Factures"
-          value={stats.factures?.total || 0}
-          icon={DocumentTextIcon}
-          color="bg-gradient-to-r from-orange-500 to-orange-600"
-          subtitle={`${stats.factures?.payees || 0} payées · ${stats.factures?.impayees || 0} impayées`}
-          trend={stats.factures?.tendance}
+          title="Taux de rupture"
+          value={tauxRupture.toFixed(1)}
+          unit="%"
+          icon={ExclamationTriangleIcon}
+          color={getTauxRuptureColor()}
+          subtitle={`${stats.produits?.rupture || 0} / ${stats.produits?.actifs || 0} produits`}
         />
       </div>
 
       {/* Graphiques */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <SimpleLineChart
-            data={evolutionValues}
-            labels={evolutionLabels}
-            title="Évolution des commandes"
-          />
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <SimpleBarChart
-            data={mouvementsEntrees}
-            labels={mouvementsLabels}
-            title="Mouvements de stock (entrées)"
-          />
-        </div>
+        <SimpleLineChart
+          data={evolutionValues}
+          labels={evolutionLabels}
+          title="Évolution des commandes"
+        />
+        <MouvementsStockChart
+          data={mouvementsStock}
+          title="Mouvements de stock"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <SimpleDonutChart
-            data={categoriesValues}
-            labels={categoriesLabels}
-            colors={categoriesColors}
-            title="Produits par catégorie"
-          />
-        </div>
+        <SimpleDonutChart
+          data={categoriesValues}
+          labels={categoriesLabels}
+          colors={categoriesColors}
+          title="Produits par catégorie"
+        />
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-base font-semibold text-gray-800 mb-4">Alertes stock</h3>
-          <div className="space-y-3">
-            {alertesRupture > 0 && (
-              <StockAlert
-                type="rupture"
-                count={alertesRupture}
-                message="Produits en rupture"
-                onViewDetails={() => console.log('Voir détails rupture')}
-              />
-            )}
-            {alertesCritique > 0 && (
-              <StockAlert
-                type="alerte"
-                count={alertesCritique}
-                message="Stock critique (seuil minimum)"
-                onViewDetails={() => console.log('Voir détails critique')}
-              />
-            )}
-            {alertesRupture === 0 && alertesCritique === 0 && (
-              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-800">Stock sain</p>
-                  <p className="text-xs text-gray-500">Aucune alerte à signaler</p>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="mt-4 pt-4 border-t">
-            <button className="w-full px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium">
-              Gérer les réapprovisionnements
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-base font-semibold text-gray-800 mb-4">Commandes à traiter</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <ClockIcon className="w-5 h-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">En attente de validation</p>
-                  <p className="text-xs text-gray-500">À approuver</p>
-                </div>
-              </div>
-              <p className="text-xl font-bold text-yellow-600">{commandesATraiter.enAttente || 0}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <TruckIcon className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">En cours de livraison</p>
-                  <p className="text-xs text-gray-500">Commandes expédiées</p>
-                </div>
-              </div>
-              <p className="text-xl font-bold text-blue-600">{commandesATraiter.enCours || 0}</p>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t">
-            <button className="w-full px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-              Voir toutes les commandes
-            </button>
-          </div>
+  <h3 className="text-base font-semibold text-gray-800 mb-4">Alertes stock</h3>
+  <div className="space-y-3">
+    {!hasDateFilter ? (
+      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <ExclamationTriangleIcon className="w-5 h-5 text-gray-400" />
+        <div>
+          <p className="text-sm font-medium text-gray-500">Filtre période requis</p>
+          <p className="text-xs text-gray-400">Sélectionnez une période pour voir les alertes</p>
         </div>
       </div>
-
-      {/* Indicateurs supplémentaires */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
-          <p className="text-xs text-blue-600 font-medium uppercase tracking-wider">Rotation des stocks</p>
-          <p className="text-2xl font-bold text-blue-700 mt-1">{stats.stock?.rotation || 0}</p>
-          <p className="text-xs text-blue-600 mt-1">tours par an</p>
-        </div>
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4">
-          <p className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Mouvements (mois)</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">{stats.stock?.mouvementsMois || 0}</p>
-          <p className="text-xs text-emerald-600 mt-1">entrées + sorties</p>
-        </div>
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4">
-          <p className="text-xs text-purple-600 font-medium uppercase tracking-wider">Factures impayées</p>
-          <p className="text-2xl font-bold text-purple-700 mt-1">{stats.factures?.impayees || 0}</p>
-          <p className="text-xs text-purple-600 mt-1">
-            {stats.factures?.total ? ((stats.factures.impayees / stats.factures.total) * 100).toFixed(1) : 0}% du total
-          </p>
-        </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4">
-          <p className="text-xs text-orange-600 font-medium uppercase tracking-wider">Montant facturé</p>
-          <p className="text-2xl font-bold text-orange-700 mt-1">{(stats.factures?.montantTotal || 0).toLocaleString()} DH</p>
-          <p className="text-xs text-orange-600 mt-1">en cours</p>
+    ) : (
+      <>
+        {/* Affichage simple des alertes SANS bouton individuel */}
+        {alertesRupture > 0 && (
+          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+            <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Produits en rupture</p>
+              <p className="text-xs text-gray-500">{alertesRupture} produit(s) concerné(s)</p>
+            </div>
+          </div>
+        )}
+        
+        {alertesCritique > 0 && (
+          <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Stock critique</p>
+              <p className="text-xs text-gray-500">{alertesCritique} produit(s) concerné(s)</p>
+            </div>
+          </div>
+        )}
+        
+        {alertesRupture === 0 && alertesCritique === 0 && (
+          <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Stock sain</p>
+              <p className="text-xs text-gray-500">Aucune alerte à signaler</p>
+            </div>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+  
+  {/* Bouton unique - Voir les produits concernés (remplace Gérer les réapprovisionnements) */}
+  {(alertesRupture > 0 || alertesCritique > 0) && hasDateFilter && (
+    <div className="mt-4 pt-4 border-t">
+      <button 
+        onClick={() => navigate('/dashboard/procurement/etat_stock?filter=alertes')}
+        className="w-full px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+      >
+       Voir détails
+      </button>
+    </div>
+  )}
+</div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-base font-semibold text-gray-800 mb-4">Commandes à traiter</h3>
+          {!hasDateFilter ? (
+            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <ExclamationTriangleIcon className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Filtre période requis</p>
+                <p className="text-xs text-gray-400">Sélectionnez une période pour voir les commandes</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <ClockIcon className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">En attente de validation</p>
+                    <p className="text-xs text-gray-500">À approuver</p>
+                  </div>
+                </div>
+                <p className="text-xl font-bold text-yellow-600">{commandesATraiter.enAttente || 0}</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <TruckIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">En cours de livraison</p>
+                    <p className="text-xs text-gray-500">Commandes expédiées</p>
+                  </div>
+                </div>
+                <p className="text-xl font-bold text-blue-600">{commandesATraiter.enCours || 0}</p>
+              </div>
+            </div>
+          )}
+          <div className="mt-4 pt-4 border-t">
+  <button 
+    onClick={() => navigate('/dashboard/procurement/commandes')}
+    className="w-full px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+  >
+    Voir toutes les commandes
+  </button>
+          </div>
         </div>
       </div>
     </div>

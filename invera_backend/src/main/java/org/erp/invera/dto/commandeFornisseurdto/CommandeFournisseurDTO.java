@@ -31,4 +31,7 @@ public class CommandeFournisseurDTO {
 
     private Boolean actif;
     private List<LigneCommandeDTO> lignesCommande;
+
+    private String motifRejet;
+    private LocalDateTime dateRejet;
 }

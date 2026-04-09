@@ -1,4 +1,4 @@
-// components/commandeModal.jsx - Version corrigée avec fournisseurs actifs uniquement
+// components/commandeModal.jsx - Version corrigée avec TVA et modification des quantités
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
@@ -9,6 +9,8 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'TND',
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3
   }).format(price);
 };
 
@@ -22,7 +24,7 @@ const getTauxTVA = (produit) => {
 const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   const { 
     fournisseurs, 
-    activeFournisseurs,  // Utiliser activeFournisseurs au lieu de fournisseurs
+    activeFournisseurs,
     loading: loadingFournisseurs,
     fetchActiveFournisseurs
   } = useFournisseur();
@@ -74,7 +76,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     return produitsGroupes.actifs;
   }, [produits, produitsGroupes, afficherInactifs]);
 
-  // Chargement initial - Utiliser fetchActiveFournisseurs
+  // Chargement initial
   useEffect(() => {
     fetchActiveFournisseurs(); 
     loadProducts(0, {});
@@ -84,12 +86,33 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       if (commande) {
+        // Mode édition
         setFormData({
           fournisseur: commande.fournisseur || { idFournisseur: '', nomFournisseur: '', email: '' },
           dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
           adresseLivraison: commande.adresseLivraison || '',
         });
-        setLignes(commande.lignesCommande || []);
+        
+        // ✅ Transformer les lignes existantes avec les bons IDs
+        const lignesExistantes = (commande.lignesCommande || []).map((ligne, index) => ({
+          id: ligne.idLigneCommandeFournisseur || index + 1,
+          produitId: ligne.produitId,
+          produitLibelle: ligne.produitLibelle || ligne.produit?.libelle || 'Produit',
+          produitReference: ligne.produitReference || ligne.produit?.reference || `REF-${ligne.produitId}`,
+          quantite: ligne.quantite,
+          prixUnitaire: ligne.prixUnitaire,
+          tauxTVA: ligne.tauxTVA || 19,
+          sousTotalHT: ligne.sousTotalHT || (ligne.quantite * ligne.prixUnitaire),
+          montantTVA: ligne.montantTVA,
+          sousTotalTTC: ligne.sousTotalTTC,
+          estInactif: ligne.estInactif || false,
+          categorie: ligne.categorie || 'Sans catégorie',
+          stockActuel: ligne.stockActuel || 0,
+        }));
+        
+        setLignes(lignesExistantes);
+        const maxId = Math.max(...lignesExistantes.map(l => l.id), 0);
+        setNextId(maxId + 1);
       } else {
         resetForm();
       }
@@ -118,7 +141,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
 
   const handleFournisseurChange = (e) => {
     const fournisseurId = parseInt(e.target.value);
-    // Utiliser activeFournisseurs au lieu de fournisseurs
     const selected = activeFournisseurs.find(f => f.idFournisseur === fournisseurId);
     setFormData(prev => ({
       ...prev,
@@ -143,6 +165,30 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       setPrixUnitaire(produit.prixAchat || produit.prix || 0);
     }
   };
+
+  // ✅ Modifier une ligne existante (quantité ou prix)
+const modifierLigne = (id, champ, valeur) => {
+  // Ignorer les changements de prix unitaire
+  if (champ === 'prixUnitaire') return;
+  
+  setLignes(prev => prev.map(ligne => {
+    if (ligne.id !== id) return ligne;
+    
+    const nouvelleLigne = { ...ligne };
+    
+    if (champ === 'quantite') {
+      nouvelleLigne.quantite = parseInt(valeur) || 0;
+    }
+    
+    // Recalculer les totaux (le prix reste inchangé)
+    const tauxTVA = nouvelleLigne.tauxTVA || 19;
+    nouvelleLigne.sousTotalHT = nouvelleLigne.quantite * nouvelleLigne.prixUnitaire;
+    nouvelleLigne.montantTVA = nouvelleLigne.sousTotalHT * (tauxTVA / 100);
+    nouvelleLigne.sousTotalTTC = nouvelleLigne.sousTotalHT + nouvelleLigne.montantTVA;
+    
+    return nouvelleLigne;
+  }));
+};
 
   const ajouterProduit = () => {
     if (!produitSelectionne) {
@@ -268,12 +314,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
 
           {/* En-tête */}
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
             <h3 className="text-lg font-semibold text-white">
-              {commande ? 'Modifier la Bon De Commande' : 'Nouvelle Bon De Commande'}
+              {commande ? 'Modifier le Bon De Commande' : 'Nouvelle Bon De Commande'}
             </h3>
             <button onClick={onClose} className="text-white hover:text-gray-200">
               <XMarkIcon className="w-6 h-6" />
@@ -290,7 +336,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
-              {/* Section Fournisseur - MODIFIÉE pour n'afficher que les actifs */}
+              {/* Section Fournisseur */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">1. Fournisseur</h4>
                 {!activeFournisseurs || activeFournisseurs.length === 0 ? (
@@ -340,7 +386,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 />
               </section>
 
-              {/* Section Produits - reste identique */}
+              {/* Section Produits */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-medium text-gray-700">3. Produits</h4>
@@ -372,7 +418,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Sélection du produit avec styles différenciés */}
+                    {/* Sélection du produit */}
                     <select
                       value={produitSelectionne?.id || ''}
                       onChange={handleProductSelect}
@@ -382,78 +428,26 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                       {produitsGroupes.actifs.length > 0 && (
                         <optgroup label="📦 Produits actifs">
                           {produitsGroupes.actifs.map(p => (
-                            <option key={`actif-${p.id}`} value={p.id} className="text-black-700">
-                              {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0}
+                            <option key={`actif-${p.id}`} value={p.id}>
+                              {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - TVA: {p.tauxTVA}% - Stock: {p.stock || 0}
                             </option>
                           ))}
                         </optgroup>
                       )}
                       {afficherInactifs && produitsGroupes.inactifs.length > 0 && (
-                        <optgroup label="⚠️ Produits inactifs" className="text-orange-600">
+                        <optgroup label="⚠️ Produits inactifs">
                           {produitsGroupes.inactifs.map(p => (
-                            <option key={`inactif-${p.id}`} value={p.id} className="text-orange-600 bg-orange-50">
-                              ⚠️ {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - Stock: {p.stock || 0} (INACTIF)
+                            <option key={`inactif-${p.id}`} value={p.id} className="text-orange-600">
+                              ⚠️ {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - TVA: {p.tauxTVA}% - Stock: {p.stock || 0} (INACTIF)
                             </option>
                           ))}
                         </optgroup>
                       )}
                     </select>
 
-                    {/* Reste du code identique... */}
-                    {produitSelectionne && (
-                      <div className={`p-4 rounded-lg border ${
-                        !produitSelectionne.estActif 
-                          ? 'bg-orange-50 border-orange-300 shadow-sm' 
-                          : 'bg-green-50 border-green-200'
-                      }`}>
-                        {/* ... contenu identique ... */}
-                        <div className="flex items-start gap-3">
-                          {!produitSelectionne.estActif ? (
-                            <ExclamationTriangleIcon className="w-5 h-5 text-orange-500 mt-0.5" />
-                          ) : (
-                            <CheckCircleIcon className="w-5 h-5 text-green-500 mt-0.5" />
-                          )}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`font-medium ${
-                                !produitSelectionne.estActif ? 'text-orange-800' : 'text-green-800'
-                              }`}>
-                                {!produitSelectionne.estActif ? '⚠️ Produit inactif' : '✅ Produit actif'}
-                              </span>
-                              {!produitSelectionne.estActif && (
-                                <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
-                                  Sera réactivé à la réception
-                                </span>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-3 gap-3 text-sm">
-                              <div className={`${
-                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
-                              } p-2 rounded`}>
-                                <span className="text-gray-600">Stock actuel:</span>
-                                <span className="ml-2 font-medium">{produitSelectionne.stock || 0}</span>
-                              </div>
-                              <div className={`${
-                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
-                              } p-2 rounded`}>
-                                <span className="text-gray-600">TVA:</span>
-                                <span className="ml-2 font-medium">{produitSelectionne.tauxTVA || 19}%</span>
-                              </div>
-                              <div className={`${
-                                !produitSelectionne.estActif ? 'bg-orange-100' : 'bg-green-100'
-                              } p-2 rounded`}>
-                                <span className="text-gray-600">Prix achat:</span>
-                                <span className="ml-2 font-medium">{formatPrice(produitSelectionne.prixAchat || 0)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Quantité et Prix */}
                     {produitSelectionne && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Quantité à commander <span className="text-red-500">*</span>
@@ -480,98 +474,99 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                             placeholder="0.000"
                           />
                         </div>
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            onClick={ajouterProduit}
+                            className={`w-full px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                              !produitSelectionne
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : !produitSelectionne.estActif
+                                ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                            Ajouter à la commande
+                          </button>
+                        </div>
                       </div>
                     )}
 
-                    {/* Bouton ajout */}
-                    <button
-                      type="button"
-                      onClick={ajouterProduit}
-                      disabled={!produitSelectionne}
-                      className={`w-full px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
-                        !produitSelectionne
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : !produitSelectionne.estActif
-                          ? 'bg-orange-600 text-white hover:bg-orange-700'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      <PlusIcon className="w-4 h-4" />
-                      Ajouter à la commande
-                    </button>
+                    {/* Tableau des lignes avec modification possible */}
+                    {lignes.length > 0 ? (
+                      <div className="mt-6 border rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-100">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Produit</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Qté cmd</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Prix unit.</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">TVA</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total HT</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total TTC</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {lignes.map((ligne) => (
+                                <tr key={`ligne-${ligne.id}`} className={ligne.estInactif ? 'bg-orange-50' : 'hover:bg-gray-50'}>
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium flex items-center gap-1">
+                                      {ligne.estInactif && <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" />}
+                                      <span className={ligne.estInactif ? 'text-orange-800' : 'text-gray-900'}>
+                                        {ligne.produitLibelle}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
+                                    {ligne.categorie && <div className="text-xs text-gray-400">{ligne.categorie}</div>}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      value={ligne.quantite}
+                                      onChange={(e) => modifierLigne(ligne.id, 'quantite', e.target.value)}
+                                      className="w-20 px-2 py-1 text-right border rounded focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </td>
+                                   {/* ✅ Prix unitaire */}
+              <td className="px-4 py-3 text-right">
+                <span className="px-2 py-1 text-gray-700 font-medium">
+                  {formatPrice(ligne.prixUnitaire)}
+                </span>
+              </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                                      {ligne.tauxTVA}%
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">{formatPrice(ligne.sousTotalHT)}</td>
+                                  <td className="px-4 py-3 text-right font-medium text-blue-600">
+                                    {formatPrice(ligne.sousTotalTTC)}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => supprimerLigne(ligne.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Supprimer"
+                                    >
+                                      <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-center text-gray-500 py-4 mt-4">Aucun article ajouté</p>
+                    )}
                   </div>
-                )}
-
-                {/* Tableau des lignes - reste identique */}
-                {lignes.length > 0 ? (
-                  <div className="mt-6 border rounded-lg overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Produit</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Qté cmd</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prix unit.</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">TVA</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total HT</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total TTC</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {lignes.map((ligne) => (
-                          <tr key={`ligne-${ligne.id}`} className={`${
-                            ligne.estInactif 
-                              ? 'bg-orange-50 hover:bg-orange-100 border-l-4 border-l-orange-400' 
-                              : 'hover:bg-gray-50'
-                          }`}>
-                            <td className="px-4 py-2">
-                              <div className="font-medium flex items-center gap-1">
-                                {ligne.estInactif && (
-                                  <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" title="Produit inactif" />
-                                )}
-                                <span className={ligne.estInactif ? 'text-orange-800' : 'text-gray-900'}>
-                                  {ligne.produitLibelle}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
-                              {ligne.categorie && (
-                                <div className="text-xs text-gray-400">{ligne.categorie}</div>
-                              )}
-                              {ligne.estInactif && (
-                                <div className="text-xs text-orange-600 mt-0.5 flex items-center gap-1">
-                                  <ExclamationTriangleIcon className="w-3 h-3" />
-                                  Sera réactivé à la réception
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-right font-medium">{ligne.quantite}</td>
-                            <td className="px-4 py-2 text-right">{formatPrice(ligne.prixUnitaire)}</td>
-                            <td className="px-4 py-2 text-center">
-                              <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                                {ligne.tauxTVA}%
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 text-right">{formatPrice(ligne.sousTotalHT)}</td>
-                            <td className="px-4 py-2 text-right font-medium text-blue-600">
-                              {formatPrice(ligne.sousTotalTTC)}
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => supprimerLigne(ligne.id)}
-                                className="text-red-600 hover:text-red-800"
-                                title="Supprimer"
-                              >
-                                <TrashIcon className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 py-4 mt-4">Aucun article ajouté</p>
                 )}
               </section>
 
@@ -591,7 +586,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                     </div>
                   )}
                   <div className="flex justify-end">
-                    <div className="w-64 space-y-2">
+                    <div className="w-80 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Total HT</span>
                         <span className="font-medium">{formatPrice(totaux.totalHT)}</span>

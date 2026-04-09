@@ -386,7 +386,6 @@ public class BonCommandePdfService {
             throw new RuntimeException("Erreur lors de la génération du PDF", e);
         }
     }
-
     /**
      * Couleur du statut pour le PDF
      */
@@ -402,8 +401,9 @@ public class BonCommandePdfService {
                 return new DeviceRgb(40, 167, 69);   // Vert
             case FACTUREE:
                 return new DeviceRgb(111, 66, 193);  // Violet
-            case ANNULEE:
-                return new DeviceRgb(220, 53, 69);   // Rouge
+            // Rouge
+            case REJETEE:
+                return new DeviceRgb(255, 87, 34);   // Orange-rouge (Deep Orange)
             default:
                 return COLOR_SECONDARY;
         }
