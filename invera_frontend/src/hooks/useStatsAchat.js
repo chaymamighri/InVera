@@ -1,16 +1,25 @@
-// src/hooks/useStatsAchat.js
 import { useState, useEffect, useCallback } from 'react';
 import statsAchatService from '../services/statsAchatService';
+
+const DEFAULT_STATS = {
+  commandes: { total: 0, enAttente: 0, enCours: 0, livre: 0, tendance: 0 },
+  produits: { total: 0, actifs: 0, rupture: 0, alerte: 0, tendance: 0 },
+  stock: { valeurTotale: 0, mouvementsMois: 0, rotation: 0, tendance: 0 },
+  factures: { total: 0, payees: 0, impayees: 0, montantTotal: 0, tendance: 0 },
+};
+
+const getReadableError = (result, fallback) => {
+  if (!result || result.success) return null;
+  if (result.status === 403) return 'Accès refusé aux statistiques achats pour ce rôle.';
+  if (result.status === 401) return 'Session expirée. Veuillez vous reconnecter.';
+  return result.error || fallback;
+};
 
 export const useStatsAchat = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState({
-    commandes: { total: 0, enAttente: 0, enCours: 0, livre: 0, tendance: 0 },
-    produits: { total: 0, actifs: 0, rupture: 0, alerte: 0, tendance: 0 },
-    stock: { valeurTotale: 0, mouvementsMois: 0, rotation: 0, tendance: 0 },
-    factures: { total: 0, payees: 0, impayees: 0, montantTotal: 0, tendance: 0 },
-  });
+  const [warnings, setWarnings] = useState([]);
+  const [stats, setStats] = useState(DEFAULT_STATS);
   const [evolutionCommandes, setEvolutionCommandes] = useState([]);
   const [mouvementsStock, setMouvementsStock] = useState([]);
   const [repartitionCategories, setRepartitionCategories] = useState([]);
@@ -23,107 +32,138 @@ export const useStatsAchat = () => {
   const fetchAllStats = useCallback(async (startDateParam = '', endDateParam = '') => {
     setLoading(true);
     setError(null);
-
-    const startDate = startDateParam;
-    const endDate = endDateParam;
+    setWarnings([]);
 
     try {
       const [
         dashboardResult,
-        evolutionData,
-        mouvementsData,
-        categoriesData,
-        alertesData,
-        commandesData,
-        kpisData
+        evolutionResult,
+        mouvementsResult,
+        categoriesResult,
+        alertesResult,
+        commandesResult,
+        kpisResult,
       ] = await Promise.all([
-        statsAchatService.getDashboardStats(startDate, endDate),
-        statsAchatService.getEvolutionCommandes(startDate, endDate),
-        statsAchatService.getMouvementsStock(startDate, endDate),
-        statsAchatService.getRepartitionCategories(startDate, endDate),
-        statsAchatService.getAlertesStock(startDate, endDate),
-        statsAchatService.getCommandesATraiter(startDate, endDate),
-        statsAchatService.getKPIs(startDate, endDate)
+        statsAchatService.getDashboardStats(startDateParam, endDateParam),
+        statsAchatService.getEvolutionCommandes(startDateParam, endDateParam),
+        statsAchatService.getMouvementsStock(startDateParam, endDateParam),
+        statsAchatService.getRepartitionCategories(startDateParam, endDateParam),
+        statsAchatService.getAlertesStock(startDateParam, endDateParam),
+        statsAchatService.getCommandesATraiter(),
+        statsAchatService.getKPIs(),
       ]);
 
-      // Mettre à jour les dates courantes
-      if (startDateParam) setCurrentStartDate(startDateParam);
-      if (endDateParam) setCurrentEndDate(endDateParam);
-
-      // Dashboard stats
-      if (dashboardResult && dashboardResult.success && dashboardResult.data) {
-        const d = dashboardResult.data;
-        setStats({
-          commandes: {
-            total: d.commandes?.total ?? 0,
-            enAttente: d.commandes?.enAttente ?? 0,
-            enCours: d.commandes?.enCours ?? 0,
-            livre: d.commandes?.livre ?? 0,
-            tendance: d.commandes?.tendance ?? 0,
-          },
-          produits: {
-            total: d.produits?.total ?? 0,
-            actifs: d.produits?.actifs ?? 0,
-            rupture: d.produits?.rupture ?? 0,
-            alerte: d.produits?.alerte ?? 0,
-            tendance: d.produits?.tendance ?? 0,
-          },
-          stock: {
-            valeurTotale: d.stock?.valeurTotale ?? 0,
-            mouvementsMois: d.stock?.mouvementsMois ?? 0,
-            rotation: d.stock?.rotation ?? 0,
-            tendance: d.stock?.tendance ?? 0,
-          },
-          factures: {
-            total: d.factures?.total ?? 0,
-            payees: d.factures?.payees ?? 0,
-            impayees: d.factures?.impayees ?? 0,
-            montantTotal: d.factures?.montantTotal ?? 0,
-            tendance: d.factures?.tendance ?? 0,
-          },
-        });
+      if (startDateParam || endDateParam) {
+        setCurrentStartDate(startDateParam || '');
+        setCurrentEndDate(endDateParam || '');
       }
 
-      // Évolution commandes
-      setEvolutionCommandes(Array.isArray(evolutionData)
-        ? evolutionData.map(item => ({ label: item.label ?? '', valeur: item.valeur ?? 0 }))
-        : []
+      const primaryError = getReadableError(
+        dashboardResult,
+        'Impossible de charger les statistiques achats.'
+      );
+      if (primaryError) setError(primaryError);
+
+      setWarnings(
+        [
+          getReadableError(evolutionResult, 'Évolution des commandes indisponible.'),
+          getReadableError(mouvementsResult, 'Mouvements de stock indisponibles.'),
+          getReadableError(categoriesResult, 'Répartition des catégories indisponible.'),
+          getReadableError(alertesResult, 'Alertes de stock indisponibles.'),
+          getReadableError(commandesResult, 'Commandes à traiter indisponibles.'),
+          getReadableError(kpisResult, 'KPIs achats indisponibles.'),
+        ].filter(Boolean)
       );
 
-      // Mouvements stock
-     // ✅ LIGNE 73 - Corrigé (bon)
-setMouvementsStock(Array.isArray(mouvementsData)
-  ? mouvementsData.map(item => ({ 
-      label: item.label ?? '', 
-      entrees: item.entrees ?? 0,
-      sorties: item.sorties ?? 0,    
-      max: item.max ?? 0,           
-      dateRange: item.dateRange ?? '' 
-    }))
-  : []
-);
-
-      // Répartition catégories
-      setRepartitionCategories(Array.isArray(categoriesData)
-        ? categoriesData.map(item => ({ categorie: item.categorie ?? 'N/A', nombreProduits: item.nombreProduits ?? 0 }))
-        : []
+      const dashboardData = dashboardResult.success ? dashboardResult.data : null;
+      setStats(
+        dashboardData
+          ? {
+              commandes: {
+                total: dashboardData.commandes?.total ?? 0,
+                enAttente: dashboardData.commandes?.enAttente ?? 0,
+                enCours: dashboardData.commandes?.enCours ?? 0,
+                livre: dashboardData.commandes?.livre ?? 0,
+                tendance: dashboardData.commandes?.tendance ?? 0,
+              },
+              produits: {
+                total: dashboardData.produits?.total ?? 0,
+                actifs: dashboardData.produits?.actifs ?? 0,
+                rupture: dashboardData.produits?.rupture ?? 0,
+                alerte: dashboardData.produits?.alerte ?? 0,
+                tendance: dashboardData.produits?.tendance ?? 0,
+              },
+              stock: {
+                valeurTotale: dashboardData.stock?.valeurTotale ?? 0,
+                mouvementsMois: dashboardData.stock?.mouvementsMois ?? 0,
+                rotation: dashboardData.stock?.rotation ?? 0,
+                tendance: dashboardData.stock?.tendance ?? 0,
+              },
+              factures: {
+                total: dashboardData.factures?.total ?? 0,
+                payees: dashboardData.factures?.payees ?? 0,
+                impayees: dashboardData.factures?.impayees ?? 0,
+                montantTotal: dashboardData.factures?.montantTotal ?? 0,
+                tendance: dashboardData.factures?.tendance ?? 0,
+              },
+            }
+          : DEFAULT_STATS
       );
 
-      // Alertes stock
-      setAlertesStock(Array.isArray(alertesData)
-        ? alertesData.map(a => ({ typeAlerte: a.typeAlerte ?? 'N/A', count: a.count ?? 0 }))
-        : []
+      setEvolutionCommandes(
+        Array.isArray(evolutionResult.data)
+          ? evolutionResult.data.map((item) => ({
+              label: item.label ?? '',
+              valeur: item.valeur ?? 0,
+              total: item.total ?? 0,
+            }))
+          : []
       );
 
-      // Commandes à traiter
-      setCommandesATraiter(commandesData
-        ? { enAttente: commandesData.enAttente ?? 0, enCours: commandesData.enCours ?? 0 }
-        : { enAttente: 0, enCours: 0 }
+      setMouvementsStock(
+        Array.isArray(mouvementsResult.data)
+          ? mouvementsResult.data.map((item) => ({
+              label: item.label ?? '',
+              entrees: item.entrees ?? 0,
+              sorties: item.sorties ?? 0,
+              max: item.max ?? 0,
+              dateRange: item.dateRange ?? '',
+            }))
+          : []
       );
 
-      // KPIs
-      setKpis(kpisData ?? null);
+      setRepartitionCategories(
+        Array.isArray(categoriesResult.data)
+          ? categoriesResult.data.map((item) => ({
+              categorie: item.categorie ?? 'N/A',
+              nombreProduits: item.nombreProduits ?? 0,
+              pourcentage: item.pourcentage ?? 0,
+            }))
+          : []
+      );
 
+      setAlertesStock(
+        Array.isArray(alertesResult.data)
+          ? alertesResult.data.map((item) => ({
+              produitId: item.produitId ?? null,
+              produitNom: item.produitNom ?? 'Produit inconnu',
+              stockActuel: item.stockActuel ?? 0,
+              stockMin: item.stockMin ?? 0,
+              typeAlerte: item.typeAlerte ?? 'N/A',
+            }))
+          : []
+      );
+
+      setCommandesATraiter(
+        commandesResult.success
+          ? {
+              enAttente: commandesResult.data?.enAttente ?? 0,
+              enCours: commandesResult.data?.enCours ?? 0,
+            }
+          : { enAttente: 0, enCours: 0 }
+      );
+
+      setKpis(kpisResult.success ? kpisResult.data ?? null : null);
     } catch (err) {
       console.error('Erreur lors du chargement des statistiques:', err);
       setError('Impossible de charger les statistiques. Veuillez réessayer plus tard.');
@@ -132,20 +172,22 @@ setMouvementsStock(Array.isArray(mouvementsData)
     }
   }, []);
 
-  // Chargement initial sans dates
   useEffect(() => {
     fetchAllStats();
-  }, []);
-
-  // Fonction refetch qui accepte des paramètres de dates
-  const refetch = useCallback((dateParams = {}) => {
-    const { startDate, endDate } = dateParams;
-    return fetchAllStats(startDate || '', endDate || '');
   }, [fetchAllStats]);
+
+  const refetch = useCallback(
+    (dateParams = {}) => {
+      const { startDate, endDate } = dateParams;
+      return fetchAllStats(startDate || '', endDate || '');
+    },
+    [fetchAllStats]
+  );
 
   return {
     loading,
     error,
+    warnings,
     stats,
     evolutionCommandes,
     mouvementsStock,
@@ -155,6 +197,6 @@ setMouvementsStock(Array.isArray(mouvementsData)
     kpis,
     refetch,
     currentStartDate,
-    currentEndDate
+    currentEndDate,
   };
 };

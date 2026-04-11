@@ -94,7 +94,7 @@ public class CommandeFournisseur {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "motif_rejet",nullable = false ,length = 500)
+    @Column(name = "motif_rejet" ,length = 500)
     private String motifRejet;
 
     // Optionnel : date du rejet pour traçabilité
