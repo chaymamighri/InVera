@@ -302,23 +302,7 @@ const TableauCommandes = ({
 
                   <td className="px-4 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-3">
-                      
-                      {/* ========== STATUT BROUILLON ========== */}
-                      {/* Le responsable ne peut que supprimer en BROUILLON, pas modifier */}
-                      {commande.statut === statuts.BROUILLON && !isArchived && (
-                        <>
-                          {/* Supprimer - Responsable */}
-                          {onDelete && (
-                            <button
-                              onClick={() => onDelete(commande)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Supprimer la commande"
-                            >
-                              <TrashIcon className="w-5 h-5" />
-                            </button>
-                          )}
-                        </>
-                      )}
+                    
 
                       {/* ========== STATUT REJETEE ========== */}
                       {/* Le responsable peut modifier et renvoyer en attente */}
@@ -361,17 +345,6 @@ const TableauCommandes = ({
     <ArrowPathIcon className="w-5 h-5" />
   </button>
 )}
-
-                          {/* Supprimer - Responsable */}
-                          {onDelete && (
-                            <button
-                              onClick={() => onDelete(commande)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Supprimer la commande"
-                            >
-                              <TrashIcon className="w-5 h-5" />
-                            </button>
-                          )}
                         </>
                       )}
 
