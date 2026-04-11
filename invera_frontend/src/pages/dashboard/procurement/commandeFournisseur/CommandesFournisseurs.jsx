@@ -8,7 +8,6 @@
  * - Liste des commandes avec filtres (recherche, statut)
  * - Création, modification, suppression de commande
  * - Changement de statut (brouillon → validée → envoyée → reçue)
- * - Gestion des archives (commandes supprimées)
  * - Recherche par numéro ou période
  * - Réception de commande avec gestion des stocks
  * - Focus sur commande prioritaire (depuis rappels)
@@ -43,7 +42,6 @@ import ReceptionModal from './components/ReceptionModal';
 import StatsCartes from './components/StatsCartes';
 import BarreRecherche from './components/BarreRecherche';
 import TableauCommandes from './components/TableauCommandes';
-import ConfirmationModal from './components/ConfirmationModal';
 
 export const StatutCommande = {
   BROUILLON: 'BROUILLON',
@@ -526,14 +524,7 @@ const handleStatusChange = async (id, action) => {
         onConfirm={handleReceptionConfirm}
       />
 
-      <ConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Supprimer la commande"
-        message={`Etes-vous sur de vouloir supprimer la commande ${selectedCommande?.numeroCommande || ''} ?`}
-        isLoading={actionInProgress === 'delete'}
-      />
+  
     </div>
   );
 };
