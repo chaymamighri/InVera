@@ -20,10 +20,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -100,7 +97,6 @@ public class CommandeFournisseurService {
         commande.setFournisseur(fournisseur);
         commande.setStatut(CommandeFournisseur.StatutCommande.BROUILLON);
         commande.setActif(true);
-        commande.setTauxTVA(dto.getTauxTVA() != null ? dto.getTauxTVA() : TVA_PAR_DEFAUT);
 
         List<LigneCommandeFournisseur> lignes = dto.getLignesCommande()
                 .stream()
@@ -126,12 +122,25 @@ public class CommandeFournisseurService {
                     ligne.setQuantite(ligneDTO.getQuantite());
                     ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
+                    // Récupérer le taux TVA (priorité: DTO → Produit → 19%)
+                    BigDecimal tauxTVA;
+                    if (ligneDTO.getTauxTVA() != null) {
+                        tauxTVA = ligneDTO.getTauxTVA();
+                    } else if (produit.getCategorie() != null && produit.getCategorie().getTauxTVA() != null) {
+                        tauxTVA = produit.getCategorie().getTauxTVA();  // De la catégorie
+                    } else {
+                        tauxTVA = new BigDecimal("19");  // Par défaut
+                    }
+
+                    ligne.setTauxTVA(tauxTVA);  //Stocker le taux individuel
+
+                    // Calcul avec le taux individuel
                     BigDecimal sousTotalHT = ligneDTO.getPrixUnitaire()
                             .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()))
                             .setScale(3, RoundingMode.HALF_UP);
 
                     BigDecimal montantTVA = sousTotalHT
-                            .multiply(commande.getTauxTVA())
+                            .multiply(tauxTVA)  // ← Taux individuel, pas global !
                             .divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
 
                     BigDecimal sousTotalTTC = sousTotalHT.add(montantTVA)
@@ -150,6 +159,7 @@ public class CommandeFournisseurService {
 
         commande.setLignesCommande(lignes);
 
+        //  Calcul des totaux (inchangé)
         BigDecimal totalHT = lignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalHT)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -184,16 +194,24 @@ public class CommandeFournisseurService {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
 
-        //  Seules les commandes REJETEE peuvent être modifiées
+        // Seules les commandes REJETEE peuvent être modifiées
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
             throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées. Statut actuel: " + commande.getStatut());
         }
 
-        // Update champs simples
+        // ✅ 1. MODIFICATION DU FOURNISSEUR (AJOUT)
+        if (dto.getFournisseur() != null && dto.getFournisseur().getIdFournisseur() != null) {
+            Fournisseur nouveauFournisseur = fournisseurRepository
+                    .findById(dto.getFournisseur().getIdFournisseur())
+                    .orElseThrow(() -> new RuntimeException("Fournisseur non trouvé avec l'id: " + dto.getFournisseur().getIdFournisseur()));
+            commande.setFournisseur(nouveauFournisseur);
+        }
+
+        // ✅ 2. MODIFICATION DES AUTRES CHAMPS
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
 
-        // MAP des lignes existantes
+        // ✅ 3. MODIFICATION DES LIGNES (déjà existant)
         Map<Integer, LigneCommandeFournisseur> lignesExistantes = commande.getLignesCommande()
                 .stream()
                 .collect(Collectors.toMap(LigneCommandeFournisseur::getIdLigneCommandeFournisseur, l -> l));
@@ -204,7 +222,6 @@ public class CommandeFournisseurService {
 
             LigneCommandeFournisseur ligne;
 
-            // CAS 1 : update ligne existante
             if (ligneDTO.getIdLigneCommandeFournisseur() != null &&
                     lignesExistantes.containsKey(ligneDTO.getIdLigneCommandeFournisseur())) {
                 ligne = lignesExistantes.get(ligneDTO.getIdLigneCommandeFournisseur());
@@ -213,7 +230,6 @@ public class CommandeFournisseurService {
                 ligne.setCommandeFournisseur(commande);
             }
 
-            // Récupérer produit
             Produit produit = produitRepository.findById(ligneDTO.getProduitId())
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
@@ -221,8 +237,16 @@ public class CommandeFournisseurService {
             ligne.setQuantite(ligneDTO.getQuantite());
             ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
-            //  Calculer les totaux
-            BigDecimal tauxTVA = produit.getCategorie().getTauxTVA();
+            BigDecimal tauxTVA;
+            if (ligneDTO.getTauxTVA() != null) {
+                tauxTVA = ligneDTO.getTauxTVA();
+            } else if (produit.getCategorie() != null && produit.getCategorie().getTauxTVA() != null) {
+                tauxTVA = produit.getCategorie().getTauxTVA();
+            } else {
+                tauxTVA = new BigDecimal("19");
+            }
+
+            ligne.setTauxTVA(tauxTVA);
             ligne.calculerTotaux(tauxTVA);
 
             nouvellesLignes.add(ligne);
@@ -231,10 +255,33 @@ public class CommandeFournisseurService {
         commande.getLignesCommande().clear();
         commande.getLignesCommande().addAll(nouvellesLignes);
 
-        CommandeFournisseur saved = commandeRepository.save(commande);
+        // ✅ 4. RECALCUL DES TOTAUX
+        BigDecimal totalHT = nouvellesLignes.stream()
+                .map(LigneCommandeFournisseur::getSousTotalHT)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(3, RoundingMode.HALF_UP);
 
+        BigDecimal totalTVA = nouvellesLignes.stream()
+                .map(LigneCommandeFournisseur::getMontantTVA)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(3, RoundingMode.HALF_UP);
+
+        BigDecimal totalTTC = nouvellesLignes.stream()
+                .map(LigneCommandeFournisseur::getSousTotalTTC)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(3, RoundingMode.HALF_UP);
+
+        commande.setTotalHT(totalHT);
+        commande.setTotalTVA(totalTVA);
+        commande.setTotalTTC(totalTTC);
+
+        CommandeFournisseur saved = commandeRepository.save(commande);
         return convertToDTO(saved);
     }
+
 
     public CommandeFournisseurDTO validerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
