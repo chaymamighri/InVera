@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.erp.invera.model.DemandeApprovisionement.DemandeApprovisionnement;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.annotation.CreatedBy;
@@ -72,11 +71,6 @@ public class CommandeFournisseur {
 
     @Column(name = "notes_reception", columnDefinition = "TEXT")
     private String notesReception;
-
-    // Relation vers la demande d'approvisionnement source
-    @OneToOne
-    @JoinColumn(name = "demande_approvisionnement_id")
-    private DemandeApprovisionnement demande;
 
     @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
