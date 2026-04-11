@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  *    - Chiffre d'affaires total
  *    - Nombre de commandes et panier moyen
  *    - Taux de transformation
- *    - Détail des commandes
+ *    - Détail des commandes (avec responsable)
  *    - Statistiques par statut (confirmée, livrée, annulée...)
  *
  * 2. RAPPORT DES FACTURES :
@@ -56,7 +56,6 @@ public class ReportService {
 
     // ============== RAPPORT DES COMMANDES (VENTES) ==============
 
-    // ============== RAPPORT DES COMMANDES (VENTES) ==============
     @Transactional
     public Map<String, Object> generateSalesReport(
             String period,
@@ -82,13 +81,11 @@ public class ReportService {
         List<CommandeClient> commandes;
 
         if (startDate != null && endDate != null) {
-            // Utiliser une méthode simple sans "WithDetails" qui pourrait limiter
             commandes = commandeRepository.findByDateCommandeBetween(
                     dateRange.getStartDateTime(),
                     dateRange.getEndDateTime()
             );
         } else {
-            // Récupérer TOUTES les commandes
             commandes = commandeRepository.findAll();
         }
 
@@ -106,7 +103,8 @@ public class ReportService {
                 System.out.println("  - " + cmd.getReferenceCommandeClient() +
                         " | " + cmd.getDateCommande() +
                         " | " + cmd.getTotal() +
-                        " | " + cmd.getStatut());
+                        " | " + cmd.getStatut() +
+                        " | créé par: " + cmd.getCreatedBy());
             });
         }
 
@@ -122,7 +120,7 @@ public class ReportService {
 
         report.put("summary", summary);
 
-        // Détail des commandes
+        // Détail des commandes (INCLUT MAINTENANT created_by)
         List<Map<String, Object>> ventesList = commandes.stream()
                 .map(this::mapCommandeToDTO)
                 .collect(Collectors.toList());
@@ -158,7 +156,7 @@ public class ReportService {
         return report;
     }
 
-// ============== RAPPORT DES FACTURES ==============
+    // ============== RAPPORT DES FACTURES ==============
 
     public Map<String, Object> generateInvoicesReport(
             String period,
@@ -179,7 +177,6 @@ public class ReportService {
         System.out.println("DateRange start: " + dateRange.getStartDateTime());
         System.out.println("DateRange end: " + dateRange.getEndDateTime());
 
-        // ✅ Récupérer TOUTES les factures SANS LIMITE
         List<FactureClient> factures;
 
         if (startDate != null && endDate != null) {
@@ -188,13 +185,11 @@ public class ReportService {
                     dateRange.getEndDateTime()
             );
         } else {
-            // Récupérer TOUTES les factures
             factures = factureRepository.findAll();
         }
 
         System.out.println("Total factures avant filtres: " + factures.size());
 
-        // Afficher les 5 premières factures pour déboguer
         if (!factures.isEmpty()) {
             System.out.println("Exemples de factures:");
             factures.stream().limit(5).forEach(f -> {
@@ -205,14 +200,12 @@ public class ReportService {
             });
         }
 
-        // Appliquer les filtres
         factures = applyFactureFilters(factures, clientType, status);
 
         System.out.println("Total factures après filtres: " + factures.size());
 
         Map<String, Object> report = new HashMap<>();
 
-        // Résumé
         Map<String, Object> summary = new HashMap<>();
         summary.put("totalFactures", factures.size());
         summary.put("montantTotal", calculateTotalAmount(factures));
@@ -243,7 +236,6 @@ public class ReportService {
         summary.put("montantImpaye", montantImpaye);
         summary.put("tauxRecouvrement", calculateRecoveryRate(factures));
 
-        // Factures en retard (plus de 30 jours)
         LocalDateTime dateLimite = LocalDateTime.now().minusDays(30);
         long enRetard = factures.stream()
                 .filter(f -> FactureClient.StatutFacture.NON_PAYE.equals(f.getStatut()))
@@ -253,7 +245,6 @@ public class ReportService {
 
         report.put("summary", summary);
 
-        // Détail des factures
         List<Map<String, Object>> facturesList = factures.stream()
                 .map(this::mapFactureToDTO)
                 .collect(Collectors.toList());
@@ -271,15 +262,13 @@ public class ReportService {
         return report;
     }
 
-// ============== MÉTHODES PRIVÉES CORRIGÉES ==============
+    // ============== MÉTHODES PRIVÉES CORRIGÉES ==============
 
     private DateRange calculateDateRange(String period, LocalDate startDate, LocalDate endDate) {
-        // Si on a des dates, les utiliser directement
         if (startDate != null && endDate != null) {
             return new DateRange(startDate, endDate);
         }
 
-        // Sinon, utiliser la période ou valeur par défaut
         LocalDate now = LocalDate.now();
         LocalDate start;
         LocalDate end = now;
@@ -397,6 +386,10 @@ public class ReportService {
                 .divide(total, 2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Convertit une commande en Map pour l'API.
+     * Inclut maintenant le champ "created_by" (responsable).
+     */
     private Map<String, Object> mapCommandeToDTO(CommandeClient commande) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", commande.getIdCommandeClient());
@@ -409,6 +402,11 @@ public class ReportService {
         map.put("montant", commande.getTotal() != null ? commande.getTotal() : BigDecimal.ZERO);
         map.put("statut", commande.getStatut() != null ? commande.getStatut().name() : "INCONNU");
         map.put("nbProduits", commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0);
+
+        // ✅ AJOUT DU RESPONSABLE (créateur de la commande)
+        // Le champ "created_by" est automatiquement renseigné par Spring Data Auditing
+        map.put("created_by", commande.getCreatedBy() != null ? commande.getCreatedBy() : "");
+
         return map;
     }
 
@@ -439,11 +437,9 @@ public class ReportService {
         System.out.println("endDate: " + endDate);
         System.out.println("clientType: " + clientType);
 
-        // Récupérer TOUS les clients
         List<Client> allClients = clientRepository.findAll();
         System.out.println("Total clients en base: " + allClients.size());
 
-        // Appliquer le filtre de type client
         List<Client> filteredClients;
         if (clientType != null && !"all".equals(clientType) && !clientType.isEmpty()) {
             filteredClients = allClients.stream()
@@ -455,18 +451,14 @@ public class ReportService {
             filteredClients = allClients;
         }
 
-        // Récupérer TOUTES les commandes pour les statistiques
         List<CommandeClient> allCommandes = commandeRepository.findAll();
         System.out.println("Total commandes en base: " + allCommandes.size());
 
-        // Calculer les statistiques
         Map<String, Object> report = new HashMap<>();
 
-        // Résumé
         Map<String, Object> summary = new HashMap<>();
         summary.put("totalClients", filteredClients.size());
 
-        // Clients actifs (ont passé au moins une commande)
         Set<Integer> clientsAyantCommande = allCommandes.stream()
                 .map(c -> c.getClient().getIdClient())
                 .collect(Collectors.toSet());
@@ -530,7 +522,6 @@ public class ReportService {
         }
         report.put("repartitionParType", repartitionParType);
 
-        // Période
         report.put("period", period);
         if (startDate != null && endDate != null) {
             report.put("startDate", startDate.toString());
@@ -579,7 +570,6 @@ public class ReportService {
     }
 
     private static class DateRange {
-
         private final LocalDate startDate;
         private final LocalDate endDate;
 
@@ -587,7 +577,6 @@ public class ReportService {
             this.startDate = startDate;
             this.endDate = endDate;
         }
-
 
         public LocalDateTime getStartDateTime() {
             return startDate.atStartOfDay();
@@ -597,6 +586,4 @@ public class ReportService {
             return endDate.atTime(LocalTime.MAX);
         }
     }
-
-
 }
