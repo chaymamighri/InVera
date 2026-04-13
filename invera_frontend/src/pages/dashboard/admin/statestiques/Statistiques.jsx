@@ -3,11 +3,8 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  Line,
-  LineChart,
   BarChart,
   Bar,
-  ComposedChart,
   XAxis,
   YAxis,
   Tooltip,
@@ -15,7 +12,6 @@ import {
   Legend,
   Brush,
   LabelList,
-  ReferenceLine,
   PieChart,
   Pie,
   Cell,
@@ -96,7 +92,10 @@ const KpiCard = ({ label, value, hint }) => (
   </div>
 );
 
-const ChartTypeSelector = ({ value, onChange, options = ['line', 'bar', 'area'] }) => (
+const ChartTypeSelector = ({ value, onChange, options = ['bar', 'area'] }) => {
+  if (!Array.isArray(options) || options.length <= 1) return null;
+
+  return (
   <div className="flex gap-1 rounded-md bg-gray-100 p-0.5">
     {options.map(opt => (
       <button
@@ -108,11 +107,12 @@ const ChartTypeSelector = ({ value, onChange, options = ['line', 'bar', 'area'] 
             : 'text-gray-600 hover:bg-gray-200'
         }`}
       >
-        {opt === 'line' ? 'Courbe' : opt === 'bar' ? 'Histogramme' : opt === 'area' ? 'Aire' : opt === 'pie' ? 'Circulaire' : opt === 'composed' ? 'Pareto' : opt}
+        {opt === 'bar' ? 'Histogramme' : opt === 'area' ? 'Aire' : opt === 'pie' ? 'Circulaire' : opt === 'composed' ? 'Pareto' : opt}
       </button>
     ))}
   </div>
-);
+  );
+};
 
 const PrimaryButton = ({ className = '', children, ...props }) => (
   <button
@@ -211,9 +211,6 @@ const pickFirst = (obj, keys, fallback = null) => {
   return fallback;
 };
 
-const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-const avg = (arr) => (arr.length ? sum(arr) / arr.length : 0);
-
 const buildTimeSeries = (items = []) => {
   const dateKeys = ['date', 'createdAt', 'created_at'];
   const amountKeys = ['montant', 'amount', 'total', 'totalAmount'];
@@ -241,18 +238,6 @@ const buildTimeSeries = (items = []) => {
     if (responsable) entry[responsable] = (Number(entry[responsable]) || 0) + amount;
   }
   return Array.from(byDay.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
-};
-
-const getLineKeys = (data = []) => {
-  const keys = new Set();
-  data.forEach((row) => Object.keys(row).forEach((key) => key !== 'name' && keys.add(key)));
-  const arr = Array.from(keys);
-  arr.sort((a, b) => {
-    if (a === 'Total') return -1;
-    if (b === 'Total') return 1;
-    return a.localeCompare(b);
-  });
-  return arr;
 };
 
 const buildComparison = (items = []) => {
@@ -412,8 +397,6 @@ const Statistiques = () => {
   const [responsableChartType, setResponsableChartType] = useState('bar');
   const [purchaseEvolutionType, setPurchaseEvolutionType] = useState('area');
   const [purchaseSupplierType, setPurchaseSupplierType] = useState('bar');
-  const [budgetChartType, setBudgetChartType] = useState('bar');
-  const [paretoChartType, setParetoChartType] = useState('composed');
 
   const sales = useReports('sales', {});
   const clients = useReports('clients', {});
@@ -439,10 +422,7 @@ const Statistiques = () => {
 
   const salesItems = sales.data?.ventes || [];
   const salesSeries = useMemo(() => buildTimeSeries(salesItems), [salesItems]);
-  const seriesKeys = useMemo(() => getLineKeys(salesSeries), [salesSeries]);
   const comparison = useMemo(() => buildComparison(salesItems), [salesItems]);
-  const totalsForAvg = useMemo(() => salesSeries.map((item) => Number(item.Total) || 0), [salesSeries]);
-  const salesAverage = useMemo(() => avg(totalsForAvg), [totalsForAvg]);
 
   const topClients = clients.data?.topClients || [];
   const clientTypeData = useMemo(() => buildClientTypeData(clients.data?.repartitionParType || {}), [clients.data]);
@@ -571,10 +551,6 @@ const Statistiques = () => {
     if (sales.error) return <ErrorBox message={sales.error} onRetry={handleRefresh} />;
     if (!salesItems.length) return <EmptyBox title="Aucune vente" description="Élargissez la période pour voir les données." />;
 
-    // DEBUG: Log the first sale to see available fields
-    console.log('🔍 First sale object:', salesItems[0]);
-    console.log('🔍 Available keys in sales API:', Object.keys(salesItems[0]));
-
     const hasMissingResponsableData = comparison.length === 1 && comparison[0]?.missingData === true;
 
     return (
@@ -582,7 +558,7 @@ const Statistiques = () => {
         <Card
           title="Évolution du chiffre d'affaires"
           subtitle="Tendance journalière"
-          right={<ChartTypeSelector value={salesChartType} onChange={setSalesChartType} options={['area','line','bar']} />}
+          right={<ChartTypeSelector value={salesChartType} onChange={setSalesChartType} options={['area','bar']} />}
         >
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -593,26 +569,9 @@ const Statistiques = () => {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Legend />
-                  {salesAverage > 0 && <ReferenceLine y={salesAverage} stroke="#94a3b8" strokeDasharray="5 5" label={{ value: `Moyenne: ${formatMoney(salesAverage)} DT`, position: 'insideTopRight', fontSize: 11 }} />}
-                  <Area type="monotone" dataKey="Total" name="CA Total" stroke="#059669" strokeWidth={2} fill="url(#totalFill)" />
-                  <Line type="monotone" dataKey="Total" name="Tendance" stroke="#059669" strokeWidth={1.5} dot={false} />
-                  {seriesKeys.filter(k => k !== 'Total').slice(0,3).map((k, idx) => (
-                    <Line key={k} type="monotone" dataKey={k} name={k} stroke={COLORS[(idx+2)%COLORS.length]} strokeWidth={1.2} dot={false} />
-                  ))}
+                  <Area type="monotone" dataKey="Total" name="CA realise" stroke="#059669" strokeWidth={2} fill="url(#totalFill)" />
                   <Brush dataKey="name" height={24} />
                 </AreaChart>
-              )}
-              {salesChartType === 'line' && (
-                <LineChart data={salesSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
-                  <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Legend />
-                  <Line type="monotone" dataKey="Total" name="CA Total" stroke="#059669" strokeWidth={2.5} dot={{ r: 2 }} />
-                  <Brush dataKey="name" height={24} />
-                </LineChart>
               )}
               {salesChartType === 'bar' && (
                 <BarChart data={salesSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -620,8 +579,7 @@ const Statistiques = () => {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
                   <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Legend />
-                  <Bar dataKey="Total" name="CA Total" fill="#059669" radius={[6,6,0,0]} />
+                  <Bar dataKey="Total" name="CA realise" fill="#059669" radius={[6,6,0,0]} />
                   <Brush dataKey="name" height={24} />
                 </BarChart>
               )}
@@ -632,7 +590,7 @@ const Statistiques = () => {
         <Card
           title="Performance par responsable"
           subtitle="Chiffre d'affaires par vendeur"
-          right={<ChartTypeSelector value={responsableChartType} onChange={setResponsableChartType} options={['bar','line','pie']} />}
+          right={<ChartTypeSelector value={responsableChartType} onChange={setResponsableChartType} options={['bar','pie']} />}
         >
           {hasMissingResponsableData ? (
             <div className="py-8 text-center">
@@ -679,15 +637,6 @@ const Statistiques = () => {
                     </Bar>
                   </BarChart>
                 )}
-                {responsableChartType === 'line' && (
-                  <LineChart data={comparison} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} tick={{ fontSize: 12 }} />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Line type="monotone" dataKey="total" name="CA" stroke="#059669" strokeWidth={2.5} dot={{ r: 4 }} />
-                  </LineChart>
-                )}
                 {responsableChartType === 'pie' && (
                   <PieChart>
                     <Pie data={comparison} dataKey="total" nameKey="name" innerRadius={60} outerRadius={100} label={(entry) => entry.name}>
@@ -733,22 +682,6 @@ const Statistiques = () => {
               </table>
             </div>
           </Card>
-          <Card title="Répartition par type" subtitle="Nombre de clients par catégorie">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={clientTypeData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="clients" name="Clients" fill="#10b981" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2 mt-6">
           <Card title="Segmentation clients" subtitle="Répartition par type de client (base de données)">
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -764,79 +697,13 @@ const Statistiques = () => {
               </ResponsiveContainer>
             </div>
           </Card>
-
-          <Card 
-            title="Courbe de valeur cumulée" 
-            subtitle="Concentration du CA client (Pareto) – Barres = CA individuel, Ligne = % cumulé"
-          >
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={clientValueCurve.slice(0,10)} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    height={70} 
-                    tick={{ fontSize: 10 }}
-                    interval={0}
-                  />
-                  <YAxis 
-                    yAxisId="left" 
-                    tickFormatter={(v) => formatMoney(v)} 
-                    tick={{ fontSize: 11 }}
-                    label={{ value: 'CA (DT)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11, fill: '#4b5563' } }}
-                  />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    domain={[0, 100]} 
-                    tickFormatter={(v) => `${Math.round(v)}%`}
-                    tick={{ fontSize: 11 }}
-                    label={{ value: 'Cumul %', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fontSize: 11, fill: '#4b5563' } }}
-                  />
-                  <Tooltip 
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload?.length) return null;
-                      const barData = payload.find(p => p.dataKey === 'ca');
-                      const lineData = payload.find(p => p.dataKey === 'cumulativePercent');
-                      return (
-                        <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-                          <p className="text-sm font-semibold text-gray-800">{label}</p>
-                          <div className="mt-2 space-y-1 text-xs">
-                            <div className="flex justify-between gap-4">
-                              <span className="text-gray-600">CA individuel :</span>
-                              <span className="font-semibold">{formatMoney(barData?.value)} DT</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-gray-600">Cumul :</span>
-                              <span className="font-semibold">{Math.round(lineData?.value || 0)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
-                  <Bar yAxisId="left" dataKey="ca" name="CA client" fill="#0ea5e9" radius={[4,4,0,0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="cumulativePercent" name="Cumul %" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
-                  <ReferenceLine yAxisId="right" y={80} stroke="#dc2626" strokeDasharray="4 4" label={{ value: '80%', position: 'right', fill: '#dc2626', fontSize: 10 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
         </div>
-        <Card title="Synthèse clientèle" subtitle="Récapitulatif par type" compact>
-          <div className="grid gap-4 md:grid-cols-3">
-            {clientTypeData.map((item, idx) => (
-              <div key={item.name} className="rounded-lg border bg-gray-50 p-4">
-                <p className="text-sm font-medium text-gray-700">{item.name}</p>
-                <p className="mt-2 text-2xl font-bold text-gray-800">{formatMoney(item.clients)}</p>
-                <p className="text-xs text-gray-500">{formatMoney(item.ca)} DT de CA</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="grid gap-6 lg:grid-cols-2 mt-6">
+          
+
+          
+        </div>
+        
       </>
     );
   };
@@ -852,7 +719,7 @@ const Statistiques = () => {
           <Card
             title="Évolution des achats"
             subtitle="Montants TTC"
-            right={<ChartTypeSelector value={purchaseEvolutionType} onChange={setPurchaseEvolutionType} options={['area','line','bar']} />}
+            right={<ChartTypeSelector value={purchaseEvolutionType} onChange={setPurchaseEvolutionType} options={['area','bar']} />}
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -866,16 +733,6 @@ const Statistiques = () => {
                     <Legend />
                     <Area type="monotone" dataKey="totalTTC" name="Montant TTC" stroke="#2563eb" strokeWidth={2} fill="url(#purchaseFill)" />
                   </AreaChart>
-                )}
-                {purchaseEvolutionType === 'line' && (
-                  <LineChart data={purchaseSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="totalTTC" name="Montant TTC" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 2 }} />
-                  </LineChart>
                 )}
                 {purchaseEvolutionType === 'bar' && (
                   <BarChart data={purchaseSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -893,7 +750,7 @@ const Statistiques = () => {
           <Card
             title="Top fournisseurs"
             subtitle="Montant TTC"
-            right={<ChartTypeSelector value={purchaseSupplierType} onChange={setPurchaseSupplierType} options={['bar','line','pie']} />}
+            right={<ChartTypeSelector value={purchaseSupplierType} onChange={setPurchaseSupplierType} options={['bar','pie']} />}
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -904,14 +761,6 @@ const Statistiques = () => {
                     <Tooltip content={<ProTooltip suffix="DT" />} />
                     <Bar dataKey="montant" name="Montant TTC" fill="#10b981" radius={[0,6,6,0]} />
                   </BarChart>
-                )}
-                {purchaseSupplierType === 'line' && (
-                  <LineChart data={purchaseSupplierData.slice(0,6)} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                    <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Line type="monotone" dataKey="montant" name="Montant TTC" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} />
-                  </LineChart>
                 )}
                 {purchaseSupplierType === 'pie' && (
                   <PieChart>
@@ -927,20 +776,7 @@ const Statistiques = () => {
           </Card>
         </div>
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
-          <Card title="Montants par statut" subtitle="Répartition par statut de commande">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={purchaseStatusData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} />
-                  <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Legend />
-                  <Bar dataKey="montant" name="Montant TTC" fill="#f59e0b" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
+          
           <Card title="Détail fournisseurs" subtitle="Classement complet" compact>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -965,83 +801,28 @@ const Statistiques = () => {
               </table>
             </div>
           </Card>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2 mt-6">
-          <Card
-            title="Budget vs Réel"
-            subtitle="Comparaison mensuelle"
-            right={<ChartTypeSelector value={budgetChartType} onChange={setBudgetChartType} options={['bar','line']} />}
-          >
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                {budgetChartType === 'bar' && (
-                  <BarChart data={purchaseBudgetData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Bar dataKey="budget" name="Budget" fill="#cbd5e1" radius={[4,4,0,0]} />
-                    <Bar dataKey="reel" name="Réel" fill="#0f766e" radius={[4,4,0,0]} />
-                  </BarChart>
-                )}
-                {budgetChartType === 'line' && (
-                  <LineChart data={purchaseBudgetData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="budget" name="Budget" stroke="#cbd5e1" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="reel" name="Réel" stroke="#0f766e" strokeWidth={2.5} dot={{ r: 4 }} />
-                  </LineChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          </Card>
           <Card
             title="Pareto fournisseurs"
             subtitle="Concentration des dépenses"
-            right={<ChartTypeSelector value={paretoChartType} onChange={setParetoChartType} options={['composed','bar','line']} />}
+            right={null}
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                {paretoChartType === 'composed' && (
-                  <ComposedChart data={purchaseParetoData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" hide />
-                    <YAxis yAxisId="left" tickFormatter={(v) => formatMoney(v)} />
-                    <YAxis yAxisId="right" orientation="right" domain={[0,100]} tickFormatter={(v) => `${Math.round(v)}%`} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="montant" name="Montant TTC" fill="#14b8a6" radius={[4,4,0,0]} />
-                    <Line yAxisId="right" type="monotone" dataKey="cumulativePercent" name="Cumul %" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
-                    <ReferenceLine yAxisId="right" y={80} stroke="#dc2626" strokeDasharray="4 4" />
-                  </ComposedChart>
-                )}
-                {paretoChartType === 'bar' && (
-                  <BarChart data={purchaseParetoData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Bar dataKey="montant" name="Montant TTC" fill="#14b8a6" radius={[6,6,0,0]} />
-                  </BarChart>
-                )}
-                {paretoChartType === 'line' && (
-                  <LineChart data={purchaseParetoData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="montant" name="Montant TTC" stroke="#14b8a6" strokeWidth={2.5} dot={{ r: 4 }} />
-                  </LineChart>
-                )}
+                <BarChart data={purchaseParetoData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} />
+                  <YAxis tickFormatter={(v) => formatMoney(v)} />
+                  <Tooltip content={<ProTooltip suffix="DT" />} />
+                  <Legend />
+                  <Bar dataKey="montant" name="Montant TTC" fill="#14b8a6" radius={[6,6,0,0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2 mt-6">
+          
+          
         </div>
       </>
     );

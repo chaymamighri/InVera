@@ -9,9 +9,14 @@ import org.erp.invera.dto.fournisseurdto.FournisseurDTO;
 import org.erp.invera.model.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.Fournisseurs.Fournisseur;
 import org.erp.invera.model.Fournisseurs.LigneCommandeFournisseur;
+import org.erp.invera.model.Notification;
 import org.erp.invera.model.Produit;
+import org.erp.invera.model.Role;
+import org.erp.invera.model.User;
 import org.erp.invera.model.stock.StockMovement;
 import org.erp.invera.repository.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +79,8 @@ public class CommandeFournisseurService {
     private final ProduitRepository produitRepository;
     private final LigneCommandeFournisseurRepository ligneRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     private final BonCommandePdfService bonCommandePdfService;
     private final EmailService emailService;
@@ -170,6 +177,7 @@ public class CommandeFournisseurService {
         commande.setTotalTTC(totalTTC);
 
         CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierAdminNouvelleDemande(saved);
         return convertToDTO(saved);
     }
 
@@ -472,6 +480,7 @@ public class CommandeFournisseurService {
         commande.setDateRejet(null);
 
         CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierAdminDemandeRenvoyee(saved);
         System.out.println("🔄 Commande " + commande.getNumeroCommande() + " renvoyée en attente après correction");
 
         return convertToDTO(saved);
@@ -534,6 +543,66 @@ public class CommandeFournisseurService {
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    private void notifierAdminNouvelleDemande(CommandeFournisseur commande) {
+        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_CREATED");
+    }
+
+    private void notifierAdminDemandeRenvoyee(CommandeFournisseur commande) {
+        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_RESUBMITTED");
+    }
+
+    private void creerNotificationAdminPourCommande(CommandeFournisseur commande, String notificationType) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getRole() != Role.RESPONSABLE_ACHAT) {
+            return;
+        }
+
+        String reference = commande.getNumeroCommande() != null
+                ? commande.getNumeroCommande()
+                : "CMD-" + commande.getIdCommandeFournisseur();
+        String fournisseurNom = commande.getFournisseur() != null && commande.getFournisseur().getNomFournisseur() != null
+                ? commande.getFournisseur().getNomFournisseur()
+                : "fournisseur non specifie";
+        String userFullName = buildUserFullName(currentUser);
+
+        String message = "PROCUREMENT_REQUEST_RESUBMITTED".equals(notificationType)
+                ? String.format(
+                        "%s a renvoye la demande d'approvisionnement %s pour %s. Elle attend de nouveau votre validation.",
+                        userFullName, reference, fournisseurNom)
+                : String.format(
+                        "%s a cree la demande d'approvisionnement %s pour %s. Elle attend votre validation.",
+                        userFullName, reference, fournisseurNom);
+
+        notificationRepository.save(new Notification(
+                notificationType,
+                message,
+                currentUser.getEmail(),
+                userFullName,
+                "ADMIN",
+                "COMMANDE_FOURNISSEUR",
+                Long.valueOf(commande.getIdCommandeFournisseur()),
+                reference
+        ));
+    }
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+
+        return userRepository.findByEmail(authentication.getName()).orElse(null);
+    }
+
+    private String buildUserFullName(User user) {
+        String fullName = Stream.of(user.getPrenom(), user.getNom())
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.joining(" "))
+                .trim();
+
+        return fullName.isBlank() ? user.getEmail() : fullName;
     }
 
     private String genererNumeroCommande() {

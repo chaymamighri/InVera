@@ -12,9 +12,13 @@ public class NotificationResponse {
     private LocalDateTime createdAt;
     private String userEmail;
     private String userName;
+    private String entityType;
+    private Long entityId;
+    private String entityReference;
 
     public NotificationResponse(Long id, String type, String message, boolean read,
-                                LocalDateTime createdAt, String userEmail, String userName) {
+                                LocalDateTime createdAt, String userEmail, String userName,
+                                String entityType, Long entityId, String entityReference) {
         this.id = id;
         this.type = type;
         this.message = message;
@@ -22,6 +26,9 @@ public class NotificationResponse {
         this.createdAt = createdAt;
         this.userEmail = userEmail;
         this.userName = userName;
+        this.entityType = entityType;
+        this.entityId = entityId;
+        this.entityReference = entityReference;
     }
 
     public Long getId() { return id; }
@@ -31,4 +38,7 @@ public class NotificationResponse {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public String getUserEmail() { return userEmail; }
     public String getUserName() { return userName; }
+    public String getEntityType() { return entityType; }
+    public Long getEntityId() { return entityId; }
+    public String getEntityReference() { return entityReference; }
 }
