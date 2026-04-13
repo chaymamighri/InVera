@@ -30,6 +30,9 @@ public class LigneCommandeFournisseur {
     @JoinColumn(name = "produit_id", nullable = false)
     private Produit produit;
 
+    @Column(precision = 5, scale = 2)
+    private BigDecimal tauxTVA;
+
     @Column(nullable = false)
     private Integer quantite;
 
@@ -91,6 +94,5 @@ public class LigneCommandeFournisseur {
             this.sousTotal = sousTotalHT.setScale(2, BigDecimal.ROUND_HALF_UP);
         }
     }
-
 
 }

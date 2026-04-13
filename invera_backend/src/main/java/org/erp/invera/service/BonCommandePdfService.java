@@ -191,32 +191,45 @@ public class BonCommandePdfService {
             document.add(clientTable);
 
             // ==================== 4. RÉFÉRENCES ====================
-            if (commande.getNumeroBonLivraison() != null || commande.getDemande() != null) {
-                Table refTable = new Table(UnitValue.createPercentArray(new float[]{30, 70}));
+
+            if (commande.getNumeroBonLivraison() != null) {
+
+                Table refTable = new Table(
+                        UnitValue.createPercentArray(new float[]{30, 70})
+                );
+
                 refTable.setWidth(UnitValue.createPercentValue(100));
                 refTable.setMarginBottom(15);
 
-                if (commande.getNumeroBonLivraison() != null) {
-                    Cell blLabelCell = new Cell().add(new Paragraph("Bon de livraison:")
-                            .setFont(boldFont).setFontSize(9));
-                    blLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-                    blLabelCell.setPadding(6);
-                    refTable.addCell(blLabelCell);
+                // Label
+                Cell blLabelCell = new Cell().add(
+                        new Paragraph("Bon de livraison:")
+                                .setFont(boldFont)
+                                .setFontSize(9)
+                );
 
-                    Cell blValueCell = new Cell().add(new Paragraph(commande.getNumeroBonLivraison())
-                            .setFontSize(9));
-                    blValueCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-                    blValueCell.setPadding(6);
-                    refTable.addCell(blValueCell);
-                }
+                blLabelCell.setBorder(
+                        new SolidBorder(COLOR_BORDER, 0.5f)
+                );
 
-                if (commande.getDemande() != null) {
-                    Cell demandeLabelCell = new Cell().add(new Paragraph("N° Demande:")
-                            .setFont(boldFont).setFontSize(9));
-                    demandeLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-                    demandeLabelCell.setPadding(6);
-                    refTable.addCell(demandeLabelCell);
-                }
+                blLabelCell.setPadding(6);
+
+                refTable.addCell(blLabelCell);
+
+                // Valeur
+                Cell blValueCell = new Cell().add(
+                        new Paragraph(
+                                commande.getNumeroBonLivraison()
+                        ).setFontSize(9)
+                );
+
+                blValueCell.setBorder(
+                        new SolidBorder(COLOR_BORDER, 0.5f)
+                );
+
+                blValueCell.setPadding(6);
+
+                refTable.addCell(blValueCell);
 
                 document.add(refTable);
             }
