@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 import {
@@ -35,8 +35,10 @@ import { authService } from '../../services/authService';
 import api from '../../services/api';
 import { notificationService } from '../../services/notificationService';
 import Header from '../../components/Header';
+import { decorateNotification } from '../../utils/notificationRouting';
 
 const SettingsPage = () => {
+  const navigate = useNavigate();
   // ===== ÉTATS =====
   const [activeTab, setActiveTab] = useState('profile');     // Onglet actif
   const [loadingMe, setLoadingMe] = useState(true);          // Chargement du profil
@@ -130,7 +132,8 @@ const SettingsPage = () => {
     setNotifLoading(true);
     try {
       const res = await notificationService.getAll();
-      setNotifications(Array.isArray(res?.data) ? res.data : []);
+      const items = Array.isArray(res?.data) ? res.data.map(decorateNotification) : [];
+      setNotifications(items);
     } catch (error) {
       const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur notifications';
       toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
@@ -193,6 +196,16 @@ const SettingsPage = () => {
     } catch {
       toast.error('Erreur suppression notification');
     }
+  };
+
+  const handleNotificationAction = async (notification) => {
+    if (!notification?.actionPath) return;
+
+    if (!notification.read) {
+      await handleMarkAsRead(notification.id);
+    }
+
+    navigate(notification.actionPath);
   };
 
   // ===== ACTIONS PROFIL =====
@@ -593,6 +606,14 @@ const SettingsPage = () => {
                               </div>
 
                               <div className="flex items-center gap-2">
+                                {n.actionPath && (
+                                  <button
+                                    onClick={() => handleNotificationAction(n)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                  >
+                                    {n.actionLabel || 'Voir'}
+                                  </button>
+                                )}
                                 {!n.read && (
                                   <button
                                     onClick={() => handleMarkAsRead(n.id)}

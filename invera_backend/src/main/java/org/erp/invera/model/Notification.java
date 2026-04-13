@@ -35,6 +35,15 @@ public class Notification {
     @Column(nullable = true)
     private String targetRole;
 
+    @Column(nullable = true, length = 100)
+    private String entityType;
+
+    @Column(nullable = true)
+    private Long entityId;
+
+    @Column(nullable = true, length = 100)
+    private String entityReference;
+
     public Notification() {}
 
     public Notification(String type, String message, String userEmail, String userName) {
@@ -42,11 +51,19 @@ public class Notification {
     }
 
     public Notification(String type, String message, String userEmail, String userName, String targetRole) {
+        this(type, message, userEmail, userName, targetRole, null, null, null);
+    }
+
+    public Notification(String type, String message, String userEmail, String userName, String targetRole,
+                        String entityType, Long entityId, String entityReference) {
         this.type = type;
         this.message = message;
         this.userEmail = userEmail;
         this.userName = userName;
         this.targetRole = targetRole;
+        this.entityType = entityType;
+        this.entityId = entityId;
+        this.entityReference = entityReference;
         this.read = false;
         this.createdAt = LocalDateTime.now();
     }
@@ -73,4 +90,13 @@ public class Notification {
 
     public String getTargetRole() { return targetRole; }
     public void setTargetRole(String targetRole) { this.targetRole = targetRole; }
+
+    public String getEntityType() { return entityType; }
+    public void setEntityType(String entityType) { this.entityType = entityType; }
+
+    public Long getEntityId() { return entityId; }
+    public void setEntityId(Long entityId) { this.entityId = entityId; }
+
+    public String getEntityReference() { return entityReference; }
+    public void setEntityReference(String entityReference) { this.entityReference = entityReference; }
 }

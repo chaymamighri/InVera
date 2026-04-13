@@ -20,6 +20,7 @@ import { notificationService } from '../services/notificationService';
 import commandeFournisseurService from '../services/commandeFournisseurService';
 import procurementReminderService from '../services/procurementReminderService';
 import { useSidebar } from '../context/SidebarContext';
+import { decorateNotification } from '../utils/notificationRouting';
 
 /**
  * Normalise le rôle utilisateur pour la comparaison
@@ -229,7 +230,8 @@ const Header = ({ userRole }) => {
     setNotifLoading(true);
     try {
       const res = await notificationService.getAll();
-      setServerNotifications(Array.isArray(res.data) ? res.data : []);
+      const items = Array.isArray(res.data) ? res.data.map(decorateNotification) : [];
+      setServerNotifications(items);
     } catch (error) {
       const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur notifications';
       toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
@@ -309,6 +311,26 @@ const Header = ({ userRole }) => {
     procurementReminderService.markRead(reminder.id);
     setIsNotifOpen(false);
     navigate(reminder.reminderPath);
+  };
+
+  /**
+   * Action sur une notification avec lien direct
+   * @param {Object} notification - Notification concernee
+   */
+  const handleNotificationAction = async (notification) => {
+    if (!notification?.actionPath) return;
+
+    if (notification.source === 'procurement-reminder') {
+      handleReminderAction(notification);
+      return;
+    }
+
+    if (!notification.read) {
+      await markRead(notification.id);
+    }
+
+    setIsNotifOpen(false);
+    navigate(notification.actionPath);
   };
 
   /**
@@ -637,12 +659,16 @@ const Header = ({ userRole }) => {
                                               )}
                                               <p className="text-xs text-gray-500 mt-1">{formatDate(notification.createdAt)}</p>
                                             </button>
-                                            {isReminder && (
+                                            {(isReminder || notification.actionPath) && (
                                               <div className="mt-3 flex items-center justify-between gap-3">
-                                                <p className="text-xs text-amber-700">{notification.actionHint || 'Traitez cette commande rapidement.'}</p>
+                                                <p className={`text-xs ${isReminder ? 'text-amber-700' : 'text-blue-700'}`}>
+                                                  {notification.actionHint || 'Accedez directement a l element concerne.'}
+                                                </p>
                                                 <button
-                                                  onClick={() => handleReminderAction(notification)}
-                                                  className="px-3 py-1.5 text-xs rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+                                                  onClick={() => handleNotificationAction(notification)}
+                                                  className={`px-3 py-1.5 text-xs rounded-lg text-white ${
+                                                    isReminder ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'
+                                                  }`}
                                                 >
                                                   {notification.actionLabel || 'Voir'}
                                                 </button>
@@ -667,7 +693,7 @@ const Header = ({ userRole }) => {
                         )}
                       </div>
                       <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
-                        Cliquez sur une notification pour la marquer comme lue. Les rappels achat incluent aussi un accès direct à la commande concernée.
+                        Cliquez sur une notification pour la marquer comme lue. Les notifications liees aux demandes incluent un acces direct a l element concerne.
                       </div>
                     </div>
                   )}

@@ -5,8 +5,9 @@
  * RÔLE : Permettre à l'administrateur de valider ou rejeter les commandes créées
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import { 
   CheckCircleIcon, 
   XCircleIcon,
@@ -25,6 +26,7 @@ import ValidationConfirmModal from './components/ValidationConfirmModal';
 import RejectModal from './components/RejectModal';
 
 const ValidationCommande = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [commandes, setCommandes] = useState([]);
   const [filteredCommandes, setFilteredCommandes] = useState([]);
@@ -40,6 +42,8 @@ const ValidationCommande = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [selectedCommandeData, setSelectedCommandeData] = useState(null);
   const [modalError, setModalError] = useState('');
+  const focusedCommandeId = searchParams.get('focusCommande') || '';
+  const focusedNotificationType = (searchParams.get('notificationType') || '').toLowerCase();
 
   // Récupérer les commandes depuis l'API
   const fetchCommandes = async () => {
@@ -106,6 +110,29 @@ const ValidationCommande = () => {
     }
   }, [searchTerm, commandes]);
 
+  const focusedCommande = useMemo(
+    () => commandes.find((commande) => String(commande.id) === String(focusedCommandeId)) || null,
+    [commandes, focusedCommandeId]
+  );
+
+  const clearFocus = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('focusCommande');
+    nextParams.delete('notificationType');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  useEffect(() => {
+    if (!focusedCommandeId || loading) return;
+
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector(`[data-commande-id="${focusedCommandeId}"]`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [focusedCommandeId, filteredCommandes, loading]);
+
   // Ouvrir le modal de validation
   const openValidateModal = (commande) => {
     setSelectedCommandeData(commande);
@@ -124,6 +151,9 @@ const ValidationCommande = () => {
       await commandeFournisseurService.validerCommande(selectedCommandeData.id);
       toast.success(`Commande ${selectedCommandeData.reference} validée avec succès !`);
       await fetchCommandes();
+      if (String(selectedCommandeData.id) === String(focusedCommandeId)) {
+        clearFocus();
+      }
       setIsValidateModalOpen(false);
       setSelectedCommandeData(null);
     } catch (error) {
@@ -154,6 +184,9 @@ const ValidationCommande = () => {
       await commandeFournisseurService.rejeterCommande(selectedCommandeData.id, motif);
       toast.success(`Commande ${selectedCommandeData.reference} rejetée avec succès !`);
       await fetchCommandes();
+      if (String(selectedCommandeData.id) === String(focusedCommandeId)) {
+        clearFocus();
+      }
       setIsRejectModalOpen(false);
       setSelectedCommandeData(null);
     } catch (error) {
@@ -210,6 +243,44 @@ const ValidationCommande = () => {
 
   return (
     <div className="space-y-6">
+      {focusedCommande && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Demande a traiter en priorite</p>
+            <p className="text-sm text-amber-800 mt-1">
+              <span className="font-semibold">{focusedCommande.reference}</span>
+              {' - '}
+              {focusedNotificationType === 'resent'
+                ? 'Cette demande a ete renvoyee apres correction et attend une nouvelle validation.'
+                : 'Cette demande vient d etre creee et attend votre validation.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleViewDetails(focusedCommande)}
+              className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 text-sm font-medium"
+            >
+              Voir details
+            </button>
+            <button
+              onClick={clearFocus}
+              className="px-3 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 text-sm font-medium"
+            >
+              Retirer le focus
+            </button>
+          </div>
+        </div>
+      )}
+
+      {focusedCommandeId && !focusedCommande && !loading && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-gray-700">La demande ciblee n est plus disponible dans la liste en attente.</p>
+          <button onClick={clearFocus} className="px-3 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-900 text-sm">
+            Fermer
+          </button>
+        </div>
+      )}
+
       {/* Barre de recherche */}
       <div className="relative">
         <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -239,7 +310,15 @@ const ValidationCommande = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filteredCommandes.map((commande) => (
-            <div key={commande.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+            <div
+              key={commande.id}
+              data-commande-id={commande.id}
+              className={`rounded-xl shadow-sm border p-5 hover:shadow-md transition-shadow ${
+                String(commande.id) === String(focusedCommandeId)
+                  ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-200'
+                  : 'bg-white border-gray-100'
+              }`}
+            >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -250,6 +329,11 @@ const ValidationCommande = () => {
                     <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
                       En attente
                     </span>
+                    {String(commande.id) === String(focusedCommandeId) && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-amber-200 text-amber-900">
+                        {focusedNotificationType === 'resent' ? 'Renvoyee' : 'Nouvelle'}
+                      </span>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">

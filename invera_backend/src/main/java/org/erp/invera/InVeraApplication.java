@@ -7,7 +7,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync
-@EnableJpaAuditing  // ← ADD THIS LINE
 public class InVeraApplication {
 
     public static void main(String[] args) {
