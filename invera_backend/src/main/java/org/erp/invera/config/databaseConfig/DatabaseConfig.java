@@ -1,4 +1,4 @@
-package org.erp.invera.config;
+package org.erp.invera.config.databaseConfig;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -8,7 +8,6 @@ import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -25,7 +24,7 @@ public class DatabaseConfig {
 
     // ========== BASE ERP ==========
     @Primary
-    @Bean(name = "erpDataSource")
+    @Bean(name = {"erpDataSource", "dataSource"})
     public DataSource erpDataSource(
             @Value("${DB_URL}") String url,
             @Value("${DB_USERNAME}") String username,
@@ -39,13 +38,12 @@ public class DatabaseConfig {
     }
 
     @Primary
-    @Bean(name = "erpEntityManagerFactory")
+    @Bean(name = {"erpEntityManagerFactory", "entityManagerFactory"})
     public LocalContainerEntityManagerFactoryBean erpEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("erpDataSource") DataSource dataSource) {
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.hbm2ddl.auto", "update");
-        properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         properties.put("hibernate.show_sql", "true");
 
         return builder
@@ -57,10 +55,16 @@ public class DatabaseConfig {
     }
 
     @Primary
-    @Bean(name = "erpTransactionManager")
+    @Bean(name = {"erpTransactionManager", "transactionManager"})
     public PlatformTransactionManager erpTransactionManager(
             @Qualifier("erpEntityManagerFactory") LocalContainerEntityManagerFactoryBean erpEntityManagerFactory) {
         return new JpaTransactionManager(erpEntityManagerFactory.getObject());
+    }
+
+    @Primary
+    @Bean(name = "erpJdbcTemplate")
+    public JdbcTemplate erpJdbcTemplate(@Qualifier("erpDataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
     }
 
     // ========== BASE PLATFORM ==========
@@ -83,7 +87,6 @@ public class DatabaseConfig {
             @Qualifier("platformDataSource") DataSource dataSource) {
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.hbm2ddl.auto", "update");
-        properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         properties.put("hibernate.show_sql", "true");
 
         return builder
@@ -99,23 +102,9 @@ public class DatabaseConfig {
             @Qualifier("platformEntityManagerFactory") LocalContainerEntityManagerFactoryBean platformEntityManagerFactory) {
         return new JpaTransactionManager(platformEntityManagerFactory.getObject());
     }
-}
 
-// Configuration séparée pour les repositories
-@Configuration
-@EnableJpaRepositories(
-        basePackages = "org.erp.invera.repository.erp",
-        entityManagerFactoryRef = "erpEntityManagerFactory",
-        transactionManagerRef = "erpTransactionManager"
-)
-class ErpRepositoryConfig {
-}
-
-@Configuration
-@EnableJpaRepositories(
-        basePackages = "org.erp.invera.repository.platform",
-        entityManagerFactoryRef = "platformEntityManagerFactory",
-        transactionManagerRef = "platformTransactionManager"
-)
-class PlatformRepositoryConfig {
+    @Bean(name = "platformJdbcTemplate")
+    public JdbcTemplate platformJdbcTemplate(@Qualifier("platformDataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
 }
