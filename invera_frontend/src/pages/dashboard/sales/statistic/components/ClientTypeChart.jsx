@@ -126,8 +126,6 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   const totalClients = chartData.reduce((sum, d) => sum + (d.nombre || 0), 0);
   const totalCA = chartData.reduce((sum, d) => sum + (d.ca || 0), 0);
 
-  console.log('📊 Total clients:', totalClients);
-  console.log('📊 Total CA:', totalCA);
 
   // ============================================
   //  MAPPING DES STYLES PAR TYPE DE CLIENT
@@ -284,23 +282,6 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
               );
             })}
           </div>
-        </div>
-      </div>
-
-      {/* ===== SECTION 2: CARTES RÉCAPITULATIVES ===== */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Total clients */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
-          <p className="text-xs text-blue-600 mb-1">Total clients</p>
-          <p className="text-2xl font-bold text-blue-800">{totalClients}</p>
-          <p className="text-xs text-blue-600 mt-1">clients répartis par type</p>
-        </div>
-
-        {/* Chiffre d'affaires total */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
-          <p className="text-xs text-green-600 mb-1">Chiffre d'affaires</p>
-          <p className="text-2xl font-bold text-green-800">{formatCurrency(totalCA)}</p>
-          <p className="text-xs text-green-600 mt-1">généré par tous les clients</p>
         </div>
       </div>
 

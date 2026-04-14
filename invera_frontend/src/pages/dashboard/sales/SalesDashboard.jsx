@@ -124,12 +124,6 @@ const SalesDashboard = () => {
         { id: 'sales', label: 'Ventes', icon: CurrencyDollarIcon, path: 'sales' },
         { id: 'invoices', label: 'Facturation', icon: DocumentTextIcon, path: 'invoices' },
       ]
-    },
-    {
-      title: 'ANALYSE',
-      items: [
-        { id: 'reports', label: 'Rapports', icon: PresentationChartLineIcon, path: 'reports' },
-      ]
     }
   ];
 
@@ -177,7 +171,6 @@ const SalesDashboard = () => {
     if (currentPath.includes('/orders')) return 'Commandes clients';
     if (currentPath.includes('/sales')) return 'Ventes';
     if (currentPath.includes('/invoices')) return 'Facturation';
-    if (currentPath.includes('/reports')) return 'Rapports et analyses';
     
     return 'Tableau de bord commercial';
   };
@@ -199,7 +192,6 @@ const SalesDashboard = () => {
     if (currentPath.includes('/orders')) return 'Suivez et gérez toutes les commandes clients';
     if (currentPath.includes('/sales')) return 'Historique et suivi des ventes réalisées';
     if (currentPath.includes('/invoices')) return 'Gérez la facturation et les paiements clients';
-    if (currentPath.includes('/reports')) return 'Analysez les performances commerciales et les tendances';
     
     return 'Gestion commerciale et suivi des opérations';
   };

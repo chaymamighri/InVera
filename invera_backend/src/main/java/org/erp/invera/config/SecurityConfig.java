@@ -1,7 +1,7 @@
 package org.erp.invera.config;
 
 import org.erp.invera.security.JwtAuthenticationFilter;
-import org.erp.invera.service.CustomUserDetailsService;
+import org.erp.invera.service.erp.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -101,6 +101,20 @@ public class SecurityConfig {
                                 "/api/auth/reset-password",
                                 "/api/auth/create-admin-temp"
                         ).permitAll()
+
+
+
+                        // ========== ENDPOINTS SUPER ADMIN (publics) ==========
+                        .requestMatchers(
+                                "/api/super-admin/login",
+                                "/api/super-admin/register"
+                        ).permitAll()
+
+                        // ========== ENDPOINTS SUPER ADMIN (protégés) ==========
+                        .requestMatchers(
+                                "/api/super-admin/me",
+                                "/api/super-admin/**"
+                        ).authenticated()
 
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
