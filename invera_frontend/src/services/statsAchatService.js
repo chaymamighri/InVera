@@ -9,6 +9,8 @@ const buildFailure = (error, fallback) => ({
     error.message ||
     'Erreur de chargement',
 });
+ 
+
 
 const buildSuccess = (data) => ({
   success: true,
