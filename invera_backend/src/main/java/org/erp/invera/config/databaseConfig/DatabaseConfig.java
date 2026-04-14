@@ -1,4 +1,4 @@
-package org.erp.invera.config;
+package org.erp.invera.config.databaseConfig;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -8,7 +8,6 @@ import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -16,24 +15,21 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @EnableTransactionManagement
-@EnableJpaRepositories(
-        basePackages = "org.erp.invera.repository.erp",  // Seulement ERP
-        entityManagerFactoryRef = "erpEntityManagerFactory",
-        transactionManagerRef = "erpTransactionManager"
-)
-
 public class DatabaseConfig {
 
-    // ========== BASE ERP (invera) - PAR DÉFAUT ==========
+    // ========== BASE ERP ==========
     @Primary
-    @Bean(name = "erpDataSource")
+    @Bean(name = {"erpDataSource", "dataSource"})
     public DataSource erpDataSource(
-            @Value("${DB_URL:jdbc:postgresql://localhost:5433/invera}") String url,
-            @Value("${DB_USERNAME:postgres}") String username,
-            @Value("${DB_PASSWORD:96981311}") String password) {
+            @Value("${DB_URL}") String url,
+            @Value("${DB_USERNAME}") String username,
+            @Value("${DB_PASSWORD}") String password) {
+
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -43,19 +39,25 @@ public class DatabaseConfig {
     }
 
     @Primary
-    @Bean(name = "erpEntityManagerFactory")
+    @Bean(name = {"erpEntityManagerFactory", "entityManagerFactory"})
     public LocalContainerEntityManagerFactoryBean erpEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("erpDataSource") DataSource dataSource) {
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("hibernate.hbm2ddl.auto", "update");
+        properties.put("hibernate.show_sql", "true");
+
         return builder
                 .dataSource(dataSource)
                 .packages("org.erp.invera.model.erp")
                 .persistenceUnit("erp")
+                .properties(properties)
                 .build();
     }
 
     @Primary
-    @Bean(name = "erpTransactionManager")
+    @Bean(name = {"erpTransactionManager", "transactionManager"})
     public PlatformTransactionManager erpTransactionManager(
             @Qualifier("erpEntityManagerFactory") LocalContainerEntityManagerFactoryBean erpEntityManagerFactory) {
         return new JpaTransactionManager(erpEntityManagerFactory.getObject());
@@ -67,12 +69,13 @@ public class DatabaseConfig {
         return new JdbcTemplate(dataSource);
     }
 
-    // ========== BASE PLATEFORME (invera_platform) ==========
+    // ========== BASE PLATFORM ==========
     @Bean(name = "platformDataSource")
     public DataSource platformDataSource(
-            @Value("${PLATFORM_DB_URL:jdbc:postgresql://localhost:5433/invera_platform}") String url,
-            @Value("${PLATFORM_DB_USERNAME:postgres}") String username,
-            @Value("${PLATFORM_DB_PASSWORD:96981311}") String password) {
+            @Value("${PLATFORM_DB_URL}") String url,
+            @Value("${PLATFORM_DB_USERNAME}") String username,
+            @Value("${PLATFORM_DB_PASSWORD}") String password) {
+
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -85,11 +88,23 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean platformEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("platformDataSource") DataSource dataSource) {
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("hibernate.hbm2ddl.auto", "update");
+        properties.put("hibernate.show_sql", "true");
+
         return builder
                 .dataSource(dataSource)
                 .packages("org.erp.invera.model.platform")
                 .persistenceUnit("platform")
+                .properties(properties)
                 .build();
+    }
+
+    @Bean(name = "platformTransactionManager")
+    public PlatformTransactionManager platformTransactionManager(
+            @Qualifier("platformEntityManagerFactory") LocalContainerEntityManagerFactoryBean platformEntityManagerFactory) {
+        return new JpaTransactionManager(platformEntityManagerFactory.getObject());
     }
 
     @Bean(name = "platformJdbcTemplate")
