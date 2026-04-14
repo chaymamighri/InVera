@@ -172,24 +172,6 @@ const ProduitFormBase = ({
                 </select>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Seuil minimum d'alerte <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="seuilMinimum"
-                value={formData.seuilMinimum}
-                onChange={handleChange}
-                min="0"
-                step="1"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                En dessous de ce seuil, le produit sera marqué comme "stock faible"
-              </p>
-            </div>
           </div>
 
 {/* Informations commerciales */}

@@ -2,7 +2,7 @@ package org.erp.invera.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.erp.invera.model.User;
+import org.erp.invera.model.erp.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -179,5 +179,25 @@ public class JwtTokenProvider {
         } catch (JwtException | IllegalArgumentException ex) {
             return false;
         }
+    }
+
+    // ✅ Génération pour Super Admin (version ultra simple)
+    public String generateTokenForSuperAdmin(Integer id, String email, String nom) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("adminId", id);
+        claims.put("email", email);
+        claims.put("nom", nom);
+        // ❌ Pas besoin de "type" ni de "role"
+
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(email)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 }
