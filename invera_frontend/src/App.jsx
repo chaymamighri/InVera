@@ -109,9 +109,38 @@ const inferRoleFromToken = (token) => {
 };
 
 const getUserData = () => {
-  // Vérifier d'abord le token super admin
+  console.log('=== getUserData START ===');
+  
+  // ============================================
+  // 1. DÉTECTER LE TYPE D'AUTHENTIFICATION
+  // ============================================
+  
+  // Vérifier si c'est un SUPER ADMIN (basé sur adminToken)
   const adminToken = localStorage.getItem('adminToken');
-  if (adminToken) {
+  const isSuperAdmin = adminToken && localStorage.getItem('adminInfo');
+  
+  // Vérifier si c'est un UTILISATEUR NORMAL
+  const userToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
+  const isNormalUser = userToken && userRole;
+  
+  console.log('isSuperAdmin:', isSuperAdmin);
+  console.log('isNormalUser:', isNormalUser);
+  
+  // ============================================
+  // 2. CAS SUPER ADMIN (priorité absolue si c'est la route super admin)
+  // ============================================
+  
+  // Détecter si on est sur une route super admin
+  const currentPath = window.location.pathname;
+  const isSuperAdminRoute = currentPath.startsWith('/super-admin');
+  
+  console.log('Current path:', currentPath);
+  console.log('Is super admin route:', isSuperAdminRoute);
+  
+  // Si on est sur une route super admin, utiliser le token super admin
+  if (isSuperAdminRoute && adminToken) {
+    console.log('✅ Mode Super Admin (route spécifique)');
     const adminInfo = localStorage.getItem('adminInfo');
     let adminName = 'Super Admin';
     let adminEmail = '';
@@ -129,30 +158,71 @@ const getUserData = () => {
       role: 'super_admin',
       originalRole: 'SUPER_ADMIN',
       name: adminName,
-      email: adminEmail
+      email: adminEmail,
+      type: 'super_admin'
     };
   }
   
-  // Sinon vérifier le token utilisateur normal
-  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-  if (!token) return null;
-
-  const storedRole = localStorage.getItem('userRole');
-  const userName = localStorage.getItem('userName') || 'Utilisateur';
-  const userEmail = localStorage.getItem('userEmail') || '';
-
-  const inferred = storedRole || inferRoleFromToken(token);
-  const frontendRole = normalizeBackendRole(inferred);
-
-  if (!frontendRole) return null;
-
-  return {
-    token,
-    role: frontendRole,
-    originalRole: inferred,
-    name: userName,
-    email: userEmail
-  };
+  // ============================================
+  // 3. CAS UTILISATEUR NORMAL
+  // ============================================
+  
+  if (userToken && userRole) {
+    console.log('✅ Mode Utilisateur Normal');
+    const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || 'Utilisateur';
+    const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
+    
+    // Normaliser le rôle
+    const roleMap = {
+      'ROLE_ADMIN': 'admin', 'ADMIN': 'admin',
+      'ROLE_COMMERCIAL': 'sales', 'COMMERCIAL': 'sales',
+      'ROLE_RESPONSABLE_ACHAT': 'procurement', 'RESPONSABLE_ACHAT': 'procurement',
+    };
+    
+    const normalizedRole = roleMap[userRole?.toUpperCase()];
+    
+    if (normalizedRole) {
+      return {
+        token: userToken,
+        role: normalizedRole,
+        originalRole: userRole,
+        name: userName,
+        email: userEmail,
+        type: 'normal_user'
+      };
+    }
+  }
+  
+  // ============================================
+  // 4. CAS SUPER ADMIN (fallback si pas sur route spécifique)
+  // ============================================
+  
+  if (adminToken) {
+    console.log('✅ Mode Super Admin (fallback)');
+    const adminInfo = localStorage.getItem('adminInfo');
+    let adminName = 'Super Admin';
+    let adminEmail = '';
+    
+    if (adminInfo) {
+      try {
+        const info = JSON.parse(adminInfo);
+        adminName = info.nom || adminName;
+        adminEmail = info.email || '';
+      } catch(e) {}
+    }
+    
+    return {
+      token: adminToken,
+      role: 'super_admin',
+      originalRole: 'SUPER_ADMIN',
+      name: adminName,
+      email: adminEmail,
+      type: 'super_admin'
+    };
+  }
+  
+  console.log('❌ Aucun utilisateur authentifié');
+  return null;
 };
 
 // ============================================
