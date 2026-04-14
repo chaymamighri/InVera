@@ -1,12 +1,12 @@
-package org.erp.invera.service;
+package org.erp.invera.service.erp;
 
 import jakarta.transaction.Transactional;
-import org.erp.invera.model.client.Client;
-import org.erp.invera.model.client.CommandeClient;
-import org.erp.invera.model.client.FactureClient;
-import org.erp.invera.repository.CommandeClientRepository;
-import org.erp.invera.repository.FactureClientRepository;
-import org.erp.invera.repository.ClientRepository;
+import org.erp.invera.model.erp.client.Client;
+import org.erp.invera.model.erp.client.CommandeClient;
+import org.erp.invera.model.erp.client.FactureClient;
+import org.erp.invera.repository.erp.CommandeClientRepository;
+import org.erp.invera.repository.erp.FactureClientRepository;
+import org.erp.invera.repository.erp.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

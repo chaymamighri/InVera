@@ -1,7 +1,6 @@
 package org.erp.invera.model.erp;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,14 +11,13 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // example: "PASSWORD_CREATED", "PASSWORD_CHANGED"
     @Column(nullable = false)
     private String type;
 
     @Column(nullable = false)
     private String message;
 
-    @Column(nullable = false)
+    @Column(name = "read", nullable = false)
     private boolean read = false;
 
     @Column(name = "created_at", nullable = false)
@@ -31,18 +29,19 @@ public class Notification {
     @Column(name = "user_name")
     private String userName;
 
-    @Column(name = "target_role", nullable = true)
+    @Column(name = "target_role")
     private String targetRole;
 
-    @Column(nullable = true, length = 100)
+    @Column(name = "entity_type", length = 100)
     private String entityType;
 
-    @Column(nullable = true)
+    @Column(name = "entity_id")
     private Long entityId;
 
-    @Column(nullable = true, length = 100)
+    @Column(name = "entity_reference", length = 100)
     private String entityReference;
 
+    // Constructeurs
     public Notification() {}
 
     public Notification(String type, String message, String userEmail, String userName) {

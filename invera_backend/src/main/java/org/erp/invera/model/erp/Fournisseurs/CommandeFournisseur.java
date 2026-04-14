@@ -88,7 +88,7 @@ public class CommandeFournisseur {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "motif_rejet", length = 500)
+    @Column(name = "motif_rejet", length = 500, nullable = false)
     private String motifRejet;
 
     @Column(name = "date_rejet")
