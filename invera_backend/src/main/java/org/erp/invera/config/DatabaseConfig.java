@@ -16,24 +16,20 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @EnableTransactionManagement
-@EnableJpaRepositories(
-        basePackages = "org.erp.invera.repository.erp",  // Seulement ERP
-        entityManagerFactoryRef = "erpEntityManagerFactory",
-        transactionManagerRef = "erpTransactionManager"
-)
-
 public class DatabaseConfig {
 
-    // ========== BASE ERP (invera) - PAR DÉFAUT ==========
+    // ========== BASE ERP ==========
     @Primary
     @Bean(name = "erpDataSource")
     public DataSource erpDataSource(
             @Value("${DB_URL}") String url,
-            @Value("${DB_USERNAME:postgres}") String username,
-            @Value("${DB_PASSWORD:chayma}") String password) {
+            @Value("${DB_USERNAME}") String username,
+            @Value("${DB_PASSWORD}") String password) {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -47,10 +43,16 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean erpEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("erpDataSource") DataSource dataSource) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("hibernate.hbm2ddl.auto", "update");
+        properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+        properties.put("hibernate.show_sql", "true");
+
         return builder
                 .dataSource(dataSource)
                 .packages("org.erp.invera.model.erp")
                 .persistenceUnit("erp")
+                .properties(properties)
                 .build();
     }
 
@@ -61,18 +63,12 @@ public class DatabaseConfig {
         return new JpaTransactionManager(erpEntityManagerFactory.getObject());
     }
 
-    @Primary
-    @Bean(name = "erpJdbcTemplate")
-    public JdbcTemplate erpJdbcTemplate(@Qualifier("erpDataSource") DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
-    }
-
-    // ========== BASE PLATEFORME (invera_platform) ==========
+    // ========== BASE PLATFORM ==========
     @Bean(name = "platformDataSource")
     public DataSource platformDataSource(
             @Value("${PLATFORM_DB_URL}") String url,
-            @Value("${PLATFORM_DB_USERNAME:postgres}") String username,
-            @Value("${PLATFORM_DB_PASSWORD:chayma}") String password) {
+            @Value("${PLATFORM_DB_USERNAME}") String username,
+            @Value("${PLATFORM_DB_PASSWORD}") String password) {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -85,15 +81,41 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean platformEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("platformDataSource") DataSource dataSource) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("hibernate.hbm2ddl.auto", "update");
+        properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+        properties.put("hibernate.show_sql", "true");
+
         return builder
                 .dataSource(dataSource)
                 .packages("org.erp.invera.model.platform")
                 .persistenceUnit("platform")
+                .properties(properties)
                 .build();
     }
 
-    @Bean(name = "platformJdbcTemplate")
-    public JdbcTemplate platformJdbcTemplate(@Qualifier("platformDataSource") DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
+    @Bean(name = "platformTransactionManager")
+    public PlatformTransactionManager platformTransactionManager(
+            @Qualifier("platformEntityManagerFactory") LocalContainerEntityManagerFactoryBean platformEntityManagerFactory) {
+        return new JpaTransactionManager(platformEntityManagerFactory.getObject());
     }
+}
+
+// Configuration séparée pour les repositories
+@Configuration
+@EnableJpaRepositories(
+        basePackages = "org.erp.invera.repository.erp",
+        entityManagerFactoryRef = "erpEntityManagerFactory",
+        transactionManagerRef = "erpTransactionManager"
+)
+class ErpRepositoryConfig {
+}
+
+@Configuration
+@EnableJpaRepositories(
+        basePackages = "org.erp.invera.repository.platform",
+        entityManagerFactoryRef = "platformEntityManagerFactory",
+        transactionManagerRef = "platformTransactionManager"
+)
+class PlatformRepositoryConfig {
 }
