@@ -5,21 +5,10 @@
  * 
  * FONCTIONNALITÉS PRINCIPALES :
  * - Routes publiques (login, création mot de passe)
- * - Routes protégées par rôle (admin, sales, procurement)
+ * - Routes protégées par rôle (admin, sales, procurement, super_admin)
  * - Layout adaptatif (avec/sans Header)
  * - Redirection automatique selon le rôle
  * - Gestion des erreurs (403, 404)
- * 
- * STRUCTURE DES ROUTES :
- * 
- * /dashboard/admin/*         → Dashboard administrateur
- * /dashboard/sales/*         → Dashboard commercial
- * /dashboard/procurement/*   → Dashboard approvisionnement (Achats)
- * 
- * 
- * ROUTES PARTAGÉES (tous rôles)
- * /profile                    → Page de profil
- * /settings                   → Paramètres utilisateur
  */
 
 import React from 'react';
@@ -42,10 +31,6 @@ import OrdersPage from './pages/dashboard/sales/orders/OrderPage';
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 import ClientManagePage from './pages/dashboard/sales/clients/ClientPageManage';
-import ReportsPage from './pages/dashboard/sales/reports/ReportsPage';
-import SalesTab from './pages/dashboard/sales/reports/tabs/SalesTab';
-import InvoicesTab from './pages/dashboard/sales/reports/tabs/InvoicesTab';
-import ClientsTab from './pages/dashboard/sales/reports/tabs/ClientsTab';
 
 // ============================================
 // IMPORTS DES PAGES - PROCUREMENT (Achats)
@@ -76,39 +61,31 @@ import Statistiques from './pages/dashboard/admin/statestiques/Statistiques';
 import GestionUsers from './pages/dashboard/admin/users/gestionUsers';
 import Remise from './pages/dashboard/admin/remise/RemiseProduit';
 import FournisseurManagement from './pages/dashboard/admin/fournisseurs/Fournisseurs';
+import AdminLogin from './pages/superAdmin/AdminLogin';
+import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
+import SalesTable from './pages/dashboard/sales/sales/components/SalesTable';
 
 // ============================================
 // MAPPING DES RÔLES (Backend → Frontend)
 // ============================================
 
-/**
- * Correspondance entre les rôles backend et frontend
- */
 const ROLE_MAPPING = {
   ADMIN: 'admin',
   ROLE_ADMIN: 'admin',
   COMMERCIAL: 'sales',
   ROLE_COMMERCIAL: 'sales',
   RESPONSABLE_ACHAT: 'procurement',
-  ROLE_RESPONSABLE_ACHAT: 'procurement'
+  ROLE_RESPONSABLE_ACHAT: 'procurement',
+  SUPER_ADMIN: 'super_admin',
+  ROLE_SUPER_ADMIN: 'super_admin'
 };
 
-/**
- * Normalise le rôle backend en rôle frontend
- * @param {string} role - Rôle brut depuis l'API
- * @returns {string|null} Rôle normalisé (admin, sales, procurement)
- */
 const normalizeBackendRole = (role) => {
   if (!role) return null;
   const normalized = String(role).trim().toUpperCase();
   return ROLE_MAPPING[normalized] || normalized.toLowerCase();
 };
 
-/**
- * Extrait le rôle depuis le token JWT
- * @param {string} token - Token JWT
- * @returns {string|null} Rôle trouvé ou null
- */
 const inferRoleFromToken = (token) => {
   try {
     const raw = String(token || '').trim();
@@ -131,11 +108,32 @@ const inferRoleFromToken = (token) => {
   }
 };
 
-/**
- * Récupère les données utilisateur depuis localStorage/sessionStorage
- * @returns {Object|null} { token, role, originalRole, name, email }
- */
 const getUserData = () => {
+  // Vérifier d'abord le token super admin
+  const adminToken = localStorage.getItem('adminToken');
+  if (adminToken) {
+    const adminInfo = localStorage.getItem('adminInfo');
+    let adminName = 'Super Admin';
+    let adminEmail = '';
+    
+    if (adminInfo) {
+      try {
+        const info = JSON.parse(adminInfo);
+        adminName = info.nom || adminName;
+        adminEmail = info.email || '';
+      } catch(e) {}
+    }
+    
+    return {
+      token: adminToken,
+      role: 'super_admin',
+      originalRole: 'SUPER_ADMIN',
+      name: adminName,
+      email: adminEmail
+    };
+  }
+  
+  // Sinon vérifier le token utilisateur normal
   const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   if (!token) return null;
 
@@ -161,12 +159,6 @@ const getUserData = () => {
 // COMPOSANTS DE MISE EN PAGE
 // ============================================
 
-/**
- * Layout standard avec Header
- * @param {Object} props
- * @param {ReactNode} props.children - Contenu de la page
- * @param {string} props.userRole - Rôle utilisateur pour le Header
- */
 const Layout = ({ children, userRole }) => (
   <div className="min-h-screen flex flex-col">
     <Header userRole={userRole} />
@@ -174,25 +166,19 @@ const Layout = ({ children, userRole }) => (
   </div>
 );
 
-/**
- * Layout public (sans Header)
- * @param {Object} props
- * @param {ReactNode} props.children - Contenu de la page
- */
 const PublicLayout = ({ children }) => children;
 
 // ============================================
 // REDIRECTION PAR RÔLE
 // ============================================
 
-/**
- * Redirige l'utilisateur vers son dashboard selon son rôle
- */
 const DashboardRedirect = () => {
   const userData = getUserData();
   if (!userData) return <Navigate to="/login" replace />;
 
   switch (userData.role) {
+    case 'super_admin':
+      return <Navigate to="/super-admin/clients" replace />;
     case 'admin':
       return <Navigate to="/dashboard/admin" replace />;
     case 'sales':
@@ -208,26 +194,13 @@ const DashboardRedirect = () => {
 // COMPOSANT DE PROTECTION DES ROUTES
 // ============================================
 
-/**
- * Protège une route par rôle et choisit le layout
- * @param {Object} props
- * @param {ReactNode} props.children - Composant à afficher
- * @param {string[]} props.allowedRoles - Rôles autorisés
- * @param {boolean} props.useLayout - Afficher le Header (défaut: true)
- */
 const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   const userData = getUserData();
   
-  // Non authentifié → redirection login
   if (!userData) return <Navigate to="/login" replace />;
-
-  // Rôle non autorisé → page 403
   if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
-
-  // Pas de layout (ex: profile, settings)
   if (!useLayout) return children;
 
-  // Layout standard avec Header
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
@@ -271,7 +244,6 @@ function App() {
       <AuthProvider>
         <SidebarProvider>
           
-          {/* Configuration des toasts de notification */}
           <Toaster
             position="top-right"
             containerStyle={{ top: 80, right: 24 }}
@@ -308,40 +280,58 @@ function App() {
           />
 
           <Routes>
-            
-            // ============================================
-            // REDIRECTION PAR DÉFAUT
-            // ============================================
+            {/* ============================================
+                REDIRECTION PAR DÉFAUT
+                ============================================ */}
             <Route path="/" element={<Navigate to="/login" replace />} />
 
-            // ============================================
-            // ROUTES PUBLIQUES
-            // ============================================
+            {/* ============================================
+                ROUTES PUBLIQUES
+                ============================================ */}
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
-            // ============================================
-            // ROUTES ADMIN
-            // ============================================
-           <Route
-  path="/dashboard/admin" 
-  element={
-    <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
-      <AdminDashboard />
-    </ProtectedRoute>
-  }
->
-  {/* Sous-routes */}
-  <Route index element={<Navigate to="stats" replace />} />
-  <Route path="stats" element={<Statistiques />} />
-  <Route path="validation-commandes" element={<ValidationCommande />} />
-  <Route path="users" element={<GestionUsers />} />
-  <Route path="remises" element={<Remise />} />
-  <Route path="fournisseurs" element={<FournisseurManagement />} />
-</Route>
-            // ============================================
-            // ROUTES PROCUREMENT (Achats)
-            // ============================================
+            {/* ============================================
+                ROUTES SUPER ADMIN
+                ============================================ */}
+            <Route path="/super-admin/login" element={<PublicLayout><AdminLogin /></PublicLayout>} />
+            
+            <Route
+              path="/super-admin/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']} useLayout={false}>
+                  <SuperAdminDashboard />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="clients" replace />} />
+              <Route path="clients" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des clients</h1></div>} />
+              <Route path="abonnements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des abonnements</h1></div>} />
+              <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
+            </Route>
+
+            {/* ============================================
+                ROUTES ADMIN
+                ============================================ */}
+            <Route
+              path="/dashboard/admin"
+              element={
+                <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="stats" replace />} />
+              <Route path="stats" element={<Statistiques />} />
+              <Route path="validation-commandes" element={<ValidationCommande />} />
+              <Route path="users" element={<GestionUsers />} />
+              <Route path="remises" element={<Remise />} />
+              <Route path="fournisseurs" element={<FournisseurManagement />} />
+            </Route>
+
+            {/* ============================================
+                ROUTES PROCUREMENT (Achats)
+                ============================================ */}
             <Route
               path="/dashboard/procurement/*"
               element={
@@ -359,9 +349,9 @@ function App() {
               <Route path="etat_stock" element={<EtatStock />} />
             </Route>
 
-            // ============================================
-            // ROUTES SALES (Commercial)
-            // ============================================
+            {/* ============================================
+                ROUTES SALES (Commercial)
+                ============================================ */}
             <Route
               path="/dashboard/sales/*"
               element={
@@ -377,23 +367,19 @@ function App() {
               <Route path="sales" element={<SalesPage />} />
               <Route path="invoices" element={<InvoicingPage />} />
               <Route path="clients" element={<ClientManagePage />} />
-              
-              {/* Sous-routes Reports */}
-              <Route path="reports" element={<ReportsPage />}>
-                <Route index element={<Navigate to="sales" replace />} />
-                <Route path="sales" element={<SalesTab />} />
-                <Route path="invoices" element={<InvoicesTab />} />
-                <Route path="clients" element={<ClientsTab />} />
-              </Route>
+              <Route index element={<Navigate to="sales" replace />} />
+              <Route path="sales" element={<SalesTable />} />
+             
             </Route>
+         
 
-            // ============================================
-            // ROUTES PARTAGÉES (tous rôles)
-            // ============================================
+            {/* ============================================
+                ROUTES PARTAGÉES (tous rôles)
+                ============================================ */}
             <Route
               path="/profile"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
                   <ProfilePage />
                 </ProtectedRoute>
               }
@@ -401,21 +387,21 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
                   <SettingsPage />
                 </ProtectedRoute>
               }
             />
 
-            // ============================================
-            // ROUTES UTILITAIRES
-            // ============================================
+            {/* ============================================
+                ROUTES UTILITAIRES
+                ============================================ */}
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-            // ============================================
-            // PAGE 404 (Non trouvée)
-            // ============================================
+            {/* ============================================
+                PAGE 404 (Non trouvée)
+                ============================================ */}
             <Route
               path="*"
               element={
