@@ -31,7 +31,7 @@ public class DatabaseConfig {
     @Primary
     @Bean(name = "erpDataSource")
     public DataSource erpDataSource(
-            @Value("${DB_URL:jdbc:postgresql://localhost:5432/invera}") String url,
+            @Value("${DB_URL}") String url,
             @Value("${DB_USERNAME:postgres}") String username,
             @Value("${DB_PASSWORD:chayma}") String password) {
         HikariConfig config = new HikariConfig();
@@ -70,7 +70,7 @@ public class DatabaseConfig {
     // ========== BASE PLATEFORME (invera_platform) ==========
     @Bean(name = "platformDataSource")
     public DataSource platformDataSource(
-            @Value("${PLATFORM_DB_URL:jdbc:postgresql://localhost:5432/invera_platform}") String url,
+            @Value("${PLATFORM_DB_URL}") String url,
             @Value("${PLATFORM_DB_USERNAME:postgres}") String username,
             @Value("${PLATFORM_DB_PASSWORD:chayma}") String password) {
         HikariConfig config = new HikariConfig();
