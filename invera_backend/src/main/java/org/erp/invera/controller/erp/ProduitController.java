@@ -206,9 +206,6 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer un produit avec son fournisseur
-     */
     @GetMapping("/{id}")
     public ResponseEntity<?> getProduitById(@PathVariable Integer id) {
         try {
@@ -216,23 +213,77 @@ public class ProduitController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("produit", produit);
 
-            // ✅ Ajouter le fournisseur (un seul)
-            if (produit.getFournisseur() != null) {
-                Map<String, Object> fournisseurMap = new HashMap<>();
-                fournisseurMap.put("idFournisseur", produit.getFournisseur().getIdFournisseur());
-                fournisseurMap.put("nomFournisseur", produit.getFournisseur().getNomFournisseur());
-                fournisseurMap.put("email", produit.getFournisseur().getEmail());
-                fournisseurMap.put("telephone", produit.getFournisseur().getTelephone());
-                fournisseurMap.put("adresse", produit.getFournisseur().getAdresse());
-                fournisseurMap.put("ville", produit.getFournisseur().getVille());
-                fournisseurMap.put("prixAchat", produit.getPrixAchat());
-                response.put("fournisseur", fournisseurMap);
+            Map<String, Object> produitMap = new HashMap<>();
+            produitMap.put("idProduit", produit.getIdProduit());
+            produitMap.put("libelle", produit.getLibelle());
+            produitMap.put("prixVente", produit.getPrixVente());
+            produitMap.put("prixAchat", produit.getPrixAchat());
+            produitMap.put("quantiteStock", produit.getQuantiteStock());
+            produitMap.put("uniteMesure", produit.getUniteMesure() != null ? produit.getUniteMesure().name() : null);
+            produitMap.put("active", produit.getActive());
+            produitMap.put("seuilMinimum", produit.getSeuilMinimum());
+            produitMap.put("imageUrl", produit.getImageUrl());
+            produitMap.put("remiseTemporaire", produit.getRemiseTemporaire());
+            produitMap.put("status", produit.getStatus() != null ? produit.getStatus().name() : null);
+
+            // ✅ AJOUTER LE FOURNISSEUR
+            if (produit.getCategorie() != null) {
+                produitMap.put("categorieId", produit.getCategorie().getIdCategorie());
+                produitMap.put("categorieNom", produit.getCategorie().getNomCategorie());
             }
+
+            if (produit.getFournisseur() != null) {
+                produitMap.put("fournisseurId", produit.getFournisseur().getIdFournisseur());
+                produitMap.put("fournisseurNom", produit.getFournisseur().getNomFournisseur());
+                produitMap.put("fournisseurEmail", produit.getFournisseur().getEmail());
+                produitMap.put("fournisseurTelephone", produit.getFournisseur().getTelephone());
+            }
+
+            response.put("produit", produitMap);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Récupérer les produits d'un fournisseur spécifique (pour bon de commande)
+     */
+    @GetMapping("/fournisseur/{fournisseurId}")
+    public ResponseEntity<?> getProduitsByFournisseur(@PathVariable Integer fournisseurId) {
+        try {
+            List<Produit> produits = produitService.getProduitsByFournisseur(fournisseurId);
+
+            List<Map<String, Object>> produitsDTO = produits.stream()
+                    .map(p -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", p.getIdProduit());
+                        map.put("idProduit", p.getIdProduit());
+                        map.put("libelle", p.getLibelle());
+                        map.put("nom", p.getLibelle());
+                        map.put("prixAchat", p.getPrixAchat());
+                        map.put("prixVente", p.getPrixVente());
+                        map.put("quantiteStock", p.getQuantiteStock());
+                        map.put("uniteMesure", p.getUniteMesure());
+                        map.put("active", p.getActive());
+                        map.put("tauxTVA", p.getCategorie() != null ? p.getCategorie().getTauxTVA() : 19);
+                        map.put("estActif", p.getActive());
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "produits", produitsDTO
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "message", e.getMessage()
@@ -401,6 +452,7 @@ public class ProduitController {
     /**
      * Rechercher des produits et récupère les produits avec filtre
      */
+// Dans ProduitController.java
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> searchProduits(
             @RequestParam(required = false) String keyword,
@@ -411,8 +463,30 @@ public class ProduitController {
         try {
             List<Produit> produits = produitService.searchProduits(keyword, status, categorieId, actif);
 
-            List<ProduitDTO> produitsDTO = produits.stream()
-                    .map(ProduitDTO::fromEntity)
+            // ✅ Convertir en DTO simplifié SANS fournisseur
+            List<Map<String, Object>> produitsDTO = produits.stream()
+                    .map(p -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("idProduit", p.getIdProduit());
+                        map.put("libelle", p.getLibelle());
+                        map.put("prixVente", p.getPrixVente());
+                        map.put("prixAchat", p.getPrixAchat());
+                        map.put("quantiteStock", p.getQuantiteStock());
+                        map.put("uniteMesure", p.getUniteMesure() != null ? p.getUniteMesure().name() : null);
+                        map.put("active", p.getActive());
+                        map.put("seuilMinimum", p.getSeuilMinimum());
+                        map.put("imageUrl", p.getImageUrl());
+                        map.put("remiseTemporaire", p.getRemiseTemporaire());
+                        map.put("status", p.getStatus() != null ? p.getStatus().name() : null);
+
+                        // ✅ Ne PAS inclure le fournisseur
+                        // Seulement la catégorie
+                        if (p.getCategorie() != null) {
+                            map.put("categorieId", p.getCategorie().getIdCategorie());
+                            map.put("categorieNom", p.getCategorie().getNomCategorie());
+                        }
+                        return map;
+                    })
                     .collect(Collectors.toList());
 
             Map<String, Object> response = new HashMap<>();
@@ -422,10 +496,11 @@ public class ProduitController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return errorResponse("Erreur lors de la recherche: " + e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            e.printStackTrace();
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
 
     /**
      * Récupérer les produits par catégorie
