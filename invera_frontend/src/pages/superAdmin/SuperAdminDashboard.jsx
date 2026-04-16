@@ -72,7 +72,7 @@ const SuperAdminDashboard = () => {
           <p className="text-gray-600 text-lg">
             Vous devez gérer les clients, les abonnements et les paiements depuis cet espace.
           </p>
-
+  
         </div>
       </div>
     </div>

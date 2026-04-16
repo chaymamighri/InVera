@@ -106,8 +106,8 @@ const CommandesFournisseurs = () => {
     envoyerCommande,
     recevoirCommande,
     annulerCommande,
-    rejeterCommande,      // ✅ NOUVEAU
-    renvoyerAttente,      // ✅ NOUVEAU
+    rejeterCommande,      
+    renvoyerAttente,     
     searchByNumero,
     searchByPeriode,
   } = useCommandeFournisseur();
