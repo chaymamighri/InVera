@@ -539,6 +539,7 @@ public class CommandeFournisseurService {
     // ==================== CONVERSIONS ====================
     private CommandeFournisseurDTO convertToDTO(CommandeFournisseur commande) {
         CommandeFournisseurDTO dto = new CommandeFournisseurDTO();
+
         dto.setIdCommandeFournisseur(commande.getIdCommandeFournisseur());
         dto.setNumeroCommande(commande.getNumeroCommande());
         dto.setDateCommande(commande.getDateCommande());
@@ -554,13 +555,18 @@ public class CommandeFournisseurService {
         dto.setMotifRejet(commande.getMotifRejet());
         dto.setDateRejet(commande.getDateRejet());
 
-        // ✅ Récupérer le fournisseur à partir des produits
-        try {
-            Fournisseur fournisseur = getFournisseurFromCommande(commande);
-            dto.setFournisseur(new FournisseurDTO(fournisseur));
-        } catch (Exception e) {
-            // La commande n'a pas de produits ou pas de fournisseur cohérent
-            dto.setFournisseur(null);
+        // ✅ Récupérer le fournisseur depuis le premier produit de la commande
+        if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
+            Produit produit = commande.getLignesCommande().get(0).getProduit();
+            if (produit != null && produit.getFournisseur() != null) {
+                Fournisseur fournisseur = produit.getFournisseur();
+                FournisseurDTO fournisseurDTO = new FournisseurDTO();
+                fournisseurDTO.setIdFournisseur(fournisseur.getIdFournisseur());
+                fournisseurDTO.setNomFournisseur(fournisseur.getNomFournisseur());
+                fournisseurDTO.setEmail(fournisseur.getEmail());
+                fournisseurDTO.setTelephone(fournisseur.getTelephone());
+                dto.setFournisseur(fournisseurDTO);
+            }
         }
 
         if (commande.getLignesCommande() != null) {
@@ -569,6 +575,7 @@ public class CommandeFournisseurService {
                     .map(this::convertLigneToDTO)
                     .collect(Collectors.toList()));
         }
+
         return dto;
     }
 

@@ -13,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -94,14 +96,6 @@ public class ProduitService {
     }
 
     /**
-     * Créer un produit sans fournisseur (version simplifiée)
-     */
-    @Transactional
-    public Produit createProduit(Produit produit) {
-        return createProduit(produit, null, null);
-    }
-
-    /**
      * Récupérer tous les produits
      */
     public List<Produit> getAllProduits() {
@@ -129,14 +123,6 @@ public class ProduitService {
      */
     public Optional<Produit> getProduitById(Integer id) {
         return produitRepository.findById(id);
-    }
-
-    /**
-     * Récupérer le fournisseur d'un produit
-     */
-    public Fournisseur getFournisseurByProduit(Integer produitId) {
-        Produit produit = getProduitByIdWithFournisseur(produitId);
-        return produit.getFournisseur();
     }
 
     /**
@@ -242,6 +228,7 @@ public class ProduitService {
      */
     public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId, Boolean actif) {
         String statusStr = status != null ? status.name() : null;
+        // ✅ Pas besoin de forcer le chargement
         return produitRepository.searchProduits(keyword, statusStr, categorieId, actif);
     }
 

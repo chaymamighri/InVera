@@ -1,5 +1,6 @@
 package org.erp.invera.model.erp;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -33,12 +34,12 @@ public class Produit {
     private Double prixVente;
 
     @Column(name = "prix_achat", nullable = false)
-    private BigDecimal prixAchat = BigDecimal.ZERO;  // ✅ Prix d'achat ici
+    private BigDecimal prixAchat = BigDecimal.ZERO;
 
     // ✅ Relation Many-to-One avec Fournisseur
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fournisseur_id")
-    @JsonIgnoreProperties("produits")
+    @JsonIgnore
     private Fournisseur fournisseur;
 
     @ManyToOne

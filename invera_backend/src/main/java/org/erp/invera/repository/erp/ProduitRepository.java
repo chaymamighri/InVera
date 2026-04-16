@@ -77,7 +77,7 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
             "JOIN sm.produit p " +
             "LEFT JOIN p.categorie c " +
             "WHERE p.active = true " +
-            "AND sm.typeMouvement IN ('INIT_STOCK', 'ENTRY') " +
+            "AND sm.typeMouvement IN ('INIT_STOCK', 'ENTREE') " +
             "GROUP BY c.idCategorie, c.nomCategorie")
     List<Object[]> sumValeurStockByCategorie();
 
