@@ -1,9 +1,9 @@
-// components/commandeModal.jsx - Version CORRIGÉE (sans condition sur fournisseur)
-
+// components/commandeModal.jsx - Version avec toasts
 import React, { useState, useEffect, useMemo } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
 import useProducts from '../../../../../hooks/useProducts';
+import toast from 'react-hot-toast';
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -28,31 +28,9 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   } = useFournisseur();
   
   const { 
-    allProducts: produitsBruts,
-    loading: loadingProduits,
-    loadProducts,
+    getProductsByFournisseur,
+    loading: loadingProducts,
   } = useProducts();
-
-  const produits = useMemo(() => {
-    if (!produitsBruts) return [];
-    return produitsBruts.map(p => ({
-      ...p,
-      id: p.id || p.idProduit,
-      tauxTVA: getTauxTVA(p),
-      estActif: p.estActif !== undefined ? p.estActif : (p.active !== undefined ? p.active : true),
-      prixAchat: p.prixAchat || p.prix,
-      stock: p.stock || p.quantiteStock,
-      nom: p.nom || p.libelle,
-    }));
-  }, [produitsBruts]);
-
-  const produitsGroupes = useMemo(() => {
-    if (!produits || produits.length === 0) return { actifs: [], inactifs: [] };
-    return {
-      actifs: produits.filter(p => p.estActif === true),
-      inactifs: produits.filter(p => p.estActif === false),
-    };
-  }, [produits]);
 
   const [formData, setFormData] = useState({
     fournisseurId: '',
@@ -62,24 +40,21 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
 
   const [lignes, setLignes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [produitSelectionne, setProduitSelectionne] = useState(null);
-  const [quantite, setQuantite] = useState(1);
-  const [prixUnitaire, setPrixUnitaire] = useState(0);
-  const [afficherInactifs, setAfficherInactifs] = useState(false);
-  const [nextId, setNextId] = useState(1);
+  const [selectedFournisseur, setSelectedFournisseur] = useState(null);
+  const [produitsDisponibles, setProduitsDisponibles] = useState([]);
+  const [loadingProduitsFiltres, setLoadingProduitsFiltres] = useState(false);
+  
+  // États pour la modale de sélection des produits
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [produitSelectionneTemp, setProduitSelectionneTemp] = useState(null);
+  const [quantiteTemp, setQuantiteTemp] = useState(1);
 
-  // ✅ PLUS DE CONDITION - Les produits sont TOUJOURS affichés
-  const produitsAffiches = useMemo(() => {
-    if (afficherInactifs) {
-      return produits;
-    }
-    return produitsGroupes.actifs;
-  }, [produits, produitsGroupes, afficherInactifs]);
+  // State pour l'ID de la commande en cours d'édition
+  const [currentCommandeId, setCurrentCommandeId] = useState(null);
 
   useEffect(() => {
     fetchActiveFournisseurs(); 
-    loadProducts(0, {});
-  }, [fetchActiveFournisseurs, loadProducts]);
+  }, [fetchActiveFournisseurs]);
 
   useEffect(() => {
     if (isOpen) {
@@ -88,11 +63,19 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                               commande.fournisseurId || 
                               '';
         
+        const commandeId = commande.idCommandeFournisseur || commande.id;
+        
+        setSelectedFournisseur(fournisseurId);
+        setCurrentCommandeId(commandeId);
         setFormData({
           fournisseurId: fournisseurId,
           dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
           adresseLivraison: commande.adresseLivraison || '',
         });
+        
+        if (fournisseurId) {
+          chargerProduitsDuFournisseur(fournisseurId);
+        }
         
         const lignesExistantes = (commande.lignesCommande || []).map((ligne, index) => {
           const quantiteVal = ligne.quantite || 0;
@@ -102,8 +85,6 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
           const sousTotalHT = ligne.sousTotalHT || (quantiteVal * prixUnitaireVal);
           const montantTVA = ligne.montantTVA || (sousTotalHT * tauxTVAVal / 100);
           const sousTotalTTC = ligne.sousTotalTTC || (sousTotalHT + montantTVA);
-          
-          const produitCorrespondant = produits.find(p => p.id === (ligne.produitId || ligne.produit?.idProduit));
           
           return {
             id: ligne.idLigneCommandeFournisseur || index + 1,
@@ -116,19 +97,31 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
             sousTotalHT: sousTotalHT,
             montantTVA: montantTVA,
             sousTotalTTC: sousTotalTTC,
-            estInactif: produitCorrespondant ? !produitCorrespondant.estActif : false,
+            estInactif: false,
             categorie: ligne.categorie || ligne.produit?.categorie?.nomCategorie || '',
           };
         });
         
         setLignes(lignesExistantes);
-        const maxId = Math.max(...lignesExistantes.map(l => l.id), 0);
-        setNextId(maxId + 1);
       } else {
         resetForm();
       }
     }
-  }, [isOpen, commande, produits]);
+  }, [isOpen, commande]);
+
+  const chargerProduitsDuFournisseur = async (fournisseurId) => {
+    setLoadingProduitsFiltres(true);
+    try {
+      const produits = await getProductsByFournisseur(fournisseurId);
+      setProduitsDisponibles(produits);
+    } catch (error) {
+      console.error('❌ Erreur chargement produits:', error);
+      toast.error('Erreur lors du chargement des produits');
+      setProduitsDisponibles([]);
+    } finally {
+      setLoadingProduitsFiltres(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -136,108 +129,136 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       dateLivraisonPrevue: '',
       adresseLivraison: '',
     });
+    setSelectedFournisseur(null);
+    setCurrentCommandeId(null);
+    setProduitsDisponibles([]);
     setLignes([]);
-    setProduitSelectionne(null);
-    setQuantite(1);
-    setPrixUnitaire(0);
-    setAfficherInactifs(false);
-    setNextId(1);
   };
 
-  const resetProductSelection = () => {
-    setProduitSelectionne(null);
-    setQuantite(1);
-    setPrixUnitaire(0);
-  };
-
-  const handleFournisseurChange = (e) => {
+  const handleFournisseurChange = async (e) => {
     const fournisseurId = parseInt(e.target.value);
+    setSelectedFournisseur(fournisseurId);
     setFormData(prev => ({
       ...prev,
       fournisseurId: fournisseurId,
     }));
-    resetProductSelection();
+    setLignes([]);
+    
+    if (fournisseurId) {
+      await chargerProduitsDuFournisseur(fournisseurId);
+    } else {
+      setProduitsDisponibles([]);
+    }
   };
 
-  const handleProductSelect = (e) => {
-    const productId = parseInt(e.target.value);
-    if (!productId || isNaN(productId)) {
-      setProduitSelectionne(null);
-      return;
-    }
-    const produit = produits.find(p => p.id === productId);
-    if (!produit) {
-      setProduitSelectionne(null);
-      return;
-    }
-    setProduitSelectionne(produit);
-    setPrixUnitaire(produit.prixAchat || produit.prix || 0);
+  const openProductModal = () => {
+    setIsProductModalOpen(true);
+    setProduitSelectionneTemp(null);
+    setQuantiteTemp(1);
   };
 
-  const modifierLigne = (id, champ, valeur) => {
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    setProduitSelectionneTemp(null);
+    setQuantiteTemp(1);
+  };
+
+  const selectProduit = (produit) => {
+    setProduitSelectionneTemp(produit);
+  };
+
+  const incrementQuantite = () => {
+    setQuantiteTemp(prev => prev + 1);
+  };
+
+  const decrementQuantite = () => {
+    setQuantiteTemp(prev => Math.max(1, prev - 1));
+  };
+
+  const handleQuantiteChange = (e) => {
+    const value = parseInt(e.target.value);
+    if (isNaN(value) || value < 1) {
+      setQuantiteTemp(1);
+    } else {
+      setQuantiteTemp(value);
+    }
+  };
+
+  const ajouterProduitSelectionne = () => {
+    if (!produitSelectionneTemp) {
+      toast.error('Veuillez sélectionner un produit');
+      return;
+    }
+    
+    if (quantiteTemp < 1) {
+      toast.error('La quantité doit être au moins 1');
+      return;
+    }
+    
+    const prixUnitaireValue = produitSelectionneTemp.prixAchat || produitSelectionneTemp.prix || 0;
+    
+    if (prixUnitaireValue <= 0) {
+      toast.error('Le prix unitaire doit être supérieur à 0');
+      return;
+    }
+
+    const ligneExistante = lignes.find(l => l.produitId === produitSelectionneTemp.id);
+    
+    if (ligneExistante) {
+      const nouvelleQuantite = ligneExistante.quantite + quantiteTemp;
+      modifierQuantiteLigne(ligneExistante.id, nouvelleQuantite);
+      toast.success(`Quantité mise à jour : ${produitSelectionneTemp.nom || produitSelectionneTemp.libelle}`);
+    } else {
+      const tauxTVA = produitSelectionneTemp.tauxTVA || 19;
+      const sousTotalHT = quantiteTemp * prixUnitaireValue;
+      const montantTVA = sousTotalHT * (tauxTVA / 100);
+      const sousTotalTTC = sousTotalHT + montantTVA;
+
+      const nouvelleLigne = {
+        id: Date.now() + Math.random(),
+        produitId: produitSelectionneTemp.id,
+        produitLibelle: produitSelectionneTemp.nom || produitSelectionneTemp.libelle || 'Produit sans nom',
+        produitReference: produitSelectionneTemp.reference || `REF-${produitSelectionneTemp.id}`,
+        quantite: quantiteTemp,
+        prixUnitaire: prixUnitaireValue,
+        tauxTVA: tauxTVA,
+        sousTotalHT: sousTotalHT,
+        montantTVA: montantTVA,
+        sousTotalTTC: sousTotalTTC,
+        estInactif: !produitSelectionneTemp.estActif,
+        categorie: produitSelectionneTemp.categorieNom || 'Sans catégorie',
+      };
+
+      setLignes(prev => [...prev, nouvelleLigne]);
+      toast.success(`Produit ajouté : ${produitSelectionneTemp.nom || produitSelectionneTemp.libelle}`);
+    }
+    
+    closeProductModal();
+  };
+
+  const modifierQuantiteLigne = (id, valeur) => {
+    const nouvelleQuantite = parseInt(valeur) || 1;
+    if (nouvelleQuantite < 1) {
+      toast.error('La quantité doit être au moins 1');
+      return;
+    }
+    
     setLignes(prev => prev.map(ligne => {
       if (ligne.id !== id) return ligne;
       
-      const nouvelleLigne = { ...ligne };
-      
-      if (champ === 'quantite') {
-        nouvelleLigne.quantite = parseInt(valeur) || 0;
-      }
-      if (champ === 'prixUnitaire') {
-        nouvelleLigne.prixUnitaire = parseFloat(valeur) || 0;
-      }
-      
-      const tauxTVA = nouvelleLigne.tauxTVA || 19;
+      const nouvelleLigne = { ...ligne, quantite: nouvelleQuantite };
       nouvelleLigne.sousTotalHT = nouvelleLigne.quantite * nouvelleLigne.prixUnitaire;
-      nouvelleLigne.montantTVA = nouvelleLigne.sousTotalHT * (tauxTVA / 100);
+      nouvelleLigne.montantTVA = nouvelleLigne.sousTotalHT * (nouvelleLigne.tauxTVA / 100);
       nouvelleLigne.sousTotalTTC = nouvelleLigne.sousTotalHT + nouvelleLigne.montantTVA;
       
       return nouvelleLigne;
     }));
   };
 
-  const ajouterProduit = () => {
-    if (!produitSelectionne) {
-      alert('Veuillez sélectionner un produit');
-      return;
-    }
-    
-    if (quantite <= 0) {
-      alert('La quantité doit être supérieure à 0');
-      return;
-    }
-    if (prixUnitaire <= 0) {
-      alert('Le prix unitaire doit être supérieur à 0');
-      return;
-    }
-
-    const tauxTVA = produitSelectionne.tauxTVA || 19;
-    const sousTotalHT = quantite * prixUnitaire;
-    const montantTVA = sousTotalHT * (tauxTVA / 100);
-    const sousTotalTTC = sousTotalHT + montantTVA;
-
-    const nouvelleLigne = {
-      id: nextId,
-      produitId: produitSelectionne.id,
-      produitLibelle: produitSelectionne.nom || produitSelectionne.libelle || 'Produit sans nom',
-      produitReference: produitSelectionne.reference || `REF-${produitSelectionne.id}`,
-      quantite: quantite,
-      prixUnitaire: prixUnitaire,
-      tauxTVA: tauxTVA,
-      sousTotalHT: sousTotalHT,
-      montantTVA: montantTVA,
-      sousTotalTTC: sousTotalTTC,
-      estInactif: !produitSelectionne.estActif,
-      categorie: produitSelectionne.categorieNom || 'Sans catégorie',
-    };
-
-    setLignes(prev => [...prev, nouvelleLigne]);
-    setNextId(prev => prev + 1);
-    resetProductSelection();
-  };
-
   const supprimerLigne = (id) => {
+    const ligneASupprimer = lignes.find(l => l.id === id);
     setLignes(prev => prev.filter(l => l.id !== id));
+    toast.success(`Produit supprimé : ${ligneASupprimer?.produitLibelle}`);
   };
 
   const totaux = useMemo(() => {
@@ -247,43 +268,70 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     return { totalHT, totalTVA, totalTTC };
   }, [lignes]);
 
-  
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  // Construction correcte des données
-  const commandeData = {
-    fournisseur: { idFournisseur: formData.fournisseurId },
-    dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
-    adresseLivraison: formData.adresseLivraison,
-    lignesCommande: lignes.map(l => ({
-      produitId: l.produitId,
-      quantite: l.quantite,
-      prixUnitaire: l.prixUnitaire,
-      tauxTVA: l.tauxTVA,
-    })),
+    if (!selectedFournisseur) {
+      toast.error('Veuillez sélectionner un fournisseur');
+      return;
+    }
+
+    if (lignes.length === 0) {
+      toast.error('Veuillez ajouter au moins un produit');
+      return;
+    }
+
+    if (!formData.dateLivraisonPrevue) {
+      toast.error('Veuillez sélectionner une date de livraison');
+      return;
+    }
+
+    if (!formData.adresseLivraison.trim()) {
+      toast.error('Veuillez saisir une adresse de livraison');
+      return;
+    }
+
+    const commandeData = {
+      fournisseur: { idFournisseur: selectedFournisseur },
+      dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
+      adresseLivraison: formData.adresseLivraison,
+      lignesCommande: lignes.map(l => ({
+        produitId: l.produitId,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tauxTVA: l.tauxTVA,
+      })),
+    };
+
+    try {
+      setLoading(true);
+      
+      if (currentCommandeId) {
+        // Mode édition
+        toast.loading('Modification de la commande en cours...', { id: 'commande' });
+        await onSave(currentCommandeId, commandeData);
+        toast.success('Commande modifiée avec succès', { id: 'commande' });
+      } else {
+        // Mode création
+        toast.loading('Création de la commande en cours...', { id: 'commande' });
+        await onSave(commandeData);
+        toast.success('Commande créée avec succès', { id: 'commande' });
+      }
+      
+      await onSuccess();
+      onClose();
+      resetForm();
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      toast.error(error.response?.data?.message || error.message || 'Erreur lors de l\'enregistrement', { id: 'commande' });
+    } finally {
+      setLoading(false);
+    }
   };
-
-  console.log("📦 Envoi commande:", JSON.stringify(commandeData, null, 2));
-
-  try {
-    setLoading(true);
-    // ✅ Vérifier que onSave est appelé avec les bonnes données
-    await onSave(commandeData); // Pas d'ID pour une nouvelle commande
-    await onSuccess();
-    onClose();
-    resetForm();
-  } catch (error) {
-    console.error('❌ Erreur:', error);
-    alert(error.response?.data?.message || error.message || 'Erreur inconnue');
-  } finally {
-    setLoading(false);
-  }
-};
 
   if (!isOpen) return null;
 
-  const isLoading = loadingFournisseurs || loadingProduits || loading;
+  const isLoading = loadingFournisseurs || loadingProducts || loadingProduitsFiltres || loading;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -303,19 +351,23 @@ const handleSubmit = async (e) => {
           {isLoading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-500">Chargement...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
 
+              {/* ÉTAPE 1 : Choix du fournisseur */}
               <section className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">1. Fournisseur</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                  1. Choisir un fournisseur <span className="text-red-500">*</span>
+                </h4>
                 <select
                   value={formData.fournisseurId}
                   onChange={handleFournisseurChange}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="">Sélectionner un fournisseur...</option>
+                  <option value="">-- Sélectionner un fournisseur --</option>
                   {activeFournisseurs?.map(f => (
                     <option key={f.idFournisseur} value={f.idFournisseur}>
                       {f.nomFournisseur} - {f.email}
@@ -324,6 +376,7 @@ const handleSubmit = async (e) => {
                 </select>
               </section>
 
+              {/* ÉTAPE 2 : Livraison */}
               <section className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">2. Livraison</h4>
                 <div className="mb-3">
@@ -348,179 +401,92 @@ const handleSubmit = async (e) => {
                 />
               </section>
 
-              {/* ✅ Section produits */}
-              <section className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-medium text-gray-700">3. Produits</h4>
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={afficherInactifs}
-                      onChange={(e) => setAfficherInactifs(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Afficher les produits inactifs</span>
-                    {produitsGroupes.inactifs.length > 0 && (
-                      <span className="text-xs text-orange-500">
-                        ({produitsGroupes.inactifs.length} inactifs)
-                      </span>
+              {/* ÉTAPE 3 : Liste des produits dans la commande */}
+              {selectedFournisseur && (
+                <section className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-sm font-medium text-gray-700">
+                      3. Produits dans la commande
+                    </h4>
+                    {produitsDisponibles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={openProductModal}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        Ajouter un produit
+                      </button>
                     )}
-                  </label>
-                </div>
-
-                <div className="space-y-4">
-                  <select
-                    value={produitSelectionne?.id || ''}
-                    onChange={handleProductSelect}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Sélectionner un produit...</option>
-                    
-                    {/* Groupe des produits actifs */}
-                    {produitsGroupes.actifs.length > 0 && (
-                      <optgroup label="📦 Produits actifs" className="font-semibold text-green-700">
-                        {produitsGroupes.actifs.map(p => (
-                          <option key={p.id} value={p.id} className="text-gray-800">
-                            {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - TVA: {p.tauxTVA}%
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    
-                    {/* Groupe des produits inactifs (visible seulement si checkbox coché) */}
-                    {afficherInactifs && produitsGroupes.inactifs.length > 0 && (
-                      <optgroup label="⚠️ Produits inactifs" className="font-semibold text-orange-600">
-                        {produitsGroupes.inactifs.map(p => (
-                          <option 
-                            key={p.id} 
-                            value={p.id} 
-                            className="text-orange-700 bg-orange-50"
-                            style={{ backgroundColor: '#fff7ed', color: '#ea580c' }}
-                          >
-                            {p.nom || p.libelle} - {formatPrice(p.prixAchat || p.prix)} - TVA: {p.tauxTVA}% 🔴
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-
-                  {/* Avertissement si aucun produit actif */}
-                  {produitsGroupes.actifs.length === 0 && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
-                      <p className="text-sm text-yellow-800">
-                        Aucun produit actif disponible. Cochez "Afficher les produits inactifs" pour voir les produits désactivés.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Alerte produit inactif */}
-                  {produitSelectionne && !produitSelectionne.estActif && (
-                    <div className="p-3 bg-orange-100 border-l-4 border-orange-500 rounded-lg flex items-center gap-2">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
-                      <div>
-                        <p className="text-sm font-medium text-orange-800">⚠️ Produit inactif</p>
-                        <p className="text-xs text-orange-700">
-                          Ce produit est désactivé. Vous pouvez quand même l'ajouter à cette commande.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {produitSelectionne && (
-                    <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg ${!produitSelectionne.estActif ? 'bg-orange-50 border-2 border-orange-200' : ''}`}>
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${!produitSelectionne.estActif ? 'text-orange-700' : 'text-gray-700'}`}>
-                          Quantité
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={quantite}
-                          onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${!produitSelectionne.estActif ? 'border-orange-400 bg-orange-50 focus:ring-orange-500' : ''}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${!produitSelectionne.estActif ? 'text-orange-700' : 'text-gray-700'}`}>
-                          Prix unitaire
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={prixUnitaire}
-                          onChange={(e) => setPrixUnitaire(parseFloat(e.target.value) || 0)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${!produitSelectionne.estActif ? 'border-orange-400 bg-orange-50 focus:ring-orange-500' : ''}`}
-                        />
-                      </div>
-                      <div className="flex items-end">
+                  </div>
+                  
+                  {lignes.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
+                      <p>Aucun produit sélectionné</p>
+                      {produitsDisponibles.length > 0 ? (
                         <button
                           type="button"
-                          onClick={ajouterProduit}
-                          className={`w-full px-4 py-2 rounded-lg transition-colors ${
-                            !produitSelectionne.estActif 
-                              ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
+                          onClick={openProductModal}
+                          className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
                         >
-                          <PlusIcon className="w-4 h-4 inline mr-2" />
-                          Ajouter
+                          Cliquez ici pour ajouter un produit
                         </button>
-                      </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Aucun produit disponible pour ce fournisseur
+                        </p>
+                      )}
                     </div>
-                  )}
-
-                  {lignes.length > 0 && (
-                    <div className="mt-6 border rounded-lg overflow-hidden">
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-100">
                           <tr>
-                            <th className="px-4 py-3 text-left">Produit</th>
-                            <th className="px-4 py-3 text-right">Qté</th>
-                            <th className="px-4 py-3 text-right">Prix unit.</th>
-                            <th className="px-4 py-3 text-center">TVA</th>
-                            <th className="px-4 py-3 text-right">Total HT</th>
-                            <th className="px-4 py-3 text-right">Total TTC</th>
-                            <th className="px-4 py-3 text-center">Action</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Produit</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Qté</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Prix unit.</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium">TVA</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Total HT</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Total TTC</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium">Action</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-200">
                           {lignes.map((ligne) => (
-                            <tr 
-                              key={ligne.id} 
-                              className={ligne.estInactif ? "bg-orange-50" : "hover:bg-gray-50"}
-                            >
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  {ligne.produitLibelle}
-                                  {ligne.estInactif && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                      Inactif
-                                    </span>
-                                  )}
+                            <tr key={ligne.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm">{ligne.produitLibelle}</td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => modifierQuantiteLigne(ligne.id, ligne.quantite - 1)}
+                                    className="w-6 h-6 rounded border hover:bg-gray-100 flex items-center justify-center"
+                                    disabled={ligne.quantite <= 1}
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={ligne.quantite}
+                                    onChange={(e) => modifierQuantiteLigne(ligne.id, e.target.value)}
+                                    className="w-16 px-2 py-1 text-right border rounded text-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => modifierQuantiteLigne(ligne.id, ligne.quantite + 1)}
+                                    className="w-6 h-6 rounded border hover:bg-gray-100 flex items-center justify-center"
+                                  >
+                                    +
+                                  </button>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-right">
-                                <input
-                                  type="number"
-                                  value={ligne.quantite}
-                                  onChange={(e) => modifierLigne(ligne.id, 'quantite', e.target.value)}
-                                  className="w-20 px-2 py-1 text-right border rounded"
-                                />
+                              <td className="px-4 py-3 text-right text-sm">
+                                {formatPrice(ligne.prixUnitaire)}
                               </td>
-                              <td className="px-4 py-3 text-right">
-                                <input
-                                  type="number"
-                                  step="0.001"
-                                  value={ligne.prixUnitaire}
-                                  onChange={(e) => modifierLigne(ligne.id, 'prixUnitaire', e.target.value)}
-                                  className="w-24 px-2 py-1 text-right border rounded"
-                                />
-                              </td>
-                              <td className="px-4 py-3 text-center">{ligne.tauxTVA}%</td>
-                              <td className="px-4 py-3 text-right">{formatPrice(ligne.sousTotalHT)}</td>
-                              <td className="px-4 py-3 text-right font-medium">{formatPrice(ligne.sousTotalTTC)}</td>
+                              <td className="px-4 py-3 text-center text-sm">{ligne.tauxTVA}%</td>
+                              <td className="px-4 py-3 text-right text-sm">{formatPrice(ligne.sousTotalHT)}</td>
+                              <td className="px-4 py-3 text-right text-sm font-medium">{formatPrice(ligne.sousTotalTTC)}</td>
                               <td className="px-4 py-3 text-center">
                                 <button type="button" onClick={() => supprimerLigne(ligne.id)}>
                                   <TrashIcon className="w-4 h-4 text-red-600 hover:text-red-800" />
@@ -532,22 +498,23 @@ const handleSubmit = async (e) => {
                       </table>
                     </div>
                   )}
-                </div>
-              </section>
+                </section>
+              )}
 
+              {/* Totaux */}
               {lignes.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg">
                   <div className="flex justify-end">
                     <div className="w-80 space-y-2">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-sm">
                         <span>Total HT</span>
                         <span className="font-medium">{formatPrice(totaux.totalHT)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-sm">
                         <span>Total TVA</span>
                         <span className="font-medium">{formatPrice(totaux.totalTVA)}</span>
                       </div>
-                      <div className="flex justify-between border-t pt-2">
+                      <div className="flex justify-between border-t pt-2 text-base">
                         <span className="font-semibold">Total TTC</span>
                         <span className="font-semibold text-blue-600">{formatPrice(totaux.totalTTC)}</span>
                       </div>
@@ -556,18 +523,160 @@ const handleSubmit = async (e) => {
                 </section>
               )}
 
+              {/* Boutons d'action */}
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
                   Annuler
                 </button>
-                <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  {commande ? 'Modifier' : 'Créer'}
+                <button 
+                  type="submit" 
+                  disabled={loading || !selectedFournisseur || lignes.length === 0} 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {commande ? 'Modifier' : 'Créer'} la commande
                 </button>
               </div>
             </form>
           )}
         </div>
       </div>
+
+      {/* MODALE DE SÉLECTION DES PRODUITS */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeProductModal} />
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+              
+              <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
+                <h3 className="text-lg font-semibold text-white">
+                  Ajouter un produit
+                </h3>
+                <button onClick={closeProductModal} className="text-white hover:text-gray-200">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-4 overflow-y-auto max-h-[60vh]">
+                <p className="text-sm text-gray-600 mb-3">
+                  Fournisseur : <span className="font-semibold">
+                    {activeFournisseurs?.find(f => f.idFournisseur === selectedFournisseur)?.nomFournisseur}
+                  </span>
+                </p>
+                
+                {produitsDisponibles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-yellow-500 mb-3" />
+                    <p>Aucun produit disponible pour ce fournisseur</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {produitsDisponibles.map(produit => {
+                      const estDejaAjoute = lignes.some(l => l.produitId === produit.id);
+                      const estActif = produit.estActif !== false;
+                      
+                      return (
+                        <div
+                          key={produit.id}
+                          onClick={() => !estDejaAjoute && estActif && selectProduit(produit)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            produitSelectionneTemp?.id === produit.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : estDejaAjoute
+                              ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                              : !estActif
+                              ? 'border-orange-200 bg-orange-50 cursor-not-allowed'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-800">
+                                  {produit.nom || produit.libelle}
+                                </span>
+                                {!estActif && (
+                                  <span className="text-xs px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">
+                                    Inactif
+                                  </span>
+                                )}
+                                {estDejaAjoute && (
+                                  <span className="text-xs px-2 py-0.5 bg-green-200 text-green-700 rounded-full">
+                                    Déjà dans la commande
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-4 text-sm text-gray-500 mt-1">
+                                <span>Prix: {formatPrice(produit.prixAchat || produit.prix)}</span>
+                                <span>Stock: {produit.stock || 0}</span>
+                                <span>TVA: {produit.tauxTVA || 19}%</span>
+                              </div>
+                            </div>
+                            {produitSelectionneTemp?.id === produit.id && (
+                              <CheckIcon className="w-5 h-5 text-blue-600" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Contrôle de quantité - minimum 1 */}
+                {produitSelectionneTemp && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantité (minimum 1)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={decrementQuantite}
+                        className="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                        disabled={quantiteTemp <= 1}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={quantiteTemp}
+                        onChange={handleQuantiteChange}
+                        className="w-24 text-center px-3 py-1 border rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={incrementQuantite}
+                        className="px-3 py-1 border rounded-lg hover:bg-gray-100"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
+                <button
+                  type="button"
+                  onClick={closeProductModal}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={ajouterProduitSelectionne}
+                  disabled={!produitSelectionneTemp || quantiteTemp < 1}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Ajouter à la commande
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

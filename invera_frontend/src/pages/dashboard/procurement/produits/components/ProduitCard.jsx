@@ -34,34 +34,24 @@ const ProduitCard = ({
   };
 
   // ========== GESTION DE L'ÉDITION ==========
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!produit) {
+      console.error('❌ Erreur: produit est null!');
+      return;
+    }
+    
+    const productId = produit.idProduit || produit.id;
+    
+    if (!productId) {
+      console.error('❌ Erreur: produit.id est manquant!');
+      return;
+    }
 
-const handleEditClick = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  console.log('🟢 ===== CLIC SUR MODIFIER =====');
-  console.log('🟢 Produit reçu:', produit);
-  console.log('🟢 produit.id:', produit.id);
-  console.log('🟢 produit.idProduit:', produit.idProduit);
-  console.log('🟢 produit.idProduit:', produit.idProduit);
-  
-  if (!produit) {
-    console.error('❌ Erreur: produit est null!');
-    return;
-  }
-  
-  // ✅ Utiliser idProduit au lieu de id
-  const productId = produit.idProduit || produit.id;
-  
-  if (!productId) {
-    console.error('❌ Erreur: produit.id est manquant!');
-    console.log('🟢 produit complet:', JSON.stringify(produit));
-    return;
-  }
-  
-  console.log('🟢 ID produit utilisé:', productId);
-  onEdit(produit);
-};
+    onEdit(produit);
+  };
 
   // ========== GESTION DE L'IMAGE ==========
   const getImageUrl = () => {
@@ -92,14 +82,6 @@ const handleEditClick = (e) => {
 
   const imageUrl = getImageUrl();
   const hasValidImage = imageUrl && !imageError;
-
-  // Dans ProduitCard.jsx, avant le return
-console.log('🎴 ProduitCard reçu:', {
-  libelle: produit.libelle,
-  categorieNom: produit.categorieNom,
-  displayCategorie: produit.displayCategorie,
-  categorie: produit.categorie
-});
 
   return (
     <div className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 relative h-full flex flex-col ${
@@ -169,22 +151,18 @@ console.log('🎴 ProduitCard reçu:', {
           
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900 truncate text-base">{produit.libelle}</h3>
- <p className="text-xs text-gray-600 truncate">
-    {/* Maintenant produit.categorieNom est toujours bien rempli */}
-    {produit.categorieNom || 'Sans catégorie'}
-  </p>
-         </div>
+            <p className="text-xs text-gray-600 truncate">
+              {produit.categorieNom || 'Sans catégorie'}
+            </p>
+          </div>
         </div>
 
         {/* ========== INFORMATIONS PRIX ========== */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-gray-50 rounded-lg p-1.5">
-            <p className="text-xs text-gray-600">Prix achat</p>
-            <p className="font-semibold text-gray-900 truncate text-sm">{formatPrice(produit.prixAchat)}</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-1.5">
-            <p className="text-xs text-gray-600">Prix vente</p>
-            <p className="font-semibold text-blue-700 truncate text-sm">{formatPrice(produit.prixVente)}</p>
+        {/* ✅ Suppression du bloc "Prix achat" - Affichage uniquement du prix de vente */}
+        <div className="mb-3">
+          <div className="bg-gray-50 rounded-lg p-2">
+            <p className="text-xs text-gray-600">Prix de vente</p>
+            <p className="font-semibold text-blue-700 truncate text-base">{formatPrice(produit.prixVente)}</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-// src/hooks/useProducts.js - VERSION CORRIGÉE AVEC GESTION DES CATÉGORIES
+// src/hooks/useProducts.js - VERSION CORRIGÉE AVEC FOURNISSEURS ET PRIX
 import { useState, useEffect, useCallback } from 'react';
 import productService from '../services/productService';
 
@@ -46,7 +46,6 @@ const useProducts = (initialFilters = {}) => {
   const normalizeProduct = useCallback((produit) => {
     if (!produit) return null;
     
-    // ✅ S'assurer que l'ID est toujours défini
     const productId = produit.idProduit || produit.id;
     if (!productId) {
       console.warn('⚠️ Produit sans ID:', produit);
@@ -56,7 +55,6 @@ const useProducts = (initialFilters = {}) => {
     let categorieNom = 'Sans catégorie';
     let categorieId = null;
     
-    // ✅ RÉCUPÉRER L'ID DE LA CATÉGORIE DEPUIS DIFFÉRENTS ENDROITS
     if (produit.categorieId !== undefined && produit.categorieId !== null) {
       categorieId = produit.categorieId;
     } else if (produit.idCategorie !== undefined && produit.idCategorie !== null) {
@@ -72,8 +70,13 @@ const useProducts = (initialFilters = {}) => {
       }
     }
     
-    // ✅ Si on a un ID mais pas de nom, on garde temporairement "Sans catégorie"
-    // (sera enrichi plus tard avec les données des catégories dans le composant)
+    // ✅ Récupérer les fournisseurs avec leurs prix
+    let fournisseurs = [];
+    if (produit.fournisseurs && Array.isArray(produit.fournisseurs)) {
+      fournisseurs = produit.fournisseurs;
+    } else if (produit.fournisseursIds && Array.isArray(produit.fournisseursIds)) {
+      fournisseurs = produit.fournisseursIds;
+    }
     
     const remiseTemporaire = produit.remiseTemporaire != null ? Number(produit.remiseTemporaire) : 0;
     
@@ -85,7 +88,8 @@ const useProducts = (initialFilters = {}) => {
       libelle: produit.libelle,
       prix: produit.prixVente,
       prixVente: produit.prixVente,
-      prixAchat: produit.prixAchat,
+      // ❌ Supprimer prixAchat global
+      // prixAchat: produit.prixAchat,
       stock: produit.quantiteStock,
       quantiteStock: produit.quantiteStock,
       unite: produit.uniteMesure,
@@ -96,25 +100,22 @@ const useProducts = (initialFilters = {}) => {
       remise: remiseTemporaire,
       estActif: produit.active === true,
       active: produit.active,
-      categorieId: categorieId,  // ✅ Maintenant correctement récupéré
+      categorieId: categorieId,
       categorieNom: categorieNom,
       displayCategorie: categorieNom,
       statutStock: produit.status,
       status: produit.status,
       statutStockLabel: getStatusLabel(produit.status),
-      statutStockColor: getStatusColor(produit.status)
+      statutStockColor: getStatusColor(produit.status),
+      // ✅ AJOUT des fournisseurs
+      fournisseurs: fournisseurs,
+      fournisseursIds: fournisseurs.map(f => f.id || f.idFournisseur)
     };
   }, [getStatusLabel, getStatusColor]);
 
   const normalizeProducts = useCallback((productsData) => {
     if (!Array.isArray(productsData)) return [];
     const normalized = productsData.map(p => normalizeProduct(p)).filter(Boolean);
-    console.log('✅ Normalisation:', {
-      entree: productsData.length,
-      sortie: normalized.length,
-      produitsAvecCategorie: normalized.filter(p => p.categorieId).length,
-      produitsSansCategorie: normalized.filter(p => !p.categorieId).length
-    });
     return normalized;
   }, [normalizeProduct]);
 
@@ -138,27 +139,20 @@ const useProducts = (initialFilters = {}) => {
         }
       });
       
-      console.log('📡 Chargement des produits avec:', searchParams);
-      
       const response = await productService.searchProducts(searchParams);
 
       let allProductsData = [];
       
       if (response?.data && Array.isArray(response.data)) {
         allProductsData = response.data;
-        console.log('✅ Structure: response.data,', allProductsData.length, 'produits');
       } else if (Array.isArray(response)) {
         allProductsData = response;
-        console.log('✅ Structure: response,', allProductsData.length, 'produits');
       } else if (response?.success && response?.produits) {
         allProductsData = response.produits;
-        console.log('✅ Structure: response.produits,', allProductsData.length, 'produits');
       } else {
-        console.warn('⚠️ Structure non reconnue:', response);
         allProductsData = [];
       }
       
-      // ✅ Normaliser les données avant de les stocker
       const normalizedAll = normalizeProducts(allProductsData);
       setAllProducts(normalizedAll);
       
@@ -176,9 +170,6 @@ const useProducts = (initialFilters = {}) => {
         totalPages: totalPages
       }));
       
-      console.log(`📊 Page ${page + 1}/${totalPages} - ${paginatedProducts.length} produits sur ${total}`);
-      console.log(`📊 Produits avec catégorie: ${normalizedAll.filter(p => p.categorieId).length}`);
-      
     } catch (err) {
       console.error('❌ ERREUR dans loadProducts:', err);
       setError(err.response?.data?.message || 'Erreur lors du chargement des produits');
@@ -189,10 +180,12 @@ const useProducts = (initialFilters = {}) => {
     }
   }, [filters, pagination.size, normalizeProducts]);
 
-  // ========== FONCTIONS CRUD ==========
-  const createProduct = async (productData) => {
+  // ========== FONCTIONS CRUD (avec fournisseurs et prix) ==========
+  
+  // ✅ CORRIGÉ : Ajout du paramètre prixAchats
+  const createProduct = async (productData, fournisseursIds = [], prixAchats = []) => {
     try {
-      const response = await productService.createProduct(productData);
+      const response = await productService.createProduct(productData, fournisseursIds, prixAchats);
       if (response?.success) {
         await loadProducts(0);
       }
@@ -203,9 +196,22 @@ const useProducts = (initialFilters = {}) => {
     }
   };
 
-  const updateProduct = async (id, productData) => {
+  // Récupérer un produit avec ses fournisseurs
+  const getProductWithFournisseurs = useCallback(async (id) => {
     try {
-      const response = await productService.updateProduct(id, productData);
+      const response = await productService.getProductById(id);
+      console.log('📦 Produit récupéré:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erreur récupération produit:', error);
+      throw error;
+    }
+  }, []);
+
+  // ✅ CORRIGÉ : Ajout du paramètre prixAchats
+  const updateProduct = async (id, productData, fournisseursIds = null, prixAchats = null) => {
+    try {
+      const response = await productService.updateProduct(id, productData, fournisseursIds, prixAchats);
       if (response?.success) {
         if (response.produit) {
           const produitNormalise = normalizeProduct(response.produit);
@@ -264,6 +270,63 @@ const useProducts = (initialFilters = {}) => {
       return response;
     } catch (err) {
       console.error('❌ Erreur réactivation:', err);
+      throw err;
+    }
+  };
+
+  // ========== FONCTIONS POUR FOURNISSEURS ==========
+// ✅ AJOUTER CETTE FONCTION
+const getFournisseursByProduit = async (produitId) => {
+  try {
+    const response = await productService.getFournisseursByProduit(produitId);
+    return response;
+  } catch (err) {
+    console.error('❌ Erreur récupération fournisseurs:', err);
+    throw err;
+  }
+};
+
+const getProductsByFournisseur = useCallback(async (fournisseurId) => {
+  if (!fournisseurId) return [];
+  
+  setLoading(true);
+  try {
+    // ✅ Utiliser l'endpoint dédié au lieu de searchProducts
+    const response = await productService.getProduitsByFournisseur(fournisseurId);
+    
+    console.log('📦 Réponse getProduitsByFournisseur:', response);
+    
+    let produitsData = [];
+    if (response?.success && response?.produits) {
+      produitsData = response.produits;
+    } else if (Array.isArray(response)) {
+      produitsData = response;
+    }
+    
+    // Normaliser les produits
+    const produitsNormalises = produitsData.map(p => normalizeProduct(p));
+    
+    console.log(`📦 ${produitsNormalises.length} produits trouvés pour le fournisseur ${fournisseurId}`);
+    
+    return produitsNormalises;
+  } catch (error) {
+    console.error('❌ Erreur getProductsByFournisseur:', error);
+    return [];
+  } finally {
+    setLoading(false);
+  }
+}, [normalizeProduct]);
+
+
+  const updateProduitFournisseurs = async (produitId, fournisseursIds) => {
+    try {
+      const response = await productService.updateProduitFournisseurs(produitId, fournisseursIds);
+      if (response?.success) {
+        await loadProducts(pagination.page);
+      }
+      return response;
+    } catch (err) {
+      console.error('❌ Erreur mise à jour fournisseurs:', err);
       throw err;
     }
   };
@@ -383,7 +446,11 @@ const useProducts = (initialFilters = {}) => {
     changePageSize,
     normalizeProduct,
     getStatusLabel,
-    getStatusColor
+    getStatusColor,
+    getFournisseursByProduit,
+    updateProduitFournisseurs,
+    getProductWithFournisseurs,
+    getProductsByFournisseur,
   };
 };
 
