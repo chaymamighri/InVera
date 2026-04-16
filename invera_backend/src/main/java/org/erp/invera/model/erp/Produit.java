@@ -1,13 +1,16 @@
 package org.erp.invera.model.erp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.erp.invera.model.erp.Fournisseurs.Fournisseur;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,7 +33,13 @@ public class Produit {
     private Double prixVente;
 
     @Column(name = "prix_achat", nullable = false)
-    private Double prixAchat;
+    private BigDecimal prixAchat = BigDecimal.ZERO;  // ✅ Prix d'achat ici
+
+    // ✅ Relation Many-to-One avec Fournisseur
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fournisseur_id")
+    @JsonIgnoreProperties("produits")
+    private Fournisseur fournisseur;
 
     @ManyToOne
     @JoinColumn(name = "categorie_id", nullable = false)
