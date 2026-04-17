@@ -1,15 +1,17 @@
 -- =====================================================
--- TEMPLATE BASE INVERA - Structure ERP vide
+-- TEMPLATE BASE INVERA - Structure ERP vide (Version mise à jour)
+-- Basé sur la structure pg_dump du 2026-04-17
 -- =====================================================
 
 -- 1. Création de la base template
+DROP DATABASE IF EXISTS template_invera;
 CREATE DATABASE template_invera OWNER postgres;
 
 -- Connexion à la base template
 \c template_invera;
 
 -- =====================================================
--- 2. CRÉATION DES TABLES (Structure du base invera initiale)
+-- 2. CRÉATION DES TABLES (Structure mise à jour)
 -- =====================================================
 
 -- Table categorie
@@ -19,12 +21,6 @@ CREATE TABLE public.categorie (
     nom_categorie character varying(255) NOT NULL,
     taux_tva numeric(5,2)
 );
-
--- Séquence pour categorie
-CREATE SEQUENCE public.categorie_id_categorie_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.categorie_id_categorie_seq OWNED BY public.categorie.id_categorie;
-ALTER TABLE public.categorie ALTER COLUMN id_categorie SET DEFAULT nextval('public.categorie_id_categorie_seq');
 
 -- Table client
 CREATE TABLE public.client (
@@ -42,12 +38,6 @@ CREATE TABLE public.client (
     created_by character varying(255),
     CONSTRAINT client_type_client_check CHECK (((type_client)::text = ANY ((ARRAY['PARTICULIER'::character varying, 'VIP'::character varying, 'PROFESSIONNEL'::character varying, 'ENTREPRISE'::character varying, 'FIDELE'::character varying])::text[])))
 );
-
--- Séquence pour client
-CREATE SEQUENCE public.client_id_client_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.client_id_client_seq OWNED BY public.client.id_client;
-ALTER TABLE public.client ALTER COLUMN id_client SET DEFAULT nextval('public.client_id_client_seq');
 
 -- Table client_type_discount
 CREATE TABLE public.client_type_discount (
@@ -71,12 +61,6 @@ CREATE TABLE public.commande_client (
     CONSTRAINT commande_client_statut_check CHECK (((statut)::text = ANY ((ARRAY['EN_ATTENTE'::character varying, 'CONFIRMEE'::character varying, 'ANNULEE'::character varying])::text[])))
 );
 
--- Séquence pour commande_client
-CREATE SEQUENCE public.commande_client_id_commande_client_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.commande_client_id_commande_client_seq OWNED BY public.commande_client.id_commande_client;
-ALTER TABLE public.commande_client ALTER COLUMN id_commande_client SET DEFAULT nextval('public.commande_client_id_commande_client_seq');
-
 -- Table commandes_fournisseurs
 CREATE TABLE public.commandes_fournisseurs (
     id_commande_fournisseur integer NOT NULL,
@@ -91,7 +75,6 @@ CREATE TABLE public.commandes_fournisseurs (
     totalttc numeric(10,3),
     totaltva numeric(10,3),
     updated_at timestamp(6) without time zone,
-    fournisseur_id integer NOT NULL,
     created_by character varying(255),
     adresse_livraison character varying(500),
     taux_tva numeric(5,2),
@@ -101,12 +84,6 @@ CREATE TABLE public.commandes_fournisseurs (
     date_rejet timestamp without time zone,
     CONSTRAINT commandes_fournisseurs_statut_check CHECK (((statut)::text = ANY ((ARRAY['BROUILLON'::character varying, 'VALIDEE'::character varying, 'ENVOYEE'::character varying, 'RECUE'::character varying, 'FACTUREE'::character varying, 'ANNULEE'::character varying, 'REJETEE'::character varying])::text[])))
 );
-
--- Séquence pour commandes_fournisseurs
-CREATE SEQUENCE public.commandes_fournisseurs_id_commande_fournisseur_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.commandes_fournisseurs_id_commande_fournisseur_seq OWNED BY public.commandes_fournisseurs.id_commande_fournisseur;
-ALTER TABLE public.commandes_fournisseurs ALTER COLUMN id_commande_fournisseur SET DEFAULT nextval('public.commandes_fournisseurs_id_commande_fournisseur_seq');
 
 -- Table facture_client
 CREATE TABLE public.facture_client (
@@ -122,12 +99,6 @@ CREATE TABLE public.facture_client (
     CONSTRAINT facture_client_statut_check CHECK (((statut)::text = ANY ((ARRAY['PAYE'::character varying, 'NON_PAYE'::character varying])::text[])))
 );
 
--- Séquence pour facture_client
-CREATE SEQUENCE public.facture_client_id_facture_client_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.facture_client_id_facture_client_seq OWNED BY public.facture_client.id_facture_client;
-ALTER TABLE public.facture_client ALTER COLUMN id_facture_client SET DEFAULT nextval('public.facture_client_id_facture_client_seq');
-
 -- Table fournisseurs
 CREATE TABLE public.fournisseurs (
     id_fournisseur integer NOT NULL,
@@ -142,11 +113,11 @@ CREATE TABLE public.fournisseurs (
     ville character varying(50)
 );
 
--- Séquence pour fournisseurs
-CREATE SEQUENCE public.fournisseurs_id_fournisseur_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.fournisseurs_id_fournisseur_seq OWNED BY public.fournisseurs.id_fournisseur;
-ALTER TABLE public.fournisseurs ALTER COLUMN id_fournisseur SET DEFAULT nextval('public.fournisseurs_id_fournisseur_seq');
+-- Table fournisseurs_fournisseurs (Table de liaison pour relation many-to-many)
+CREATE TABLE public.fournisseurs_fournisseurs (
+    fournisseur_id_fournisseur integer NOT NULL,
+    fournisseurs_id_fournisseur integer NOT NULL
+);
 
 -- Table ligne_commande_client
 CREATE TABLE public.ligne_commande_client (
@@ -159,12 +130,6 @@ CREATE TABLE public.ligne_commande_client (
     created_at timestamp(6) without time zone,
     created_by character varying(255)
 );
-
--- Séquence pour ligne_commande_client
-CREATE SEQUENCE public.ligne_commande_client_id_ligne_commande_client_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.ligne_commande_client_id_ligne_commande_client_seq OWNED BY public.ligne_commande_client.id_ligne_commande_client;
-ALTER TABLE public.ligne_commande_client ALTER COLUMN id_ligne_commande_client SET DEFAULT nextval('public.ligne_commande_client_id_ligne_commande_client_seq');
 
 -- Table lignes_commande_fournisseurs
 CREATE TABLE public.lignes_commande_fournisseurs (
@@ -185,12 +150,6 @@ CREATE TABLE public.lignes_commande_fournisseurs (
     tauxtva numeric(5,2)
 );
 
--- Séquence pour lignes_commande_fournisseurs
-CREATE SEQUENCE public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq OWNED BY public.lignes_commande_fournisseurs.id_ligne_commande_fournisseur;
-ALTER TABLE public.lignes_commande_fournisseurs ALTER COLUMN id_ligne_commande_fournisseur SET DEFAULT nextval('public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq');
-
 -- Table notifications
 CREATE TABLE public.notifications (
     id bigint NOT NULL,
@@ -206,12 +165,6 @@ CREATE TABLE public.notifications (
     entity_type character varying(100)
 );
 
--- Séquence pour notifications
-CREATE SEQUENCE public.notifications_id_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.notifications_id_seq OWNED BY public.notifications.id;
-ALTER TABLE public.notifications ALTER COLUMN id SET DEFAULT nextval('public.notifications_id_seq');
-
 -- Table password_reset_tokens
 CREATE TABLE public.password_reset_tokens (
     id bigint NOT NULL,
@@ -220,18 +173,11 @@ CREATE TABLE public.password_reset_tokens (
     user_id bigint NOT NULL
 );
 
--- Séquence pour password_reset_tokens
-CREATE SEQUENCE public.password_reset_tokens_id_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.password_reset_tokens_id_seq OWNED BY public.password_reset_tokens.id;
-ALTER TABLE public.password_reset_tokens ALTER COLUMN id SET DEFAULT nextval('public.password_reset_tokens_id_seq');
-
--- Table produit
+-- Table produit (Version mise à jour avec fournisseur_id et prix_achat)
 CREATE TABLE public.produit (
     id_produit integer NOT NULL,
     image_url character varying(255),
     libelle character varying(255) NOT NULL,
-    prix_achat double precision NOT NULL,
     prix_vente double precision NOT NULL,
     quantite_stock integer NOT NULL,
     remise_temporaire double precision,
@@ -242,16 +188,12 @@ CREATE TABLE public.produit (
     created_at timestamp(6) without time zone,
     created_by character varying(255),
     is_active boolean,
+    fournisseur_id integer,
+    prix_achat numeric(38,2) DEFAULT 100 NOT NULL,
     CONSTRAINT produit_status_check CHECK (((status)::text = ANY ((ARRAY['EN_STOCK'::character varying, 'RUPTURE'::character varying, 'FAIBLE'::character varying, 'CRITIQUE'::character varying])::text[])))
 );
 
--- Séquence pour produit
-CREATE SEQUENCE public.produit_id_produit_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.produit_id_produit_seq OWNED BY public.produit.id_produit;
-ALTER TABLE public.produit ALTER COLUMN id_produit SET DEFAULT nextval('public.produit_id_produit_seq');
-
--- Table stock_movement
+-- Table stock_movement (Version mise à jour avec prix_unitaire et valeur_totale)
 CREATE TABLE public.stock_movement (
     id bigint NOT NULL,
     commentaire character varying(500),
@@ -264,14 +206,10 @@ CREATE TABLE public.stock_movement (
     type_document character varying(50),
     type_mouvement character varying(20) NOT NULL,
     produit_id integer NOT NULL,
+    prix_unitaire numeric(38,2),
+    valeur_totale numeric(38,2),
     CONSTRAINT stock_movement_type_mouvement_check CHECK (((type_mouvement)::text = ANY ((ARRAY['ENTREE'::character varying, 'SORTIE'::character varying, 'INIT_STOCK'::character varying])::text[])))
 );
-
--- Séquence pour stock_movement
-CREATE SEQUENCE public.stock_movement_id_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.stock_movement_id_seq OWNED BY public.stock_movement.id;
-ALTER TABLE public.stock_movement ALTER COLUMN id SET DEFAULT nextval('public.stock_movement_id_seq');
 
 -- Table user_sessions
 CREATE TABLE public.user_sessions (
@@ -283,13 +221,7 @@ CREATE TABLE public.user_sessions (
     user_id bigint NOT NULL
 );
 
--- Séquence pour user_sessions
-CREATE SEQUENCE public.user_sessions_id_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.user_sessions_id_seq OWNED BY public.user_sessions.id;
-ALTER TABLE public.user_sessions ALTER COLUMN id SET DEFAULT nextval('public.user_sessions_id_seq');
-
--- Table users
+-- Table users (Version mise à jour avec last_login)
 CREATE TABLE public.users (
     id bigint NOT NULL,
     active boolean NOT NULL,
@@ -303,14 +235,82 @@ CREATE TABLE public.users (
     CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['ADMIN'::character varying, 'COMMERCIAL'::character varying, 'RESPONSABLE_ACHAT'::character varying])::text[])))
 );
 
+-- =====================================================
+-- 3. CRÉATION DES SÉQUENCES
+-- =====================================================
+
+-- Séquence pour categorie
+CREATE SEQUENCE public.categorie_id_categorie_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.categorie_id_categorie_seq OWNED BY public.categorie.id_categorie;
+ALTER TABLE public.categorie ALTER COLUMN id_categorie SET DEFAULT nextval('public.categorie_id_categorie_seq');
+
+-- Séquence pour client
+CREATE SEQUENCE public.client_id_client_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.client_id_client_seq OWNED BY public.client.id_client;
+ALTER TABLE public.client ALTER COLUMN id_client SET DEFAULT nextval('public.client_id_client_seq');
+
+-- Séquence pour commande_client
+CREATE SEQUENCE public.commande_client_id_commande_client_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.commande_client_id_commande_client_seq OWNED BY public.commande_client.id_commande_client;
+ALTER TABLE public.commande_client ALTER COLUMN id_commande_client SET DEFAULT nextval('public.commande_client_id_commande_client_seq');
+
+-- Séquence pour commandes_fournisseurs
+CREATE SEQUENCE public.commandes_fournisseurs_id_commande_fournisseur_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.commandes_fournisseurs_id_commande_fournisseur_seq OWNED BY public.commandes_fournisseurs.id_commande_fournisseur;
+ALTER TABLE public.commandes_fournisseurs ALTER COLUMN id_commande_fournisseur SET DEFAULT nextval('public.commandes_fournisseurs_id_commande_fournisseur_seq');
+
+-- Séquence pour facture_client
+CREATE SEQUENCE public.facture_client_id_facture_client_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.facture_client_id_facture_client_seq OWNED BY public.facture_client.id_facture_client;
+ALTER TABLE public.facture_client ALTER COLUMN id_facture_client SET DEFAULT nextval('public.facture_client_id_facture_client_seq');
+
+-- Séquence pour fournisseurs
+CREATE SEQUENCE public.fournisseurs_id_fournisseur_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.fournisseurs_id_fournisseur_seq OWNED BY public.fournisseurs.id_fournisseur;
+ALTER TABLE public.fournisseurs ALTER COLUMN id_fournisseur SET DEFAULT nextval('public.fournisseurs_id_fournisseur_seq');
+
+-- Séquence pour ligne_commande_client
+CREATE SEQUENCE public.ligne_commande_client_id_ligne_commande_client_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.ligne_commande_client_id_ligne_commande_client_seq OWNED BY public.ligne_commande_client.id_ligne_commande_client;
+ALTER TABLE public.ligne_commande_client ALTER COLUMN id_ligne_commande_client SET DEFAULT nextval('public.ligne_commande_client_id_ligne_commande_client_seq');
+
+-- Séquence pour lignes_commande_fournisseurs
+CREATE SEQUENCE public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq OWNED BY public.lignes_commande_fournisseurs.id_ligne_commande_fournisseur;
+ALTER TABLE public.lignes_commande_fournisseurs ALTER COLUMN id_ligne_commande_fournisseur SET DEFAULT nextval('public.lignes_commande_fournisseurs_id_ligne_commande_fournisseur_seq');
+
+-- Séquence pour notifications
+CREATE SEQUENCE public.notifications_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.notifications_id_seq OWNED BY public.notifications.id;
+ALTER TABLE public.notifications ALTER COLUMN id SET DEFAULT nextval('public.notifications_id_seq');
+
+-- Séquence pour password_reset_tokens
+CREATE SEQUENCE public.password_reset_tokens_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.password_reset_tokens_id_seq OWNED BY public.password_reset_tokens.id;
+ALTER TABLE public.password_reset_tokens ALTER COLUMN id SET DEFAULT nextval('public.password_reset_tokens_id_seq');
+
+-- Séquence pour produit
+CREATE SEQUENCE public.produit_id_produit_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.produit_id_produit_seq OWNED BY public.produit.id_produit;
+ALTER TABLE public.produit ALTER COLUMN id_produit SET DEFAULT nextval('public.produit_id_produit_seq');
+
+-- Séquence pour stock_movement
+CREATE SEQUENCE public.stock_movement_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.stock_movement_id_seq OWNED BY public.stock_movement.id;
+ALTER TABLE public.stock_movement ALTER COLUMN id SET DEFAULT nextval('public.stock_movement_id_seq');
+
+-- Séquence pour user_sessions
+CREATE SEQUENCE public.user_sessions_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.user_sessions_id_seq OWNED BY public.user_sessions.id;
+ALTER TABLE public.user_sessions ALTER COLUMN id SET DEFAULT nextval('public.user_sessions_id_seq');
+
 -- Séquence pour users
-CREATE SEQUENCE public.users_id_seq
-    START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+CREATE SEQUENCE public.users_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 ALTER TABLE public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq');
 
 -- =====================================================
--- 3. CRÉATION DES CONTRAINTES (Primary Keys)
+-- 4. CRÉATION DES CONTRAINTES (Primary Keys)
 -- =====================================================
 
 ALTER TABLE ONLY public.categorie ADD CONSTRAINT categorie_pkey PRIMARY KEY (id_categorie);
@@ -330,7 +330,7 @@ ALTER TABLE ONLY public.user_sessions ADD CONSTRAINT user_sessions_pkey PRIMARY 
 ALTER TABLE ONLY public.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 -- =====================================================
--- 4. CRÉATION DES CONTRAINTES UNIQUES
+-- 5. CRÉATION DES CONTRAINTES UNIQUES
 -- =====================================================
 
 ALTER TABLE ONLY public.client ADD CONSTRAINT uk1rxa00yetw8yyqg6eus42k6ig UNIQUE (telephone);
@@ -342,10 +342,9 @@ ALTER TABLE ONLY public.commande_client ADD CONSTRAINT ukpq3269e8snx4peb0anmxvdy
 ALTER TABLE ONLY public.fournisseurs ADD CONSTRAINT uksnmjs7pdn7kkcf10wtlqtnnq3 UNIQUE (email);
 
 -- =====================================================
--- 5. CRÉATION DES CLÉS ÉTRANGÈRES
+-- 6. CRÉATION DES CLÉS ÉTRANGÈRES
 -- =====================================================
 
-ALTER TABLE ONLY public.commandes_fournisseurs ADD CONSTRAINT fk1uk76co5g10tb5erroq1ta093 FOREIGN KEY (fournisseur_id) REFERENCES public.fournisseurs(id_fournisseur);
 ALTER TABLE ONLY public.facture_client ADD CONSTRAINT fk3p36rbmo4go676bdv64vvj21i FOREIGN KEY (commande_id) REFERENCES public.commande_client(id_commande_client);
 ALTER TABLE ONLY public.lignes_commande_fournisseurs ADD CONSTRAINT fk3tjxk3f89b0taynq5xsbrlj4l FOREIGN KEY (produit_id) REFERENCES public.produit(id_produit);
 ALTER TABLE ONLY public.produit ADD CONSTRAINT fk52xhp55kbbl6u4rbluxm3g9hw FOREIGN KEY (categorie_id) REFERENCES public.categorie(id_categorie);
@@ -357,12 +356,14 @@ ALTER TABLE ONLY public.password_reset_tokens ADD CONSTRAINT fkk3ndxg5xp6v7wd4gj
 ALTER TABLE ONLY public.commande_client ADD CONSTRAINT fkkjj3vhf49o1chiq3mpuxk42vx FOREIGN KEY (client_id) REFERENCES public.client(id_client);
 ALTER TABLE ONLY public.stock_movement ADD CONSTRAINT fkkuevb4vj96xlaq980829gt4jq FOREIGN KEY (produit_id) REFERENCES public.produit(id_produit);
 ALTER TABLE ONLY public.ligne_commande_client ADD CONSTRAINT fkqb6qgo2gc0vye7ym03mub661u FOREIGN KEY (commande_client_id) REFERENCES public.commande_client(id_commande_client);
+ALTER TABLE ONLY public.produit ADD CONSTRAINT fkqdcckamj0qj07dqg3s9op7qj7 FOREIGN KEY (fournisseur_id) REFERENCES public.fournisseurs(id_fournisseur);
+ALTER TABLE ONLY public.fournisseurs_fournisseurs ADD CONSTRAINT fk3cxoe2s4malqxvy4su91qcdw2 FOREIGN KEY (fournisseur_id_fournisseur) REFERENCES public.fournisseurs(id_fournisseur);
+ALTER TABLE ONLY public.fournisseurs_fournisseurs ADD CONSTRAINT fko4ihpgtf0xd7jxmkcx931tvwr FOREIGN KEY (fournisseurs_id_fournisseur) REFERENCES public.fournisseurs(id_fournisseur);
 
 -- =====================================================
--- 6. VIDER TOUTES LES DONNÉES (Garder structure vide)
+-- 7. VIDER TOUTES LES DONNÉES (Garder structure vide)
 -- =====================================================
 
--- Supprimer toutes les données de toutes les tables
 DO $$
 DECLARE
     r RECORD;
@@ -372,22 +373,14 @@ BEGIN
     END LOOP;
 END $$;
 
--- 1) " SELECT tablename FROM pg_tables WHERE schemaname = 'public' " => Récupère le nom de TOUTES les tables de la base
--- 2) " TRUNCATE TABLE " => vide la table
--- 3) " uote_ident(r.tablename) " => Protège les noms de tables avec des guillemets
--- 4) " CASCADE " => supprimer les clés étrangères
-
-
-
 -- =====================================================
--- 7. DÉFINIR COMME TEMPLATE
+-- 8. DÉFINIR COMME TEMPLATE
 -- =====================================================
 
--- Définir la base comme template
 UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template_invera';
 
 -- =====================================================
--- 8. MESSAGE DE CONFIRMATION
+-- 9. MESSAGE DE CONFIRMATION
 -- =====================================================
 
-\echo '✅ Base template_invera créée avec succès avec votre structure !'
+\echo '✅ Base template_invera créée avec succès avec la structure mise à jour !'
