@@ -8,6 +8,8 @@ import lombok.Builder;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity
@@ -17,12 +19,10 @@ import java.time.LocalDateTime;
 @Table(name = "clients")
 public class Client {
 
-    // ========== IDENTIFIANT ==========
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ========== INFORMATIONS CONTACT ==========
     @Column(unique = true, nullable = false)
     private String email;
 
@@ -34,19 +34,19 @@ public class Client {
 
     private String prenom;
 
-    // ========== TYPE DE COMPTE ==========
+    // ========== TYPES ==========
+    @Enumerated(EnumType.STRING)
     @Column(name = "type_compte", nullable = false)
-    private String typeCompte;  // PARTICULIER, ENTREPRISE
+    private TypeCompte typeCompte;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "type_inscription", nullable = false)
-    private String typeInscription;  // ESSAI, DEFINITIF
+    private TypeInscription typeInscription;
 
     // ========== JUSTIFICATIFS ==========
-    // Pour PARTICULIER
     @Column(name = "cin_url")
     private String cinUrl;
 
-    // Pour ENTREPRISE
     @Column(name = "gerant_cin_url")
     private String gerantCinUrl;
 
@@ -54,15 +54,16 @@ public class Client {
     private String patenteUrl;
 
     @Column(name = "rne_url")
-    private String rneUrl;  // Registre National des Entreprises
+    private String rneUrl;
 
     @Column(name = "rne_date")
-    private LocalDateTime rneDate;  // Date du RNE (doit être < 3 mois)
+    private LocalDateTime rneDate;
 
     // ========== STATUT ==========
+    @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
     @Builder.Default
-    private String statut = "EN_ATTENTE";
+    private StatutClient statut = StatutClient.EN_ATTENTE;
 
     @Column(name = "motif_refus")
     private String motifRefus;
@@ -75,7 +76,7 @@ public class Client {
     @Column(name = "nom_base_donnees")
     private String nomBaseDonnees;
 
-    // ========== COMPTE ESSAI ==========
+    // ========== GESTION CONNEXIONS ==========
     @Column(name = "connexions_restantes")
     @Builder.Default
     private Integer connexionsRestantes = 0;
@@ -83,6 +84,17 @@ public class Client {
     @Column(name = "connexions_max")
     @Builder.Default
     private Integer connexionsMax = 30;
+
+    // ========== ABONNEMENT ==========
+    @OneToOne
+    @JoinColumn(name = "abonnement_actif_id")
+    private Abonnement abonnementActif;
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
+    private List<Abonnement> abonnements = new ArrayList<>();
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
+    private List<Paiement> paiements = new ArrayList<>();
 
     // ========== DATES ==========
     @Column(name = "date_inscription", nullable = false)
@@ -95,7 +107,6 @@ public class Client {
     @Column(name = "date_activation")
     private LocalDateTime dateActivation;
 
-    // ========== AUDIT ==========
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -103,4 +114,38 @@ public class Client {
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = false;
+
+    // ============================================================
+    // ENUMS SIMPLIFIÉS
+    // ============================================================
+
+    public enum TypeCompte {
+        PARTICULIER("Particulier"),
+        ENTREPRISE("Entreprise");
+
+        private final String label;
+        TypeCompte(String label) { this.label = label; }
+        public String getLabel() { return label; }
+    }
+
+    public enum TypeInscription {
+        ESSAI("Essai"),
+        DEFINITIF("Définitif");
+
+        private final String label;
+        TypeInscription(String label) { this.label = label; }
+        public String getLabel() { return label; }
+    }
+
+    public enum StatutClient {
+        EN_ATTENTE("En attente"),
+        VALIDE("Validé"),
+        ACTIF("Actif"),
+        REFUSE("Refusé"),
+        INACTIF("Inactif");
+
+        private final String label;
+        StatutClient(String label) { this.label = label; }
+        public String getLabel() { return label; }
+    }
 }

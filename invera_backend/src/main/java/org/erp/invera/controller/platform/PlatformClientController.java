@@ -2,7 +2,10 @@ package org.erp.invera.controller.platform;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.dto.platform.clientsdto.ClientRegistrationRequest;
+import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
+import org.erp.invera.service.payment.SubscriptionService;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,8 @@ public class PlatformClientController {
 
     private final ClientPlatformService clientService;
     private final DatabaseCreationService databaseCreationService;
+    private final SubscriptionService subscriptionService;
+
 
     // ========== 1. INSCRIPTION ==========
 
@@ -29,15 +34,43 @@ public class PlatformClientController {
      * POST /api/platform/clients/register
      */
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Client client) {
+    public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request) {
         try {
+            // 1. Créer le client
+            Client client = new Client();
+            client.setEmail(request.getEmail());
+            client.setTelephone(request.getTelephone());
+            client.setNom(request.getNom());
+            client.setPrenom(request.getPrenom());
+            client.setTypeCompte(Client.TypeCompte.valueOf(request.getTypeCompte()));
+            client.setTypeInscription(Client.TypeInscription.valueOf(request.getTypeInscription()));
+
             Client newClient = clientService.createClient(client);
 
+            // 2. Si inscription DEFINITIVE, créer l'abonnement immédiatement
+            Abonnement abonnement = null;
+            if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
+                Abonnement.PeriodType period = Abonnement.PeriodType.valueOf(request.getTypeAbonnement());
+                abonnement = subscriptionService.createSubscription(newClient.getId(), period);
+            }
+
+            // 3. Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Inscription réussie. En attente de validation.");
             response.put("clientId", newClient.getId());
-            response.put("statut", newClient.getStatut());
+            response.put("statut", newClient.getStatut().getLabel());
+
+            if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
+                response.put("message", "Inscription réussie. Période d'essai de 30 connexions.");
+                response.put("connexionsRestantes", newClient.getConnexionsRestantes());
+            } else {
+                response.put("message", "Inscription réussie. Abonnement " + request.getTypeAbonnement() + " activé.");
+                response.put("abonnement", Map.of(
+                        "period", abonnement.getPeriodType().getLabel(),
+                        "montant", abonnement.getMontant(),
+                        "dateFin", abonnement.getDateFin()
+                ));
+            }
 
             return ResponseEntity.ok(response);
 
@@ -241,53 +274,6 @@ public class PlatformClientController {
         }
     }
 
-    /**
-     * Tester la connexion à la base client
-     * GET /api/platform/clients/{id}/test-connection
-     */
-    @GetMapping("/{id}/test-connection")
-    public ResponseEntity<?> testConnection(@PathVariable Long id) {
-        boolean connected = databaseCreationService.testConnection(id);
-
-        return ResponseEntity.ok(Map.of(
-                "clientId", id,
-                "connected", connected
-        ));
-    }
-
-    /**
-     * Taille de la base client
-     * GET /api/platform/clients/{id}/database-size
-     */
-    @GetMapping("/{id}/database-size")
-    public ResponseEntity<?> getDatabaseSize(@PathVariable Long id) {
-        double size = databaseCreationService.getDatabaseSize(id);
-
-        return ResponseEntity.ok(Map.of(
-                "clientId", id,
-                "sizeMb", size
-        ));
-    }
-
-    /**
-     * Backup de la base client
-     * POST /api/platform/clients/{id}/backup
-     */
-    @PostMapping("/{id}/backup")
-    public ResponseEntity<?> backupDatabase(@PathVariable Long id) {
-        try {
-            String backupName = databaseCreationService.backupDatabase(id);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "backupName", backupName
-            ));
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
     // ========== 7. LISTES ET RECHERCHES ==========
 
     /**
@@ -306,7 +292,7 @@ public class PlatformClientController {
      */
     @GetMapping("/statut/{statut}")
     public ResponseEntity<?> getClientsByStatut(@PathVariable String statut) {
-        List<Client> clients = clientService.getClientsByStatut(statut);
+        List<Client> clients = clientService.getClientsByStatut(Client.StatutClient.valueOf(statut));
         return ResponseEntity.ok(clients);
     }
 
@@ -333,5 +319,4 @@ public class PlatformClientController {
             return ResponseEntity.notFound().build();
         }
     }
-
 }
