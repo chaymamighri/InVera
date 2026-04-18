@@ -96,6 +96,8 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/auth/login",
+                                "/api/auth/activation-link",
+                                "/api/auth/activate-account",
                                 "/api/auth/create-password",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
@@ -139,6 +141,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
+                        .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter").hasRole("ADMIN")
                         .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN" , "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
@@ -153,3 +156,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+

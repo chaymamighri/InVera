@@ -1,16 +1,21 @@
 package org.erp.invera.controller.platform;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.erp.invera.dto.erp.MessageResponse;
+import org.erp.invera.dto.platform.superAdmindto.ChangeSuperAdminPasswordRequest;
 import org.erp.invera.dto.platform.superAdmindto.LoginRequestDTO;
 import org.erp.invera.dto.platform.superAdmindto.LoginResponseDTO;
 import org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO;
+import org.erp.invera.dto.platform.superAdmindto.UpdateSuperAdminProfileRequest;
 import org.erp.invera.security.JwtTokenProvider;
+import org.erp.invera.security.SuperAdminPrincipal;
 import org.erp.invera.service.platform.SuperAdminService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -22,19 +27,13 @@ public class SuperAdminController {
     private final SuperAdminService superAdminService;
     private final JwtTokenProvider jwtTokenProvider;
 
-
-    /**
-     * Créer le premier super admin (installation)
-     * POST /api/super-admin/register
-     * Body: { "nom": "Admin", "email": "admin@invera.com", "motDePasse": "password123" }
-     */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody SuperAdminDTO dto) {
         try {
             if (superAdminService.exists()) {
                 return ResponseEntity
                         .status(HttpStatus.CONFLICT)
-                        .body(Map.of("error", "Un super admin existe déjà. Installation impossible."));
+                        .body(Map.of("error", "Un super admin existe deja. Installation impossible."));
             }
             SuperAdminDTO created = superAdminService.createFirstSuperAdmin(dto);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -45,25 +44,17 @@ public class SuperAdminController {
         }
     }
 
-    /**
-     * Login super admin
-     * POST /api/super-admin/login
-     * Body: { "email": "admin@invera.com", "motDePasse": "password123" }
-     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
         try {
-            // 1. Authentifier le super admin
             SuperAdminDTO admin = superAdminService.authenticate(loginRequest);
 
-            // 2. ✅ Générer le token JWT
             String token = jwtTokenProvider.generateTokenForSuperAdmin(
                     admin.getId(),
                     admin.getEmail(),
                     admin.getNom()
             );
 
-            // 3. Construire la réponse
             LoginResponseDTO response = new LoginResponseDTO();
             response.setId(admin.getId());
             response.setNom(admin.getNom());
@@ -78,4 +69,58 @@ public class SuperAdminController {
         }
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentSuperAdmin(Authentication authentication) {
+        try {
+            return ResponseEntity.ok(superAdminService.getByEmail(getAuthenticatedEmail(authentication)));
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateSuperAdminProfileRequest request,
+                                           Authentication authentication) {
+        try {
+            SuperAdminDTO updated = superAdminService.updateProfile(getAuthenticatedEmail(authentication), request);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangeSuperAdminPasswordRequest request,
+                                            Authentication authentication) {
+        try {
+            superAdminService.changePassword(getAuthenticatedEmail(authentication), request);
+            return ResponseEntity.ok(new MessageResponse("Mot de passe modifie avec succes"));
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private String getAuthenticatedEmail(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("Super admin non authentifie");
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof SuperAdminPrincipal superAdminPrincipal) {
+            return superAdminPrincipal.getEmail();
+        }
+
+        String email = authentication.getName();
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Super admin non authentifie");
+        }
+
+        return email;
+    }
 }

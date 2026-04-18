@@ -26,11 +26,11 @@ platformApi.interceptors.request.use(
 platformApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('adminToken');
       localStorage.removeItem('adminInfo');
       toast.error('Session expirée');
-      window.location.href = '/admin/login';
+      window.location.href = '/super-admin/login';
     }
     return Promise.reject(error);
   }
