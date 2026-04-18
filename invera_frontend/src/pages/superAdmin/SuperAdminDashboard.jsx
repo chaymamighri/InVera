@@ -1,37 +1,71 @@
+// pages/superAdmin/SuperAdminDashboard.jsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Outlet, Link } from 'react-router-dom';
+import { useNavigate, Outlet, useLocation } from 'react-router-dom';
+import { superAdminService } from '../../services/superAdminService';
 import { 
   UsersIcon, 
   CreditCardIcon, 
   DocumentTextIcon, 
-  ArrowRightOnRectangleIcon,
-  HomeIcon
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [adminInfo, setAdminInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Récupérer les infos admin (token super admin)
-    const token = localStorage.getItem('adminToken');
-    const info = localStorage.getItem('adminInfo');
+    const loadAdmin = async () => {
+      // ✅ Vérifier d'abord le token localement
+      const token = localStorage.getItem('token');
+      const userRole = localStorage.getItem('userRole');
+      
+      if (!token || userRole !== 'SUPER_ADMIN') {
+        console.log('❌ Pas de token ou mauvais rôle, redirection vers login');
+        navigate('/super-admin/login', { replace: true });
+        return;
+      }
+      
+      try {
+        const profile = await superAdminService.getProfile();
+        console.log('📊 Profil Super Admin chargé:', profile);
+        setAdminInfo(profile);
+      } catch (error) {
+        console.error('❌ Erreur chargement profil:', error);
+        // En cas d'erreur API, on utilise les données du localStorage
+        const storedName = localStorage.getItem('userName');
+        const storedEmail = localStorage.getItem('userEmail');
+        if (storedName && storedEmail) {
+          setAdminInfo({ nom: storedName, email: storedEmail });
+        } else {
+          navigate('/super-admin/login', { replace: true });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (token && info) {
-      setAdminInfo(JSON.parse(info));
-    } else {
-      navigate('/super-admin/login');
-    }
+    loadAdmin();
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminInfo');
-    localStorage.removeItem('adminRole');
-    toast.success('Déconnexion réussie');
-    navigate('/super-admin/login');
+    superAdminService.logout();
   };
+
+  // Déterminer l'onglet actif
+  const isActive = (path) => {
+    return location.pathname.includes(path);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -60,20 +94,50 @@ const SuperAdminDashboard = () => {
         </div>
       </div>
 
-      {/* Contenu principal - Juste une phrase de bienvenue */}
-      <div className="container mx-auto px-6 py-12">
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <HomeIcon className="w-10 h-10 text-purple-600" />
+      {/* Navigation */}
+      <div className="bg-white shadow-md">
+        <div className="container mx-auto px-6">
+          <div className="flex gap-6">
+            <button
+              onClick={() => navigate('/super-admin/dashboard/clients')}
+              className={`flex items-center gap-2 py-3 px-2 transition ${
+                isActive('clients')
+                  ? 'text-purple-600 border-b-2 border-purple-600'
+                  : 'text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600'
+              }`}
+            >
+              <UsersIcon className="w-5 h-5" />
+              Clients
+            </button>
+            <button
+              onClick={() => navigate('/super-admin/dashboard/abonnements')}
+              className={`flex items-center gap-2 py-3 px-2 transition ${
+                isActive('abonnements')
+                  ? 'text-purple-600 border-b-2 border-purple-600'
+                  : 'text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600'
+              }`}
+            >
+              <DocumentTextIcon className="w-5 h-5" />
+              Abonnements
+            </button>
+            <button
+              onClick={() => navigate('/super-admin/dashboard/paiements')}
+              className={`flex items-center gap-2 py-3 px-2 transition ${
+                isActive('paiements')
+                  ? 'text-purple-600 border-b-2 border-purple-600'
+                  : 'text-gray-600 hover:text-purple-600 border-b-2 border-transparent hover:border-purple-600'
+              }`}
+            >
+              <CreditCardIcon className="w-5 h-5" />
+              Paiements
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Bienvenue, {adminInfo?.nom || 'Super Admin'} !
-          </h2>
-          <p className="text-gray-600 text-lg">
-            Vous devez gérer les clients, les abonnements et les paiements depuis cet espace.
-          </p>
-  
         </div>
+      </div>
+
+      {/* Contenu principal avec Outlet pour les sous-routes */}
+      <div className="container mx-auto px-6 py-8">
+        <Outlet />
       </div>
     </div>
   );
