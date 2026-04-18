@@ -59,6 +59,32 @@ public class DatabaseCreationService {
         """;
     private static final String CHECK_USER_EXISTS = "SELECT 1 FROM pg_roles WHERE rolname = ?";
 
+
+
+    // Ajoutez cette méthode dans la classe DatabaseCreationService
+
+    /**
+     * Force la déconnexion de toutes les sessions sur template_invera
+     */
+    private void forceDisconnectFromTemplate() {
+        String disconnectSql = """
+        SELECT pg_terminate_backend(pid)
+        FROM pg_stat_activity
+        WHERE datname = 'template_invera' AND pid <> pg_backend_pid()
+        """;
+        try {
+            List<Integer> terminated = platformJdbcTemplate.queryForList(disconnectSql, Integer.class);
+            if (terminated != null && !terminated.isEmpty()) {
+                log.info("✅ {} connexion(s) terminée(s) sur template_invera", terminated.size());
+            } else {
+                log.debug("✅ Aucune connexion active sur template_invera");
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Impossible de terminer les connexions: {}", e.getMessage());
+        }
+    }
+
+
     // ============================================================
     // CRÉATION DE BASE (avec isolation totale)
     // ============================================================

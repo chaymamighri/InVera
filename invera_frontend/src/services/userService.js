@@ -22,8 +22,15 @@ export const userService = {
     return response.data;
   },
 
+  // ✅ NOUVELLE MÉTHODE - Utilise l'ID au lieu de l'email
+  updateUserById: async (userId, userData) => {
+    const response = await api.put(`/auth/update/${userId}`, userData);
+    return response.data;
+  },
+
+  // ✅ Ancienne méthode conservée pour compatibilité (si nécessaire)
   updateUser: async (emailToUpdate, userData) => {
-    const response = await api.put(`/auth/update/${encodeURIComponent(emailToUpdate)}`, userData);
+    const response = await api.put(`/auth/update/by-email/${encodeURIComponent(emailToUpdate)}`, userData);
     return response.data;
   },
 

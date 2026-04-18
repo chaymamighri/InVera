@@ -1,45 +1,19 @@
 // src/pages/admin/users/gestionUsers.jsx
 
-/**
- * GestionUsers - Gestion des utilisateurs (administration)
- * 
- * RÔLE : Gérer les utilisateurs de l'application (CRUD, activation/désactivation)
- * ROUTE : /dashboard/admin/users
- * 
- * FONCTIONNALITÉS :
- * - Liste des utilisateurs avec tableau
- * - Recherche par nom, email, rôle
- * - Filtre par rôle (Commercial, Achat, Admin)
- * - Ajout d'utilisateur (nom, email, rôle)
- * - Modification d'utilisateur (nom, email, rôle)
- * - Suppression d'utilisateur avec confirmation
- * - Activation/Désactivation (toggle switch)
- * - Validation email (format, unicité)
- * - Protection du compte admin (non modifiable)
- * 
- * COMPOSANTS INTERNES :
- * - Modal : Fenêtre modale générique
- * - ConfirmModal : Confirmation de suppression
- * - InputField : Champ texte avec label
- * - EmailField : Champ email avec icône
- * - SelectField : Menu déroulant
- * - ToggleSwitch : Bouton activer/désactiver
- * 
- * HOOK UTILISÉ : useUserManagement()
- */
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   MagnifyingGlassIcon,
-  FunnelIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
   XCircleIcon,
   EnvelopeIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
+import { useAuth } from '../../../../hooks/useAuth';
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -82,7 +56,7 @@ const ConfirmModal = ({ open, onCancel, onConfirm, title, message, confirmText =
   );
 };
 
-const InputField = ({ label, value, onChange, placeholder, type = "text", error }) => (
+const InputField = ({ label, value, onChange, placeholder, type = "text", error, disabled = false }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <input
@@ -90,7 +64,10 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", error 
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+        disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+      } ${
         error ? 'border-red-500 bg-red-50' : 'border-gray-300'
       }`}
     />
@@ -103,13 +80,16 @@ const InputField = ({ label, value, onChange, placeholder, type = "text", error 
   </div>
 );
 
-const SelectField = ({ label, value, onChange, options }) => (
+const SelectField = ({ label, value, onChange, options, disabled = false }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white"
+      disabled={disabled}
+      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+        disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+      }`}
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -118,7 +98,7 @@ const SelectField = ({ label, value, onChange, options }) => (
   </div>
 );
 
-const EmailField = ({ label, value, onChange, placeholder, error, onBlur }) => (
+const EmailField = ({ label, value, onChange, placeholder, error, onBlur, disabled = false, domainHint }) => (
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <div className="relative">
@@ -129,11 +109,15 @@ const EmailField = ({ label, value, onChange, placeholder, error, onBlur }) => (
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        disabled={disabled}
         className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+          disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+        } ${
           error ? 'border-red-500 bg-red-50' : 'border-gray-300'
         }`}
       />
     </div>
+   
     {error && (
       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
         <ExclamationCircleIcon className="w-3 h-3" />
@@ -158,29 +142,36 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => (
 );
 
 const roleLabel = (role) => {
+  if (role === 'admin') return 'Admin';
   if (role === 'sales') return 'Commercial';
   if (role === 'procurement') return 'Achat';
-  if (role === 'admin') return 'Admin';
   return role;
 };
 
 const getRoleColor = (role) => {
   switch(role) {
+    case 'admin':
+      return 'bg-purple-100 text-purple-700';
     case 'sales':
       return 'bg-emerald-100 text-emerald-700';
     case 'procurement':
       return 'bg-blue-100 text-blue-700';
-    case 'admin':
-      return 'bg-violet-100 text-violet-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }
 };
 
 const ASSIGNABLE_ROLE_OPTIONS = [
+  { label: 'Admin', value: 'admin' },
   { label: 'Commercial', value: 'sales' },
   { label: 'Responsable Achat', value: 'procurement' }
 ];
+
+// ✅ Fonction pour extraire le domaine d'un email
+const extractEmailDomain = (email) => {
+  if (!email || !email.includes('@')) return '';
+  return email.substring(email.indexOf('@') + 1).toLowerCase();
+};
 
 const GestionUsers = () => {
   const {
@@ -191,6 +182,8 @@ const GestionUsers = () => {
     setUserActiveStatus,
     deleteUserByEmail
   } = useUserManagement();
+  
+  const { user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -201,27 +194,29 @@ const GestionUsers = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [localError, setLocalError] = useState(null);
 
-  // États pour les erreurs de validation d'email
   const [emailError, setEmailError] = useState('');
   const [editEmailError, setEditEmailError] = useState('');
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+
+  // ✅ Récupérer le domaine de l'admin connecté
+  const adminDomain = currentUser?.email ? extractEmailDomain(currentUser.email) : '';
 
   useEffect(() => { fetchUsers(); }, []);
 
   const fetchUsers = async () => {
     try {
       const data = await getUsers();
+      console.log('📊 Utilisateurs reçus:', data);
       setUsers(data);
       setLocalError(null);
     } catch (err) {
+      console.error('❌ Erreur fetchUsers:', err);
       setLocalError(err.message);
     }
   };
 
-  // Vérifier si l'email existe déjà
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email.trim()) return false;
     const emailLower = email.trim().toLowerCase();
@@ -230,7 +225,16 @@ const GestionUsers = () => {
     );
   };
 
-  // Valider l'email pour l'ajout
+  // ✅ Validation email avec domaine
+  const validateEmailDomain = (email) => {
+    if (!adminDomain) return true;
+    const domain = extractEmailDomain(email);
+    if (domain !== adminDomain) {
+      return false;
+    }
+    return true;
+  };
+
   const validateNewEmail = (email) => {
     if (!email.trim()) {
       setEmailError('');
@@ -243,6 +247,12 @@ const GestionUsers = () => {
       return false;
     }
     
+    // ✅ Vérification du domaine
+    if (!validateEmailDomain(email)) {
+      setEmailError(`L'email doit utiliser le domaine: @${adminDomain}`);
+      return false;
+    }
+    
     if (checkEmailExists(email)) {
       setEmailError('Cet email est déjà utilisé par un autre utilisateur');
       return false;
@@ -252,7 +262,6 @@ const GestionUsers = () => {
     return true;
   };
 
-  // Valider l'email pour la modification
   const validateEditEmail = (email, userId) => {
     if (!email.trim()) {
       setEditEmailError('');
@@ -262,6 +271,12 @@ const GestionUsers = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setEditEmailError('Format d\'email invalide');
+      return false;
+    }
+    
+    // ✅ Vérification du domaine
+    if (!validateEmailDomain(email)) {
+      setEditEmailError(`L'email doit utiliser le domaine: @${adminDomain}`);
       return false;
     }
     
@@ -285,7 +300,6 @@ const GestionUsers = () => {
       return;
     }
     
-    // Vérifier l'email avant d'ajouter
     if (!validateNewEmail(newUser.email)) {
       toast.error("Email invalide ou déjà utilisé.");
       return;
@@ -299,8 +313,17 @@ const GestionUsers = () => {
       setAddModalOpen(false);
       toast.success("Utilisateur ajouté avec succès");
     } catch (err) {
-      if (err.message?.includes('email') || err.message?.includes('duplicate')) {
+      console.error('Erreur ajout:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      
+      if (errorMessage?.includes('domaine') || errorMessage?.includes('@')) {
+        setEmailError(`L'email doit utiliser le domaine: @${adminDomain}`);
+        toast.error(`Email invalide: doit être sur @${adminDomain}`);
+      } else if (errorMessage?.includes('email') || errorMessage?.includes('duplicate')) {
         setEmailError('Cet email est déjà utilisé par un autre utilisateur');
+        toast.error('Email déjà utilisé');
+      } else {
+        toast.error(errorMessage || "Erreur lors de l'ajout");
       }
     }
   };
@@ -316,27 +339,66 @@ const GestionUsers = () => {
       return;
     }
     
-    if (editingUser?.role === 'admin') {
-      toast.error("Le compte administrateur principal ne peut pas etre modifie ici.");
+    const isOwnAccount = editingUser.id === currentUser?.id;
+    const emailChanged = editingUser.email !== editingUser.originalEmail;
+    
+    if (isOwnAccount && emailChanged) {
+      toast.error(
+        "⚠️ Sécurité : Vous ne pouvez pas modifier votre propre adresse email.\n" +
+        "Contactez un autre administrateur pour cette modification."
+      );
       return;
     }
     
-    // Vérifier l'email avant de modifier
     if (!validateEditEmail(editingUser.email, editingUser.id)) {
       toast.error("Email invalide ou déjà utilisé.");
       return;
     }
     
     try {
-      await updateUser(editingUser.id, editingUser);
+      await updateUser(editingUser.id, {
+        name: editingUser.name,
+        email: editingUser.email,
+        role: editingUser.role,
+        originalEmail: editingUser.originalEmail
+      });
+      
+      // ✅ Si l'utilisateur a modifié son propre email, forcer la reconnexion
+      if (isOwnAccount && emailChanged) {
+        toast.success("Email modifié. Veuillez vous reconnecter avec le nouvel email.");
+        setTimeout(() => {
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+      
       await fetchUsers();
       setEditingUser(null);
       setEditEmailError('');
       setEditModalOpen(false);
       toast.success("Utilisateur modifié avec succès");
+      
     } catch (err) {
-      if (err.message?.includes('email') || err.message?.includes('duplicate')) {
+      console.error('Erreur modification:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      const expectedDomain = err.response?.data?.expectedDomain;
+      
+      // ✅ Gestion des différents types d'erreurs
+      if (expectedDomain) {
+        setEditEmailError(`L'email doit utiliser le domaine: @${expectedDomain}`);
+        toast.error(`Email invalide: doit être sur @${expectedDomain}`);
+      } else if (errorMessage?.includes('domaine') || errorMessage?.includes('@')) {
+        setEditEmailError(`L'email doit utiliser le domaine: @${adminDomain}`);
+        toast.error(`Email invalide: doit être sur @${adminDomain}`);
+      } else if (errorMessage?.includes('propre email') || errorMessage?.includes('sécurité')) {
+        toast.error("Vous ne pouvez pas modifier votre propre adresse email.");
+      } else if (errorMessage?.includes('email') || errorMessage?.includes('duplicate')) {
         setEditEmailError('Cet email est déjà utilisé par un autre utilisateur');
+        toast.error('Email déjà utilisé');
+      } else {
+        toast.error(errorMessage || "Erreur lors de la modification");
       }
     }
   };
@@ -347,12 +409,19 @@ const GestionUsers = () => {
       await setUserActiveStatus(user.email, newActive);
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: newActive } : u));
       toast.success(`Utilisateur ${newActive ? 'activé' : 'désactivé'}`);
-    } catch {
+    } catch (err) {
+      console.error('Erreur changement statut:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      toast.error(errorMessage || "Erreur lors du changement de statut");
       await fetchUsers();
     }
   };
 
   const askDeleteUser = (user) => {
+    if (user.id === currentUser?.id) {
+      toast.error("Vous ne pouvez pas supprimer votre propre compte.");
+      return;
+    }
     setPendingDelete(user);
     setConfirmOpen(true);
   };
@@ -363,6 +432,10 @@ const GestionUsers = () => {
       await deleteUserByEmail(pendingDelete.email);
       await fetchUsers();
       toast.success("Utilisateur supprimé");
+    } catch (err) {
+      console.error('Erreur suppression:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      toast.error(errorMessage || "Erreur lors de la suppression");
     } finally {
       setConfirmOpen(false);
       setPendingDelete(null);
@@ -373,9 +446,9 @@ const GestionUsers = () => {
     const t = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !t ||
-      user.name.toLowerCase().includes(t) ||
-      user.email.toLowerCase().includes(t) ||
-      roleLabel(user.role).toLowerCase().includes(t);
+      (user.name && user.name.toLowerCase().includes(t)) ||
+      (user.email && user.email.toLowerCase().includes(t)) ||
+      (user.role && roleLabel(user.role).toLowerCase().includes(t));
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     return matchesSearch && matchesRole;
   });
@@ -383,6 +456,8 @@ const GestionUsers = () => {
   const clearSearch = () => {
     setSearchTerm('');
   };
+
+  const isEditingOwnAccount = editingUser?.id === currentUser?.id;
 
   if (loading && users.length === 0) {
     return (
@@ -399,11 +474,10 @@ const GestionUsers = () => {
         onCancel={() => { setConfirmOpen(false); setPendingDelete(null); }}
         onConfirm={confirmDeleteUser}
         title="Supprimer utilisateur"
-        message={pendingDelete ? `Voulez-vous vraiment supprimer ${pendingDelete.name} ? Cette action est irréversible.` : ''}
+        message={pendingDelete ? `Voulez-vous vraiment supprimer ${pendingDelete.name || pendingDelete.email} ? Cette action est irréversible.` : ''}
         confirmText="Supprimer"
       />
 
-      {/* Header avec bouton Ajouter à droite */}
       <div className="flex justify-end">
         <button
           onClick={() => setAddModalOpen(true)}
@@ -414,7 +488,6 @@ const GestionUsers = () => {
         </button>
       </div>
 
-      {/* Barre de recherche et filtres */}
       <div className="rounded-xl shadow-md p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-1 min-w-[200px]">
@@ -442,7 +515,8 @@ const GestionUsers = () => {
               onChange={(e) => setFilterRole(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white"
             >
-              <option value="all">Tous</option>
+              <option value="all">Tous les rôles</option>
+              <option value="admin">Admin</option>
               <option value="sales">Commercial</option>
               <option value="procurement">Achat</option>
             </select>
@@ -454,14 +528,12 @@ const GestionUsers = () => {
         </div>
       </div>
 
-      {/* Messages d'erreur */}
       {localError && (
         <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-lg">
           <p className="text-sm text-red-700">{localError}</p>
         </div>
       )}
 
-      {/* Tableau des utilisateurs */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -475,65 +547,77 @@ const GestionUsers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100">
-              {filteredUsers.map((user, index) => (
-                <tr
-                  key={user.id}
-                  className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
-                  }`}
-                >
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                        {user.name.charAt(0).toUpperCase()}
+              {filteredUsers.map((user, index) => {
+                const isOwnAccount = user.id === currentUser?.id;
+                return (
+                  <tr
+                    key={user.id}
+                    className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                    } ${isOwnAccount ? 'bg-blue-50/20' : ''}`}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm ${
+                          isOwnAccount ? 'bg-blue-500' : 'bg-gradient-to-r from-emerald-500 to-blue-500'
+                        }`}>
+                          {user.name && user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {user.name || user.email}
+                          {isOwnAccount && (
+                            <span className="ml-2 text-xs text-blue-600">(Vous)</span>
+                          )}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <EnvelopeIcon className="w-4 h-4 text-emerald-500" />
-                      <span className="text-sm text-gray-600">{user.email}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
-                      {roleLabel(user.role)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <ToggleSwitch
-                      checked={user.active}
-                      onChange={() => handleToggleStatus(user)}
-                      disabled={loading}
-                    />
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => { setEditingUser(user); setEditModalOpen(true); }}
-                        className={`p-1.5 rounded-md transition-colors ${
-                          user.role === 'admin'
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600'
-                        }`}
-                        disabled={loading || user.role === 'admin'}
-                        title={user.role === 'admin' ? "Le role administrateur n'est pas modifiable" : "Modifier"}
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => askDeleteUser(user)}
-                        className="p-1.5 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded-md transition-colors"
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <EnvelopeIcon className="w-4 h-4 text-emerald-500" />
+                        <span className="text-sm text-gray-600">{user.email}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
+                        {roleLabel(user.role)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <ToggleSwitch
+                        checked={user.active}
+                        onChange={() => handleToggleStatus(user)}
                         disabled={loading}
-                        title="Supprimer"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      />
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { 
+                            setEditingUser({
+                              ...user,
+                              originalEmail: user.email
+                            }); 
+                            setEditModalOpen(true);
+                          }}
+                          className="p-1.5 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-md transition-colors"
+                          disabled={loading}
+                          title={isOwnAccount ? "Vous pouvez modifier votre nom et rôle, mais pas votre email" : "Modifier"}
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => askDeleteUser(user)}
+                          className="p-1.5 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded-md transition-colors"
+                          disabled={loading || isOwnAccount}
+                          title={isOwnAccount ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer"}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredUsers.length === 0 && (
                 <tr>
                   <td colSpan="5" className="text-center py-8 text-gray-500">
@@ -566,6 +650,7 @@ const GestionUsers = () => {
             onBlur={() => validateNewEmail(newUser.email)}
             placeholder="email@example.com"
             error={emailError}
+            domainHint={adminDomain}
           />
           <SelectField
             label="Rôle"
@@ -574,7 +659,8 @@ const GestionUsers = () => {
             options={ASSIGNABLE_ROLE_OPTIONS}
           />
           <p className="text-xs text-gray-500">
-            Vous pouvez creer uniquement des comptes Commercial ou Responsable Achat.
+            Créez des comptes Admin, Commercial ou Responsable Achat.
+            {adminDomain && <span className="block mt-1 text-emerald-600">📧 Domaine autorisé: @{adminDomain}</span>}
           </p>
           <div className="flex gap-3 pt-4">
             <button
@@ -596,31 +682,59 @@ const GestionUsers = () => {
 
       {/* Modal Modification */}
       <Modal open={editModalOpen} onClose={() => { setEditModalOpen(false); setEditEmailError(''); }}>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Modifier l'utilisateur</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Modifier l'utilisateur
+         
+        </h2>
         {editingUser && (
           <div className="space-y-4">
+            {isEditingOwnAccount && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <ShieldExclamationIcon className="w-5 h-5" />
+                  <span className="text-sm font-medium">
+                    Pour des raisons de sécurité, vous ne pouvez pas modifier votre propre email.
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <InputField
               label="Nom complet"
-              value={editingUser.name}
+              value={editingUser.name || ''}
               onChange={val => setEditingUser({ ...editingUser, name: val })}
+              disabled={false}
             />
+            
             <EmailField
               label="Email"
               value={editingUser.email}
               onChange={(val) => {
-                setEditingUser({ ...editingUser, email: val });
-                if (editEmailError) validateEditEmail(val, editingUser.id);
+                if (!isEditingOwnAccount) {
+                  setEditingUser({ ...editingUser, email: val });
+                  if (editEmailError) validateEditEmail(val, editingUser.id);
+                }
               }}
-              onBlur={() => validateEditEmail(editingUser.email, editingUser.id)}
+              onBlur={() => {
+                if (!isEditingOwnAccount) {
+                  validateEditEmail(editingUser.email, editingUser.id);
+                }
+              }}
               placeholder="email@example.com"
               error={editEmailError}
+              disabled={isEditingOwnAccount}
+              domainHint={!isEditingOwnAccount ? adminDomain : null}
             />
+            
             <SelectField
               label="Rôle"
               value={editingUser.role}
               onChange={val => setEditingUser({ ...editingUser, role: val })}
               options={ASSIGNABLE_ROLE_OPTIONS}
+              disabled={false}
             />
+            
+            
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}

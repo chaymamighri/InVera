@@ -50,9 +50,9 @@ public class SuperAdminController {
             SuperAdminDTO admin = superAdminService.authenticate(loginRequest);
 
             String token = jwtTokenProvider.generateTokenForSuperAdmin(
-                    admin.getId(),
                     admin.getEmail(),
-                    admin.getNom()
+                    "SUPER_ADMIN",
+                    null
             );
 
             LoginResponseDTO response = new LoginResponseDTO();
@@ -63,8 +63,7 @@ public class SuperAdminController {
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
         }
     }

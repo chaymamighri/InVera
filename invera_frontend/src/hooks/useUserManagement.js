@@ -27,6 +27,8 @@ const splitFullName = (fullName = '') => {
 
 const mapFrontendRoleToBackend = (role) => {
   switch (role) {
+    case 'admin':
+      return 'ADMIN_CLIENT';
     case 'procurement':
       return 'RESPONSABLE_ACHAT';
     case 'sales':
@@ -82,7 +84,7 @@ export const useUserManagement = () => {
           role:
             user.role === 'COMMERCIAL' ? 'sales' :
             user.role === 'RESPONSABLE_ACHAT' ? 'procurement' :
-            user.role === 'ADMIN' ? 'admin' :
+            user.role === 'ADMIN_CLIENT' ? 'admin' :
             String(user.role || '').toLowerCase(),
           active: parseActive(rawActive),
         };
@@ -112,8 +114,11 @@ export const useUserManagement = () => {
         throw new Error("L'adresse email n'est pas valide.");
       }
 
+      // ✅ Maintenant on peut créer des admins
+      // La vérification est supprimée ou modifiée
       if (user?.role === 'admin') {
-        throw new Error("Vous pouvez creer uniquement des comptes Commercial ou Responsable Achat.");
+        // On permet la création d'admin, mais on peut ajouter un message
+        console.log('📝 Création d\'un compte administrateur');
       }
 
       const { nom, prenom } = splitFullName(name);
@@ -136,45 +141,49 @@ export const useUserManagement = () => {
     }
   }, []);
 
-  const updateUser = useCallback(async (id, updatedData) => {
-    setLoading(true);
-    setError(null);
+const updateUser = useCallback(async (id, updatedData) => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      const email = String(updatedData?.email || '').trim().toLowerCase();
-      const name = String(updatedData?.name || '').trim();
+  try {
+    const newEmail = String(updatedData?.email || '').trim().toLowerCase();
+    const name = String(updatedData?.name || '').trim();
 
-      if (!name) {
-        throw new Error("Le nom de l'utilisateur est requis.");
-      }
-
-      if (!EMAIL_REGEX.test(email)) {
-        throw new Error("L'adresse email n'est pas valide.");
-      }
-
-      if (updatedData?.role === 'admin') {
-        throw new Error("Le role Administrateur n'est pas modifiable depuis cette interface.");
-      }
-
-      const { nom, prenom } = splitFullName(name);
-      const payload = {
-        username: email.split('@')[0],
-        email,
-        nom,
-        prenom,
-        role: mapFrontendRoleToBackend(updatedData?.role),
-      };
-
-      return await userService.updateUser(email, payload);
-    } catch (err) {
-      const message = extractErrorMessage(err, 'Erreur lors de la mise a jour');
-      toast.error(message);
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setLoading(false);
+    if (!name) {
+      throw new Error("Le nom de l'utilisateur est requis.");
     }
-  }, []);
+
+    if (!EMAIL_REGEX.test(newEmail)) {
+      throw new Error("L'adresse email n'est pas valide.");
+    }
+
+    const { nom, prenom } = splitFullName(name);
+    
+    const payload = {
+      name: name,           // Nom complet
+      email: newEmail,      // Nouvel email
+      role: updatedData?.role,
+    };
+
+    console.log('📤 Mise à jour utilisateur:', {
+      id: id,
+      payload: payload
+    });
+
+    // ✅ Utiliser la nouvelle méthode avec l'ID
+    const result = await userService.updateUserById(id, payload);
+    return result;
+    
+  } catch (err) {
+    const message = extractErrorMessage(err, 'Erreur lors de la mise a jour');
+    console.error('❌ updateUser error:', err);
+    toast.error(message);
+    setError(message);
+    throw new Error(message);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const setUserActiveStatus = useCallback(async (email, active) => {
     setLoading(true);

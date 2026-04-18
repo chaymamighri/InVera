@@ -34,6 +34,10 @@ public class Client {
 
     private String prenom;
 
+    // ========== DOMAINE POUR IDENTIFICATION ==========
+    @Column(name = "domaine", unique = true)
+    private String domaine;  // ← AJOUTÉ : ex: "abc.com" pour l'entreprise
+
     // ========== TYPES ==========
     @Enumerated(EnumType.STRING)
     @Column(name = "type_compte", nullable = false)

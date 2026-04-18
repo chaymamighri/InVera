@@ -74,7 +74,6 @@ const ProfilePage = () => {
     nom: '',
     prenom: '',
     email: '',
-    telephone: 'Non renseigné',
     departement: 'Non renseigné',
     role: '',
     active: true,
@@ -107,7 +106,6 @@ const ProfilePage = () => {
           email: me?.email || '',
           role: me?.role || '',
           active: me?.active !== false,
-          telephone: localStorage.getItem('userPhone') || 'Non renseigné',
           departement: localStorage.getItem('userDepartement') || 'Non renseigné',
           memberSince: me?.memberSince || null,
           lastLogin: me?.lastLogin || null,
@@ -128,7 +126,6 @@ const ProfilePage = () => {
           nom: localStorage.getItem('userNom') || '',
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
-          telephone: localStorage.getItem('userPhone') || 'Non renseigné',
           departement: localStorage.getItem('userDepartement') || 'Non renseigné',
           role: localStorage.getItem('userRole') || '',
           active: true,
@@ -335,15 +332,8 @@ const ProfilePage = () => {
                         <EnvelopeIcon className="h-4 w-4 mr-2 text-gray-400" />
                         {userData.email}
                       </div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-32 text-gray-500">Téléphone</div>
-                      <div className="font-medium text-gray-800 flex items-center">
-                        <PhoneIcon className="h-4 w-4 mr-2 text-gray-400" />
-                        {userData.telephone}
-                      </div>
-                    </div>
-                  </div>
+                </div>
+                </div>
                 </div>
 
                 {/* Informations professionnelles */}
