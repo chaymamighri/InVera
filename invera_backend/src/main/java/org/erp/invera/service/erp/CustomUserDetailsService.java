@@ -1,4 +1,4 @@
-package org.erp.invera.service.erp;
+/*package org.erp.invera.service.erp;
 
 import org.erp.invera.model.erp.User;
 import org.erp.invera.repository.erp.UserRepository;
@@ -26,7 +26,7 @@ import java.util.Collections;
  * - Mot de passe non créé (password = null) → authentification refusée
  * - Email non trouvé → authentification refusée
  */
-@Service
+/*@Service
 public class CustomUserDetailsService implements UserDetailsService {
 
     @Autowired
@@ -66,3 +66,4 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .build();
     }
 }
+*/

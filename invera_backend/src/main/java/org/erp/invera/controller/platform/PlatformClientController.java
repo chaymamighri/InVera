@@ -2,12 +2,14 @@ package org.erp.invera.controller.platform;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.dto.erp.RegisterRequest;
 import org.erp.invera.dto.platform.clientsdto.ClientRegistrationRequest;
 import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.service.payment.SubscriptionService;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
+import org.erp.invera.service.platform.OtpService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,18 +27,16 @@ public class PlatformClientController {
     private final ClientPlatformService clientService;
     private final DatabaseCreationService databaseCreationService;
     private final SubscriptionService subscriptionService;
+    private final OtpService otpService ;
 
 
     // ========== 1. INSCRIPTION ==========
 
-    /**
-     * Inscription d'un nouveau client
-     * POST /api/platform/clients/register
-     */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request) {
         try {
-            // 1. Créer le client
+
+            // 2. Créer le client
             Client client = new Client();
             client.setEmail(request.getEmail());
             client.setTelephone(request.getTelephone());
@@ -45,35 +45,35 @@ public class PlatformClientController {
             client.setTypeCompte(Client.TypeCompte.valueOf(request.getTypeCompte()));
             client.setTypeInscription(Client.TypeInscription.valueOf(request.getTypeInscription()));
 
-            Client newClient = clientService.createClient(client);
+            Client newClient = clientService.createClient(client, request.getOtp(), request.getPassword());
 
-            // 2. Si inscription DEFINITIVE, créer l'abonnement immédiatement
-            Abonnement abonnement = null;
-            if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
-                Abonnement.PeriodType period = Abonnement.PeriodType.valueOf(request.getTypeAbonnement());
-                abonnement = subscriptionService.createSubscription(newClient.getId(), period);
-            }
-
-            // 3. Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("clientId", newClient.getId());
             response.put("statut", newClient.getStatut().getLabel());
 
-            if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
-                response.put("message", "Inscription réussie. Période d'essai de 30 connexions.");
+            if (newClient.getTypeInscription() == Client.TypeInscription.ESSAI) {
+                response.put("message", "Inscription réussie. Vous pouvez vous connecter avec votre email et mot de passe.");
                 response.put("connexionsRestantes", newClient.getConnexionsRestantes());
             } else {
-                response.put("message", "Inscription réussie. Abonnement " + request.getTypeAbonnement() + " activé.");
-                response.put("abonnement", Map.of(
-                        "period", abonnement.getPeriodType().getLabel(),
-                        "montant", abonnement.getMontant(),
-                        "dateFin", abonnement.getDateFin()
-                ));
+                response.put("message", "Inscription réussie. En attente de validation.");
             }
 
             return ResponseEntity.ok(response);
 
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    @PostMapping("/request-otp")
+    public ResponseEntity<?> requestOtp(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            clientService.requestOtp(email);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Code OTP envoyé à " + email,
+                    "expiration", "10 minutes"
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

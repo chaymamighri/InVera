@@ -4,7 +4,6 @@ import org.erp.invera.service.erp.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -15,7 +14,7 @@ import java.util.Map;
 /**
  * Contrôleur des rapports d'analyse commerciale.
  *
- * Endpoints (accès ADMIN ou COMMERCIAL) :
+ * Endpoints (accès ADMIN, ADMIN_CLIENT ou COMMERCIAL) :
  * - GET /sales      → Rapport des ventes (CA, commandes, panier moyen...)
  * - GET /invoices   → Rapport des factures (payées/impayées, recouvrement...)
  * - GET /clients    → Rapport des clients (top clients, répartition par type)
@@ -28,6 +27,8 @@ import java.util.Map;
  * - endDate    : fin période personnalisée
  * - clientType : VIP, ENTREPRISE, FIDELE, PARTICULIER
  * - status     : statut commande ou facture
+ *
+ * NOTE: La sécurité est gérée dans SecurityConfig, pas ici avec @PreAuthorize
  */
 @RestController
 @RequestMapping("/api/reports")
@@ -41,7 +42,6 @@ public class ReportController {
      * RAPPORT DES VENTES (Commandes clients)
      */
     @GetMapping("/sales")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMMERCIAL')")
     public ResponseEntity<?> getSalesReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -72,7 +72,6 @@ public class ReportController {
      * RAPPORT DES FACTURES
      */
     @GetMapping("/invoices")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMMERCIAL')")
     public ResponseEntity<?> getInvoicesReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -103,7 +102,6 @@ public class ReportController {
      * RAPPORT DES CLIENTS
      */
     @GetMapping("/clients")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMMERCIAL')")
     public ResponseEntity<?> getClientsReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -132,7 +130,6 @@ public class ReportController {
      * APERÇU RAPIDE POUR LE DASHBOARD
      */
     @GetMapping("/dashboard")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('COMMERCIAL')")
     public ResponseEntity<?> getDashboardPreview(
             @RequestParam(required = false, defaultValue = "month") String period) {
 
@@ -189,7 +186,4 @@ public class ReportController {
                 )
         ));
     }
-
-
 }
-

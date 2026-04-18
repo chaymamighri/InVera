@@ -3,11 +3,14 @@ package org.erp.invera.controller.platform;
 import org.erp.invera.dto.platform.superAdmindto.LoginRequestDTO;
 import org.erp.invera.dto.platform.superAdmindto.LoginResponseDTO;
 import org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO;
+import org.erp.invera.model.platform.SuperAdmin;
+import org.erp.invera.repository.platform.SuperAdminRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.platform.SuperAdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -21,6 +24,7 @@ public class SuperAdminController {
 
     private final SuperAdminService superAdminService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final SuperAdminRepository superAdminRepository;
 
 
     /**
@@ -53,17 +57,15 @@ public class SuperAdminController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
         try {
-            // 1. Authentifier le super admin
             SuperAdminDTO admin = superAdminService.authenticate(loginRequest);
 
-            // 2. ✅ Générer le token JWT
+            // ✅ CORRIGÉ : utiliser la nouvelle signature
             String token = jwtTokenProvider.generateTokenForSuperAdmin(
-                    admin.getId(),
                     admin.getEmail(),
-                    admin.getNom()
+                    "SUPER_ADMIN",
+                    null
             );
 
-            // 3. Construire la réponse
             LoginResponseDTO response = new LoginResponseDTO();
             response.setId(admin.getId());
             response.setNom(admin.getNom());
@@ -72,10 +74,29 @@ public class SuperAdminController {
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
         }
     }
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        String email = authentication.getName();
+        System.out.println("🔍 SuperAdmin getCurrentUser - Email: " + email);
+
+        SuperAdmin superAdmin = superAdminRepository.findByEmail(email)
+                .orElseThrow();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", superAdmin.getId());
+        response.put("email", superAdmin.getEmail());
+        response.put("nom", superAdmin.getNom());
+        response.put("role", "SUPER_ADMIN");
+        response.put("type", "SUPER_ADMIN");
+        response.put("active", true);
+        response.put("memberSince", superAdmin.getCreatedAt());
+
+        return ResponseEntity.ok(response);
+    }
+
 
 }

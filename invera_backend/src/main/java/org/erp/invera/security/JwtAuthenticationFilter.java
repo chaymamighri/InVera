@@ -4,9 +4,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.erp.invera.model.erp.Role;
-import org.erp.invera.model.erp.User;
+import org.erp.invera.model.platform.ClientUser;
+import org.erp.invera.model.platform.SuperAdmin;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -18,151 +21,82 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
+// JwtAuthenticationFilter.java
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
-        this.jwtTokenProvider = jwtTokenProvider;
-    }
-
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return path.equals("/api/auth/login")
-                || path.equals("/api/auth/forgot-password")
-                || path.equals("/api/auth/reset-password")
-                || path.equals("/api/auth/create-admin-temp")
-                || path.equals("/api/super-admin/login")
-                || path.equals("/api/super-admin/register");
-    }
-
-    private String getJwtFromRequest(HttpServletRequest request) {
-        String bearer = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
-            return bearer.substring(7);
-        }
-        return null;
-    }
+    // ✅ Liste des endpoints publics qui ne doivent pas être filtrés
+    private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+            "/api/auth/login",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/auth/create-password",
+            "/api/super-admin/login",
+            "/api/super-admin/register",
+            "/api/otp/request",
+            "/api/otp/verify",
+            "/api/otp/login",
+            "/api/platform/clients/register",
+            "/api/platform/clients/login"
+    );
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+                                    FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        System.out.println("\n=== JWT FILTER EXÉCUTÉ ===");
-        System.out.println("🔍 Path: " + path);
 
-        String jwt = getJwtFromRequest(request);
-        System.out.println("🔍 JWT présent: " + (jwt != null ? "OUI" : "NON"));
-
-        if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
-            Map<String, Object> claims = jwtTokenProvider.getUserInfoFromToken(jwt);
-
-            // ✅ Vérifier si c'est un Super Admin (présence de adminId)
-            Integer adminId = (Integer) claims.get("adminId");
-
-            if (adminId != null) {
-                // ========== GESTION SUPER ADMIN ==========
-                String email = (String) claims.get("email");
-                String nom = (String) claims.get("nom");
-
-                System.out.println("✅ SUPER ADMIN détecté:");
-                System.out.println("   - AdminId: " + adminId);
-                System.out.println("   - Email: " + email);
-                System.out.println("   - Nom: " + nom);
-
-                // Créer le principal pour Super Admin
-                SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
-                superAdminPrincipal.setId(adminId);
-                superAdminPrincipal.setEmail(email);
-                superAdminPrincipal.setNom(nom);
-
-                // Pas besoin d'autorités, juste authentifié
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(superAdminPrincipal, null, null);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                System.out.println("✅ Super Admin authentifié avec succès");
-
-            } else {
-                // ========== GESTION USER ERP ==========
-                String username = (String) claims.get("sub");
-                String role = (String) claims.get("role");
-                String email = (String) claims.get("email");
-                String nom = (String) claims.get("nom");
-                String prenom = (String) claims.get("prenom");
-                Integer userId = (Integer) claims.get("userId");
-
-                System.out.println("✅ User ERP détecté:");
-                System.out.println("   - Email: " + email);
-                System.out.println("   - Rôle: " + role);
-
-                if (role == null) {
-                    System.out.println("❌ ERREUR: Rôle manquant dans le token");
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-
-                User user = new User();
-                if (userId != null) {
-                    user.setId(Long.valueOf(userId));
-                }
-                user.setEmail(email != null ? email : username);
-                user.setNom(nom);
-                user.setPrenom(prenom);
-
-                try {
-                    String roleValue = role;
-                    if (roleValue != null && roleValue.startsWith("ROLE_")) {
-                        roleValue = roleValue.substring(5);
-                    }
-
-                    boolean roleExists = false;
-                    for (Role r : Role.values()) {
-                        if (r.name().equals(roleValue)) {
-                            roleExists = true;
-                            break;
-                        }
-                    }
-
-                    if (!roleExists) {
-                        System.out.println("❌ Rôle '" + roleValue + "' n'existe pas");
-                        filterChain.doFilter(request, response);
-                        return;
-                    }
-
-                    user.setRole(Role.valueOf(roleValue));
-
-                } catch (IllegalArgumentException e) {
-                    System.out.println("❌ Rôle invalide: " + role);
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-
-                List<SimpleGrantedAuthority> authorities =
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(user, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                System.out.println("✅ User ERP authentifié: " + email);
-            }
-        } else if (jwt != null) {
-            System.out.println("❌ Token invalide");
-        } else {
-            System.out.println("❌ Aucun JWT trouvé dans Authorization header");
+        // ✅ Ignorer les endpoints publics
+        if (isPublicEndpoint(path)) {
+            System.out.println("🔓 Endpoint public: " + path + " - skip JWT filter");
+            filterChain.doFilter(request, response);
+            return;
         }
 
-        System.out.println("=== FIN JWT FILTER ===\n");
+        String token = extractToken(request);
+
+        if (token != null && jwtTokenProvider.validateToken(token)) {
+            try {
+                String email = jwtTokenProvider.getEmailFromToken(token);
+                String fullRole = jwtTokenProvider.getFullRoleFromToken(token);
+
+                System.out.println("=== JWT FILTER EXÉCUTÉ ===");
+                System.out.println("🔍 Path: " + path);
+                System.out.println("🔍 Email: " + email);
+                System.out.println("🔍 Rôle complet: " + fullRole);
+
+                List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList(fullRole);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(email, null, authorities);
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                System.out.println("✅ Authentifié: " + email);
+
+            } catch (Exception e) {
+                System.err.println("❌ Erreur: " + e.getMessage());
+                SecurityContextHolder.clearContext();
+            }
+        } else {
+            System.out.println("⚠️ Pas de token valide pour: " + path);
+        }
+
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicEndpoint(String path) {
+        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }
