@@ -1,211 +1,158 @@
-// src/services/productService.js
+// src/services/productService.js - Version ONE-TO-MANY
 import api from './api';
 
 const productService = {
-  /**
-   * Récupérer tous les produits
-   * GET /api/produits/all
-   */
-getAllProducts: async (params = {}) => {
-  try {
-    console.log('📤 Appel API /produits/all avec params:', params);
-    const response = await api.get('/produits/all', { params });
-    
-    console.log('📥 Réponse API - status:', response.status);
-    console.log('📥 Réponse API - data:', response.data);
-    console.log('📥 Réponse API - data type:', typeof response.data);
-    console.log('📥 Réponse API - isArray:', Array.isArray(response.data));
-    
-    return response.data; 
-  } catch (error) {
-    console.error('❌ getAllProducts - Erreur:', error);
-    throw error;
-  }
-},
-  /**
-   * Récupérer tous les produits actifs uniquement
-   */
+  getAllProducts: async (params = {}) => {
+    try {
+      const response = await api.get('/produits/all', { params });
+      return response.data;
+    } catch (error) {
+      console.error('❌ getAllProducts - Erreur:', error);
+      throw error;
+    }
+  },
+
   getActiveProducts: async () => {
     try {
-      const response = await api.get('/produits?actifs=true');
-      
+      const response = await api.get('/produits/actifs');
       if (response.data && response.data.success) {
         return {
-          data: response.data.produits || [],
-          total: response.data.count || 0,
+          data: response.data.data || [],
+          total: response.data.total || 0,
           success: true
         };
       }
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la récupération des produits actifs:', error);
+      console.error('Erreur récupération produits actifs:', error);
       throw error;
     }
   },
 
-  /**
-   * Récupérer un produit par son ID
-   */
   getProductById: async (id) => {
     try {
       const response = await api.get(`/produits/${id}`);
-      
       if (response.data && response.data.success) {
-        return response.data.produit;
+        return response.data.produit || response.data;
       }
       return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la récupération du produit ${id}:`, error);
+      console.error(`Erreur récupération produit ${id}:`, error);
       throw error;
     }
   },
+// recupére les produits d'un fournisseur pour passer une bon de commande
+  getProduitsByFournisseur: async (fournisseurId) => {
+  try {
+    const response = await api.get(`/produits/fournisseur/${fournisseurId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur récupération produits du fournisseur ${fournisseurId}:`, error);
+    throw error;
+  }
+},
 
-
-/**
- * Recherche avancée de produits avec filtres ET pagination
- */
+// rechercher les produit en general sans recupere fournisseur
 searchProducts: async ({ keyword, status, categorieId, actif, page = 0, size = 10 } = {}) => {
   try {
-    // Construction des paramètres de recherche
     const params = new URLSearchParams();
     if (keyword) params.append('keyword', keyword);
     if (status) params.append('status', status);
     if (categorieId) params.append('categorieId', categorieId);
     if (actif !== undefined) params.append('actif', actif);
-    
-    // ✅ AJOUTER LA PAGINATION
     params.append('page', page);
     params.append('size', size);
     
-    console.log('🔍 Paramètres envoyés:', params.toString());
+    console.log('🔍 URL:', `/produits/search?${params.toString()}`);
     
     const response = await api.get(`/produits/search?${params.toString()}`);
-    
-    // ✅ Gérer la réponse paginée (Spring Page)
-    if (response.data?.content) {
-      return {
-        data: response.data.content,
-        total: response.data.totalElements,
-        totalPages: response.data.totalPages,
-        currentPage: response.data.number,
-        size: response.data.size,
-        success: true
-      };
-    }
-    
-    // Fallback pour l'ancien format
-    if (response.data && response.data.success) {
-      return {
-        data: response.data.produits || [],
-        count: response.data.count || 0,
-        success: true
-      };
-    }
-    
     return response.data;
   } catch (error) {
-    console.error('Erreur lors de la recherche de produits:', error);
+    console.error('Erreur recherche produits:', error);
     throw error;
   }
 },
 
-  /**
-   * Créer un nouveau produit
-   */
-createProduct: async (productData) => {
-  try {
-    // Vérifier si c'est du FormData
-    const isFormData = productData instanceof FormData;
-    
-    console.log('📤 Envoi en', isFormData ? 'FormData' : 'JSON');
-    
-    // Log du contenu si FormData
-    if (isFormData) {
-      for (let pair of productData.entries()) {
-        console.log(`📦 ${pair[0]}:`, pair[1] instanceof File ? `Fichier: ${pair[1].name}` : pair[1]);
-      }
-    }
-    
-    const response = await api.post('/produits/add', productData, {
-      headers: isFormData ? {
-        'Content-Type': 'multipart/form-data'
-      } : {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response.data; 
-  } catch (error) {
-    console.error('❌ Erreur lors de la création du produit:', error);
-    throw error;
-  }
-},
-  /**
-   * Mettre à jour un produit
-   */
-updateProduct: async (id, productData) => {
-  try {
-    console.log(`📤 updateProduct - ID:`, id);
-    console.log(`📤 updateProduct - Type reçu:`, productData instanceof FormData ? 'FORMDATA' : typeof productData);
-    
-    // ✅ FORCER la conversion en FormData si nécessaire
-    let dataToSend = productData;
-    
-    if (!(productData instanceof FormData)) {
-      console.log(`⚠️ Conversion en FormData...`);
-      dataToSend = new FormData();
+  //  un seul fournisseurId et un seul prixAchat
+  createProduct: async (productData) => {
+    try {
+      let dataToSend;
       
-      // Si c'est un objet, ajouter chaque propriété
-      if (productData && typeof productData === 'object') {
+      if (productData instanceof FormData) {
+        dataToSend = productData;
+      } else {
+        dataToSend = new FormData();
         Object.entries(productData).forEach(([key, value]) => {
-          dataToSend.append(key, String(value));
+          if (value !== null && value !== undefined) {
+            dataToSend.append(key, String(value));
+          }
         });
+        if (productData?.imageFile) {
+          dataToSend.append('image', productData.imageFile);
+        }
       }
+      
+      const response = await api.post('/produits/add', dataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur création produit:', error);
+      throw error;
     }
-    
-    // ✅ TOUJOURS envoyer comme multipart/form-data
-    const response = await api.put(`/produits/update/${id}`, dataToSend, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erreur updateProduct:', error);
-    throw error;
-  }
-},
+  },
 
-  /**
-   * Désactiver un produit (soft delete)
-   */
+  // ✅ ONE-TO-MANY : un seul fournisseurId et un seul prixAchat
+  updateProduct: async (id, productData) => {
+    try {
+      let dataToSend;
+      
+      if (productData instanceof FormData) {
+        dataToSend = productData;
+      } else {
+        dataToSend = new FormData();
+        Object.entries(productData).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            dataToSend.append(key, String(value));
+          }
+        });
+        if (productData?.imageFile) {
+          dataToSend.append('image', productData.imageFile);
+        }
+      }
+      
+      const response = await api.put(`/produits/update/${id}`, dataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur updateProduct:', error);
+      throw error;
+    }
+  },
+
   deleteProduct: async (id) => {
     try {
       const response = await api.delete(`/produits/delete/${id}`);
-      return response.data; // { success, message }
+      return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la désactivation du produit ${id}:`, error);
+      console.error(`Erreur désactivation produit ${id}:`, error);
       throw error;
     }
   },
 
-  /**
-   * Réactiver un produit
-=   */
   reactivateProduct: async (id) => {
     try {
       const response = await api.patch(`/produits/${id}/reactiver`);
-      return response.data; // { success, message, produit }
+      return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la réactivation du produit ${id}:`, error);
+      console.error(`Erreur réactivation produit ${id}:`, error);
       throw error;
     }
   },
 
-  /**
-   * Mettre à jour le stock d'un produit
-   */
   updateStock: async (id, quantite) => {
     try {
       const response = await api.patch(`/produits/${id}/stock`, null, {
@@ -213,61 +160,24 @@ updateProduct: async (id, productData) => {
       });
       return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la mise à jour du stock du produit ${id}:`, error);
+      console.error(`Erreur mise à jour stock ${id}:`, error);
       throw error;
     }
   },
 
-  /**
-   * Vérifier la disponibilité d'un produit
-=   */
   checkAvailability: async (id, quantite) => {
     try {
       const response = await api.get(`/produits/${id}/disponibilite?quantite=${quantite}`);
-      return response.data; // { success, disponible, message, quantiteDisponible }
+      return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la vérification de disponibilité ${id}:`, error);
+      console.error(`Erreur vérification disponibilité ${id}:`, error);
       throw error;
     }
   },
 
-  /**
-   * Vérifier la disponibilité de plusieurs produits
-   */
-  checkMultipleAvailability: async (items) => {
-    try {
-      const results = await Promise.all(
-        items.map(item => 
-          productService.checkAvailability(item.produitId, item.quantite)
-            .then(res => ({
-              produitId: item.produitId,
-              disponible: res.disponible,
-              quantiteDisponible: res.quantiteDisponible,
-              quantiteDemandee: item.quantite
-            }))
-        )
-      );
-      
-      const allAvailable = results.every(r => r.disponible);
-      
-      return {
-        success: true,
-        allAvailable,
-        results
-      };
-    } catch (error) {
-      console.error('Erreur lors de la vérification multiple:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Récupérer les produits par catégorie
-=   */
   getProductsByCategorie: async (categorieId) => {
     try {
       const response = await api.get(`/produits/categorie/${categorieId}`);
-      
       if (response.data && response.data.success) {
         return {
           data: response.data.produits || [],
@@ -276,18 +186,14 @@ updateProduct: async (id, productData) => {
       }
       return response.data;
     } catch (error) {
-      console.error(`Erreur lors de la récupération des produits de la catégorie ${categorieId}:`, error);
+      console.error(`Erreur produits par catégorie ${categorieId}:`, error);
       throw error;
     }
   },
 
-  /**
-   * Récupérer les produits avec stock faible
-=   */
   getLowStockProducts: async () => {
     try {
       const response = await api.get('/produits/low-stock');
-      
       if (response.data && response.data.success) {
         return {
           data: response.data.produits || [],
@@ -296,32 +202,24 @@ updateProduct: async (id, productData) => {
       }
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la récupération des produits à stock faible:', error);
+      console.error('Erreur produits stock faible:', error);
       throw error;
     }
   },
 
-  /**
-   * Récupérer les statistiques des produits
-)   */
   getProductStats: async () => {
     try {
       const response = await api.get('/produits/statistiques');
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
+      console.error('Erreur statistiques:', error);
       throw error;
     }
   },
 
-  /**
-   * Synchroniser le stock (alias pour updateStock)
-   */
   syncStock: async (productId, quantity) => {
-    console.log(`🔄 Synchronisation du stock pour produit ${productId} avec quantité ${quantity}`);
     return productService.updateStock(productId, quantity);
   }
 };
-
 
 export default productService;

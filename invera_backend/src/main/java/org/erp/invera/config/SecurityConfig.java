@@ -20,16 +20,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
-/**
- * Configuration principale de la sécurité.
- *
- * Ce fichier gère :
- * - Qui peut accéder à quelles URLs (rôles : ADMIN, COMMERCIAL, RESPONSABLE_ACHAT)
- * - Les mots de passe (chiffrés avec BCrypt)
- * - Les requêtes sans session (stateless) car on utilise JWT
- * - Le filtre JWT pour vérifier les tokens
- * - CORS pour autoriser les appels depuis Flutter, React, Vite sur différents ports
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -50,15 +40,10 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * CORS for local dev, Flutter Web, Vite, React and LAN access.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Use allowedOriginPatterns to support wildcard ports.
-        // With allowCredentials(true), do not use "*".
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
@@ -94,6 +79,7 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // ========== AUTH ERP ==========
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/activation-link",
@@ -104,20 +90,29 @@ public class SecurityConfig {
                                 "/api/auth/create-admin-temp"
                         ).permitAll()
 
-
-
-                        // ========== ENDPOINTS SUPER ADMIN (publics) ==========
+                        // ========== SUPER ADMIN ==========
                         .requestMatchers(
                                 "/api/super-admin/login",
                                 "/api/super-admin/register"
                         ).permitAll()
 
-                        // ========== ENDPOINTS SUPER ADMIN (protégés) ==========
                         .requestMatchers(
                                 "/api/super-admin/me",
                                 "/api/super-admin/**"
                         ).authenticated()
 
+                        // ========== ✅ PLATFORM CLIENTS (PUBLICS) ==========
+                        .requestMatchers(
+                                "/api/platform/clients/register",
+                                "/api/platform/clients/login"
+                        ).permitAll()
+
+                        // ========== ✅ PLATFORM CLIENTS (PROTÉGÉS - SUPER ADMIN) ==========
+                        .requestMatchers(
+                                "/api/platform/clients/**"
+                        ).permitAll()
+
+                        // ========== ERP ENDPOINTS ==========
                         .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
 
@@ -142,12 +137,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
                         .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter").hasRole("ADMIN")
-                        .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN" , "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/procurement/stats/**").hasRole("RESPONSABLE_ACHAT")
-
 
                         .anyRequest().authenticated()
                 )
@@ -156,4 +150,3 @@ public class SecurityConfig {
         return http.build();
     }
 }
-

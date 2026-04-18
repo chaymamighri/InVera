@@ -229,9 +229,21 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
 
-        {/* Page content */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-          <Outlet />
+      </div>
+
+      {/* Contenu principal - Juste une phrase de bienvenue */}
+      <div className="container mx-auto px-6 py-12">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <HomeIcon className="w-10 h-10 text-purple-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Bienvenue, {adminInfo?.nom || 'Super Admin'} !
+          </h2>
+          <p className="text-gray-600 text-lg">
+            Vous devez gérer les clients, les abonnements et les paiements depuis cet espace.
+          </p>
+  
         </div>
       </div>
     </div>

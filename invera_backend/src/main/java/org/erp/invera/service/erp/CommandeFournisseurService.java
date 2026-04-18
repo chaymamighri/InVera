@@ -20,7 +20,6 @@ import org.erp.invera.repository.erp.*;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,43 +31,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
-/**
- * Service de gestion des commandes fournisseurs (achats).
- *
- * Ce fichier gère tout le cycle de vie d'une commande d'achat :
- *
- * 1. CRÉATION (BROUILLON) :
- *    - Génère un numéro unique (ex: BC-202504-0001)
- *    - Calcule les totaux (HT, TVA, TTC)
- *    - Statut initial : BROUILLON
- *
- * 2. MODIFICATION (uniquement en brouillon) :
- *    - Modifier produits, quantités, prix
- *    - Recalcule automatiquement les totaux
- *
- * 3. VALIDATION (BROUILLON → VALIDEE)
- *
- * 4. ENVOI AU FOURNISSEUR (VALIDEE → ENVOYEE)
- *
- * 5. RÉCEPTION DE LA MARCHANDISE (ENVOYEE → RECUE) :
- *    - Enregistre le bon de livraison
- *    - Crée des mouvements de stock (entrées)
- *    - Met à jour les quantités des produits
- *    - Peut réactiver des produits inactifs
- *
- * 6. FACTURATION (RECUE → FACTUREE)
- *
- * 7. ANNULATION (possible avant réception/facturation)
- *
- * 8. ARCHIVAGE (soft delete)
- *
- * Règles métier importantes :
- * - Une commande ne peut être modifiée qu'en BROUILLON
- * - La réception met automatiquement à jour le stock
- * - Les totaux sont calculés automatiquement
- * - Une commande facturée ne peut plus être annulée
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -81,13 +43,44 @@ public class CommandeFournisseurService {
     private final StockMovementRepository stockMovementRepository;
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-
     private final BonCommandePdfService bonCommandePdfService;
     private final EmailService emailService;
-
+    private final ProduitService produitService;
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 
+    // ==================== MÉTHODE POUR OBTENIR LE FOURNISSEUR D'UNE COMMANDE ====================
+    /**
+     * Récupère le fournisseur à partir des produits de la commande.
+     * Tous les produits doivent avoir le même fournisseur.
+     */
+    private Fournisseur getFournisseurFromCommande(CommandeFournisseur commande) {
+        if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
+            throw new RuntimeException("Impossible de déterminer le fournisseur : la commande n'a aucun produit");
+        }
+
+        Fournisseur premierFournisseur = commande.getLignesCommande().get(0).getProduit().getFournisseur();
+        if (premierFournisseur == null) {
+            throw new RuntimeException("Le produit '" + commande.getLignesCommande().get(0).getProduit().getLibelle() + "' n'a pas de fournisseur associé");
+        }
+
+        // Vérifier que tous les produits ont le même fournisseur
+        for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
+            Fournisseur f = ligne.getProduit().getFournisseur();
+            if (f == null) {
+                throw new RuntimeException("Le produit '" + ligne.getProduit().getLibelle() + "' n'a pas de fournisseur associé");
+            }
+            if (!f.getIdFournisseur().equals(premierFournisseur.getIdFournisseur())) {
+                throw new RuntimeException("Tous les produits doivent appartenir au même fournisseur. "
+                        + "Produit '" + ligne.getProduit().getLibelle() + "' appartient à '" + f.getNomFournisseur()
+                        + "' mais le premier produit appartient à '" + premierFournisseur.getNomFournisseur() + "'");
+            }
+        }
+
+        return premierFournisseur;
+    }
+
+    // ==================== LISTES ====================
     public List<CommandeFournisseurDTO> getAll() {
         return commandeRepository.findByActifTrue()
                 .stream()
@@ -95,91 +88,96 @@ public class CommandeFournisseurService {
                 .collect(Collectors.toList());
     }
 
+    // ==================== CRÉATION ====================
     public CommandeFournisseurDTO creerCommande(CommandeFournisseurDTO dto) {
-        Fournisseur fournisseur = fournisseurRepository.findById(dto.getFournisseur().getIdFournisseur())
-                .orElseThrow(() -> new RuntimeException("Fournisseur non trouvé"));
+        // 1. Vérifier qu'il y a des produits
+        if (dto.getLignesCommande() == null || dto.getLignesCommande().isEmpty()) {
+            throw new RuntimeException("La commande doit contenir au moins un produit");
+        }
 
+        // 2. Créer la commande (SANS fournisseur pour l'instant)
         CommandeFournisseur commande = new CommandeFournisseur();
         commande.setNumeroCommande(genererNumeroCommande());
         commande.setDateCommande(LocalDateTime.now());
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
-        commande.setFournisseur(fournisseur);
+        // ❌ PAS de commande.setFournisseur()
         commande.setStatut(CommandeFournisseur.StatutCommande.BROUILLON);
         commande.setActif(true);
 
-        List<LigneCommandeFournisseur> lignes = dto.getLignesCommande()
-                .stream()
-                .map(ligneDTO -> {
-                    if (ligneDTO.getProduitId() == null) {
-                        throw new RuntimeException("L'ID du produit est obligatoire");
-                    }
+        // 3. Traiter les lignes et vérifier l'unicité du fournisseur
+        Fournisseur fournisseurUnique = null;
+        List<LigneCommandeFournisseur> lignes = new ArrayList<>();
 
-                    Produit produit = produitRepository.findById(ligneDTO.getProduitId())
-                            .orElseThrow(() -> new RuntimeException(
-                                    "Produit non trouvé avec l'ID: " + ligneDTO.getProduitId()));
+        for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
+            Produit produit = produitRepository.findById(ligneDTO.getProduitId())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé: " + ligneDTO.getProduitId()));
 
-                    if (ligneDTO.getQuantite() <= 0) {
-                        throw new RuntimeException("La quantité doit être supérieure à 0");
-                    }
-                    if (ligneDTO.getPrixUnitaire() == null || ligneDTO.getPrixUnitaire().compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new RuntimeException("Le prix unitaire doit être supérieur à 0");
-                    }
+            // Vérifier que le produit a un fournisseur
+            if (produit.getFournisseur() == null) {
+                throw new RuntimeException("Le produit '" + produit.getLibelle() + "' n'a pas de fournisseur associé");
+            }
 
-                    LigneCommandeFournisseur ligne = new LigneCommandeFournisseur();
-                    ligne.setCommandeFournisseur(commande);
-                    ligne.setProduit(produit);
-                    ligne.setQuantite(ligneDTO.getQuantite());
-                    ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
+            // Vérifier l'unicité du fournisseur
+            if (fournisseurUnique == null) {
+                fournisseurUnique = produit.getFournisseur();
+            } else if (!fournisseurUnique.getIdFournisseur().equals(produit.getFournisseur().getIdFournisseur())) {
+                throw new RuntimeException("Tous les produits doivent appartenir au même fournisseur. "
+                        + "Le produit '" + produit.getLibelle() + "' appartient à '" + produit.getFournisseur().getNomFournisseur()
+                        + "' mais les autres produits appartiennent à '" + fournisseurUnique.getNomFournisseur() + "'");
+            }
 
-                    // Récupérer le taux TVA (priorité: DTO → Produit → 19%)
-                    BigDecimal tauxTVA;
-                    if (ligneDTO.getTauxTVA() != null) {
-                        tauxTVA = ligneDTO.getTauxTVA();
-                    } else if (produit.getCategorie() != null && produit.getCategorie().getTauxTVA() != null) {
-                        tauxTVA = produit.getCategorie().getTauxTVA();  // De la catégorie
-                    } else {
-                        tauxTVA = new BigDecimal("19");  // Par défaut
-                    }
+            if (ligneDTO.getQuantite() <= 0) {
+                throw new RuntimeException("La quantité doit être > 0 pour le produit: " + produit.getLibelle());
+            }
+            if (ligneDTO.getPrixUnitaire() == null || ligneDTO.getPrixUnitaire().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Le prix unitaire doit être > 0 pour le produit: " + produit.getLibelle());
+            }
 
-                    ligne.setTauxTVA(tauxTVA);  //Stocker le taux individuel
+            LigneCommandeFournisseur ligne = new LigneCommandeFournisseur();
+            ligne.setCommandeFournisseur(commande);
+            ligne.setProduit(produit);
+            ligne.setQuantite(ligneDTO.getQuantite());
+            ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
 
-                    // Calcul avec le taux individuel
-                    BigDecimal sousTotalHT = ligneDTO.getPrixUnitaire()
-                            .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()))
-                            .setScale(3, RoundingMode.HALF_UP);
+            // Taux TVA
+            BigDecimal tauxTVA;
+            if (ligneDTO.getTauxTVA() != null) {
+                tauxTVA = ligneDTO.getTauxTVA();
+            } else if (produit.getCategorie() != null && produit.getCategorie().getTauxTVA() != null) {
+                tauxTVA = produit.getCategorie().getTauxTVA();
+            } else {
+                tauxTVA = TVA_PAR_DEFAUT;
+            }
+            ligne.setTauxTVA(tauxTVA);
 
-                    BigDecimal montantTVA = sousTotalHT
-                            .multiply(tauxTVA)  // ← Taux individuel, pas global !
-                            .divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
+            // Calculs
+            BigDecimal sousTotalHT = ligne.getPrixUnitaire()
+                    .multiply(BigDecimal.valueOf(ligne.getQuantite()))
+                    .setScale(3, RoundingMode.HALF_UP);
+            BigDecimal montantTVA = sousTotalHT.multiply(tauxTVA)
+                    .divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
+            BigDecimal sousTotalTTC = sousTotalHT.add(montantTVA).setScale(3, RoundingMode.HALF_UP);
 
-                    BigDecimal sousTotalTTC = sousTotalHT.add(montantTVA)
-                            .setScale(3, RoundingMode.HALF_UP);
+            ligne.setSousTotalHT(sousTotalHT);
+            ligne.setMontantTVA(montantTVA);
+            ligne.setSousTotalTTC(sousTotalTTC);
+            ligne.setNotes(ligneDTO.getNotes());
 
-                    ligne.setSousTotalHT(sousTotalHT);
-                    ligne.setMontantTVA(montantTVA);
-                    ligne.setSousTotalTTC(sousTotalTTC);
-
-                    if (ligneDTO.getNotes() != null && !ligneDTO.getNotes().isEmpty()) {
-                        ligne.setNotes(ligneDTO.getNotes());
-                    }
-
-                    return ligne;
-                }).toList();
+            lignes.add(ligne);
+        }
 
         commande.setLignesCommande(lignes);
 
-        //  Calcul des totaux (inchangé)
+        // 4. Calcul des totaux
         BigDecimal totalHT = lignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalHT)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
-
         BigDecimal totalTVA = lignes.stream()
                 .map(LigneCommandeFournisseur::getMontantTVA)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
-
         BigDecimal totalTTC = lignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalTTC)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -190,49 +188,39 @@ public class CommandeFournisseurService {
         commande.setTotalTTC(totalTTC);
 
         CommandeFournisseur saved = commandeRepository.save(commande);
-        notifierAdminNouvelleDemande(saved);
+        notifierAdminNouvelleDemande(saved, fournisseurUnique);
         return convertToDTO(saved);
     }
 
+    // ==================== LECTURE ====================
     public CommandeFournisseurDTO getCommandeById(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
         return convertToDTO(commande);
     }
 
+    // ==================== MODIFICATION ====================
     public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto) {
-
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        // Seules les commandes REJETEE peuvent être modifiées
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
-            throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées. Statut actuel: " + commande.getStatut());
+            throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées");
         }
 
-        // ✅ 1. MODIFICATION DU FOURNISSEUR (AJOUT)
-        if (dto.getFournisseur() != null && dto.getFournisseur().getIdFournisseur() != null) {
-            Fournisseur nouveauFournisseur = fournisseurRepository
-                    .findById(dto.getFournisseur().getIdFournisseur())
-                    .orElseThrow(() -> new RuntimeException("Fournisseur non trouvé avec l'id: " + dto.getFournisseur().getIdFournisseur()));
-            commande.setFournisseur(nouveauFournisseur);
-        }
-
-        // ✅ 2. MODIFICATION DES AUTRES CHAMPS
         commande.setDateLivraisonPrevue(dto.getDateLivraisonPrevue());
         commande.setAdresseLivraison(dto.getAdresseLivraison());
 
-        // ✅ 3. MODIFICATION DES LIGNES (déjà existant)
+        // Gestion des lignes
         Map<Integer, LigneCommandeFournisseur> lignesExistantes = commande.getLignesCommande()
                 .stream()
                 .collect(Collectors.toMap(LigneCommandeFournisseur::getIdLigneCommandeFournisseur, l -> l));
 
         List<LigneCommandeFournisseur> nouvellesLignes = new ArrayList<>();
+        Fournisseur fournisseurUnique = null;
 
         for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
-
             LigneCommandeFournisseur ligne;
-
             if (ligneDTO.getIdLigneCommandeFournisseur() != null &&
                     lignesExistantes.containsKey(ligneDTO.getIdLigneCommandeFournisseur())) {
                 ligne = lignesExistantes.get(ligneDTO.getIdLigneCommandeFournisseur());
@@ -244,6 +232,18 @@ public class CommandeFournisseurService {
             Produit produit = produitRepository.findById(ligneDTO.getProduitId())
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
+            // Vérifier que le produit a un fournisseur
+            if (produit.getFournisseur() == null) {
+                throw new RuntimeException("Le produit '" + produit.getLibelle() + "' n'a pas de fournisseur associé");
+            }
+
+            // Vérifier l'unicité du fournisseur
+            if (fournisseurUnique == null) {
+                fournisseurUnique = produit.getFournisseur();
+            } else if (!fournisseurUnique.getIdFournisseur().equals(produit.getFournisseur().getIdFournisseur())) {
+                throw new RuntimeException("Tous les produits doivent appartenir au même fournisseur");
+            }
+
             ligne.setProduit(produit);
             ligne.setQuantite(ligneDTO.getQuantite());
             ligne.setPrixUnitaire(ligneDTO.getPrixUnitaire());
@@ -254,9 +254,8 @@ public class CommandeFournisseurService {
             } else if (produit.getCategorie() != null && produit.getCategorie().getTauxTVA() != null) {
                 tauxTVA = produit.getCategorie().getTauxTVA();
             } else {
-                tauxTVA = new BigDecimal("19");
+                tauxTVA = TVA_PAR_DEFAUT;
             }
-
             ligne.setTauxTVA(tauxTVA);
             ligne.calculerTotaux(tauxTVA);
 
@@ -266,19 +265,17 @@ public class CommandeFournisseurService {
         commande.getLignesCommande().clear();
         commande.getLignesCommande().addAll(nouvellesLignes);
 
-        // ✅ 4. RECALCUL DES TOTAUX
+        // Recalcul des totaux
         BigDecimal totalHT = nouvellesLignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalHT)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
-
         BigDecimal totalTVA = nouvellesLignes.stream()
                 .map(LigneCommandeFournisseur::getMontantTVA)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
-
         BigDecimal totalTTC = nouvellesLignes.stream()
                 .map(LigneCommandeFournisseur::getSousTotalTTC)
                 .filter(Objects::nonNull)
@@ -293,21 +290,20 @@ public class CommandeFournisseurService {
         return convertToDTO(saved);
     }
 
-
+    // ==================== VALIDATION ====================
     public CommandeFournisseurDTO validerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
-
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON) {
             throw new RuntimeException("Seules les commandes en brouillon peuvent être validées");
         }
-
         commande.setStatut(CommandeFournisseur.StatutCommande.VALIDEE);
         CommandeFournisseur saved = commandeRepository.save(commande);
         notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_APPROVED", null);
         return convertToDTO(saved);
     }
 
+    // ==================== ENVOI ====================
     public CommandeFournisseurDTO envoyerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -319,48 +315,28 @@ public class CommandeFournisseurService {
         commande.setStatut(CommandeFournisseur.StatutCommande.ENVOYEE);
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
 
-        final CommandeFournisseur commandeFinale = savedCommande;
+        // ✅ Récupérer le fournisseur à partir des produits
+        final Fournisseur fournisseur = getFournisseurFromCommande(savedCommande);
+
         new Thread(() -> {
             try {
-                System.out.println("📧 [1] Début thread pour: " + commandeFinale.getNumeroCommande());
-                System.out.println("📧 [2] Email fournisseur: " + commandeFinale.getFournisseur().getEmail());
-                System.out.println("📧 [3] Nom fournisseur: " + commandeFinale.getFournisseur().getNomFournisseur());
-
-                if (bonCommandePdfService == null) {
-                    System.err.println("❌ bonCommandePdfService est NULL !");
-                    return;
-                }
-                System.out.println("📧 [4] bonCommandePdfService OK");
-
-                byte[] pdfContent = bonCommandePdfService.genererBonCommandePdf(commandeFinale);
-                System.out.println("📧 [5] PDF généré, taille: " + pdfContent.length + " bytes");
-
-                if (emailService == null) {
-                    System.err.println("❌ emailService est NULL !");
-                    return;
-                }
-                System.out.println("📧 [6] emailService OK, appel en cours...");
-
+                byte[] pdfContent = bonCommandePdfService.genererBonCommandePdf(savedCommande);
                 emailService.envoyerBonCommande(
-                        commandeFinale.getFournisseur().getEmail(),
-                        commandeFinale.getFournisseur().getNomFournisseur(),
-                        commandeFinale.getNumeroCommande(),
+                        fournisseur.getEmail(),
+                        fournisseur.getNomFournisseur(),
+                        savedCommande.getNumeroCommande(),
                         pdfContent
                 );
-
-                System.out.println("📧 [7] Retour de emailService.envoyerBonCommande");
-                System.out.println("✅ Email envoyé pour commande: " + commandeFinale.getNumeroCommande());
-
             } catch (Exception e) {
-                System.err.println("❌ Erreur détaillée: " + e.getMessage());
+                System.err.println("❌ Erreur envoi email: " + e.getMessage());
                 e.printStackTrace();
             }
         }).start();
 
-        System.out.println("⚡ Réponse immédiate pour commande: " + savedCommande.getNumeroCommande());
         return convertToDTO(savedCommande);
     }
 
+    // ==================== RÉCEPTION ====================
     public CommandeFournisseurDTO recevoirCommande(Integer id, ReceptionDTO receptionData) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
@@ -369,45 +345,34 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes envoyées peuvent être reçues");
         }
 
-        // Mettre à jour les informations de réception
         commande.setNumeroBonLivraison(receptionData.getNumeroBL());
         commande.setNotesReception(receptionData.getNotes());
         commande.setDateLivraisonReelle(LocalDateTime.now());
         commande.setStatut(CommandeFournisseur.StatutCommande.RECUE);
 
-        // ✅ Récupérer les maps en sécurité
         Map<Integer, Integer> quantitesRecues = receptionData.getQuantitesRecues() != null
                 ? receptionData.getQuantitesRecues() : new HashMap<>();
         Map<Integer, Boolean> produitsAReactiver = receptionData.getProduitsAReactiver() != null
                 ? receptionData.getProduitsAReactiver() : new HashMap<>();
 
-        // ✅ Liste pour stocker les mouvements créés
         List<StockMovement> mouvements = new ArrayList<>();
         int totalProduitsReactives = 0;
+        BigDecimal totalValeurStock = BigDecimal.ZERO;
 
         for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
             Integer ligneId = ligne.getIdLigneCommandeFournisseur();
-
-            // Récupérer la quantité reçue pour cette ligne
             Integer quantiteRecue = quantitesRecues.get(ligneId);
 
-            // Si la ligne n'est pas dans la map ou quantité = 0, on passe
             if (quantiteRecue == null || quantiteRecue <= 0) {
-                System.out.println("📦 Ligne " + ligneId + ": quantité reçue = 0 ou non spécifiée");
                 continue;
             }
 
-            // ✅ Vérifier que la quantité reçue ne dépasse pas la quantité commandée
             Integer quantiteCommandee = ligne.getQuantite();
             if (quantiteCommandee != null && quantiteRecue > quantiteCommandee) {
-                System.err.println("⚠️ Ligne " + ligneId + ": quantité reçue (" + quantiteRecue +
-                        ") supérieure à la quantité commandée (" + quantiteCommandee + ")");
                 throw new RuntimeException("Quantité reçue supérieure à la quantité commandée");
             }
 
-            // Enregistrer la quantité reçue
             ligne.setQuantiteRecue(quantiteRecue);
-
             Produit produit = ligne.getProduit();
 
             if (produit != null) {
@@ -415,90 +380,60 @@ public class CommandeFournisseurService {
                 int nouvelleQuantite = stockAvant + quantiteRecue;
                 produit.setQuantiteStock(nouvelleQuantite);
 
-                // ✅ CRÉATION DU MOUVEMENT DE STOCK - ENTRÉE
+                BigDecimal prixUnitaire = ligne.getPrixUnitaire() != null ? ligne.getPrixUnitaire() : BigDecimal.ZERO;
+                BigDecimal valeurLigne = prixUnitaire.multiply(BigDecimal.valueOf(quantiteRecue));
+                totalValeurStock = totalValeurStock.add(valeurLigne);
+
                 StockMovement mouvement = new StockMovement();
                 mouvement.setProduit(produit);
                 mouvement.setTypeMouvement(StockMovement.MovementType.ENTREE);
                 mouvement.setQuantite(quantiteRecue);
                 mouvement.setStockAvant(stockAvant);
                 mouvement.setStockApres(nouvelleQuantite);
+                mouvement.setPrixUnitaire(prixUnitaire);
+                mouvement.setValeurTotale(valeurLigne);
                 mouvement.setTypeDocument("COMMANDE_FOURNISSEUR");
                 mouvement.setCommentaire("Réception commande " + commande.getNumeroCommande() +
                         " - BL: " + receptionData.getNumeroBL());
                 mouvement.setDateMouvement(LocalDateTime.now());
                 mouvements.add(mouvement);
 
-                // ✅ Récupérer si le produit doit être réactivé (avec gestion null)
                 Boolean doitReactiver = produitsAReactiver.get(ligneId);
                 boolean reactiver = doitReactiver != null && doitReactiver;
-
-                // ✅ Vérifier si le produit est inactif et doit être réactivé
                 boolean estInactif = produit.getActive() == null || !produit.getActive();
 
                 if (estInactif && reactiver && quantiteRecue > 0) {
                     produit.setActive(true);
                     totalProduitsReactives++;
-                    System.out.println("✅ Produit réactivé: " + produit.getLibelle()
-                            + " (ID: " + produit.getIdProduit()
-                            + ") suite à réception commande " + commande.getNumeroCommande());
-                } else if (estInactif && quantiteRecue > 0 && !reactiver) {
-                    System.out.println("ℹ️ Produit inactif conservé: " + produit.getLibelle()
-                            + " (non réactivé)");
                 }
 
+                produitService.updateStockStatus(produit);
                 produitRepository.save(produit);
-            } else {
-                System.err.println("❌ Ligne " + ligne.getIdLigneCommandeFournisseur()
-                        + " sans produit associé");
             }
-
             ligneRepository.save(ligne);
         }
 
-        // ✅ SAUVEGARDER TOUS LES MOUVEMENTS EN BATCH
         if (!mouvements.isEmpty()) {
             stockMovementRepository.saveAll(mouvements);
-            System.out.println("📊 " + mouvements.size() + " mouvement(s) de stock créé(s)");
         }
 
         CommandeFournisseur savedCommande = commandeRepository.save(commande);
-
-        // ✅ Log récapitulatif détaillé
-        System.out.println("📦 Commande " + commande.getNumeroCommande() + " réceptionnée");
-        System.out.println("   - " + mouvements.size() + " produit(s) reçu(s)");
-        System.out.println("   - " + totalProduitsReactives + " produit(s) réactivé(s)");
-        System.out.println("   - BL: " + receptionData.getNumeroBL());
-
         return convertToDTO(savedCommande);
     }
 
-
-// ==================== MÉTHODES POUR LE REJET ====================
-
-    /**
-     * Rejeter une commande (BROUILLON → REJETEE)
-     * Écrase l'ancien motif s'il existe
-     *
-     * @param id ID de la commande
-     * @param motifRejet Motif du rejet (obligatoire)
-     * @return CommandeFournisseurDTO mis à jour
-     */
+    // ==================== REJET ====================
     @Transactional
     public CommandeFournisseurDTO rejeterCommande(Integer id, String motifRejet) {
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        // Vérifier que la commande est en BROUILLON (en attente)
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON) {
-            throw new RuntimeException("Seules les commandes en attente (BROUILLON) peuvent être rejetées. Statut actuel: " + commande.getStatut());
+            throw new RuntimeException("Seules les commandes en attente peuvent être rejetées");
         }
-
-        // Vérifier que le motif n'est pas vide
         if (motifRejet == null || motifRejet.trim().isEmpty()) {
             throw new RuntimeException("Le motif de rejet est obligatoire");
         }
 
-        // Mettre à jour la commande (ÉCRASE l'ancien motif)
         commande.setStatut(CommandeFournisseur.StatutCommande.REJETEE);
         commande.setMotifRejet(motifRejet);
         commande.setDateRejet(LocalDateTime.now());
@@ -507,68 +442,52 @@ public class CommandeFournisseurService {
         notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_REJECTED", motifRejet);
         System.out.println("❌ Commande " + commande.getNumeroCommande() + " rejetée. Motif: " + motifRejet);
 
+
         return convertToDTO(saved);
     }
 
-    /**
-     * Renvoyer une commande rejetée en attente (REJETEE → BROUILLON)
-     * Efface le motif de rejet
-     *
-     * @param id ID de la commande
-     * @return CommandeFournisseurDTO mis à jour
-     */
     @Transactional
     public CommandeFournisseurDTO renvoyerAttente(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id: " + id));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        // Vérifier que la commande est en REJETEE
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
-            throw new RuntimeException("Seules les commandes rejetées peuvent être renvoyées en attente. Statut actuel: " + commande.getStatut());
+            throw new RuntimeException("Seules les commandes rejetées peuvent être renvoyées en attente");
         }
 
-        // Retour en BROUILLON et EFFACE le motif
         commande.setStatut(CommandeFournisseur.StatutCommande.BROUILLON);
-        commande.setMotifRejet(null);  // ← Efface le motif comme demandé
+        commande.setMotifRejet(null);
         commande.setDateRejet(null);
 
         CommandeFournisseur saved = commandeRepository.save(commande);
         notifierAdminDemandeRenvoyee(saved);
-        System.out.println("🔄 Commande " + commande.getNumeroCommande() + " renvoyée en attente après correction");
-
         return convertToDTO(saved);
     }
 
+    // ==================== SUPPRESSION ====================
     public void supprimerCommande(Integer id) {
         CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        // ✅ Correction : ajout de la parenthèse fermante manquante et gestion du REJETEE
         if (commande.getStatut() != CommandeFournisseur.StatutCommande.BROUILLON
                 && commande.getStatut() != CommandeFournisseur.StatutCommande.REJETEE) {
             throw new RuntimeException("Seules les commandes en brouillon ou rejetées peuvent être supprimées");
         }
-
         commandeRepository.delete(commande);
     }
 
-    // Récupérer les commandes archivées (actif = false)
+    // ==================== ARCHIVAGE ====================
     public List<CommandeFournisseurDTO> getArchivedCommandes() {
-        // Mettre à jour le statut des commandes de plus de 5 ans avant de les retourner
         mettreAJourCommandesAnciennes();
-
         return commandeRepository.findByActifFalse()
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    // Méthode pour mettre à jour le statut des commandes de plus de 5 ans
     @Transactional
     public void mettreAJourCommandesAnciennes() {
         LocalDateTime dateLimite = LocalDateTime.now().minusYears(5);
-
-        // Récupérer les commandes actives de plus de 5 ans
         List<CommandeFournisseur> commandesASupprimer = commandeRepository.findByActifTrue()
                 .stream()
                 .filter(commande -> commande.getDateCommande().isBefore(dateLimite))
@@ -578,16 +497,12 @@ public class CommandeFournisseurService {
             commande.setActif(false);
             commandeRepository.save(commande);
         }
-
-        if (!commandesASupprimer.isEmpty()) {
-            System.out.println(commandesASupprimer.size() + " commande(s) de plus de 5 ans ont été archivées");
-        }
     }
 
-
+    // ==================== UTILITAIRES ====================
     public CommandeFournisseurDTO getCommandeByNumero(String numero) {
         CommandeFournisseur commande = commandeRepository.findByNumeroCommande(numero)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec le numéro: " + numero));
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
         return convertToDTO(commande);
     }
 
@@ -598,8 +513,9 @@ public class CommandeFournisseurService {
                 .collect(Collectors.toList());
     }
 
-    private void notifierAdminNouvelleDemande(CommandeFournisseur commande) {
-        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_CREATED");
+    // ==================== NOTIFICATIONS ====================
+    private void notifierAdminNouvelleDemande(CommandeFournisseur commande, Fournisseur fournisseur) {
+        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_CREATED", fournisseur);
     }
 
     private void notifierResponsableAchatDecision(CommandeFournisseur commande, String notificationType, String motifRejet) {
@@ -607,40 +523,27 @@ public class CommandeFournisseurService {
     }
 
     private void notifierAdminDemandeRenvoyee(CommandeFournisseur commande) {
-        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_RESUBMITTED");
+        Fournisseur fournisseur = getFournisseurFromCommande(commande);
+        creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_RESUBMITTED", fournisseur);
     }
 
-    private void creerNotificationAdminPourCommande(CommandeFournisseur commande, String notificationType) {
+    private void creerNotificationAdminPourCommande(CommandeFournisseur commande, String notificationType, Fournisseur fournisseur) {
         User currentUser = getCurrentUser();
-        if (currentUser == null || currentUser.getRole() != Role.RESPONSABLE_ACHAT) {
-            return;
-        }
+        if (currentUser == null || currentUser.getRole() != Role.RESPONSABLE_ACHAT) return;
 
-        String reference = commande.getNumeroCommande() != null
-                ? commande.getNumeroCommande()
-                : "CMD-" + commande.getIdCommandeFournisseur();
-        String fournisseurNom = commande.getFournisseur() != null && commande.getFournisseur().getNomFournisseur() != null
-                ? commande.getFournisseur().getNomFournisseur()
-                : "fournisseur non specifie";
+        String reference = commande.getNumeroCommande();
+        String fournisseurNom = fournisseur != null ? fournisseur.getNomFournisseur() : "inconnu";
         String userFullName = buildUserFullName(currentUser);
 
         String message = "PROCUREMENT_REQUEST_RESUBMITTED".equals(notificationType)
-                ? String.format(
-                        "%s a renvoye la demande %s pour %s.",
-                        userFullName, reference, fournisseurNom)
-                : String.format(
-                        "%s a soumis la demande %s pour %s.",
-                        userFullName, reference, fournisseurNom);
+
+                ? String.format("%s a renvoyé la commande %s pour %s", userFullName, reference, fournisseurNom)
+                : String.format("%s a créé la commande %s pour %s", userFullName, reference, fournisseurNom);
 
         notificationRepository.save(new Notification(
-                notificationType,
-                message,
-                currentUser.getEmail(),
-                userFullName,
-                "ADMIN",
-                "COMMANDE_FOURNISSEUR",
-                Long.valueOf(commande.getIdCommandeFournisseur()),
-                reference
+                notificationType, message, currentUser.getEmail(), userFullName,
+                "ADMIN", "COMMANDE_FOURNISSEUR",
+                Long.valueOf(commande.getIdCommandeFournisseur()), reference
         ));
     }
 
@@ -653,8 +556,14 @@ public class CommandeFournisseurService {
         String reference = commande.getNumeroCommande() != null
                 ? commande.getNumeroCommande()
                 : "CMD-" + commande.getIdCommandeFournisseur();
-        String fournisseurNom = commande.getFournisseur() != null && commande.getFournisseur().getNomFournisseur() != null
-                ? commande.getFournisseur().getNomFournisseur()
+        Fournisseur fournisseur = null;
+        try {
+            fournisseur = getFournisseurFromCommande(commande);
+        } catch (RuntimeException ignored) {
+            // Keep notification creation resilient when a commande has no valid fournisseur in its lines yet.
+        }
+        String fournisseurNom = fournisseur != null && fournisseur.getNomFournisseur() != null
+                ? fournisseur.getNomFournisseur()
                 : "fournisseur non specifie";
         String userFullName = buildUserFullName(currentUser);
 
@@ -710,6 +619,7 @@ public class CommandeFournisseurService {
         return String.format("BC-%s-%04d", anneeMois, nextNum);
     }
 
+
     private CommandeFournisseurDTO convertToDTO(CommandeFournisseur commande) {
         CommandeFournisseurDTO dto = new CommandeFournisseurDTO();
 
@@ -728,8 +638,18 @@ public class CommandeFournisseurService {
         dto.setMotifRejet(commande.getMotifRejet());
         dto.setDateRejet(commande.getDateRejet());
 
-        if (commande.getFournisseur() != null) {
-            dto.setFournisseur(new FournisseurDTO(commande.getFournisseur()));
+        // ✅ Récupérer le fournisseur depuis le premier produit de la commande
+        if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
+            Produit produit = commande.getLignesCommande().get(0).getProduit();
+            if (produit != null && produit.getFournisseur() != null) {
+                Fournisseur fournisseur = produit.getFournisseur();
+                FournisseurDTO fournisseurDTO = new FournisseurDTO();
+                fournisseurDTO.setIdFournisseur(fournisseur.getIdFournisseur());
+                fournisseurDTO.setNomFournisseur(fournisseur.getNomFournisseur());
+                fournisseurDTO.setEmail(fournisseur.getEmail());
+                fournisseurDTO.setTelephone(fournisseur.getTelephone());
+                dto.setFournisseur(fournisseurDTO);
+            }
         }
 
         if (commande.getLignesCommande() != null) {
@@ -744,7 +664,6 @@ public class CommandeFournisseurService {
 
     private LigneCommandeDTO convertLigneToDTO(LigneCommandeFournisseur ligne) {
         LigneCommandeDTO dto = new LigneCommandeDTO();
-
         dto.setIdLigneCommandeFournisseur(ligne.getIdLigneCommandeFournisseur());
         dto.setProduitId(ligne.getProduit().getIdProduit());
         dto.setProduitLibelle(ligne.getProduit().getLibelle());
@@ -755,6 +674,7 @@ public class CommandeFournisseurService {
         dto.setSousTotalTTC(ligne.getSousTotalTTC());
         dto.setQuantiteRecue(ligne.getQuantiteRecue());
         dto.setNotes(ligne.getNotes());
+        dto.setTauxTVA(ligne.getTauxTVA());
 
         // ✅ AJOUTER LA CATÉGORIE
         if (ligne.getProduit().getCategorie() != null) {
@@ -762,21 +682,19 @@ public class CommandeFournisseurService {
         }
 
         // ✅ AJOUTER LE STATUT D'INACTIVITÉ
-        // Récupérer le produit et vérifier s'il est actif
         Produit produit = ligne.getProduit();
         if (produit != null) {
-            // Selon comment vous stockez l'état du produit
-            // Option 1: si vous avez un champ 'active'
-            boolean estActif = produit.getActive() != null ? produit.getActive() : true;
-            dto.setEstInactif(!estActif);
-
-            // Option 2: si vous avez un champ 'estActif'
-            // dto.setEstInactif(!produit.getEstActif());
+            dto.setEstInactif(!produit.getActive());
         } else {
             dto.setEstInactif(false);
+        }
+
+        // ✅ AJOUTER LES INFORMATIONS DU FOURNISSEUR (optionnel, car déjà dans la commande)
+        if (produit != null && produit.getFournisseur() != null) {
+            dto.setFournisseurId(produit.getFournisseur().getIdFournisseur());
+            dto.setFournisseurNom(produit.getFournisseur().getNomFournisseur());
         }
 
         return dto;
     }
 }
-
