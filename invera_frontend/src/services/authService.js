@@ -2,6 +2,7 @@
 import api from './api';
 
 const API_URL = '/auth';
+const SUPER_ADMIN_API_URL = '/super-admin';
 const CURRENT_USER_CACHE_TTL_MS = 1000;
 
 let currentUserPromise = null;
@@ -29,16 +30,28 @@ const normalizeCurrentUser = (data) => ({
     prenom: data?.prenom || '',
     nom: data?.nom || '',
     active: data?.active !== false,
-
-    // New profile fields
     memberSince: data?.memberSince || null,
     lastLogin: data?.lastLogin || null,
     sessionsThisWeek: data?.sessionsThisWeek ?? 0
   }
 });
 
+// ✅ Normalisation pour Super Admin
+const normalizeSuperAdmin = (data) => ({
+  success: true,
+  data: {
+    id: data?.id,
+    email: data?.email,
+    name: data?.nom || 'Super Admin',
+    role: 'SUPER_ADMIN',
+    nom: data?.nom,
+    active: true,
+    memberSince: data?.memberSince,
+    lastLogin: data?.lastLogin
+  }
+});
+
 export const authService = {
-  // login function
   login: async (credentials) => {
     clearCurrentUserCache();
 
@@ -59,7 +72,6 @@ export const authService = {
     const fullName = `${data.nom || ''} ${data.prenom || ''}`.trim() || 'Utilisateur';
     const backendEmail = data.email || data.username || credentials.email;
 
-    // Stockage différencié selon rememberMe
     if (credentials.rememberMe) {
       localStorage.setItem('token', normalizedToken);
       const expiryDate = new Date();
@@ -71,7 +83,6 @@ export const authService = {
       sessionStorage.setItem('token', normalizedToken);
     }
 
-    // Stocker les infos utilisateur
     localStorage.setItem('userRole', data.role || '');
     localStorage.setItem('userName', fullName);
     localStorage.setItem('userEmail', backendEmail);
@@ -93,16 +104,43 @@ export const authService = {
     };
   },
 
+  // ✅ NOUVEAU: Login pour Super Admin
+  loginSuperAdmin: async (credentials) => {
+    clearCurrentUserCache();
+    
+    const response = await api.post('/super-admin/login', {
+      email: credentials.email,
+      motDePasse: credentials.password
+    });
+    
+    const data = response.data;
+    if (!data.token) throw new Error('Aucun token reçu du serveur');
+    
+    const normalizedToken = data.token;
+    
+    localStorage.setItem('token', normalizedToken);
+    localStorage.setItem('userRole', 'SUPER_ADMIN');
+    localStorage.setItem('userName', data.nom);
+    localStorage.setItem('userEmail', data.email);
+    
+    return {
+      success: true,
+      data: {
+        token: normalizedToken,
+        user: {
+          email: data.email,
+          name: data.nom,
+          role: 'SUPER_ADMIN',
+          nom: data.nom
+        }
+      }
+    };
+  },
+
   logout: async () => {
     clearCurrentUserCache();
     localStorage.clear();
     sessionStorage.clear();
-    localStorage.removeItem('profile');
-    localStorage.removeItem('users-management');
-    localStorage.removeItem('commandes');
-    localStorage.removeItem('rememberMe');
-    localStorage.removeItem('savedEmail');
-    localStorage.removeItem('tokenExpiry');
     return { success: true };
   },
 
@@ -133,20 +171,13 @@ export const authService = {
     return response.data;
   },
 
-  // vérif cordonnées user connecter
   isAuthenticated: () => {
-    // Vérifier d'abord sessionStorage (session normale)
     let token = sessionStorage.getItem('token');
-
-    // Sinon vérifier localStorage (remember me)
     if (!token) {
       token = localStorage.getItem('token');
-
-      // Vérifier l'expiration pour remember me
       if (token) {
         const expiry = localStorage.getItem('tokenExpiry');
         if (expiry && new Date(expiry) < new Date()) {
-          // Token expiré, nettoyer
           localStorage.removeItem('token');
           localStorage.removeItem('tokenExpiry');
           localStorage.removeItem('rememberMe');
@@ -155,9 +186,7 @@ export const authService = {
         }
       }
     }
-
     if (!token) return false;
-
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.exp * 1000 > Date.now();
@@ -166,9 +195,16 @@ export const authService = {
     }
   },
 
+  // ✅ CORRIGÉ: Détecter Super Admin et utiliser le bon endpoint
   getCurrentUser: async ({ force = false } = {}) => {
     const token = authService.getToken();
     if (!token) throw new Error('Non authentifié');
+
+    // ✅ Vérifier si c'est un Super Admin
+    const userRole = localStorage.getItem('userRole');
+    const isSuperAdmin = userRole === 'SUPER_ADMIN';
+    
+    console.log(`🔍 getCurrentUser - isSuperAdmin: ${isSuperAdmin}, role: ${userRole}`);
 
     const now = Date.now();
     const cacheIsValid =
@@ -186,23 +222,31 @@ export const authService = {
     }
 
     currentUserCacheToken = token;
+    
+    // ✅ Choisir le bon endpoint
+    const endpoint = isSuperAdmin ? '/super-admin/me' : '/auth/me';
+    console.log(`🔍 getCurrentUser - Endpoint: ${endpoint}`);
+
     currentUserPromise = api
-      .get(`${API_URL}/me`)
+      .get(endpoint)
       .then(async (response) => {
         const data = response.data;
+        
+        // ✅ Normaliser selon le type
+        const normalized = isSuperAdmin ? normalizeSuperAdmin(data) : normalizeCurrentUser(data);
 
-        if (data?.active === false) {
+        if (normalized.data?.active === false) {
           clearCurrentUserCache();
           await authService.logout();
           throw new Error("Compte désactivé. Contactez l'administrateur.");
         }
 
-        const normalized = normalizeCurrentUser(data);
         currentUserCache = normalized;
         currentUserCacheTimestamp = Date.now();
         return normalized;
       })
       .catch((error) => {
+        console.error(`❌ Erreur sur ${endpoint}:`, error);
         clearCurrentUserCache();
         throw error;
       })
@@ -214,7 +258,6 @@ export const authService = {
   },
 
   getToken: () => {
-    // Priorité à sessionStorage (session en cours)
     return sessionStorage.getItem('token') || localStorage.getItem('token');
   },
 

@@ -2,13 +2,6 @@
  * App.jsx - Point d'entrée principal de l'application
  * 
  * RÔLE : Configurer le routage, l'authentification et la mise en page
- * 
- * FONCTIONNALITÉS PRINCIPALES :
- * - Routes publiques (login, création mot de passe)
- * - Routes protégées par rôle (admin, sales, procurement, super_admin)
- * - Layout adaptatif (avec/sans Header)
- * - Redirection automatique selon le rôle
- * - Gestion des erreurs (403, 404)
  */
 
 import React from 'react';
@@ -66,163 +59,78 @@ import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
 import SalesTable from './pages/dashboard/sales/sales/components/SalesTable';
 
 // ============================================
-// MAPPING DES RÔLES (Backend → Frontend)
+// MAPPING DES RÔLES BACKEND → FRONTEND
 // ============================================
 
 const ROLE_MAPPING = {
-  ADMIN: 'admin',
-  ROLE_ADMIN: 'admin',
-  COMMERCIAL: 'sales',
-  ROLE_COMMERCIAL: 'sales',
-  RESPONSABLE_ACHAT: 'procurement',
-  ROLE_RESPONSABLE_ACHAT: 'procurement',
-  SUPER_ADMIN: 'super_admin',
-  ROLE_SUPER_ADMIN: 'super_admin'
+  // Super Admin
+  'SUPER_ADMIN': 'super_admin',
+  'ROLE_SUPER_ADMIN': 'super_admin',
+  
+  // Admin Client (corrigé)
+  'ADMIN_CLIENT': 'admin',        
+  'ROLE_ADMIN_CLIENT': 'admin',
+  
+  // Commercial
+  'COMMERCIAL': 'sales',
+  'ROLE_COMMERCIAL': 'sales',
+  
+  // Responsable Achat
+  'RESPONSABLE_ACHAT': 'procurement',
+  'ROLE_RESPONSABLE_ACHAT': 'procurement'
 };
+
 
 const normalizeBackendRole = (role) => {
   if (!role) return null;
   const normalized = String(role).trim().toUpperCase();
-  return ROLE_MAPPING[normalized] || normalized.toLowerCase();
-};
-
-const inferRoleFromToken = (token) => {
-  try {
-    const raw = String(token || '').trim();
-    const parts = raw.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = JSON.parse(atob(parts[1]));
-    const possible =
-      payload?.role ||
-      payload?.roles ||
-      payload?.authority ||
-      payload?.authorities ||
-      payload?.scope;
-
-    if (Array.isArray(possible)) return possible[0] ? String(possible[0]) : null;
-    if (typeof possible === 'string') return possible.split(' ').find(Boolean) || possible;
-    return null;
-  } catch {
-    return null;
-  }
+  return ROLE_MAPPING[normalized] || null;
 };
 
 const getUserData = () => {
   console.log('=== getUserData START ===');
   
   // ============================================
-  // 1. DÉTECTER LE TYPE D'AUTHENTIFICATION
+  // 1. RÉCUPÉRER LE TOKEN
   // ============================================
-  
-  // Vérifier si c'est un SUPER ADMIN (basé sur adminToken)
-  const adminToken = localStorage.getItem('adminToken');
-  const isSuperAdmin = adminToken && localStorage.getItem('adminInfo');
-  
-  // Vérifier si c'est un UTILISATEUR NORMAL
-  const userToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
-  const isNormalUser = userToken && userRole;
   
-  console.log('isSuperAdmin:', isSuperAdmin);
-  console.log('isNormalUser:', isNormalUser);
+  console.log('Token présent:', !!token);
+  console.log('userRole stocké:', userRole);
   
-  // ============================================
-  // 2. CAS SUPER ADMIN (priorité absolue si c'est la route super admin)
-  // ============================================
-  
-  // Détecter si on est sur une route super admin
-  const currentPath = window.location.pathname;
-  const isSuperAdminRoute = currentPath.startsWith('/super-admin');
-  
-  console.log('Current path:', currentPath);
-  console.log('Is super admin route:', isSuperAdminRoute);
-  
-  // Si on est sur une route super admin, utiliser le token super admin
-  if (isSuperAdminRoute && adminToken) {
-    console.log('✅ Mode Super Admin (route spécifique)');
-    const adminInfo = localStorage.getItem('adminInfo');
-    let adminName = 'Super Admin';
-    let adminEmail = '';
-    
-    if (adminInfo) {
-      try {
-        const info = JSON.parse(adminInfo);
-        adminName = info.nom || adminName;
-        adminEmail = info.email || '';
-      } catch(e) {}
-    }
-    
-    return {
-      token: adminToken,
-      role: 'super_admin',
-      originalRole: 'SUPER_ADMIN',
-      name: adminName,
-      email: adminEmail,
-      type: 'super_admin'
-    };
+  if (!token) {
+    console.log('❌ Aucun token trouvé');
+    return null;
   }
   
   // ============================================
-  // 3. CAS UTILISATEUR NORMAL
+  // 2. NORMALISER LE RÔLE
   // ============================================
+  const normalizedRole = normalizeBackendRole(userRole);
+  console.log('Rôle normalisé:', normalizedRole);
   
-  if (userToken && userRole) {
-    console.log('✅ Mode Utilisateur Normal');
-    const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || 'Utilisateur';
-    const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
-    
-    // Normaliser le rôle
-    const roleMap = {
-      'ROLE_ADMIN': 'admin', 'ADMIN': 'admin',
-      'ROLE_COMMERCIAL': 'sales', 'COMMERCIAL': 'sales',
-      'ROLE_RESPONSABLE_ACHAT': 'procurement', 'RESPONSABLE_ACHAT': 'procurement',
-    };
-    
-    const normalizedRole = roleMap[userRole?.toUpperCase()];
-    
-    if (normalizedRole) {
-      return {
-        token: userToken,
-        role: normalizedRole,
-        originalRole: userRole,
-        name: userName,
-        email: userEmail,
-        type: 'normal_user'
-      };
-    }
+  if (!normalizedRole) {
+    console.log('❌ Rôle non reconnu:', userRole);
+    return null;
   }
   
   // ============================================
-  // 4. CAS SUPER ADMIN (fallback si pas sur route spécifique)
+  // 3. RÉCUPÉRER LES INFOS UTILISATEUR
   // ============================================
+  const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || 'Utilisateur';
+  const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
   
-  if (adminToken) {
-    console.log('✅ Mode Super Admin (fallback)');
-    const adminInfo = localStorage.getItem('adminInfo');
-    let adminName = 'Super Admin';
-    let adminEmail = '';
-    
-    if (adminInfo) {
-      try {
-        const info = JSON.parse(adminInfo);
-        adminName = info.nom || adminName;
-        adminEmail = info.email || '';
-      } catch(e) {}
-    }
-    
-    return {
-      token: adminToken,
-      role: 'super_admin',
-      originalRole: 'SUPER_ADMIN',
-      name: adminName,
-      email: adminEmail,
-      type: 'super_admin'
-    };
-  }
+  console.log('✅ Utilisateur authentifié:', { role: normalizedRole, name: userName, email: userEmail });
   
-  console.log('❌ Aucun utilisateur authentifié');
-  return null;
+  return {
+    token,
+    role: normalizedRole,
+    originalRole: userRole,
+    name: userName,
+    email: userEmail,
+    type: normalizedRole === 'super_admin' ? 'super_admin' : 'normal_user'
+  };
 };
 
 // ============================================
@@ -350,20 +258,14 @@ function App() {
           />
 
           <Routes>
-            {/* ============================================
-                REDIRECTION PAR DÉFAUT
-                ============================================ */}
+            {/* REDIRECTION PAR DÉFAUT */}
             <Route path="/" element={<Navigate to="/login" replace />} />
 
-            {/* ============================================
-                ROUTES PUBLIQUES
-                ============================================ */}
+            {/* ROUTES PUBLIQUES */}
             <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
             <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
 
-            {/* ============================================
-                ROUTES SUPER ADMIN
-                ============================================ */}
+            {/* ROUTES SUPER ADMIN */}
             <Route path="/super-admin/login" element={<PublicLayout><AdminLogin /></PublicLayout>} />
             
             <Route
@@ -380,9 +282,7 @@ function App() {
               <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
             </Route>
 
-            {/* ============================================
-                ROUTES ADMIN
-                ============================================ */}
+            {/* ROUTES ADMIN */}
             <Route
               path="/dashboard/admin"
               element={
@@ -399,9 +299,7 @@ function App() {
               <Route path="fournisseurs" element={<FournisseurManagement />} />
             </Route>
 
-            {/* ============================================
-                ROUTES PROCUREMENT (Achats)
-                ============================================ */}
+            {/* ROUTES PROCUREMENT (Achats) */}
             <Route
               path="/dashboard/procurement/*"
               element={
@@ -419,9 +317,7 @@ function App() {
               <Route path="etat_stock" element={<EtatStock />} />
             </Route>
 
-            {/* ============================================
-                ROUTES SALES (Commercial)
-                ============================================ */}
+            {/* ROUTES SALES (Commercial) */}
             <Route
               path="/dashboard/sales/*"
               element={
@@ -437,19 +333,14 @@ function App() {
               <Route path="sales" element={<SalesPage />} />
               <Route path="invoices" element={<InvoicingPage />} />
               <Route path="clients" element={<ClientManagePage />} />
-              <Route index element={<Navigate to="sales" replace />} />
-              <Route path="sales" element={<SalesTable />} />
-             
+              <Route path="sales-table" element={<SalesTable />} />
             </Route>
-         
 
-            {/* ============================================
-                ROUTES PARTAGÉES (tous rôles)
-                ============================================ */}
+            {/* ROUTES PARTAGÉES (tous rôles) */}
             <Route
               path="/profile"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'procurement']} useLayout={false}>
                   <ProfilePage />
                 </ProtectedRoute>
               }
@@ -457,21 +348,17 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'procurement']} useLayout={false}>
                   <SettingsPage />
                 </ProtectedRoute>
               }
             />
 
-            {/* ============================================
-                ROUTES UTILITAIRES
-                ============================================ */}
+            {/* ROUTES UTILITAIRES */}
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-            {/* ============================================
-                PAGE 404 (Non trouvée)
-                ============================================ */}
+            {/* PAGE 404 */}
             <Route
               path="*"
               element={

@@ -6,14 +6,12 @@
  * FONCTIONNALITÉS :
  * 1. Gestion du profil (nom, prénom, username)
  * 2. Sécurité (changement de mot de passe)
- * 3. Centre de notifications (lecture, suppression)
  * 
  * ROUTE : /settings
  * 
  * TABS DISPONIBLES :
  * - Profil     : Modification des infos personnelles
  * - Sécurité   : Changement de mot de passe
- * - Notifications : Gestion des notifications reçues
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,8 +22,6 @@ import {
   UserIcon,
   LockClosedIcon,
   ShieldCheckIcon,
-  BellIcon,
-  ArrowPathIcon,
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon
@@ -33,9 +29,7 @@ import {
 
 import { authService } from '../../services/authService';
 import api from '../../services/api';
-import { notificationService } from '../../services/notificationService';
 import Header from '../../components/Header';
-import { decorateNotification } from '../../utils/notificationRouting';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -62,9 +56,6 @@ const SettingsPage = () => {
   const [showPasswords, setShowPasswords] = useState(false); // Afficher/masquer MDP
   const [savingProfile, setSavingProfile] = useState(false); // Sauvegarde profil
   const [savingPassword, setSavingPassword] = useState(false); // Sauvegarde MDP
-  const [notifLoading, setNotifLoading] = useState(false);    // Chargement notifications
-  const [notifActionLoading, setNotifActionLoading] = useState(false);
-  const [notifications, setNotifications] = useState([]);     // Liste notifications
 
   // ===== CHARGEMENT DU PROFIL =====
   useEffect(() => {
@@ -111,46 +102,13 @@ const SettingsPage = () => {
         name: 'Sécurité',
         icon: <ShieldCheckIcon className="h-5 w-5" />,
         description: 'Modifiez votre mot de passe'
-      },
-      {
-        id: 'notifications',
-        name: 'Notifications',
-        icon: <BellIcon className="h-5 w-5" />,
-        description: 'Configurez vos préférences de notifications'
       }
     ],
     []
   );
 
-  // ===== NOTIFICATIONS =====
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.read).length,
-    [notifications]
-  );
-
-  const loadNotifications = useCallback(async () => {
-    setNotifLoading(true);
-    try {
-      const res = await notificationService.getAll();
-      const items = Array.isArray(res?.data) ? res.data.map(decorateNotification) : [];
-      setNotifications(items);
-    } catch (error) {
-      const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur notifications';
-      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
-    } finally {
-      setNotifLoading(false);
-    }
-  }, []);
-
-  // Charge les notifications quand l'onglet est actif
-  useEffect(() => {
-    if (activeTab !== 'notifications') return;
-    loadNotifications();
-  }, [activeTab, loadNotifications]);
-
   // ===== VALIDATIONS =====
   const validateProfile = () => {
-    if (!profileForm.username.trim()) return "Le nom d'utilisateur est requis.";
     if (!profileForm.nom.trim()) return 'Le nom est requis.';
     if (!profileForm.prenom.trim()) return 'Le prénom est requis.';
     return '';
@@ -162,50 +120,6 @@ const SettingsPage = () => {
     if (passwordForm.newPassword.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
     if (passwordForm.newPassword !== passwordForm.confirmPassword) return 'Les mots de passe ne correspondent pas.';
     return '';
-  };
-
-  // ===== ACTIONS NOTIFICATIONS =====
-  const handleMarkAsRead = async (id) => {
-    try {
-      await notificationService.markRead(id);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    } catch {
-      toast.error('Impossible de marquer comme lue');
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    if (unreadCount === 0) return;
-    setNotifActionLoading(true);
-    try {
-      await notificationService.markAllRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      toast.success('Toutes les notifications sont marquées comme lues');
-    } catch {
-      toast.error('Impossible de tout marquer comme lu');
-    } finally {
-      setNotifActionLoading(false);
-    }
-  };
-
-  const handleDeleteNotification = async (id) => {
-    try {
-      await notificationService.deleteOne(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      toast.success('Notification supprimée');
-    } catch {
-      toast.error('Erreur suppression notification');
-    }
-  };
-
-  const handleNotificationAction = async (notification) => {
-    if (!notification?.actionPath) return;
-
-    if (!notification.read) {
-      await handleMarkAsRead(notification.id);
-    }
-
-    navigate(notification.actionPath);
   };
 
   // ===== ACTIONS PROFIL =====
@@ -270,14 +184,6 @@ const SettingsPage = () => {
     } finally {
       setSavingPassword(false);
     }
-  };
-
-  // Formatage date notification
-  const formatNotificationDate = (value) => {
-    if (!value) return '-';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString();
   };
 
   // ===== AFFICHAGE CHARGEMENT =====
@@ -366,19 +272,8 @@ const SettingsPage = () => {
 
                         <form onSubmit={handleProfileSubmit} className="space-y-5">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Nom d'utilisateur
-                              </label>
-                              <input
-                                type="text"
-                                value={profileForm.username}
-                                onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Votre nom d'utilisateur"
-                              />
-                            </div>
-
+                           
+                           
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Email (lecture seule)
@@ -545,96 +440,6 @@ const SettingsPage = () => {
                     </div>
                   )}
 
-                  {/* ONGLET NOTIFICATIONS */}
-                  {activeTab === 'notifications' && (
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">
-                            Centre de notifications
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {unreadCount > 0
-                              ? `${unreadCount} notification(s) non lue(s)`
-                              : 'Toutes vos notifications sont lues'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={loadNotifications}
-                            disabled={notifLoading}
-                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-white ${
-                              notifLoading ? 'opacity-70 cursor-not-allowed' : ''
-                            }`}
-                          >
-                            <ArrowPathIcon className={`h-4 w-4 ${notifLoading ? 'animate-spin' : ''}`} />
-                            Actualiser
-                          </button>
-                          <button
-                            onClick={handleMarkAllAsRead}
-                            disabled={notifActionLoading || unreadCount === 0}
-                            className={`px-3 py-2 rounded-lg text-sm text-white bg-blue-600 hover:bg-blue-700 ${
-                              notifActionLoading || unreadCount === 0 ? 'opacity-70 cursor-not-allowed' : ''
-                            }`}
-                          >
-                            Tout marquer comme lu
-                          </button>
-                        </div>
-                      </div>
-
-                      {notifLoading ? (
-                        <div className="py-12 text-center text-gray-500">Chargement des notifications...</div>
-                      ) : notifications.length === 0 ? (
-                        <div className="py-12 text-center text-gray-500">Aucune notification</div>
-                      ) : (
-                        <div className="space-y-3">
-                          {notifications.map((n) => (
-                            <div
-                              key={n.id}
-                              className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
-                                n.read ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-200'
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <p className={`text-sm ${n.read ? 'text-gray-700' : 'text-gray-900 font-semibold'}`}>
-                                  {n.message || 'Notification sans message'}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {formatNotificationDate(n.createdAt)}
-                                </p>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {n.actionPath && (
-                                  <button
-                                    onClick={() => handleNotificationAction(n)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                  >
-                                    {n.actionLabel || 'Voir'}
-                                  </button>
-                                )}
-                                {!n.read && (
-                                  <button
-                                    onClick={() => handleMarkAsRead(n.id)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                  >
-                                    Marquer lue
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDeleteNotification(n.id)}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200"
-                                >
-                                  Supprimer
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
