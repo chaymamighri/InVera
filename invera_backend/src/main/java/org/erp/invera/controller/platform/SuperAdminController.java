@@ -21,7 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/super-admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class SuperAdminController {
 
     private final SuperAdminService superAdminService;

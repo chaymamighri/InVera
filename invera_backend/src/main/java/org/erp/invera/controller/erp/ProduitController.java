@@ -12,11 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Objects;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * Contrôleur de gestion des produits.
  *
  * Endpoints :
- * - POST   /add                    → Ajouter un produit (avec image)
+ * - POST   /add                    → Ajouter un produit (avec image et prix par fournisseur)
  * - GET    /all                    → Tous les produits
  * - GET    /actifs                 → Produits actifs uniquement
  * - GET    /{id}                   → Détail d'un produit
@@ -36,8 +36,9 @@ import java.util.stream.Collectors;
  * - GET    /low-stock              → Produits en stock faible
  * - PATCH  /{id}/stock             → Mettre à jour la quantité
  * - GET    /{id}/verifier-disponibilite → Vérifier disponibilité
- *
- * Upload d'images : les photos sont stockées dans /uploads/produits/
+ * - GET    /{id}/fournisseurs      → Récupérer les fournisseurs d'un produit avec leurs prix
+ * - PUT    /{id}/fournisseurs      → Mettre à jour les fournisseurs d'un produit
+ * - PUT    /{id}/fournisseur/{fournisseurId}/prix → Mettre à jour le prix d'un fournisseur
  */
 @RestController
 @RequestMapping("/api/produits")
@@ -51,75 +52,69 @@ public class ProduitController {
         this.produitService = produitService;
     }
 
-
     // ==== function to save image
     private String saveImage(MultipartFile image) throws IOException {
-
         if (image == null || image.isEmpty()) {
             return null;
         }
 
-        // Vérifier le type (sécurité)
         String contentType = image.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new IOException("Fichier invalide. Seules les images sont autorisées.");
         }
 
-        // Créer dossier si absent
         Path uploadPath = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();
         Files.createDirectories(uploadPath);
 
-        // Sécuriser nom original
         String originalFileName = StringUtils.cleanPath(
                 Objects.requireNonNull(image.getOriginalFilename())
         );
 
-        // Extension
         String extension = "";
         int dotIndex = originalFileName.lastIndexOf(".");
         if (dotIndex > 0) {
             extension = originalFileName.substring(dotIndex);
         }
 
-        // Nom unique
         String fileName = UUID.randomUUID().toString() + extension;
-
         Path filePath = uploadPath.resolve(fileName);
-
         Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         return "/uploads/produits/" + fileName;
     }
+
     /**
      * Ajouter un nouveau produit (avec image via FormData)
+     * ✅ CORRIGÉ : Un seul fournisseur et un seul prix d'achat
      */
     @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> addProduct(
             @RequestParam("libelle") String libelle,
             @RequestParam("prixVente") Double prixVente,
-            @RequestParam("prixAchat") Double prixAchat,
             @RequestParam("categorieId") Integer categorieId,
             @RequestParam(value = "quantiteStock", defaultValue = "0") Integer quantiteStock,
             @RequestParam(value = "seuilMinimum", defaultValue = "10") Integer seuilMinimum,
-            @RequestParam(value = "uniteMesure", defaultValue = "pièce") String uniteMesure,
+            @RequestParam(value = "uniteMesure", defaultValue = "PIECE") String uniteMesure,
             @RequestParam(value = "remiseTemporaire", required = false) Double remiseTemporaire,
             @RequestParam(value = "active", defaultValue = "true") Boolean active,
+            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,  // ✅ Un seul fournisseur
+            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,       // ✅ Un seul prix
             @RequestPart(value = "image", required = false) MultipartFile image) {
 
         try {
+            System.out.println("📦 fournisseurId reçu: " + fournisseurId);
+            System.out.println("💰 prixAchat reçu: " + prixAchat);
+
             Produit produit = new Produit();
             produit.setLibelle(libelle);
             produit.setPrixVente(prixVente);
-            produit.setPrixAchat(prixAchat);
+            // ❌ Plus de prixAchat global ici (sera défini par le service)
             produit.setQuantiteStock(quantiteStock);
             produit.setSeuilMinimum(seuilMinimum);
 
             // Conversion UniteMesure (String -> Enum)
             try {
-                // Note: votre frontend envoie "pièce", "kg", etc.
-                // Il faut mapper ces valeurs vers votre enum
                 String uniteUpper = uniteMesure.toUpperCase();
-                // Mapper "pièce" -> "PIECE", "kg" -> "KILOGRAMME", etc.
                 if (uniteUpper.equals("PIÈCE") || uniteUpper.equals("PIECE")) {
                     produit.setUniteMesure(Produit.UniteMesure.PIECE);
                 } else if (uniteUpper.equals("KG") || uniteUpper.equals("KILOGRAMME")) {
@@ -129,37 +124,36 @@ public class ProduitController {
                 } else if (uniteUpper.equals("M") || uniteUpper.equals("METRE")) {
                     produit.setUniteMesure(Produit.UniteMesure.METRE);
                 } else {
-                    // Valeur par défaut
                     produit.setUniteMesure(Produit.UniteMesure.PIECE);
                 }
             } catch (Exception e) {
                 return errorResponse("Unité de mesure invalide", HttpStatus.BAD_REQUEST);
             }
 
-            // Gestion de la remise (peut être null)
             if (remiseTemporaire != null) {
                 produit.setRemiseTemporaire(remiseTemporaire);
             }
 
             produit.setActive(active);
 
-            // Récupérer la catégorie
             Categorie categorie = new Categorie();
             categorie.setIdCategorie(categorieId);
             produit.setCategorie(categorie);
 
-            // Traitement de l'image
             if (image != null && !image.isEmpty()) {
                 String imageUrl = saveImage(image);
                 produit.setImageUrl(imageUrl);
             }
 
-            Produit createdProduit = produitService.createProduit(produit);
+            // ✅ Appel du service avec un seul fournisseur et un seul prix
+            Produit createdProduit = produitService.createProduit(produit, fournisseurId, prixAchat);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit ajouté avec succès");
             response.put("produit", createdProduit);
+            response.put("fournisseurId", fournisseurId);
+            response.put("prixAchat", prixAchat);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
@@ -188,12 +182,14 @@ public class ProduitController {
         }
     }
 
+    /**
+     * Récupérer les produits actifs
+     */
     @GetMapping("/actifs")
     public ResponseEntity<Map<String, Object>> getActiveProducts() {
         try {
             List<Produit> produits = produitService.getProduitsActifs();
 
-            // ✅ Utiliser le DTO
             List<ProduitDTO> produitsDTO = produits.stream()
                     .map(ProduitDTO::fromEntity)
                     .collect(Collectors.toList());
@@ -210,97 +206,160 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer un produit par son ID
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getProductById(@PathVariable Integer id) {
-        return produitService.getProduitById(id)
-                .map(produit -> {
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("success", true);
-                    response.put("produit", produit);
-                    return ResponseEntity.ok(response);
-                })
-                .orElse(errorResponse("Produit non trouvé avec l'ID: " + id, HttpStatus.NOT_FOUND));
+    public ResponseEntity<?> getProduitById(@PathVariable Integer id) {
+        try {
+            Produit produit = produitService.getProduitByIdWithFournisseur(id);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+
+            Map<String, Object> produitMap = new HashMap<>();
+            produitMap.put("idProduit", produit.getIdProduit());
+            produitMap.put("libelle", produit.getLibelle());
+            produitMap.put("prixVente", produit.getPrixVente());
+            produitMap.put("prixAchat", produit.getPrixAchat());
+            produitMap.put("quantiteStock", produit.getQuantiteStock());
+            produitMap.put("uniteMesure", produit.getUniteMesure() != null ? produit.getUniteMesure().name() : null);
+            produitMap.put("active", produit.getActive());
+            produitMap.put("seuilMinimum", produit.getSeuilMinimum());
+            produitMap.put("imageUrl", produit.getImageUrl());
+            produitMap.put("remiseTemporaire", produit.getRemiseTemporaire());
+            produitMap.put("status", produit.getStatus() != null ? produit.getStatus().name() : null);
+
+            // ✅ AJOUTER LE FOURNISSEUR
+            if (produit.getCategorie() != null) {
+                produitMap.put("categorieId", produit.getCategorie().getIdCategorie());
+                produitMap.put("categorieNom", produit.getCategorie().getNomCategorie());
+            }
+
+            if (produit.getFournisseur() != null) {
+                produitMap.put("fournisseurId", produit.getFournisseur().getIdFournisseur());
+                produitMap.put("fournisseurNom", produit.getFournisseur().getNomFournisseur());
+                produitMap.put("fournisseurEmail", produit.getFournisseur().getEmail());
+                produitMap.put("fournisseurTelephone", produit.getFournisseur().getTelephone());
+            }
+
+            response.put("produit", produitMap);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Récupérer les produits d'un fournisseur spécifique (pour bon de commande)
+     */
+    @GetMapping("/fournisseur/{fournisseurId}")
+    public ResponseEntity<?> getProduitsByFournisseur(@PathVariable Integer fournisseurId) {
+        try {
+            List<Produit> produits = produitService.getProduitsByFournisseur(fournisseurId);
+
+            List<Map<String, Object>> produitsDTO = produits.stream()
+                    .map(p -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", p.getIdProduit());
+                        map.put("idProduit", p.getIdProduit());
+                        map.put("libelle", p.getLibelle());
+                        map.put("nom", p.getLibelle());
+                        map.put("prixAchat", p.getPrixAchat());
+                        map.put("prixVente", p.getPrixVente());
+                        map.put("quantiteStock", p.getQuantiteStock());
+                        map.put("uniteMesure", p.getUniteMesure());
+                        map.put("active", p.getActive());
+                        map.put("tauxTVA", p.getCategorie() != null ? p.getCategorie().getTauxTVA() : 19);
+                        map.put("estActif", p.getActive());
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "produits", produitsDTO
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
     }
 
     /**
      * Modifier un produit
+     * ✅ CORRIGÉ : Un seul fournisseur et un seul prix d'achat
      */
     @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> updateProduct(
             @PathVariable Integer id,
             @RequestParam(required = false) String libelle,
             @RequestParam(required = false) Double prixVente,
-            @RequestParam(required = false) Double prixAchat,
-            @RequestParam(required = false) Integer categorieId,  // ← AJOUTÉ
+            @RequestParam(required = false) Integer categorieId,
             @RequestParam(required = false) Integer quantiteStock,
             @RequestParam(required = false) Integer seuilMinimum,
-            @RequestParam(required = false) String uniteMesure,    // ← AJOUTÉ
-            @RequestParam(required = false) Double remiseTemporaire, // ← AJOUTÉ (nullable)
+            @RequestParam(required = false) String uniteMesure,
+            @RequestParam(required = false) Double remiseTemporaire,
             @RequestParam(required = false) Boolean active,
+            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,  // ✅ Un seul
+            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,       // ✅ Un seul
             @RequestPart(value = "image", required = false) MultipartFile image) {
 
         try {
             Produit produit = produitService.getProduitById(id)
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
-            // Mise à jour des champs si fournis
+            // Mettre à jour les champs
             if (libelle != null) produit.setLibelle(libelle);
             if (prixVente != null) produit.setPrixVente(prixVente);
-            if (prixAchat != null) produit.setPrixAchat(prixAchat);
             if (quantiteStock != null) produit.setQuantiteStock(quantiteStock);
             if (seuilMinimum != null) produit.setSeuilMinimum(seuilMinimum);
             if (active != null) produit.setActive(active);
+            if (remiseTemporaire != null) produit.setRemiseTemporaire(remiseTemporaire);
 
-            // ✅ Gestion de la remise (peut être null pour RESPONSABLE_ACHAT)
-            if (remiseTemporaire != null) {
-                produit.setRemiseTemporaire(remiseTemporaire);
-            }
-
-            // ✅ Mise à jour de la catégorie
             if (categorieId != null) {
                 Categorie categorie = new Categorie();
                 categorie.setIdCategorie(categorieId);
                 produit.setCategorie(categorie);
             }
 
-            // ✅ Mise à jour de l'unité de mesure
             if (uniteMesure != null && !uniteMesure.isEmpty()) {
                 try {
                     Produit.UniteMesure unite = Produit.UniteMesure.valueOf(uniteMesure.toUpperCase());
                     produit.setUniteMesure(unite);
                 } catch (IllegalArgumentException e) {
-                    return errorResponse("Unité de mesure invalide. Valeurs acceptées: PIECE, KILOGRAMME, LITRE, METRE, etc.",
-                            HttpStatus.BAD_REQUEST);
+                    return errorResponse("Unité de mesure invalide", HttpStatus.BAD_REQUEST);
                 }
             }
 
-            // Mise à jour de l'image
             if (image != null && !image.isEmpty()) {
-                // Supprimer l'ancienne image si elle existe
                 if (produit.getImageUrl() != null) {
                     try {
                         Path oldImagePath = Paths.get(UPLOAD_DIR)
                                 .resolve(Paths.get(produit.getImageUrl()).getFileName());
                         Files.deleteIfExists(oldImagePath);
                     } catch (Exception e) {
-                        // Log mais on continue
                         System.err.println("Impossible de supprimer l'ancienne image: " + e.getMessage());
                     }
                 }
-
                 String imageUrl = saveImage(image);
                 produit.setImageUrl(imageUrl);
             }
 
-            Produit updatedProduit = produitService.updateProduit(id, produit);
+            // ✅ Appel du service avec un seul fournisseur et un seul prix
+            Produit updatedProduit = produitService.updateProduit(id, produit, fournisseurId, prixAchat);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit mis à jour avec succès");
             response.put("produit", updatedProduit);
+            response.put("fournisseurId", fournisseurId);
+            response.put("prixAchat", prixAchat);
 
             return ResponseEntity.ok(response);
 
@@ -309,6 +368,41 @@ public class ProduitController {
         } catch (Exception e) {
             e.printStackTrace();
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Récupérer le fournisseur d'un produit
+     */
+    @GetMapping("/{id}/fournisseur")
+    public ResponseEntity<?> getFournisseurByProduit(@PathVariable Integer id) {
+        try {
+            Produit produit = produitService.getProduitByIdWithFournisseur(id);
+
+            if (produit.getFournisseur() == null) {
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "fournisseur", null,
+                        "message", "Ce produit n'a pas de fournisseur associé"
+                ));
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("idFournisseur", produit.getFournisseur().getIdFournisseur());
+            result.put("nomFournisseur", produit.getFournisseur().getNomFournisseur());
+            result.put("email", produit.getFournisseur().getEmail());
+            result.put("telephone", produit.getFournisseur().getTelephone());
+            result.put("prixAchat", produit.getPrixAchat());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "fournisseur", result
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
         }
     }
 
@@ -333,7 +427,6 @@ public class ProduitController {
         }
     }
 
-
     /**
      * Réactiver un produit (soft delete inverse)
      */
@@ -357,8 +450,9 @@ public class ProduitController {
     }
 
     /**
-     * Rechercher des produits et recupére les produits avec filter
+     * Rechercher des produits et récupère les produits avec filtre
      */
+// Dans ProduitController.java
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> searchProduits(
             @RequestParam(required = false) String keyword,
@@ -369,9 +463,30 @@ public class ProduitController {
         try {
             List<Produit> produits = produitService.searchProduits(keyword, status, categorieId, actif);
 
-            // ✅ Convertir en DTO
-            List<ProduitDTO> produitsDTO = produits.stream()
-                    .map(ProduitDTO::fromEntity)
+            // ✅ Convertir en DTO simplifié SANS fournisseur
+            List<Map<String, Object>> produitsDTO = produits.stream()
+                    .map(p -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("idProduit", p.getIdProduit());
+                        map.put("libelle", p.getLibelle());
+                        map.put("prixVente", p.getPrixVente());
+                        map.put("prixAchat", p.getPrixAchat());
+                        map.put("quantiteStock", p.getQuantiteStock());
+                        map.put("uniteMesure", p.getUniteMesure() != null ? p.getUniteMesure().name() : null);
+                        map.put("active", p.getActive());
+                        map.put("seuilMinimum", p.getSeuilMinimum());
+                        map.put("imageUrl", p.getImageUrl());
+                        map.put("remiseTemporaire", p.getRemiseTemporaire());
+                        map.put("status", p.getStatus() != null ? p.getStatus().name() : null);
+
+                        // ✅ Ne PAS inclure le fournisseur
+                        // Seulement la catégorie
+                        if (p.getCategorie() != null) {
+                            map.put("categorieId", p.getCategorie().getIdCategorie());
+                            map.put("categorieNom", p.getCategorie().getNomCategorie());
+                        }
+                        return map;
+                    })
                     .collect(Collectors.toList());
 
             Map<String, Object> response = new HashMap<>();
@@ -381,10 +496,11 @@ public class ProduitController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return errorResponse("Erreur lors de la recherche: " + e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            e.printStackTrace();
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
 
     /**
      * Récupérer les produits par catégorie

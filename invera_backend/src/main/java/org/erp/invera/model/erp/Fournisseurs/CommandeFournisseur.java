@@ -27,10 +27,6 @@ public class CommandeFournisseur {
     @Column(name = "id_commande_fournisseur")
     private Integer idCommandeFournisseur;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fournisseur_id", nullable = false)
-    private Fournisseur fournisseur;
-
     @Column(name = "date_commande", nullable = false, columnDefinition = "timestamp")
     private LocalDateTime dateCommande;
 
@@ -71,8 +67,7 @@ public class CommandeFournisseur {
     @Column(name = "notes_reception", columnDefinition = "TEXT")
     private String notesReception;
 
-    @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL,
-            orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "commandeFournisseur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
 

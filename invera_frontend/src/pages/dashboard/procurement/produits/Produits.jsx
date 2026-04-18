@@ -3,27 +3,6 @@
  * 
  * RÔLE : Gérer le catalogue des produits (CRUD, filtres, pagination)
  * ROUTE : /dashboard/procurement/produits
- * 
- * FONCTIONNALITÉS :
- * - Liste des produits sous forme de cartes
- * - Recherche par nom/référence
- * - Filtres (catégorie, statut)
- * - Création de produit
- * - Modification de produit
- * - Activation/Désactivation de produit
- * - Pagination (6, 9, 12, 18, 24 par page)
- * - Rafraîchissement des données
- * 
- * HOOKS UTILISÉS :
- * - useProducts() : Gestion des produits (CRUD, pagination, filtres)
- * - useCategories() : Récupération des catégories
- * - useAuth() : Rôle utilisateur
- * 
- * COMPOSANTS :
- * - ProduitToolbar : Barre d'outils (recherche, filtres, actions)
- * - ProduitCard : Carte produit individuelle
- * - CreateProduitForm : Modal création produit
- * - EditProduitForm : Modal modification produit
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -44,7 +23,7 @@ import useCategories from '../../../../hooks/useCategories';
 import toast from 'react-hot-toast';
 
 const Produits = () => {
-  // ========== HOOKS (dans le bon ordre) ==========
+  // ========== HOOKS ==========
   const {
     products: rawProducts = [],
     loading: productsLoading,
@@ -64,16 +43,14 @@ const Produits = () => {
     getStatusColor = (s) => 'gray'
   } = useProducts({ actif: '', size: 9 }) || {}; 
 
-  
   const { user } = useAuth();
   const userRole = user?.role;
 
-  // ✅ Hook pour les catégories - BIEN DÉCLARÉ ICI
+  // ✅ Hook pour les catégories
   const { categories: rawCategories, loading: categoriesLoading } = useCategories();
 
-  // ✅ NORMALISER LES CATÉGORIES (après la déclaration)
+  // ✅ Normaliser les catégories
   const categories = useMemo(() => {
-    console.log('🔍 rawCategories dans useMemo:', rawCategories);
     if (!rawCategories?.length) return [];
     return rawCategories.map(cat => ({
       idCategorie: cat.idCategorie || cat.id,
@@ -83,11 +60,10 @@ const Produits = () => {
     }));
   }, [rawCategories]);
 
-  
   useEffect(() => {
-  console.log('📊 État chargement catégories:', categoriesLoading);
-  console.log('📊 Nombre de catégories:', categories.length);
-}, [categoriesLoading, categories]);
+    console.log('📊 État chargement catégories:', categoriesLoading);
+    console.log('📊 Nombre de catégories:', categories.length);
+  }, [categoriesLoading, categories]);
 
   // ✅ Créer un map des catégories par ID
   const categoriesMap = useMemo(() => {
@@ -106,7 +82,7 @@ const Produits = () => {
     return map;
   }, [categories]);
 
-  // ✅ ENRICHIR LES PRODUITS
+  // ✅ Enrichir les produits
   const products = useMemo(() => {
     if (!rawProducts?.length) return [];
     
@@ -170,17 +146,10 @@ const Produits = () => {
     setEditingProduct(null);
   };
 
+  // ✅ CORRIGÉ : handleCreateProduct pour ONE-TO-MANY
   const handleCreateProduct = async (formData) => {
-    if (!formData) {
-      console.error('❌ formData null');
-      toast.error('Erreur: données du formulaire manquantes');
-      return;
-    }
-    
     try {
       const response = await createProduct(formData);
-      console.log('✅ Réponse création:', response);
-      
       if (response?.success) {
         toast.success('Produit ajouté avec succès');
         handleCloseForm();
@@ -193,17 +162,10 @@ const Produits = () => {
     }
   };
 
+  // ✅ CORRIGÉ : handleUpdateProduct pour ONE-TO-MANY
   const handleUpdateProduct = async (id, formData) => {
-    if (!id || !formData) {
-      console.error('❌ ID ou formData manquant');
-      toast.error('Erreur: données manquantes pour la modification');
-      return;
-    }
-    
     try {
       const response = await updateProduct(id, formData);
-      console.log('✅ Réponse modification:', response);
-      
       if (response?.success) {
         toast.success('Produit modifié avec succès');
         handleCloseForm();

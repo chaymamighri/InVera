@@ -7,7 +7,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 public class LigneCommandeDTO {
     private Integer idLigneCommandeFournisseur;
 
@@ -17,6 +18,10 @@ public class LigneCommandeDTO {
     // Informations produit (en lecture seule)
     private String produitLibelle;
     private String categorie;
+
+    // ✅ Informations fournisseur (déduit du produit)
+    private Integer fournisseurId;
+    private String fournisseurNom;
 
     // Quantités et prix
     private Integer quantite;
@@ -33,7 +38,6 @@ public class LigneCommandeDTO {
     private String notes;
 
     private Boolean estInactif;
-
 
     // CHAMPS POUR LE REJET
     private String motifRejet;

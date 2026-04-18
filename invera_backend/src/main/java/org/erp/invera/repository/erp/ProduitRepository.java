@@ -8,12 +8,20 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProduitRepository extends JpaRepository<Produit, Integer> {
 
+    // ✅ Récupérer un produit avec son fournisseur (One-to-Many)
+    @Query("SELECT DISTINCT p FROM Produit p LEFT JOIN FETCH p.fournisseur WHERE p.idProduit = :id")
+    Optional<Produit> findByIdWithFournisseur(@Param("id") Integer id);
+
+    // ✅ Récupérer tous les produits d'un fournisseur spécifique
+    List<Produit> findByFournisseur_IdFournisseur(Integer fournisseurId);
+
+    // Vos méthodes existantes
     List<Produit> findByActiveTrue();
-    List<Produit> findByActiveFalse();
     List<Produit> findByCategorieAndActiveTrue(Categorie categorie);
     List<Produit> findByStatusInAndActiveTrue(List<Produit.StockStatus> statusList);
 
@@ -29,6 +37,8 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
             @Param("categorieId") Integer categorieId,
             @Param("actif") Boolean actif
     );
+
+
 
     // ========== MÉTHODES POUR LES STATISTIQUES ==========
 
@@ -51,19 +61,23 @@ public interface ProduitRepository extends JpaRepository<Produit, Integer> {
     Long countByStockCritique();
 
     /**
-     * ✅ Calcule la valeur totale du stock (quantiteStock * prixAchat)
+     * ✅ Calcule la valeur totale du stock (quantiteStock * prixAchat) calculre depuis mouvement stock
      */
-    @Query("SELECT COALESCE(SUM(p.quantiteStock * p.prixAchat), 0) FROM Produit p WHERE p.active = true")
+    @Query("SELECT COALESCE(SUM(sm.valeurTotale), 0) FROM StockMovement sm " +
+            "WHERE sm.produit.active = true AND sm.typeMouvement IN ('INIT_STOCK', 'ENTREE') " +
+            "AND (sm.dateMouvement <= CURRENT_DATE OR sm.dateMouvement IS NULL)")
     Double sumValeurStockTotale();
 
     /**
-     * ✅ Calcule la valeur totale du stock par catégorie
+     * ✅ Calcule la valeur totale du stock par catégorie (à partir des mouvements de stock)
      * Utilise 'nomCategorie' car c'est le champ dans l'entité Categorie
      */
-    @Query("SELECT c.nomCategorie, COALESCE(SUM(p.quantiteStock * p.prixAchat), 0), COUNT(p) " +
-            "FROM Produit p " +
+    @Query("SELECT c.nomCategorie, COALESCE(SUM(sm.valeurTotale), 0), COUNT(DISTINCT sm.produit.idProduit) " +
+            "FROM StockMovement sm " +
+            "JOIN sm.produit p " +
             "LEFT JOIN p.categorie c " +
             "WHERE p.active = true " +
+            "AND sm.typeMouvement IN ('INIT_STOCK', 'ENTREE') " +
             "GROUP BY c.idCategorie, c.nomCategorie")
     List<Object[]> sumValeurStockByCategorie();
 

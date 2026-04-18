@@ -1,6 +1,10 @@
-// produits/ProduitFormBase.jsx
+// produits/ProduitFormBase.jsx - Version ONE-TO-MANY (un seul fournisseur)
 import React from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  XMarkIcon, 
+  EnvelopeIcon,    
+  PhoneIcon
+} from '@heroicons/react/24/outline';
 
 const UNITE_MESURE_OPTIONS = [
   { value: 'PIECE', label: 'Pièce' },
@@ -25,8 +29,11 @@ const ProduitFormBase = ({
   onClose,
   isEditMode,
   title,
-  stockDisabled = false
+  stockDisabled = false,
+  fournisseursDisponibles = [],
+  loadingFournisseurs = false,
 }) => {
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -38,14 +45,14 @@ const ProduitFormBase = ({
         </div>
 
         <form onSubmit={(e) => {
-    try {
-      handleSubmit(e);
-    } catch (error) {
-      console.error('🔥 Erreur submit formulaire:', error);
-      e.preventDefault();
-    }
-  }} className="p-6 space-y-6">
-    
+          try {
+            handleSubmit(e);
+          } catch (error) {
+            console.error('🔥 Erreur submit formulaire:', error);
+            e.preventDefault();
+          }
+        }} className="p-6 space-y-6">
+          
           {/* Informations générales */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-700">Informations générales</h3>
@@ -57,13 +64,14 @@ const ProduitFormBase = ({
               <input
                 type="text"
                 name="libelle"
-                value={formData.libelle}
+                value={formData.libelle || ''}
                 onChange={handleChange}
                 className={`w-full border ${errors.libelle ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
               />
               {errors.libelle && <p className="mt-1 text-sm text-red-600">{errors.libelle}</p>}
             </div>
 
+            {/* ✅ Prix d'achat et Prix de vente en HORIZONTAL */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -71,12 +79,13 @@ const ProduitFormBase = ({
                 </label>
                 <input
                   type="text"
-                  name="prixAchat"
-                  value={formData.prixAchat}
-                  onChange={handleChange}
+                  step="0"
                   min="0"
-                  step="1"
+                  name="prixAchat"
+                  value={formData.prixAchat || ''}
+                  onChange={handleChange}
                   className={`w-full border ${errors.prixAchat ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  placeholder="0"
                 />
                 {errors.prixAchat && <p className="mt-1 text-sm text-red-600">{errors.prixAchat}</p>}
               </div>
@@ -88,73 +97,128 @@ const ProduitFormBase = ({
                 <input
                   type="text"
                   name="prixVente"
-                  value={formData.prixVente}
+                  value={formData.prixVente || ''}
                   onChange={handleChange}
-                  min="0"
-                  step="1"
                   className={`w-full border ${errors.prixVente ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  placeholder="0"
                 />
                 {errors.prixVente && <p className="mt-1 text-sm text-red-600">{errors.prixVente}</p>}
               </div>
             </div>
 
-           <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Catégorie <span className="text-red-500">*</span>
-  </label>
-  <select
-    value={formData.categorie?.idCategorie || ''}
-    onChange={handleCategorieChange}
-    className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-  >
-    <option value="">Sélectionner une catégorie</option>
-    {/* ✅ CORRECTION : Utiliser nomCategorie au lieu de libelle */}
-    {categories && categories.map(cat => (
-      <option key={cat.idCategorie} value={cat.idCategorie}>
-        {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
-      </option>
-    ))}
-  </select>
-  {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
-</div>
+            {/* Catégorie */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Catégorie <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.categorie?.idCategorie || ''}
+                onChange={handleCategorieChange}
+                className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              >
+                <option value="">Sélectionner une catégorie</option>
+                {categories && categories.map(cat => (
+                  <option key={cat.idCategorie} value={cat.idCategorie}>
+                    {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
+                  </option>
+                ))}
+              </select>
+              {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
+            </div>
           </div>
 
-         {/* Gestion du stock */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-gray-700">Gestion du stock</h3>
+          {/* SECTION FOURNISSEUR - SELECT SIMPLE */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700">🏢 Fournisseur</h3>
+            
+            <div className="border rounded-lg p-4 bg-gray-50">
+              {loadingFournisseurs ? (
+                <div className="text-center py-4 text-gray-500">Chargement des fournisseurs...</div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fournisseur <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="fournisseurId"
+                    value={formData.fournisseurId || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">-- Sélectionner un fournisseur --</option>
+                    {fournisseursDisponibles.map(f => (
+                      <option key={f.idFournisseur} value={f.idFournisseur}>
+                        {f.nomFournisseur} - {f.email}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {/* Affichage des infos du fournisseur sélectionné */}
+                  {formData.fournisseurId && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-600 mb-1">Informations du fournisseur</p>
+                      {(() => {
+                        const fournisseur = fournisseursDisponibles.find(f => f.idFournisseur === formData.fournisseurId);
+                        if (!fournisseur) return null;
+                        return (
+                          <div className="space-y-1 text-sm">
+                            <p className="flex items-center gap-1">
+                              <EnvelopeIcon className="h-3 w-3 text-gray-500" />
+                              {fournisseur.email || 'Email non renseigné'}
+                            </p>
+                            <p className="flex items-center gap-1">
+                              <PhoneIcon className="h-3 w-3 text-gray-500" />
+                              {fournisseur.telephone || 'Téléphone non renseigné'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {fournisseur.adresse ? `${fournisseur.adresse}, ${fournisseur.ville || ''} ${fournisseur.pays || ''}` : 'Adresse non renseignée'}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
-  <div className="grid grid-cols-2 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Stock actuel
-      </label>
-      <input
-        type="number"
-        name="quantiteStock"
-        value={formData.quantiteStock}
-        onChange={handleChange}
-        disabled={stockDisabled}
-        min="0"
-        step="1"
-        className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-          stockDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'
-        }`}
-      />
+          {/* Gestion du stock */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700">Gestion du stock</h3>
 
-    </div>
-    
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Seuil minimum</label>
-      <input
-        type="number"
-        name="seuilMinimum"
-        value={formData.seuilMinimum}
-        onChange={handleChange}
-        min="0"
-        step="1"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-      />
-    </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stock actuel
+                </label>
+                <input
+                  type="number"
+                  name="quantiteStock"
+                  value={formData.quantiteStock || 0}
+                  onChange={handleChange}
+                  disabled={stockDisabled}
+                  min="0"
+                  step="1"
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    stockDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'
+                  }`}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Seuil minimum</label>
+                <input
+                  type="number"
+                  name="seuilMinimum"
+                  value={formData.seuilMinimum || 3}
+                  onChange={handleChange}
+                  min="0"
+                  step="1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -162,7 +226,7 @@ const ProduitFormBase = ({
                 </label>
                 <select
                   name="uniteMesure"
-                  value={formData.uniteMesure}
+                  value={formData.uniteMesure || 'PIECE'}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -174,118 +238,115 @@ const ProduitFormBase = ({
             </div>
           </div>
 
-{/* Informations commerciales */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-gray-700">Informations commerciales</h3>
+          {/* Informations commerciales */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700">Informations commerciales</h3>
 
-  <div className="grid grid-cols-2 gap-4">
-    {/* Remise temporaire */}
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Remise temporaire (%)
-      </label>
-      <input
-        type="text"
-        name="remiseTemporaire"
-        value={formData.remiseTemporaire || ''}
-        onChange={handleChange}
-        disabled={isRemiseDisabled}
-        placeholder="0"
-        className={`w-full border border-gray-300 rounded-lg px-3 py-2 
-          ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : 'bg-white'}
-          focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-      />
-      {isRemiseDisabled && (
-        <p className="mt-1 text-xs text-gray-500">
-          La remise est gérée par l'administrateur
-        </p>
-      )}
-      {errors.remiseTemporaire && (
-        <p className="mt-1 text-sm text-red-600">{errors.remiseTemporaire}</p>
-      )}
-    </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Remise temporaire (%)
+                </label>
+                <input
+                  type="text"
+                  name="remiseTemporaire"
+                  value={formData.remiseTemporaire || ''}
+                  onChange={handleChange}
+                  disabled={isRemiseDisabled}
+                  placeholder="0"
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 
+                    ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : 'bg-white'}
+                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {isRemiseDisabled && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    La remise est gérée par l'administrateur
+                  </p>
+                )}
+                {errors.remiseTemporaire && (
+                  <p className="mt-1 text-sm text-red-600">{errors.remiseTemporaire}</p>
+                )}
+              </div>
 
-    {/* Statut */}
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Statut <span className="text-red-500">*</span>
-      </label>
-      <div className="flex items-center gap-4 mt-2">
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="active"
-            checked={formData.active === true}
-            onChange={() => handleChange({ target: { name: 'active', value: true } })}
-            className="text-blue-600"
-          />
-          <span className="text-sm">Actif</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="active"
-            checked={formData.active === false}
-            onChange={() => handleChange({ target: { name: 'active', value: false } })}
-            className="text-red-600"
-          />
-          <span className="text-sm">Inactif</span>
-        </label>
-      </div>
-    </div>
-  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Statut <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-4 mt-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="active"
+                      checked={formData.active === true}
+                      onChange={() => handleChange({ target: { name: 'active', value: true } })}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm">Actif</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="active"
+                      checked={formData.active === false}
+                      onChange={() => handleChange({ target: { name: 'active', value: false } })}
+                      className="text-red-600"
+                    />
+                    <span className="text-sm">Inactif</span>
+                  </label>
+                </div>
+              </div>
+            </div>
 
-  {/* Section Image - CORRIGÉE */}
-  <div className="col-span-6">
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      Image du produit
-    </label>
-    
-    <div className="flex items-start space-x-4">
-      <div className="flex-1">
-        <input
-          type="file"
-          id="image-upload"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          onChange={handleImageChange}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-full file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100"
-        />
-    
-      </div>
+            {/* Section Image */}
+            <div className="col-span-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Image du produit
+              </label>
+              
+              <div className="flex items-start space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleImageChange}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100"
+                  />
+                </div>
 
-      {imagePreview && (
-        <div className="relative flex-shrink-0">
-          <img
-            src={imagePreview}
-            alt="Aperçu"
-            className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
-            onError={(e) => {
-              console.error('Erreur chargement image:', imagePreview);
-              e.target.src = '/placeholder-image.png'; 
-            }}
-          />
-          <button
-            type="button"
-            onClick={handleRemoveImage}
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
-            title="Supprimer l'image"
-          >
-            <XMarkIcon className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-    </div>
-    
-    {errors.imageUrl && (
-      <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
-    )}
-  </div>
-</div>
+                {imagePreview && (
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={imagePreview}
+                      alt="Aperçu"
+                      className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
+                      onError={(e) => {
+                        console.error('Erreur chargement image:', imagePreview);
+                        e.target.src = '/placeholder-image.png'; 
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
+                      title="Supprimer l'image"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {errors.imageUrl && (
+                <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+              )}
+            </div>
+          </div>
 
           {/* Boutons d'action */}
           <div className="sticky bottom-0 bg-white border-t pt-4 flex justify-end gap-3">

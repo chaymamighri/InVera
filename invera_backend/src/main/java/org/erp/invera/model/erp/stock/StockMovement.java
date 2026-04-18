@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.erp.invera.model.erp.Produit;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,6 +36,12 @@ public class StockMovement {
 
     @Column(name = "stock_apres", nullable = false)
     private Integer stockApres;
+
+    @Column(name = "prix_unitaire")
+    private BigDecimal prixUnitaire;
+
+    @Column(name = "valeur_totale")
+    private BigDecimal valeurTotale;
 
     // est ce que c'est un commande fournisseur ( entréé ) ou commande client ( sortie )
     @Column(name = "type_document", length = 50)

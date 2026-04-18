@@ -165,9 +165,6 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => window.print()} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors" title="Exporter">
-                  <DocumentArrowDownIcon className="w-5 h-5" />
-                </button>
                 <button onClick={onClose} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors" title="Fermer">
                   <XMarkIcon className="w-6 h-6" />
                 </button>
@@ -257,25 +254,6 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                   </table>
                 </div>
               </div>
-
-              {/* Détail TVA */}
-              {Object.keys(detailTVA).length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                    <ReceiptPercentIcon className="w-5 h-5 text-blue-600" />
-                    Détail de la TVA
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(detailTVA).map(([taux, valeurs]) => (
-                      <div key={taux} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-xs text-gray-500">TVA {taux}%</p>
-                        <p className="text-lg font-semibold text-blue-600">{formatPrice(valeurs.tva)}</p>
-                        <p className="text-xs text-gray-400">Base: {formatPrice(valeurs.ht)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Totaux */}
               <div className="flex justify-end">

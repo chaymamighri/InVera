@@ -1,35 +1,62 @@
-// produits/CreateProduitForm.jsx - Version avec stock désactivé
+// produits/CreateProduitForm.jsx - Version ONE-TO-MANY (un seul fournisseur)
 import React, { useState, useEffect } from 'react';
 import ProduitFormBase from './ProduitFormBase';
+import FournisseurService from '../../../../../services/FournisseurService';
+import toast from 'react-hot-toast';
 
 const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
-    prixAchat: '',
+    prixAchat: '',          
     categorie: { idCategorie: '' },
-    quantiteStock: 0,  // Valeur par défaut, mais le champ sera désactivé
-    seuilMinimum: 10,
-    uniteMesure: 'pièce',
+    quantiteStock: 0, 
+    seuilMinimum: 3,
+    uniteMesure: 'PIECE',
     imageUrl: '',
     imageFile: null,  
     remiseTemporaire: 0,
-    active: true
+    active: true,
+    fournisseurId: ''        
   });
+
+  //  État pour les fournisseurs
+  const [fournisseursDisponibles, setFournisseursDisponibles] = useState([]);
+  const [loadingFournisseurs, setLoadingFournisseurs] = useState(false);
 
   const [errors, setErrors] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
-  const isStockDisabled = true; // ✅ Désactiver le champ stock pour la création
+  const isStockDisabled = true;
 
-  // ✅ Vérifier que categories est un tableau
   const safeCategories = Array.isArray(categories) ? categories : [];
 
-  // ✅ DEBUG : Voir les catégories reçues
+  //  Charger les fournisseurs actifs
   useEffect(() => {
-    console.log('📁 Catégories reçues dans CreateProduitForm:', safeCategories);
-    console.log('📁 Nombre de catégories:', safeCategories.length);
-  }, [safeCategories]);
+    chargerFournisseurs();
+  }, []);
+
+  const chargerFournisseurs = async () => {
+    setLoadingFournisseurs(true);
+    try {
+      const response = await FournisseurService.getActiveFournisseurs();
+      
+      let fournisseursList = [];
+      if (response?.success && response?.fournisseurs) {
+        fournisseursList = response.fournisseurs;
+      } else if (response?.data && Array.isArray(response.data)) {
+        fournisseursList = response.data;
+      } else if (Array.isArray(response)) {
+        fournisseursList = response;
+      }
+      
+      setFournisseursDisponibles(fournisseursList);
+    } catch (error) {
+      console.error(' Erreur chargement fournisseurs:', error);
+    } finally {
+      setLoadingFournisseurs(false);
+    }
+  };
 
   // Validation du formulaire
   const validateForm = () => {
@@ -38,21 +65,17 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
     if (!formData.libelle.trim()) newErrors.libelle = 'Le libellé est requis';
     
     const prixVente = parseFloat(formData.prixVente);
-    const prixAchat = parseFloat(formData.prixAchat);
-    
     if (!formData.prixVente || isNaN(prixVente) || prixVente <= 0) {
       newErrors.prixVente = 'Le prix de vente doit être supérieur à 0';
     }
     
+    const prixAchat = parseFloat(formData.prixAchat);
     if (!formData.prixAchat || isNaN(prixAchat) || prixAchat <= 0) {
       newErrors.prixAchat = "Le prix d'achat doit être supérieur à 0";
     }
     
     if (!formData.categorie?.idCategorie) newErrors.categorie = 'La catégorie est requise';
-    
-    // ✅ Supprimer la validation de quantiteStock puisqu'il est désactivé
-    // if (formData.quantiteStock < 0) newErrors.quantiteStock = 'La quantité ne peut pas être négative';
-    
+    if (!formData.fournisseurId) newErrors.fournisseurId = 'Le fournisseur est requis';
     if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
     if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
     
@@ -68,7 +91,6 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     
-    // ✅ Empêcher la modification du stock si c'est le champ désactivé
     if (name === 'quantiteStock' && isStockDisabled) {
       return;
     }
@@ -90,10 +112,8 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
     }
   };
 
-  // ✅ CORRECTION : Gérer le changement de catégorie avec sécurité
   const handleCategorieChange = (e) => {
     const categorieId = parseInt(e.target.value);
-    // ✅ Utiliser safeCategories au lieu de categories
     const selectedCategorie = safeCategories.find(c => c.idCategorie === categorieId);
     setFormData(prev => ({
       ...prev,
@@ -145,25 +165,48 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log(' Validation...');
+    console.log(' formData avant envoi:', formData);
+    
     if (validateForm()) {
       const formDataToSend = new FormData();
-      formDataToSend.append('libelle', formData.libelle);
-      formDataToSend.append('prixVente', parseFloat(formData.prixVente));
-      formDataToSend.append('prixAchat', parseFloat(formData.prixAchat));
-      formDataToSend.append('categorieId', formData.categorie.idCategorie);
-      // ✅ Toujours envoyer 0 pour le stock initial lors de la création
-      formDataToSend.append('quantiteStock', 0);
-      formDataToSend.append('seuilMinimum', parseInt(formData.seuilMinimum) || 0);
-      formDataToSend.append('uniteMesure', formData.uniteMesure);
-      formDataToSend.append('remiseTemporaire', parseFloat(formData.remiseTemporaire) || 0);
-      formDataToSend.append('active', formData.active);
       
+      //  Champs du produit
+      formDataToSend.append('libelle', formData.libelle || '');
+      formDataToSend.append('prixVente', formData.prixVente ? formData.prixVente.toString() : '0');
+      formDataToSend.append('prixAchat', formData.prixAchat ? formData.prixAchat.toString() : '0');
+      formDataToSend.append('categorieId', formData.categorie?.idCategorie?.toString() || '');
+      formDataToSend.append('quantiteStock', '0');
+      formDataToSend.append('seuilMinimum', formData.seuilMinimum?.toString() || '3');
+      formDataToSend.append('uniteMesure', formData.uniteMesure || 'PIECE');
+      formDataToSend.append('remiseTemporaire', formData.remiseTemporaire?.toString() || '0');
+      formDataToSend.append('active', formData.active ? 'true' : 'false');
+      
+      // Envoyer un seul fournisseurId
+      if (formData.fournisseurId) {
+        formDataToSend.append('fournisseurId', formData.fournisseurId);
+      }
+      
+      //  Image
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
       
-      console.log('📤 Création produit - Catégorie ID:', formData.categorie.idCategorie);
-      console.log('📤 Stock initial forcé à 0');
+      //  LOG DÉTAILLÉ
+      console.log(' CONTENU DU FORM DATA:');
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(`   ${key}: ${value}`);
+      }
+      
+      // Vérification critique
+      if (!formDataToSend.has('libelle')) {
+        console.error(' libelle MANQUANT dans FormData!');
+        toast.error('Erreur: libelle manquant');
+        return;
+      }
+      
+      // Appel onSave avec les données
       onSave(formDataToSend);
     }
   };
@@ -179,11 +222,13 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
       imagePreview={imagePreview}             
       handleCategorieChange={handleCategorieChange}
       isRemiseDisabled={isRemiseDisabled}
-      isStockDisabled={isStockDisabled}  
+      stockDisabled={isStockDisabled}  
       handleSubmit={handleSubmit}
       onClose={onClose}
       isEditMode={false}
       title="Nouveau produit"
+      fournisseursDisponibles={fournisseursDisponibles}
+      loadingFournisseurs={loadingFournisseurs}
     />
   );
 };
