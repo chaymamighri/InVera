@@ -1,7 +1,7 @@
 package org.erp.invera.config;
 
 import org.erp.invera.security.JwtAuthenticationFilter;
-import org.erp.invera.service.erp.CustomUserDetailsService;
+import org.erp.invera.security.UnifiedUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,16 +22,16 @@ import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = false)
 public class SecurityConfig {
 
-    private final CustomUserDetailsService userDetailsService;
+    private final UnifiedUserDetailsService unifiedUserDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
-    public SecurityConfig(CustomUserDetailsService userDetailsService,
+    public SecurityConfig(UnifiedUserDetailsService unifiedUserDetailsService,
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.userDetailsService = userDetailsService;
+        this.unifiedUserDetailsService = unifiedUserDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -43,7 +43,6 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
@@ -51,7 +50,6 @@ public class SecurityConfig {
                 "http://192.168.56.1:*",
                 "http://192.168.56.1:8081"
         ));
-
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
@@ -74,18 +72,36 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                .userDetailsService(unifiedUserDetailsService)
 
                 .authorizeHttpRequests(auth -> auth
-
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ========== AUTH ERP ==========
+                        // ========== AUTH PUBLICS ==========
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/create-password",
+                                //"/api/auth/register",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/create-admin-temp"
+                                "/api/auth/create-password"
+                        ).permitAll()
+
+                        // ========== GESTION DES UTILISATEURS (AJOUT) ==========
+                        // ✅ Permettre aux ADMIN_CLIENT de gérer les utilisateurs
+                        .requestMatchers(
+                                "/api/auth/all",
+                                "/api/auth/filter",
+                                "/api/auth/register",
+                                "/api/auth/update/**",
+                                "/api/auth/delete/**",
+                                "/api/auth/activate/**"
+                        ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN")
+
+                        // ========== OTP ENDPOINTS ==========
+                        .requestMatchers(
+                                "/api/otp/request",
+                                "/api/otp/verify",
+                                "/api/otp/login"
                         ).permitAll()
 
                         // ========== SUPER ADMIN ==========
@@ -94,52 +110,62 @@ public class SecurityConfig {
                                 "/api/super-admin/register"
                         ).permitAll()
 
+                        .requestMatchers("/api/super-admin/**")
+                        .hasRole("SUPER_ADMIN")
+
                         .requestMatchers(
                                 "/api/super-admin/me",
-                                "/api/super-admin/**"
-                        ).authenticated()
+                                "/api/super-admin/dashboard/**",
+                                "/api/super-admin/clients/**",
+                                "/api/super-admin/abonnements/**",
+                                "/api/super-admin/paiements/**"
+                        ).hasRole("SUPER_ADMIN")
 
-                        // ========== ✅ PLATFORM CLIENTS (PUBLICS) ==========
+                        // ========== PLATFORM CLIENTS ==========
                         .requestMatchers(
                                 "/api/platform/clients/register",
                                 "/api/platform/clients/login"
                         ).permitAll()
 
-                        // ========== ✅ PLATFORM CLIENTS (PROTÉGÉS - SUPER ADMIN) ==========
-                        .requestMatchers(
-                                "/api/platform/clients/**"
-                        ).permitAll()
+                        .requestMatchers("/api/platform/clients/**")
+                        .hasRole("SUPER_ADMIN")
 
-                        // ========== ERP ENDPOINTS ==========
-                        .requestMatchers(HttpMethod.PUT, "/api/auth/change-password").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/auth/update-profile").authenticated()
+                        // ========== COMMANDES ==========
+                        .requestMatchers("/api/commandes/**")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL")
 
-                        .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        // ========== CLIENTS ==========
+                        .requestMatchers("/api/clients/**")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL")
 
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/activate/**",
-                                "/api/auth/filter",
-                                "/api/auth/all",
-                                "/api/auth/delete/**",
-                                "/api/auth/update/**"
-                        ).hasRole("ADMIN")
+                        // ========== FACTURES ==========
+                        .requestMatchers("/api/factures/**")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL")
 
+                        // ========== FOURNISSEURS ==========
+                        .requestMatchers("/api/fournisseurs/**")
+                        .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
+
+                        // ========== COMMANDES FOURNISSEURS ==========
+                        .requestMatchers("/api/commandes-fournisseurs/**")
+                        .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
+
+                        // ========== STOCK ==========
+                        .requestMatchers("/api/stock/**")
+                        .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
+
+                        // ========== DASHBOARD ==========
+                        .requestMatchers("/api/dashboard/**")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+
+                        // ========== REPORTS ==========
+                        .requestMatchers("/api/reports/**")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL", "ADMIN")
+
+                        // ========== UPLOADS ==========
                         .requestMatchers("/uploads/**").permitAll()
 
-                        .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
-                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
-                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
-                        .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN" , "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/procurement/stats/**").hasRole("RESPONSABLE_ACHAT")
-
+                        // Toute autre requête nécessite une authentification
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

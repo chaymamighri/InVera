@@ -1,4 +1,4 @@
-package org.erp.invera.controller.erp;
+/*package org.erp.invera.controller.erp;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
  * - PATCH /activate/{email}        → Activer/Désactiver
  */
 
-@RestController
+/*@RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
@@ -503,3 +503,7 @@ public class AuthController {
     }
 
 }
+
+ */
+
+

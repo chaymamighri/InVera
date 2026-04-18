@@ -29,4 +29,7 @@ public interface ClientPlatformRepository extends JpaRepository<Client, Long> {
     @Query("SELECT c FROM Client c WHERE c.nomBaseDonnees IS NOT NULL")
     List<Client> findClientsWithDatabase();
 
+    // Recherche par domaine
+    Optional<Client> findByDomaine(String domaine);
+
 }
