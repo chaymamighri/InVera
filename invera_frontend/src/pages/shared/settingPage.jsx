@@ -6,14 +6,12 @@
  * FONCTIONNALITÉS :
  * 1. Gestion du profil (nom, prénom, username)
  * 2. Sécurité (changement de mot de passe)
- * 3. Centre de notifications (lecture, suppression)
  * 
  * ROUTE : /settings
  * 
  * TABS DISPONIBLES :
  * - Profil     : Modification des infos personnelles
  * - Sécurité   : Changement de mot de passe
- * - Notifications : Gestion des notifications reçues
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,8 +22,6 @@ import {
   UserIcon,
   LockClosedIcon,
   ShieldCheckIcon,
-  BellIcon,
-  ArrowPathIcon,
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon
@@ -37,7 +33,6 @@ import { notificationService } from '../../services/notificationService';
 import commandeFournisseurService from '../../services/commandeFournisseurService';
 import procurementReminderService from '../../services/procurementReminderService';
 import Header from '../../components/Header';
-import { decorateNotification } from '../../utils/notificationRouting';
 
 const normalizeRole = (value) => String(value || '').trim().toUpperCase().replace(/^ROLE_/, '');
 
@@ -66,9 +61,6 @@ const SettingsPage = () => {
   const [showPasswords, setShowPasswords] = useState(false); // Afficher/masquer MDP
   const [savingProfile, setSavingProfile] = useState(false); // Sauvegarde profil
   const [savingPassword, setSavingPassword] = useState(false); // Sauvegarde MDP
-  const [notifLoading, setNotifLoading] = useState(false);    // Chargement notifications
-  const [notifActionLoading, setNotifActionLoading] = useState(false);
-  const [notifications, setNotifications] = useState([]);     // Liste notifications
 
   // ===== CHARGEMENT DU PROFIL =====
   useEffect(() => {
@@ -115,12 +107,6 @@ const SettingsPage = () => {
         name: 'Sécurité',
         icon: <ShieldCheckIcon className="h-5 w-5" />,
         description: 'Modifiez votre mot de passe'
-      },
-      {
-        id: 'notifications',
-        name: 'Notifications',
-        icon: <BellIcon className="h-5 w-5" />,
-        description: 'Configurez vos préférences de notifications'
       }
     ],
     []
@@ -196,7 +182,6 @@ const SettingsPage = () => {
 
   // ===== VALIDATIONS =====
   const validateProfile = () => {
-    if (!profileForm.username.trim()) return "Le nom d'utilisateur est requis.";
     if (!profileForm.nom.trim()) return 'Le nom est requis.';
     if (!profileForm.prenom.trim()) return 'Le prénom est requis.';
     return '';
@@ -357,14 +342,6 @@ const SettingsPage = () => {
     }
   };
 
-  // Formatage date notification
-  const formatNotificationDate = (value) => {
-    if (!value) return '-';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString();
-  };
-
   // ===== AFFICHAGE CHARGEMENT =====
   if (loadingMe) {
     return (
@@ -451,19 +428,8 @@ const SettingsPage = () => {
 
                         <form onSubmit={handleProfileSubmit} className="space-y-5">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Nom d'utilisateur
-                              </label>
-                              <input
-                                type="text"
-                                value={profileForm.username}
-                                onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Votre nom d'utilisateur"
-                              />
-                            </div>
-
+                           
+                           
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Email (lecture seule)

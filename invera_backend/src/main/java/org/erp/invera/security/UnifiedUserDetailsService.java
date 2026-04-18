@@ -1,0 +1,39 @@
+package org.erp.invera.security;
+
+import lombok.RequiredArgsConstructor;
+import org.erp.invera.model.platform.ClientUser;
+import org.erp.invera.model.platform.SuperAdmin;
+import org.erp.invera.repository.platform.ClientUserRepository;
+import org.erp.invera.repository.platform.SuperAdminRepository;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class UnifiedUserDetailsService implements UserDetailsService {
+
+    private final ClientUserRepository clientUserRepository;
+    private final SuperAdminRepository superAdminRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+
+        // 1. Chercher parmi les Super Admins
+        SuperAdmin superAdmin = superAdminRepository.findByEmail(email).orElse(null);
+        if (superAdmin != null) {
+            return org.springframework.security.core.userdetails.User.builder()
+                    .username(superAdmin.getEmail())
+                    .password(superAdmin.getMotDePasse())
+                    .roles("SUPER_ADMIN")
+                    .build();
+        }
+
+        // 2. Chercher parmi les employés des clients
+        ClientUser clientUser = clientUserRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé: " + email));
+
+        return clientUser;
+    }
+}

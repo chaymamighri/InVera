@@ -1,6 +1,8 @@
+// pages/superAdmin/AdminLogin.jsx - Version complète corrigée
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { superAdminService } from '../../servicesPlatform/superAdminService';
+import { superAdminService } from '../../services/superAdminService';
 import toast from 'react-hot-toast';
 import {
   Mail,
@@ -22,7 +24,6 @@ const AdminLogin = () => {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
-  const [serverError, setServerError] = useState(null);
   const navigate = useNavigate();
 
   const validateEmail = (value) => {
@@ -50,9 +51,7 @@ const AdminLogin = () => {
     if (touched[field]) {
       setErrors(prev => ({ ...prev, [field]: validateField(field, value) }));
     }
-    // Effacer les erreurs quand l'utilisateur tape
     if (errorMessage) setErrorMessage('');
-    if (serverError) setServerError(null);
   };
 
   const handleBlur = (field) => {
@@ -61,54 +60,71 @@ const AdminLogin = () => {
     setErrors(prev => ({ ...prev, [field]: validateField(field, val) }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  const emailError = validateEmail(email);
-  const passwordError = validatePassword(password);
-  setErrors({ email: emailError, password: passwordError });
-  setTouched({ email: true, password: true });
-  
-  if (emailError || passwordError) return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    setErrors({ email: emailError, password: passwordError });
+    setTouched({ email: true, password: true });
+    
+    if (emailError || passwordError) return;
 
-  setLoading(true);
-  setErrorMessage('');
-  setServerError(null);
-  
-  try {
-    // ✅ Appel correct du service
-    const data = await superAdminService.login(email, password);
+    setLoading(true);
+    setErrorMessage('');
     
-    // ✅ Vérifier que data contient bien les informations
-    console.log('Réponse reçue:', data);
-    
-    const { id, nom, email: userEmail, token } = data;
-    
-    // ✅ Vérifier que le token existe
-    if (!token) {
-      throw new Error('Token manquant dans la réponse');
+    try {
+      const response = await superAdminService.login(email, password);
+      
+      console.log('📊 Réponse reçue:', response);
+      
+      // ✅ Vérification du token
+      if (!response || !response.token) {
+        throw new Error('Token manquant dans la réponse');
+      }
+      
+      // ✅ STOCKAGE CORRECT - C'est la partie cruciale !
+      localStorage.clear(); // Nettoyer les anciennes données
+      
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('userRole', 'SUPER_ADMIN');
+      localStorage.setItem('userName', response.nom);
+      localStorage.setItem('userEmail', response.email);
+      
+      // Stockage spécifique pour Super Admin
+      localStorage.setItem('superAdminInfo', JSON.stringify({
+        id: response.id,
+        nom: response.nom,
+        email: response.email,
+        role: 'SUPER_ADMIN'
+      }));
+      
+      // ✅ Vérification du stockage
+      console.log('✅ Stockage effectué:');
+      console.log('  - token:', localStorage.getItem('token') ? 'Présent' : 'ABSENT');
+      console.log('  - userRole:', localStorage.getItem('userRole'));
+      console.log('  - userName:', localStorage.getItem('userName'));
+      console.log('  - userEmail:', localStorage.getItem('userEmail'));
+      
+      toast.success(`Bienvenue ${response.nom} !`);
+      
+      // ✅ Redirection vers /dashboard
+      navigate('/super-admin/dashboard', { replace: true });
+      
+    } catch (error) {
+      console.error('❌ Erreur login super admin:', error);
+      
+      const errorMsg = error.response?.data?.error || 
+                       error.response?.data?.message || 
+                       error.message ||
+                       'Email ou mot de passe incorrect';
+      
+      setErrorMessage(errorMsg);
+      toast.error('Échec de la connexion');
+    } finally {
+      setLoading(false);
     }
-    
-    localStorage.setItem('adminToken', token);
-    localStorage.setItem('adminInfo', JSON.stringify({ id, nom, email: userEmail }));
-    
-    toast.success(`Bienvenue ${nom} !`);
-    navigate('/super-admin/dashboard');
-  } catch (error) {
-    console.error('Erreur complète:', error);
-    
-    // ✅ Récupérer l'erreur correctement
-    const errorMessage = error.response?.data?.error || 
-                         error.response?.data?.message || 
-                         error.message ||
-                         'Email ou mot de passe incorrect';
-    
-    setErrorMessage(errorMessage);
-    toast.error('Échec de la connexion');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
@@ -117,11 +133,11 @@ const handleSubmit = async (e) => {
         {/* Card */}
         <div className="bg-white rounded-2xl border border-blue-100/50 overflow-hidden shadow-xl">
           
-          {/* Header avec fond blanc */}
+          {/* Header */}
           <div className="bg-white px-8 pt-8 pb-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               
-              {/* Logo InVera - Badge carré bleu clair */}
+              {/* Logo */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-blue-400/50 shadow-sm">
                   <img
@@ -136,10 +152,10 @@ const handleSubmit = async (e) => {
                 </div>
               </div>
 
-              {/* Badge Administrateur */}
-              <div className="flex items-center gap-2 bg-blue-500/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-blue-400/50 shadow-sm">
-                <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span className="text-[10px] font-medium text-blue-700 tracking-wide">ADMINISTRATEUR</span>
+              {/* Badge Super Admin */}
+              <div className="flex items-center gap-2 bg-purple-500/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-purple-400/50 shadow-sm">
+                <Shield className="w-3.5 h-3.5 text-purple-600" />
+                <span className="text-[10px] font-medium text-purple-700 tracking-wide">SUPER ADMIN</span>
               </div>
 
             </div>
@@ -150,13 +166,13 @@ const handleSubmit = async (e) => {
 
             {/* Titre */}
             <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">Connexion</h1>
+              <h1 className="text-2xl font-bold text-gray-800">Connexion Super Admin</h1>
               <p className="text-[13px] text-gray-500 mt-1">
-                Entrez vos identifiants pour accéder à votre espace
+                Accès à la plateforme d'administration
               </p>
             </div>
 
-            {/* Error banner - Message d'erreur général */}
+            {/* Error banner */}
             {errorMessage && (
               <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6">
                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -189,10 +205,10 @@ const handleSubmit = async (e) => {
                     onBlur={() => handleBlur('email')}
                     placeholder="admin@invera.com"
                     disabled={loading}
-                    className={`w-full pl-9 pr-3 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-blue-400 transition-all placeholder:text-gray-300 disabled:opacity-50
+                    className={`w-full pl-9 pr-3 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-purple-400 transition-all placeholder:text-gray-300 disabled:opacity-50
                       ${touched.email && errors.email
                         ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-                        : 'border-gray-200 focus:border-blue-400'
+                        : 'border-gray-200 focus:border-purple-400'
                       }`}
                   />
                 </div>
@@ -218,10 +234,10 @@ const handleSubmit = async (e) => {
                     onBlur={() => handleBlur('password')}
                     placeholder="••••••••"
                     disabled={loading}
-                    className={`w-full pl-9 pr-10 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-blue-400 transition-all placeholder:text-gray-300 disabled:opacity-50
+                    className={`w-full pl-9 pr-10 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-purple-400 transition-all placeholder:text-gray-300 disabled:opacity-50
                       ${touched.password && errors.password
                         ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-                        : 'border-gray-200 focus:border-blue-400'
+                        : 'border-gray-200 focus:border-purple-400'
                       }`}
                   />
                   <button
@@ -248,7 +264,7 @@ const handleSubmit = async (e) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] text-white text-[15px] font-medium py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-[0.98] text-white text-[15px] font-medium py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
               >
                 {loading ? (
                   <>

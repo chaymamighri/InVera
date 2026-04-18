@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.erp.invera.model.erp.Role;
 import org.erp.invera.model.erp.User;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,7 +23,25 @@ import java.util.Map;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
+            "/api/auth/login",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/auth/create-password",
+            "/api/auth/activation-link",
+            "/api/auth/activate-account",
+            "/api/auth/create-admin-temp",
+            "/api/super-admin/login",
+            "/api/super-admin/register",
+            "/api/otp/request",
+            "/api/otp/verify",
+            "/api/otp/login",
+            "/api/platform/clients/register",
+            "/api/platform/clients/login"
+    );
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
@@ -31,14 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.equals("/api/auth/login")
-                || path.equals("/api/auth/forgot-password")
-                || path.equals("/api/auth/reset-password")
-                || path.equals("/api/auth/activation-link")
-                || path.equals("/api/auth/activate-account")
-                || path.equals("/api/auth/create-admin-temp")
-                || path.equals("/api/super-admin/login")
-                || path.equals("/api/super-admin/register");
+        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
@@ -52,8 +64,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+                                    FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
         System.out.println("\n=== JWT FILTER EXECUTE ===");
@@ -118,7 +129,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 try {
                     String roleValue = role;
-                    if (roleValue != null && roleValue.startsWith("ROLE_")) {
+                    if (roleValue.startsWith("ROLE_")) {
                         roleValue = roleValue.substring(5);
                     }
 
