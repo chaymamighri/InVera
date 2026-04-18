@@ -21,6 +21,7 @@ import { Toaster } from 'react-hot-toast';
 import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
 import SalesDashboard from './pages/dashboard/sales/SalesDashboard';
 import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashboard';
+import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
 
 // ============================================
 // IMPORTS DES PAGES - SALES (Commercial)
@@ -49,6 +50,8 @@ import LoginPage from './pages/auth/loginPage';
 import CreatePasswordPage from './pages/CreatePasswordPage';
 import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
+import SuperAdminProfilePage from './pages/superAdmin/profilePage';
+import SuperAdminSettingsPage from './pages/superAdmin/settingPage';
 
 // ============================================
 // IMPORTS DES COMPOSANTS & CONTEXTES
@@ -62,7 +65,6 @@ import GestionUsers from './pages/dashboard/admin/users/gestionUsers';
 import Remise from './pages/dashboard/admin/remise/RemiseProduit';
 import FournisseurManagement from './pages/dashboard/admin/fournisseurs/Fournisseurs';
 import AdminLogin from './pages/superAdmin/AdminLogin';
-import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
 import SalesTable from './pages/dashboard/sales/sales/components/SalesTable';
 
 // ============================================
@@ -248,7 +250,7 @@ const DashboardRedirect = () => {
 
   switch (userData.role) {
     case 'super_admin':
-      return <Navigate to="/super-admin/clients" replace />;
+      return <Navigate to="/super-admin/dashboard/clients" replace />;
     case 'admin':
       return <Navigate to="/dashboard/admin" replace />;
     case 'sales':
@@ -378,6 +380,8 @@ function App() {
               <Route path="clients" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des clients</h1></div>} />
               <Route path="abonnements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des abonnements</h1></div>} />
               <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
+              <Route path="profile" element={<SuperAdminProfilePage />} />
+              <Route path="settings" element={<SuperAdminSettingsPage />} />
             </Route>
 
             {/* ============================================
@@ -449,7 +453,7 @@ function App() {
             <Route
               path="/profile"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
                   <ProfilePage />
                 </ProtectedRoute>
               }
@@ -457,7 +461,7 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement', 'super_admin']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
                   <SettingsPage />
                 </ProtectedRoute>
               }

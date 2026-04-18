@@ -14,18 +14,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Gestionnaire des tokens JWT (JSON Web Tokens).
- *
- * Ce fichier s'occupe de :
- * - Générer un token JWT quand l'utilisateur se connecte
- * - Stocker les infos de l'utilisateur dans le token (id, email, nom, rôle...)
- * - Extraire ces infos depuis un token reçu
- * - Vérifier qu'un token est valide (non expiré, signature correcte)
- *
- * Le token JWT est comme une carte d'identité sécurisée que l'utilisateur
- * présente à chaque requête pour prouver qu'il est authentifié.
- */
 @Component
 public class JwtTokenProvider {
 
@@ -39,11 +27,8 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    // ✅ GÉNÉRATION DU TOKEN à partir de l'objet User directement
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-
-        // Ajouter TOUTES les informations nécessaires
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());
         claims.put("nom", user.getNom());
@@ -62,16 +47,12 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    // ✅ GÉNÉRATION À PARTIR DE L'AUTHENTIFICATION (pour compatibilité)
     public String generateToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        // Il faudrait récupérer l'utilisateur complet depuis la DB
-        // Ou utiliser une autre approche
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", userDetails.getUsername());
 
-        // Extraire le rôle
         String role = userDetails.getAuthorities().stream()
                 .findFirst()
                 .map(auth -> auth.getAuthority())
@@ -90,7 +71,6 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    // ✅ EXTRAIRE L'ID
     public Integer getUserIdFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -101,7 +81,6 @@ public class JwtTokenProvider {
         return claims.get("userId", Integer.class);
     }
 
-    // ✅ EXTRAIRE L'EMAIL
     public String getEmailFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -112,7 +91,6 @@ public class JwtTokenProvider {
         return claims.get("email", String.class);
     }
 
-    // ✅ EXTRAIRE LE NOM
     public String getNomFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -123,7 +101,6 @@ public class JwtTokenProvider {
         return claims.get("nom", String.class);
     }
 
-    // ✅ EXTRAIRE LE PRÉNOM
     public String getPrenomFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -134,7 +111,6 @@ public class JwtTokenProvider {
         return claims.get("prenom", String.class);
     }
 
-    // ✅ EXTRAIRE LE RÔLE
     public String getRoleFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -143,14 +119,12 @@ public class JwtTokenProvider {
                 .getBody();
 
         String role = claims.get("role", String.class);
-        // Retirer le préfixe "ROLE_" si présent
         if (role != null && role.startsWith("ROLE_")) {
             return role.substring(5);
         }
         return role;
     }
 
-    // ✅ MÉTHODE UNIQUE POUR TOUTES LES INFOS
     public Map<String, Object> getUserInfoFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -159,7 +133,9 @@ public class JwtTokenProvider {
                 .getBody();
 
         Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("adminId", claims.get("adminId"));
         userInfo.put("userId", claims.get("userId"));
+        userInfo.put("sub", claims.getSubject());
         userInfo.put("email", claims.get("email"));
         userInfo.put("nom", claims.get("nom"));
         userInfo.put("prenom", claims.get("prenom"));
@@ -168,7 +144,6 @@ public class JwtTokenProvider {
         return userInfo;
     }
 
-    // ✅ VALIDATION DU TOKEN
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
@@ -181,13 +156,11 @@ public class JwtTokenProvider {
         }
     }
 
-    // ✅ Génération pour Super Admin (version ultra simple)
     public String generateTokenForSuperAdmin(Integer id, String email, String nom) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("adminId", id);
         claims.put("email", email);
         claims.put("nom", nom);
-        // ❌ Pas besoin de "type" ni de "role"
 
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);

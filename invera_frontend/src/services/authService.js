@@ -106,10 +106,14 @@ export const authService = {
     return { success: true };
   },
 
-  createPassword: async (code, email, newPassword) => {
-    const response = await api.post('/auth/create-password', {
-      code,
-      email,
+  getActivationLinkInfo: async (token) => {
+    const response = await api.get(`/auth/activation-link?token=${encodeURIComponent(token)}`);
+    return response.data;
+  },
+
+  activateAccount: async (token, newPassword) => {
+    const response = await api.post('/auth/activate-account', {
+      token,
       newPassword
     });
     return response.data;

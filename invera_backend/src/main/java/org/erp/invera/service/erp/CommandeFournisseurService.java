@@ -303,7 +303,9 @@ public class CommandeFournisseurService {
         }
 
         commande.setStatut(CommandeFournisseur.StatutCommande.VALIDEE);
-        return convertToDTO(commandeRepository.save(commande));
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_APPROVED", null);
+        return convertToDTO(saved);
     }
 
     public CommandeFournisseurDTO envoyerCommande(Integer id) {
@@ -502,6 +504,7 @@ public class CommandeFournisseurService {
         commande.setDateRejet(LocalDateTime.now());
 
         CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_REJECTED", motifRejet);
         System.out.println("❌ Commande " + commande.getNumeroCommande() + " rejetée. Motif: " + motifRejet);
 
         return convertToDTO(saved);
@@ -599,6 +602,10 @@ public class CommandeFournisseurService {
         creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_CREATED");
     }
 
+    private void notifierResponsableAchatDecision(CommandeFournisseur commande, String notificationType, String motifRejet) {
+        creerNotificationDecisionPourResponsableAchat(commande, notificationType, motifRejet);
+    }
+
     private void notifierAdminDemandeRenvoyee(CommandeFournisseur commande) {
         creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_RESUBMITTED");
     }
@@ -619,10 +626,10 @@ public class CommandeFournisseurService {
 
         String message = "PROCUREMENT_REQUEST_RESUBMITTED".equals(notificationType)
                 ? String.format(
-                        "%s a renvoye la demande d'approvisionnement %s pour %s. Elle attend de nouveau votre validation.",
+                        "%s a renvoye la demande %s pour %s.",
                         userFullName, reference, fournisseurNom)
                 : String.format(
-                        "%s a cree la demande d'approvisionnement %s pour %s. Elle attend votre validation.",
+                        "%s a soumis la demande %s pour %s.",
                         userFullName, reference, fournisseurNom);
 
         notificationRepository.save(new Notification(
@@ -631,6 +638,46 @@ public class CommandeFournisseurService {
                 currentUser.getEmail(),
                 userFullName,
                 "ADMIN",
+                "COMMANDE_FOURNISSEUR",
+                Long.valueOf(commande.getIdCommandeFournisseur()),
+                reference
+        ));
+    }
+
+    private void creerNotificationDecisionPourResponsableAchat(CommandeFournisseur commande, String notificationType, String motifRejet) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getRole() != Role.ADMIN) {
+            return;
+        }
+
+        String reference = commande.getNumeroCommande() != null
+                ? commande.getNumeroCommande()
+                : "CMD-" + commande.getIdCommandeFournisseur();
+        String fournisseurNom = commande.getFournisseur() != null && commande.getFournisseur().getNomFournisseur() != null
+                ? commande.getFournisseur().getNomFournisseur()
+                : "fournisseur non specifie";
+        String userFullName = buildUserFullName(currentUser);
+
+        String message;
+        if ("PROCUREMENT_REQUEST_REJECTED".equals(notificationType)) {
+            String motif = motifRejet != null && !motifRejet.isBlank()
+                    ? " Motif: " + motifRejet.trim() + "."
+                    : "";
+            message = String.format(
+                    "%s a rejete la demande %s pour %s.%s",
+                    userFullName, reference, fournisseurNom, motif);
+        } else {
+            message = String.format(
+                    "%s a confirme la demande %s pour %s.",
+                    userFullName, reference, fournisseurNom);
+        }
+
+        notificationRepository.save(new Notification(
+                notificationType,
+                message,
+                currentUser.getEmail(),
+                userFullName,
+                "RESPONSABLE_ACHAT",
                 "COMMANDE_FOURNISSEUR",
                 Long.valueOf(commande.getIdCommandeFournisseur()),
                 reference
@@ -732,3 +779,4 @@ public class CommandeFournisseurService {
         return dto;
     }
 }
+

@@ -15,7 +15,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +34,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.equals("/api/auth/login")
                 || path.equals("/api/auth/forgot-password")
                 || path.equals("/api/auth/reset-password")
+                || path.equals("/api/auth/activation-link")
+                || path.equals("/api/auth/activate-account")
                 || path.equals("/api/auth/create-admin-temp")
                 || path.equals("/api/super-admin/login")
                 || path.equals("/api/super-admin/register");
@@ -55,44 +56,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        System.out.println("\n=== JWT FILTER EXÉCUTÉ ===");
-        System.out.println("🔍 Path: " + path);
+        System.out.println("\n=== JWT FILTER EXECUTE ===");
+        System.out.println("Path: " + path);
 
         String jwt = getJwtFromRequest(request);
-        System.out.println("🔍 JWT présent: " + (jwt != null ? "OUI" : "NON"));
+        System.out.println("JWT present: " + (jwt != null ? "YES" : "NO"));
 
         if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
             Map<String, Object> claims = jwtTokenProvider.getUserInfoFromToken(jwt);
 
-            // ✅ Vérifier si c'est un Super Admin (présence de adminId)
             Integer adminId = (Integer) claims.get("adminId");
 
             if (adminId != null) {
-                // ========== GESTION SUPER ADMIN ==========
                 String email = (String) claims.get("email");
                 String nom = (String) claims.get("nom");
 
-                System.out.println("✅ SUPER ADMIN détecté:");
-                System.out.println("   - AdminId: " + adminId);
-                System.out.println("   - Email: " + email);
-                System.out.println("   - Nom: " + nom);
+                System.out.println("SUPER ADMIN detected:");
+                System.out.println(" - AdminId: " + adminId);
+                System.out.println(" - Email: " + email);
+                System.out.println(" - Nom: " + nom);
 
-                // Créer le principal pour Super Admin
                 SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
                 superAdminPrincipal.setId(adminId);
                 superAdminPrincipal.setEmail(email);
                 superAdminPrincipal.setNom(nom);
 
-                // Pas besoin d'autorités, juste authentifié
+                List<SimpleGrantedAuthority> authorities =
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(superAdminPrincipal, null, null);
+                        new UsernamePasswordAuthenticationToken(superAdminPrincipal, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                System.out.println("✅ Super Admin authentifié avec succès");
-
+                System.out.println("Super admin authenticated successfully");
             } else {
-                // ========== GESTION USER ERP ==========
                 String username = (String) claims.get("sub");
                 String role = (String) claims.get("role");
                 String email = (String) claims.get("email");
@@ -100,12 +98,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String prenom = (String) claims.get("prenom");
                 Integer userId = (Integer) claims.get("userId");
 
-                System.out.println("✅ User ERP détecté:");
-                System.out.println("   - Email: " + email);
-                System.out.println("   - Rôle: " + role);
+                System.out.println("ERP user detected:");
+                System.out.println(" - Email: " + email);
+                System.out.println(" - Role: " + role);
 
                 if (role == null) {
-                    System.out.println("❌ ERREUR: Rôle manquant dans le token");
+                    System.out.println("Missing role in ERP token");
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -125,23 +123,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     boolean roleExists = false;
-                    for (Role r : Role.values()) {
-                        if (r.name().equals(roleValue)) {
+                    for (Role existingRole : Role.values()) {
+                        if (existingRole.name().equals(roleValue)) {
                             roleExists = true;
                             break;
                         }
                     }
 
                     if (!roleExists) {
-                        System.out.println("❌ Rôle '" + roleValue + "' n'existe pas");
+                        System.out.println("Role '" + roleValue + "' does not exist");
                         filterChain.doFilter(request, response);
                         return;
                     }
 
                     user.setRole(Role.valueOf(roleValue));
-
                 } catch (IllegalArgumentException e) {
-                    System.out.println("❌ Rôle invalide: " + role);
+                    System.out.println("Invalid role: " + role);
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -154,15 +151,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                System.out.println("✅ User ERP authentifié: " + email);
+                System.out.println("ERP user authenticated: " + email);
             }
         } else if (jwt != null) {
-            System.out.println("❌ Token invalide");
+            System.out.println("Invalid token");
         } else {
-            System.out.println("❌ Aucun JWT trouvé dans Authorization header");
+            System.out.println("No JWT found in Authorization header");
         }
 
-        System.out.println("=== FIN JWT FILTER ===\n");
+        System.out.println("=== END JWT FILTER ===\n");
         filterChain.doFilter(request, response);
     }
 }

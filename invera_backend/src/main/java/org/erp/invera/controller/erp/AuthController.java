@@ -3,11 +3,13 @@ package org.erp.invera.controller.erp;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.erp.invera.dto.erp.*;
+import org.erp.invera.model.erp.ActivationToken;
 import org.erp.invera.model.erp.Role;
 import org.erp.invera.model.erp.User;
 import org.erp.invera.model.erp.UserSession;
 import org.erp.invera.model.erp.PasswordResetToken;
 import org.erp.invera.model.erp.Notification;
+import org.erp.invera.repository.erp.ActivationTokenRepository;
 import org.erp.invera.repository.erp.UserRepository;
 import org.erp.invera.repository.erp.UserSessionRepository;
 import org.erp.invera.repository.erp.PasswordResetTokenRepository;
@@ -64,6 +66,7 @@ public class AuthController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JwtTokenProvider jwtTokenPro;
     @Autowired private PasswordResetTokenRepository passwordResetTokenRepository;
+    @Autowired private ActivationTokenRepository activationTokenRepository;
     @Autowired private EmailService emailService;
     @Autowired private NotificationRepository notificationRepository;
 
@@ -140,12 +143,14 @@ public class AuthController {
 
         userRepository.save(user);
 
-        PasswordResetToken token = new PasswordResetToken();
+        activationTokenRepository.deleteByUserEmail(user.getEmail());
+
+        ActivationToken token = new ActivationToken();
         token.setUser(user);
         token.setExpiryDate(LocalDateTime.now().plusHours(24));
-        passwordResetTokenRepository.save(token);
+        activationTokenRepository.save(token);
 
-        emailService.sendCreatePasswordEmail(user.getEmail(), token.getToken());
+        emailService.sendActivationLinkEmail(user.getEmail(), token.getToken());
 
         return ResponseEntity.ok(new MessageResponse("Utilisateur créé. Email envoyé."));
     }
@@ -177,6 +182,62 @@ public class AuthController {
 
         String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
         String msg = "✅ Mot de passe créé (activation) par: " + fullName + " (" + user.getEmail() + ")";
+        notificationRepository.save(new Notification("PASSWORD_CREATED", msg, user.getEmail(), fullName));
+
+        return ResponseEntity.ok(new MessageResponse("Account activated successfully"));
+    }
+
+    // ===== ACTIVATION LINK =====
+    @GetMapping("/activation-link")
+    public ResponseEntity<?> getActivationLinkInfo(@RequestParam String token) {
+
+        ActivationToken activationToken = activationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid activation link"));
+
+        if (activationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Activation link expired"));
+        }
+
+        User user = activationToken.getUser();
+
+        if (user.getPassword() != null) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Account already activated"));
+        }
+
+        return ResponseEntity.ok(new ActivationLinkInfoResponse(
+                user.getEmail(),
+                user.getNom(),
+                user.getPrenom()
+        ));
+    }
+
+    // ===== ACTIVATE ACCOUNT =====
+    @PostMapping("/activate-account")
+    @Transactional
+    public ResponseEntity<?> activateAccount(@Valid @RequestBody ActivateAccountRequest request) {
+
+        ActivationToken token = activationTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("Invalid activation link"));
+
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Activation link expired"));
+        }
+
+        User user = token.getUser();
+
+        if (user.getPassword() != null) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Account already activated"));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setActive(true);
+
+        userRepository.save(user);
+        activationTokenRepository.delete(token);
+
+        String fullName = ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom())).trim();
+        String msg = "âœ… Mot de passe crÃ©Ã© (activation) par: " + fullName + " (" + user.getEmail() + ")";
+        msg = "Mot de passe cree (activation) par: " + fullName + " (" + user.getEmail() + ")";
         notificationRepository.save(new Notification("PASSWORD_CREATED", msg, user.getEmail(), fullName));
 
         return ResponseEntity.ok(new MessageResponse("Account activated successfully"));
