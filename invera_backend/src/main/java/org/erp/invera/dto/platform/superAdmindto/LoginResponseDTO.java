@@ -12,4 +12,9 @@ public class LoginResponseDTO {
     private String nom;
     private String email;
     private String token;
+    private String warning;
+
+    // Getters et Setters
+    public String getWarning() { return warning; }
+    public void setWarning(String warning) { this.warning = warning; }
 }

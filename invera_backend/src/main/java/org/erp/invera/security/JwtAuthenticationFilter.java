@@ -4,22 +4,18 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.erp.invera.model.platform.ClientUser;
-import org.erp.invera.model.platform.SuperAdmin;
+
+import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 // JwtAuthenticationFilter.java
@@ -29,7 +25,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    // ✅ Liste des endpoints publics qui ne doivent pas être filtrés
+    @Autowired
+    private SessionManagementService sessionManagementService;
+
+    // Liste des endpoints publics qui ne doivent pas être filtrés
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -51,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // ✅ Ignorer les endpoints publics
+        // Ignorer les endpoints publics
         if (isPublicEndpoint(path)) {
             System.out.println("🔓 Endpoint public: " + path + " - skip JWT filter");
             filterChain.doFilter(request, response);
@@ -69,6 +68,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 System.out.println("🔍 Path: " + path);
                 System.out.println("🔍 Email: " + email);
                 System.out.println("🔍 Rôle complet: " + fullRole);
+
+                // ✅ AJOUT - VÉRIFICATION SESSION UNIQUE
+                if (!sessionManagementService.isSessionValid(email, token)) {
+                    System.out.println("🔒 Session invalide pour " + email + " - Connexion depuis un autre appareil");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Vous êtes connecté depuis un autre appareil. Veuillez vous reconnecter.\"}");
+                    return;  // ← Bloque la requête
+                }
 
                 List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList(fullRole);
                 UsernamePasswordAuthenticationToken authentication =
