@@ -36,7 +36,7 @@ const normalizeCurrentUser = (data) => ({
   }
 });
 
-// ✅ Normalisation pour Super Admin
+// Normalisation pour Super Admin
 const normalizeSuperAdmin = (data) => ({
   success: true,
   data: {
@@ -87,6 +87,11 @@ export const authService = {
     localStorage.setItem('userName', fullName);
     localStorage.setItem('userEmail', backendEmail);
 
+    // ✅ Stocker le warning si une autre session a été fermée
+    if (data.warning) {
+      sessionStorage.setItem('sessionWarning', data.warning);
+    }
+
     return {
       success: true,
       data: {
@@ -104,7 +109,7 @@ export const authService = {
     };
   },
 
-  // ✅ NOUVEAU: Login pour Super Admin
+  // Login pour Super Admin
   loginSuperAdmin: async (credentials) => {
     clearCurrentUserCache();
     
@@ -123,6 +128,11 @@ export const authService = {
     localStorage.setItem('userName', data.nom);
     localStorage.setItem('userEmail', data.email);
     
+    // ✅ Stocker le warning si une autre session a été fermée
+    if (data.warning) {
+      sessionStorage.setItem('sessionWarning', data.warning);
+    }
+
     return {
       success: true,
       data: {
@@ -137,10 +147,29 @@ export const authService = {
     };
   },
 
+  // ✅ CORRIGÉ: Logout avec appel API pour supprimer la session backend
   logout: async () => {
     clearCurrentUserCache();
+    
+    const token = authService.getToken();
+    const userRole = localStorage.getItem('userRole');
+    const isSuperAdmin = userRole === 'SUPER_ADMIN';
+    
+    // ✅ Appeler l'endpoint logout pour supprimer la session backend
+    if (token) {
+      try {
+        const endpoint = isSuperAdmin ? '/super-admin/logout' : '/auth/logout';
+        await api.post(endpoint);
+        console.log('✅ Logout API appelé avec succès');
+      } catch (error) {
+        console.error('❌ Erreur lors du logout API:', error);
+      }
+    }
+    
+    // Nettoyer le storage
     localStorage.clear();
     sessionStorage.clear();
+    
     return { success: true };
   },
 
@@ -195,12 +224,12 @@ export const authService = {
     }
   },
 
-  // ✅ CORRIGÉ: Détecter Super Admin et utiliser le bon endpoint
+  // Détecter Super Admin et utiliser le bon endpoint
   getCurrentUser: async ({ force = false } = {}) => {
     const token = authService.getToken();
     if (!token) throw new Error('Non authentifié');
 
-    // ✅ Vérifier si c'est un Super Admin
+    // Vérifier si c'est un Super Admin
     const userRole = localStorage.getItem('userRole');
     const isSuperAdmin = userRole === 'SUPER_ADMIN';
     
@@ -223,7 +252,7 @@ export const authService = {
 
     currentUserCacheToken = token;
     
-    // ✅ Choisir le bon endpoint
+    // Choisir le bon endpoint
     const endpoint = isSuperAdmin ? '/super-admin/me' : '/auth/me';
     console.log(`🔍 getCurrentUser - Endpoint: ${endpoint}`);
 
@@ -232,7 +261,7 @@ export const authService = {
       .then(async (response) => {
         const data = response.data;
         
-        // ✅ Normaliser selon le type
+        // Normaliser selon le type
         const normalized = isSuperAdmin ? normalizeSuperAdmin(data) : normalizeCurrentUser(data);
 
         if (normalized.data?.active === false) {
@@ -259,6 +288,16 @@ export const authService = {
 
   getToken: () => {
     return sessionStorage.getItem('token') || localStorage.getItem('token');
+  },
+
+  // ✅ NOUVEAU: Récupérer le warning de session
+  getSessionWarning: () => {
+    const warning = sessionStorage.getItem('sessionWarning');
+    if (warning) {
+      sessionStorage.removeItem('sessionWarning');
+      return warning;
+    }
+    return null;
   },
 
   fetchWithAuth: async (url, options = {}) => {
