@@ -445,19 +445,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
       </div>
 
-      {/* Lien Activation compte */}
-      <div className="flex justify-start text-sm">
-        <button
-          type="button"
-          onClick={() => navigate('/create-password')}
-          className="font-medium text-blue-600 transition-colors hover:text-blue-500"
-        >
-          Activer mon compte
-        </button>
-      </div>
-
-      {/* Checkbox "Se souvenir de moi" */}
-      <div className="flex items-center">
+        {/* Checkbox "Se souvenir de moi" */}
+        <div className="flex items-center">
         <input
           id="remember-me"
           name="rememberMe"

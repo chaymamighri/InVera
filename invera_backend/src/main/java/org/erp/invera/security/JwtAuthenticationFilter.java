@@ -10,15 +10,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import org.erp.invera.model.erp.Role;
+import org.erp.invera.model.erp.User;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
-// JwtAuthenticationFilter.java
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -29,11 +35,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private SessionManagementService sessionManagementService;
 
     // Liste des endpoints publics qui ne doivent pas être filtrés
-    private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/auth/create-password",
+            "/api/auth/activation-link",
+            "/api/auth/activate-account",
+            "/api/auth/create-admin-temp",
             "/api/super-admin/login",
             "/api/super-admin/register",
             "/api/otp/request",
@@ -43,34 +52,64 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/platform/clients/login"
     );
 
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+        this.jwtTokenProvider = jwtTokenProvider;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+    }
+
+    private String getJwtFromRequest(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        System.out.println("\n=== JWT FILTER EXECUTE ===");
+        System.out.println("Path: " + path);
 
-        // Ignorer les endpoints publics
-        if (isPublicEndpoint(path)) {
+        // Ignorer les endpoints publics (déjà géré par shouldNotFilter, mais gardé pour la clarté)
+        if (shouldNotFilter(request)) {
             System.out.println("🔓 Endpoint public: " + path + " - skip JWT filter");
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = extractToken(request);
+        String jwt = getJwtFromRequest(request);
+        System.out.println("JWT present: " + (jwt != null ? "YES" : "NO"));
 
-        if (token != null && jwtTokenProvider.validateToken(token)) {
-            try {
-                String email = jwtTokenProvider.getEmailFromToken(token);
-                String fullRole = jwtTokenProvider.getFullRoleFromToken(token);
+        if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
+            Map<String, Object> claims = jwtTokenProvider.getUserInfoFromToken(jwt);
 
-                System.out.println("=== JWT FILTER EXÉCUTÉ ===");
-                System.out.println("🔍 Path: " + path);
-                System.out.println("🔍 Email: " + email);
-                System.out.println("🔍 Rôle complet: " + fullRole);
+            Integer adminId = (Integer) claims.get("adminId");
 
-                // ✅ AJOUT - VÉRIFICATION SESSION UNIQUE
-                if (!sessionManagementService.isSessionValid(email, token)) {
+            if (adminId != null) {
+                String email = (String) claims.get("email");
+                String nom = (String) claims.get("nom");
+
+                System.out.println("SUPER ADMIN detected:");
+                System.out.println(" - AdminId: " + adminId);
+                System.out.println(" - Email: " + email);
+                System.out.println(" - Nom: " + nom);
+
+                SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
+                superAdminPrincipal.setId(adminId);
+                superAdminPrincipal.setEmail(email);
+                superAdminPrincipal.setNom(nom);
+
+                // ✅ VÉRIFICATION SESSION UNIQUE - Correction: utiliser 'jwt' au lieu de 'token'
+                if (!sessionManagementService.isSessionValid(email, jwt)) {
                     System.out.println("🔒 Session invalide pour " + email + " - Connexion depuis un autre appareil");
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
@@ -78,33 +117,85 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;  // ← Bloque la requête
                 }
 
-                List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList(fullRole);
+                // Correction: une seule définition de 'authorities'
+                List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(email, null, authorities);
-
+                        new UsernamePasswordAuthenticationToken(superAdminPrincipal, null, authorities);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                System.out.println("✅ Authentifié: " + email);
 
-            } catch (Exception e) {
-                System.err.println("❌ Erreur: " + e.getMessage());
-                SecurityContextHolder.clearContext();
+                System.out.println("Super admin authenticated successfully");
+            } else {
+                String username = (String) claims.get("sub");
+                String role = (String) claims.get("role");
+                String email = (String) claims.get("email");
+                String nom = (String) claims.get("nom");
+                String prenom = (String) claims.get("prenom");
+                Integer userId = (Integer) claims.get("userId");
+
+                System.out.println("ERP user detected:");
+                System.out.println(" - Email: " + email);
+                System.out.println(" - Role: " + role);
+
+                if (role == null) {
+                    System.out.println("Missing role in ERP token");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                User user = new User();
+                if (userId != null) {
+                    user.setId(Long.valueOf(userId));
+                }
+                user.setEmail(email != null ? email : username);
+                user.setNom(nom);
+                user.setPrenom(prenom);
+
+                try {
+                    String roleValue = role;
+                    if (roleValue.startsWith("ROLE_")) {
+                        roleValue = roleValue.substring(5);
+                    }
+
+                    boolean roleExists = false;
+                    for (Role existingRole : Role.values()) {
+                        if (existingRole.name().equals(roleValue)) {
+                            roleExists = true;
+                            break;
+                        }
+                    }
+
+                    if (!roleExists) {
+                        System.out.println("Role '" + roleValue + "' does not exist");
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    user.setRole(Role.valueOf(roleValue));
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Invalid role: " + role);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                // Correction: une seule définition de 'authorities' pour l'utilisateur ERP
+                List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(user, null, authorities);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                System.out.println("ERP user authenticated: " + email);
             }
+        } else if (jwt != null) {
+            System.out.println("Invalid token");
         } else {
-            System.out.println("⚠️ Pas de token valide pour: " + path);
+            System.out.println("No JWT found in Authorization header");
         }
 
+        System.out.println("=== END JWT FILTER ===\n");
         filterChain.doFilter(request, response);
-    }
-
-    private boolean isPublicEndpoint(String path) {
-        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
-    }
-
-    private String extractToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
     }
 }

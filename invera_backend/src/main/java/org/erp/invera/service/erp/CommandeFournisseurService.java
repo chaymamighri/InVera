@@ -298,7 +298,9 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes en brouillon peuvent être validées");
         }
         commande.setStatut(CommandeFournisseur.StatutCommande.VALIDEE);
-        return convertToDTO(commandeRepository.save(commande));
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_APPROVED", null);
+        return convertToDTO(saved);
     }
 
     // ==================== ENVOI ====================
@@ -437,6 +439,10 @@ public class CommandeFournisseurService {
         commande.setDateRejet(LocalDateTime.now());
 
         CommandeFournisseur saved = commandeRepository.save(commande);
+        notifierResponsableAchatDecision(saved, "PROCUREMENT_REQUEST_REJECTED", motifRejet);
+        System.out.println("❌ Commande " + commande.getNumeroCommande() + " rejetée. Motif: " + motifRejet);
+
+
         return convertToDTO(saved);
     }
 
@@ -512,6 +518,10 @@ public class CommandeFournisseurService {
         creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_CREATED", fournisseur);
     }
 
+    private void notifierResponsableAchatDecision(CommandeFournisseur commande, String notificationType, String motifRejet) {
+        creerNotificationDecisionPourResponsableAchat(commande, notificationType, motifRejet);
+    }
+
     private void notifierAdminDemandeRenvoyee(CommandeFournisseur commande) {
         Fournisseur fournisseur = getFournisseurFromCommande(commande);
         creerNotificationAdminPourCommande(commande, "PROCUREMENT_REQUEST_RESUBMITTED", fournisseur);
@@ -526,6 +536,7 @@ public class CommandeFournisseurService {
         String userFullName = buildUserFullName(currentUser);
 
         String message = "PROCUREMENT_REQUEST_RESUBMITTED".equals(notificationType)
+
                 ? String.format("%s a renvoyé la commande %s pour %s", userFullName, reference, fournisseurNom)
                 : String.format("%s a créé la commande %s pour %s", userFullName, reference, fournisseurNom);
 
@@ -536,7 +547,79 @@ public class CommandeFournisseurService {
         ));
     }
 
-    // ==================== CONVERSIONS ====================
+    private void creerNotificationDecisionPourResponsableAchat(CommandeFournisseur commande, String notificationType, String motifRejet) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getRole() != Role.ADMIN) {
+            return;
+        }
+
+        String reference = commande.getNumeroCommande() != null
+                ? commande.getNumeroCommande()
+                : "CMD-" + commande.getIdCommandeFournisseur();
+        Fournisseur fournisseur = null;
+        try {
+            fournisseur = getFournisseurFromCommande(commande);
+        } catch (RuntimeException ignored) {
+            // Keep notification creation resilient when a commande has no valid fournisseur in its lines yet.
+        }
+        String fournisseurNom = fournisseur != null && fournisseur.getNomFournisseur() != null
+                ? fournisseur.getNomFournisseur()
+                : "fournisseur non specifie";
+        String userFullName = buildUserFullName(currentUser);
+
+        String message;
+        if ("PROCUREMENT_REQUEST_REJECTED".equals(notificationType)) {
+            String motif = motifRejet != null && !motifRejet.isBlank()
+                    ? " Motif: " + motifRejet.trim() + "."
+                    : "";
+            message = String.format(
+                    "%s a rejete la demande %s pour %s.%s",
+                    userFullName, reference, fournisseurNom, motif);
+        } else {
+            message = String.format(
+                    "%s a confirme la demande %s pour %s.",
+                    userFullName, reference, fournisseurNom);
+        }
+
+        notificationRepository.save(new Notification(
+                notificationType,
+                message,
+                currentUser.getEmail(),
+                userFullName,
+                "RESPONSABLE_ACHAT",
+                "COMMANDE_FOURNISSEUR",
+                Long.valueOf(commande.getIdCommandeFournisseur()),
+                reference
+        ));
+    }
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+
+        return userRepository.findByEmail(authentication.getName()).orElse(null);
+    }
+
+    private String buildUserFullName(User user) {
+        String fullName = Stream.of(user.getPrenom(), user.getNom())
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.joining(" "))
+                .trim();
+
+        return fullName.isBlank() ? user.getEmail() : fullName;
+    }
+
+    private String genererNumeroCommande() {
+        LocalDateTime now = LocalDateTime.now();
+        String anneeMois = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
+        Long count = commandeRepository.countByNumeroCommandeStartingWith("BC-" + anneeMois);
+        int nextNum = count != null ? count.intValue() + 1 : 1;
+        return String.format("BC-%s-%04d", anneeMois, nextNum);
+    }
+
+
     private CommandeFournisseurDTO convertToDTO(CommandeFournisseur commande) {
         CommandeFournisseurDTO dto = new CommandeFournisseurDTO();
 
@@ -613,29 +696,5 @@ public class CommandeFournisseurService {
         }
 
         return dto;
-    }
-    // ==================== MÉTHODES PRIVÉES ====================
-    private User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
-            return null;
-        }
-        return userRepository.findByEmail(authentication.getName()).orElse(null);
-    }
-
-    private String buildUserFullName(User user) {
-        String fullName = Stream.of(user.getPrenom(), user.getNom())
-                .filter(value -> value != null && !value.isBlank())
-                .collect(Collectors.joining(" "))
-                .trim();
-        return fullName.isBlank() ? user.getEmail() : fullName;
-    }
-
-    private String genererNumeroCommande() {
-        LocalDateTime now = LocalDateTime.now();
-        String anneeMois = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
-        Long count = commandeRepository.countByNumeroCommandeStartingWith("BC-" + anneeMois);
-        int nextNum = count != null ? count.intValue() + 1 : 1;
-        return String.format("BC-%s-%04d", anneeMois, nextNum);
     }
 }

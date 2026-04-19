@@ -61,10 +61,16 @@ const Header = ({ userRole }) => {
    * @property {boolean} canUseProcurementReminders - Peut voir les rappels achats ?
    */
   const user = useMemo(() => {
-    const name = localStorage.getItem('userName') || 'Utilisateur';
-    const email = localStorage.getItem('userEmail') || '';
     const role = (userRole || localStorage.getItem('userRole') || 'user').trim();
     const normalizedRole = normalizeRole(role);
+    const storedAdminInfo = JSON.parse(localStorage.getItem('adminInfo') || '{}');
+    const isSuperAdmin = normalizedRole === 'SUPER_ADMIN';
+    const name = isSuperAdmin
+      ? storedAdminInfo?.nom || 'Super Admin'
+      : localStorage.getItem('userName') || 'Utilisateur';
+    const email = isSuperAdmin
+      ? storedAdminInfo?.email || ''
+      : localStorage.getItem('userEmail') || '';
 
     // Traduction des rôles
     const roleTranslations = {
@@ -72,9 +78,11 @@ const Header = ({ userRole }) => {
       COMMERCIAL: 'Responsable Ventes',
       RESPONSABLE_ACHAT: 'Responsable Achats',
       PROCUREMENT: 'Responsable Achats',
+      SUPER_ADMIN: 'Super Admin',
       admin: 'Administrateur',
       sales: 'Responsable Ventes',
       procurement: 'Responsable Achats',
+      super_admin: 'Super Admin',
       user: 'Utilisateur',
     };
 
@@ -95,6 +103,7 @@ const Header = ({ userRole }) => {
       role: roleTranslations[role] || roleTranslations[normalizedRole] || roleTranslations[normalizedRole.toLowerCase()] || role,
       initials: initials || 'U',
       isAdmin: normalizedRole === 'ADMIN',
+      isSuperAdmin,
       // Les responsables achats et admins peuvent voir les notifications
       canUseNotifications: ['ADMIN', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
       // Seuls les responsables achats voient les rappels
@@ -127,6 +136,13 @@ const Header = ({ userRole }) => {
    * Supprime les données de session et redirige vers login
    */
   const handleLogout = () => {
+    if (user.isSuperAdmin) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminInfo');
+      navigate('/super-admin/login');
+      return;
+    }
+
     ['token', 'userRole', 'userName', 'userEmail', 'userDashboard'].forEach((item) => {
       localStorage.removeItem(item);
     });
@@ -514,9 +530,14 @@ const Header = ({ userRole }) => {
   };
 
   // ===== CALCUL DES CLASSES CSS (adaptation au menu latéral) =====
-  const isDashboardPage = location.pathname.startsWith('/dashboard/');
+  const isDashboardPage =
+    location.pathname.startsWith('/dashboard/') ||
+    location.pathname.startsWith('/super-admin/dashboard');
   const leftMarginClass = isDashboardPage ? (collapsed ? 'left-20' : 'left-64') : 'left-0';
   const widthClass = isDashboardPage ? (collapsed ? 'w-[calc(100%-80px)]' : 'w-[calc(100%-256px)]') : 'w-full';
+  const dashboardHome = user.isSuperAdmin ? '/super-admin/dashboard/clients' : '/dashboard';
+  const profilePath = user.isSuperAdmin ? '/super-admin/dashboard/profile' : '/profile';
+  const settingsPath = user.isSuperAdmin ? '/super-admin/dashboard/settings' : '/settings';
 
   // ===== RENDU =====
   return (
@@ -526,11 +547,13 @@ const Header = ({ userRole }) => {
           <div className="flex justify-between items-center h-16">
             {/* ===== LOGO & TITRE ===== */}
             <div className="flex items-center">
-              <Link to="/dashboard" className="flex items-center space-x-3">
+              <Link to={dashboardHome} className="flex items-center space-x-3">
                 {logo && <img src={logo} alt="InVera ERP Logo" className="h-10 w-auto" />}
                 <div className="hidden md:block">
                   <h1 className="text-lg font-bold text-white">InVera ERP</h1>
-                  <p className="text-xs text-blue-200">Système de Gestion Intégré</p>
+                  <p className="text-xs text-blue-200">
+                    {user.isSuperAdmin ? 'Administration plateforme' : 'Système de Gestion Intégré'}
+                  </p>
                 </div>
               </Link>
             </div>
@@ -727,11 +750,11 @@ const Header = ({ userRole }) => {
                       <span className="inline-block mt-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">{user.role}</span>
                     </div>
                     <div className="py-2">
-                      <Link to="/profile" className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
+                      <Link to={profilePath} className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
                         <UserCircleIcon className="h-5 w-5 mr-3 text-blue-600" />
                         Mon profil
                       </Link>
-                      <Link to="/settings" className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
+                      <Link to={settingsPath} className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
                         <svg className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

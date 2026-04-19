@@ -1,9 +1,13 @@
 package org.erp.invera.service.platform;
 
+import lombok.RequiredArgsConstructor;
+import org.erp.invera.dto.platform.superAdmindto.ChangeSuperAdminPasswordRequest;
+import org.erp.invera.dto.platform.superAdmindto.LoginRequestDTO;
+import org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO;
+import org.erp.invera.dto.platform.superAdmindto.UpdateSuperAdminProfileRequest;
 import org.erp.invera.model.platform.SuperAdmin;
 import org.erp.invera.repository.platform.SuperAdminRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,40 +19,43 @@ import java.util.Optional;
 public class SuperAdminService {
 
     private final SuperAdminRepository superAdminRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
 
-    // Vérifier si un super admin existe
     public boolean exists() {
         return superAdminRepository.count() > 0;
     }
 
-    // Créer le premier super admin (installation)
     @Transactional
-    public org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO createFirstSuperAdmin(org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO dto) {
+    public SuperAdminDTO createFirstSuperAdmin(SuperAdminDTO dto) {
         if (exists()) {
-            throw new RuntimeException("Un super admin existe déjà. Installation impossible.");
+            throw new RuntimeException("Un super admin existe deja. Installation impossible.");
         }
 
-        if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+        if (normalizedEmail == null) {
             throw new RuntimeException("L'email est obligatoire");
         }
         if (dto.getMotDePasse() == null || dto.getMotDePasse().length() < 6) {
-            throw new RuntimeException("Le mot de passe doit contenir au moins 6 caractères");
+            throw new RuntimeException("Le mot de passe doit contenir au moins 6 caracteres");
         }
 
         SuperAdmin superAdmin = new SuperAdmin();
         superAdmin.setNom(dto.getNom());
-        superAdmin.setEmail(dto.getEmail());
+        superAdmin.setEmail(normalizedEmail);
         superAdmin.setMotDePasse(passwordEncoder.encode(dto.getMotDePasse()));
         superAdmin.setCreatedAt(LocalDateTime.now());
+        superAdmin.setLastLogin(null);
 
         SuperAdmin saved = superAdminRepository.save(superAdmin);
         return convertToDTO(saved);
     }
 
-    // Authentifier un super admin
-    public org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO authenticate(org.erp.invera.dto.platform.superAdmindto.LoginRequestDTO loginRequest) {
-        Optional<SuperAdmin> superAdminOpt = superAdminRepository.findByEmail(loginRequest.getEmail());
+    @Transactional
+    public SuperAdminDTO authenticate(LoginRequestDTO loginRequest) {
+        String normalizedEmail = normalizeEmail(loginRequest.getEmail());
+        Optional<SuperAdmin> superAdminOpt = normalizedEmail == null
+                ? Optional.empty()
+                : superAdminRepository.findByEmail(normalizedEmail);
 
         if (superAdminOpt.isEmpty()) {
             throw new RuntimeException("Email ou mot de passe incorrect");
@@ -60,31 +67,104 @@ public class SuperAdminService {
             throw new RuntimeException("Email ou mot de passe incorrect");
         }
 
+        superAdmin.setLastLogin(LocalDateTime.now());
+        SuperAdmin updatedSuperAdmin = superAdminRepository.save(superAdmin);
+
+        return convertToDTO(updatedSuperAdmin);
+    }
+
+    public SuperAdminDTO getByEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null) {
+            throw new RuntimeException("Super admin non trouve");
+        }
+
+        SuperAdmin superAdmin = superAdminRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("Super admin non trouve"));
         return convertToDTO(superAdmin);
     }
 
-    // Récupérer un super admin par email
-    public org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO getByEmail(String email) {
-        SuperAdmin superAdmin = superAdminRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Super admin non trouvé"));
-        return convertToDTO(superAdmin);
-    }
-
-    // Récupérer un super admin par id
-    public org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO getById(Integer id) {
+    public SuperAdminDTO getById(Integer id) {
         SuperAdmin superAdmin = superAdminRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Super admin non trouvé"));
+                .orElseThrow(() -> new RuntimeException("Super admin non trouve"));
         return convertToDTO(superAdmin);
     }
 
-    // Convertir entité en DTO
-    private org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO convertToDTO(SuperAdmin superAdmin) {
-        org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO dto = new org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO();
+    @Transactional
+    public SuperAdminDTO updateProfile(String currentEmail, UpdateSuperAdminProfileRequest request) {
+        String normalizedCurrentEmail = normalizeEmail(currentEmail);
+        if (normalizedCurrentEmail == null) {
+            throw new RuntimeException("Super admin non authentifie");
+        }
+
+        SuperAdmin superAdmin = superAdminRepository.findByEmail(normalizedCurrentEmail)
+                .orElseThrow(() -> new RuntimeException("Super admin non trouve"));
+
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        if (normalizedEmail == null) {
+            throw new RuntimeException("L'email est obligatoire");
+        }
+        if (!normalizedEmail.equalsIgnoreCase(superAdmin.getEmail())
+                && superAdminRepository.existsByEmail(normalizedEmail)) {
+            throw new RuntimeException("Email deja utilise");
+        }
+
+        String newNom = request.getNom() == null ? "" : request.getNom().trim();
+        if (newNom.length() < 2) {
+            throw new RuntimeException("Le nom doit contenir au moins 2 caracteres");
+        }
+
+        superAdmin.setNom(newNom);
+        superAdmin.setEmail(normalizedEmail);
+
+        return convertToDTO(superAdminRepository.save(superAdmin));
+    }
+
+    @Transactional
+    public void changePassword(String currentEmail, ChangeSuperAdminPasswordRequest request) {
+        String normalizedCurrentEmail = normalizeEmail(currentEmail);
+        if (normalizedCurrentEmail == null) {
+            throw new RuntimeException("Super admin non authentifie");
+        }
+
+        SuperAdmin superAdmin = superAdminRepository.findByEmail(normalizedCurrentEmail)
+                .orElseThrow(() -> new RuntimeException("Super admin non trouve"));
+
+        if (superAdmin.getMotDePasse() == null || superAdmin.getMotDePasse().isBlank()) {
+            throw new RuntimeException("Aucun mot de passe n'est defini pour ce compte");
+        }
+
+        if (!passwordEncoder.matches(request.getOldPassword(), superAdmin.getMotDePasse())) {
+            throw new RuntimeException("Mot de passe actuel incorrect");
+        }
+
+        String newPassword = request.getNewPassword() == null ? "" : request.getNewPassword().trim();
+        if (newPassword.length() < 8) {
+            throw new RuntimeException("Le nouveau mot de passe doit contenir au moins 8 caracteres");
+        }
+        if (passwordEncoder.matches(newPassword, superAdmin.getMotDePasse())) {
+            throw new RuntimeException("Le nouveau mot de passe doit etre different de l'ancien");
+        }
+
+        superAdmin.setMotDePasse(passwordEncoder.encode(newPassword));
+        superAdminRepository.save(superAdmin);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        return email.trim().toLowerCase();
+    }
+
+    private SuperAdminDTO convertToDTO(SuperAdmin superAdmin) {
+        SuperAdminDTO dto = new SuperAdminDTO();
         dto.setId(superAdmin.getId());
         dto.setNom(superAdmin.getNom());
         dto.setEmail(superAdmin.getEmail());
-        dto.setMotDePasse(null); // Ne pas renvoyer le mot de passe
+        dto.setMotDePasse(null);
         dto.setCreatedAt(superAdmin.getCreatedAt());
+        dto.setLastLogin(superAdmin.getLastLogin());
         return dto;
     }
 }

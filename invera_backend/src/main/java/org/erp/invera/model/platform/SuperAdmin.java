@@ -29,4 +29,7 @@ public class SuperAdmin {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "last_login")
+    private LocalDateTime lastLogin;
 }

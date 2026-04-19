@@ -91,6 +91,7 @@ const CommandesFournisseurs = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const focusedCommandeId = searchParams.get('focusCommande') || '';
   const focusedReminderStage = (searchParams.get('reminderStage') || '').toUpperCase();
+  const focusedNotificationType = (searchParams.get('notificationType') || '').toUpperCase();
 
   const {
     commandes,
@@ -134,9 +135,9 @@ const CommandesFournisseurs = () => {
   }, [showArchives, fetchArchivedCommandes, fetchCommandes]);
 
   useEffect(() => {
-    if (showArchives) return;
+    if (showArchives || loading) return;
     procurementReminderService.syncCommandes(commandes);
-  }, [commandes, showArchives]);
+  }, [commandes, loading, showArchives]);
 
   useEffect(() => {
     if (!focusedCommandeId || !focusedReminderStage) return;
@@ -147,6 +148,7 @@ const CommandesFournisseurs = () => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('focusCommande');
     nextParams.delete('reminderStage');
+    nextParams.delete('notificationType');
     setSearchParams(nextParams, { replace: true });
   };
 
@@ -155,12 +157,20 @@ const CommandesFournisseurs = () => {
   }, [commandes, focusedCommandeId]);
 
   const focusMessage = useMemo(() => {
+    if (focusedNotificationType === 'APPROVED') {
+      return 'Cette commande a ete confirmee par l administrateur. Vous pouvez maintenant l envoyer au fournisseur.';
+    }
+
+    if (focusedNotificationType === 'REJECTED') {
+      return 'Cette commande a ete rejetee par l administrateur. Consultez le motif pour la corriger puis renvoyez-la.';
+    }
+
     if (focusedReminderStage === StatutCommande.VALIDEE) {
       return 'Cette commande a ete validee mais elle doit encore etre envoyee au fournisseur.';
     }
 
     return 'Cette commande est en brouillon depuis plus de 24 heures et attend votre confirmation.';
-  }, [focusedReminderStage]);
+  }, [focusedNotificationType, focusedReminderStage]);
 
   const stats = useMemo(() => {
     if (!commandes.length || showArchives) return null;

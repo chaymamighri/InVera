@@ -80,7 +80,10 @@ public class SecurityConfig {
                         // ========== AUTH PUBLICS ==========
                         .requestMatchers(
                                 "/api/auth/login",
-                                //"/api/auth/register",
+                                "/api/auth/activation-link",
+                                "/api/auth/activate-account",
+                                "/api/auth/create-password",
+
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/create-password"
@@ -165,7 +168,21 @@ public class SecurityConfig {
                         // ========== UPLOADS ==========
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // Toute autre requête nécessite une authentification
+                        .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
+                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
+                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
+                        .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter").hasRole("ADMIN")
+                        .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")
+                        .requestMatchers("/api/procurement/stats/**").hasRole("RESPONSABLE_ACHAT")
+
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

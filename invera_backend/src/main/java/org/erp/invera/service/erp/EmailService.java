@@ -47,6 +47,9 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.frontend.activation-url:http://localhost:5173/create-password}")
+    private String activationUrl;
+
     public void sendResetPasswordEmail(String email, String code) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -96,13 +99,13 @@ public class EmailService {
         }
     }
 
-    public void sendCreatePasswordEmail(String email, String code) {
+    public void sendActivationLinkEmail(String email, String token) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("Code d'activation - Invera ERP");
+            helper.setSubject("Lien d'activation - Invera ERP");
 
             User newUser = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -118,6 +121,8 @@ public class EmailService {
             if (fullName.isBlank()) {
                 fullName = email;
             }
+
+            String activationLink = activationUrl + "?token=" + token;
 
             String htmlContent = """
                 <!DOCTYPE html>
@@ -139,15 +144,17 @@ public class EmailService {
                                 <p style="margin: 5px 0;"><strong>Prenom :</strong> %s</p>
                             </div>
 
-                            <p>Pour activer votre compte et creer votre mot de passe, utilisez le code ci-dessous :</p>
+                            <p>Pour activer votre compte et creer votre mot de passe, cliquez sur le lien ci-dessous :</p>
 
                             <div style="margin: 24px 0; text-align: center;">
-                                <div style="display: inline-block; min-width: 220px; padding: 18px 28px; border-radius: 12px; background: #eef4ff; color: #1976d2; font-size: 32px; font-weight: bold; letter-spacing: 10px;">
-                                    %s
-                                </div>
+                                <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #1976d2; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                    Activer mon compte
+                                </a>
                             </div>
 
-                            <p>Depuis la page de connexion Invera, cliquez sur <strong>Activer mon compte</strong>, puis saisissez votre email, ce code, et votre nouveau mot de passe.</p>
+                            <p>Le lien ouvre directement l'interface d'activation afin de definir votre mot de passe.</p>
+                            <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+                            <p style="word-break: break-all; color: #1976d2;">%s</p>
 
                             <p style="color: #666; font-size: 14px;">
                                 <strong>Validite :</strong> Ce code expirera le %s.
@@ -167,7 +174,8 @@ public class EmailService {
                     email,
                     nom,
                     prenom,
-                    code,
+                    activationLink,
+                    activationLink,
                     expiryTimeFormatted
             );
 
