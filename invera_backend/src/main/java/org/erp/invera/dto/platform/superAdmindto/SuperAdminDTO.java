@@ -3,6 +3,7 @@ package org.erp.invera.dto.platform.superAdmindto;
 import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -14,4 +15,5 @@ public class SuperAdminDTO {
     private String email;
     private String motDePasse;
     private LocalDateTime createdAt;
+    private LocalDateTime lastLogin;
 }

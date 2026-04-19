@@ -29,7 +29,6 @@ public class DatabaseConfig {
             @Value("${DB_URL}") String url,
             @Value("${DB_USERNAME}") String username,
             @Value("${DB_PASSWORD}") String password) {
-
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -43,7 +42,6 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean erpEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("erpDataSource") DataSource dataSource) {
-
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.hbm2ddl.auto", "update");
         properties.put("hibernate.show_sql", "true");
@@ -75,7 +73,6 @@ public class DatabaseConfig {
             @Value("${PLATFORM_DB_URL}") String url,
             @Value("${PLATFORM_DB_USERNAME}") String username,
             @Value("${PLATFORM_DB_PASSWORD}") String password) {
-
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(url);
         config.setUsername(username);
@@ -88,7 +85,6 @@ public class DatabaseConfig {
     public LocalContainerEntityManagerFactoryBean platformEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("platformDataSource") DataSource dataSource) {
-
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.hbm2ddl.auto", "update");
         properties.put("hibernate.show_sql", "true");

@@ -2,6 +2,7 @@ const STORAGE_KEY = 'procurement-commande-reminders-v1';
 const REMINDER_EVENT = 'procurement-reminders-updated';
 const REMINDER_ID_PREFIX = 'procurement-reminder';
 const REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
+const DISMISSED_META_KEY = '__dismissedReminderKeys__';
 
 const safeParse = (value, fallback) => {
   try {
@@ -37,6 +38,10 @@ const writeState = (state) => {
 
 const getBucketForUser = (state, userKey) => safeParse(JSON.stringify(state?.[userKey] || {}), {});
 
+const getDismissedMap = (state) => safeParse(JSON.stringify(state?.[DISMISSED_META_KEY] || {}), {});
+
+const getDismissedKeysForUser = (state, userKey) => new Set(getDismissedMap(state)?.[userKey] || []);
+
 const setBucketForUser = (state, userKey, bucket) => {
   const nextState = { ...state };
 
@@ -44,6 +49,32 @@ const setBucketForUser = (state, userKey, bucket) => {
     nextState[userKey] = bucket;
   } else {
     delete nextState[userKey];
+  }
+
+  return nextState;
+};
+
+const setDismissedKeysForUser = (state, userKey, dismissedKeys) => {
+  const nextState = { ...state };
+  const dismissedMap = getDismissedMap(state);
+  const values = Array.from(dismissedKeys || []);
+
+  if (values.length > 0) {
+    nextState[DISMISSED_META_KEY] = {
+      ...dismissedMap,
+      [userKey]: values,
+    };
+  } else if (Object.keys(dismissedMap).length > 0) {
+    const nextDismissedMap = { ...dismissedMap };
+    delete nextDismissedMap[userKey];
+
+    if (Object.keys(nextDismissedMap).length > 0) {
+      nextState[DISMISSED_META_KEY] = nextDismissedMap;
+    } else {
+      delete nextState[DISMISSED_META_KEY];
+    }
+  } else {
+    delete nextState[DISMISSED_META_KEY];
   }
 
   return nextState;
@@ -60,7 +91,7 @@ const getReminderCopy = (status) => {
   if (status === 'VALIDEE') {
     return {
       title: 'Commande a envoyer',
-      message: 'Cette commande est validee depuis plus de 24 heures et n a pas encore ete envoyee au fournisseur.',
+      message: 'Commande validee depuis plus de 24 heures.',
       badge: 'A envoyer',
       actionHint: 'Envoyez-la au fournisseur.',
     };
@@ -107,19 +138,29 @@ const getStoredEntriesForCurrentUser = () => {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 };
 
-const mutateCurrentUserBucket = (mutator) => {
+const mutateCurrentUserState = (mutator) => {
   const state = readState();
   const userKey = getCurrentUserKey();
   const bucket = getBucketForUser(state, userKey);
-  const nextBucket = mutator(bucket) || bucket;
-  const nextState = setBucketForUser(state, userKey, nextBucket);
+  const dismissedKeys = getDismissedKeysForUser(state, userKey);
+  const result = mutator({
+    bucket,
+    dismissedKeys,
+  }) || {};
+  const nextBucket = result.bucket || bucket;
+  const nextDismissedKeys = result.dismissedKeys || dismissedKeys;
+  let nextState = setBucketForUser(state, userKey, nextBucket);
+  nextState = setDismissedKeysForUser(nextState, userKey, nextDismissedKeys);
   writeState(nextState);
-  return Object.values(nextBucket);
+  return {
+    bucket: nextBucket,
+    dismissedKeys: nextDismissedKeys,
+  };
 };
 
 const shouldCreateReminder = (commande, now) => {
   const status = normalizeStatus(commande?.statut);
-  if (!['BROUILLON', 'VALIDEE'].includes(status)) {
+  if (status !== 'VALIDEE') {
     return false;
   }
 
@@ -145,6 +186,7 @@ const procurementReminderService = {
     const state = readState();
     const userKey = getCurrentUserKey();
     const currentBucket = getBucketForUser(state, userKey);
+    const dismissedKeys = getDismissedKeysForUser(state, userKey);
     const nextBucket = {};
 
     commandes.forEach((commande) => {
@@ -157,6 +199,7 @@ const procurementReminderService = {
       const createdAtMs = new Date(commande?.dateCommande || commande?.createdAt).getTime();
       const reminderKey = getReminderKey(commandeId, status);
       const existing = currentBucket[reminderKey] || {};
+      const isDismissed = Boolean(existing.dismissed) || dismissedKeys.has(reminderKey);
 
       nextBucket[reminderKey] = {
         id: reminderKey,
@@ -167,13 +210,21 @@ const procurementReminderService = {
         dateCommande: commande?.dateCommande || commande?.createdAt || null,
         createdAt: existing.createdAt || new Date(createdAtMs + REMINDER_DELAY_MS).toISOString(),
         read: Boolean(existing.read),
-        dismissed: Boolean(existing.dismissed),
+        dismissed: isDismissed,
         readAt: existing.readAt || null,
-        dismissedAt: existing.dismissedAt || null,
+        dismissedAt: existing.dismissedAt || (isDismissed ? new Date().toISOString() : null),
       };
     });
 
-    const nextState = setBucketForUser(state, userKey, nextBucket);
+    // Preserve dismissed reminder ids even if a sync runs before commandes finish loading.
+    const nextDismissedKeys = new Set(dismissedKeys);
+    Object.keys(nextBucket).forEach((key) => {
+      if (nextBucket[key]?.dismissed) {
+        nextDismissedKeys.add(key);
+      }
+    });
+    let nextState = setBucketForUser(state, userKey, nextBucket);
+    nextState = setDismissedKeysForUser(nextState, userKey, nextDismissedKeys);
     writeState(nextState);
 
     return Object.values(nextBucket)
@@ -191,25 +242,28 @@ const procurementReminderService = {
       return;
     }
 
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       if (!bucket[id]) {
-        return bucket;
+        return { bucket, dismissedKeys };
       }
 
       return {
-        ...bucket,
-        [id]: {
-          ...bucket[id],
-          read: true,
-          readAt: new Date().toISOString(),
+        bucket: {
+          ...bucket,
+          [id]: {
+            ...bucket[id],
+            read: true,
+            readAt: new Date().toISOString(),
+          },
         },
+        dismissedKeys,
       };
     });
   },
 
   markReadByCommande(commandeId, status) {
     const normalizedStatus = normalizeStatus(status);
-    if (!commandeId || !['BROUILLON', 'VALIDEE'].includes(normalizedStatus)) {
+    if (!commandeId || normalizedStatus !== 'VALIDEE') {
       return;
     }
 
@@ -217,7 +271,7 @@ const procurementReminderService = {
   },
 
   markAllRead() {
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       const readAt = new Date().toISOString();
       const nextBucket = {};
 
@@ -229,7 +283,10 @@ const procurementReminderService = {
         };
       });
 
-      return nextBucket;
+      return {
+        bucket: nextBucket,
+        dismissedKeys,
+      };
     });
   },
 
@@ -240,20 +297,25 @@ const procurementReminderService = {
 
     let deleted = 0;
 
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       if (!bucket[id]) {
-        return bucket;
+        return { bucket, dismissedKeys };
       }
 
       deleted = 1;
+      const nextDismissedKeys = new Set(dismissedKeys);
+      nextDismissedKeys.add(id);
 
       return {
-        ...bucket,
-        [id]: {
-          ...bucket[id],
-          dismissed: true,
-          dismissedAt: new Date().toISOString(),
+        bucket: {
+          ...bucket,
+          [id]: {
+            ...bucket[id],
+            dismissed: true,
+            dismissedAt: new Date().toISOString(),
+          },
         },
+        dismissedKeys: nextDismissedKeys,
       };
     });
 
@@ -263,11 +325,13 @@ const procurementReminderService = {
   dismissAll() {
     let deleted = 0;
 
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       const dismissedAt = new Date().toISOString();
       const nextBucket = {};
+      const nextDismissedKeys = new Set(dismissedKeys);
 
       Object.entries(bucket).forEach(([key, entry]) => {
+        nextDismissedKeys.add(key);
         nextBucket[key] = {
           ...entry,
           dismissed: true,
@@ -276,7 +340,10 @@ const procurementReminderService = {
         deleted += 1;
       });
 
-      return nextBucket;
+      return {
+        bucket: nextBucket,
+        dismissedKeys: nextDismissedKeys,
+      };
     });
 
     return deleted;
@@ -285,9 +352,10 @@ const procurementReminderService = {
   dismissMonth(monthValue) {
     let deleted = 0;
 
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       const dismissedAt = new Date().toISOString();
       const nextBucket = {};
+      const nextDismissedKeys = new Set(dismissedKeys);
 
       Object.entries(bucket).forEach(([key, entry]) => {
         const entryMonth = new Date(entry.createdAt);
@@ -296,6 +364,7 @@ const procurementReminderService = {
           : '';
 
         if (value === monthValue) {
+          nextDismissedKeys.add(key);
           nextBucket[key] = {
             ...entry,
             dismissed: true,
@@ -308,7 +377,10 @@ const procurementReminderService = {
         nextBucket[key] = entry;
       });
 
-      return nextBucket;
+      return {
+        bucket: nextBucket,
+        dismissedKeys: nextDismissedKeys,
+      };
     });
 
     return deleted;
@@ -324,15 +396,17 @@ const procurementReminderService = {
 
     let deleted = 0;
 
-    mutateCurrentUserBucket((bucket) => {
+    mutateCurrentUserState(({ bucket, dismissedKeys }) => {
       const dismissedAt = new Date().toISOString();
       const nextBucket = {};
+      const nextDismissedKeys = new Set(dismissedKeys);
 
       Object.entries(bucket).forEach(([key, entry]) => {
         const entryMs = new Date(entry.createdAt).getTime();
         const diffDays = Number.isFinite(entryMs) ? (now - entryMs) / (24 * 60 * 60 * 1000) : Infinity;
 
         if (diffDays <= days) {
+          nextDismissedKeys.add(key);
           nextBucket[key] = {
             ...entry,
             dismissed: true,
@@ -345,7 +419,10 @@ const procurementReminderService = {
         nextBucket[key] = entry;
       });
 
-      return nextBucket;
+      return {
+        bucket: nextBucket,
+        dismissedKeys: nextDismissedKeys,
+      };
     });
 
     return deleted;

@@ -1,33 +1,37 @@
-/**
- * App.jsx - Point d'entrée principal de l'application
- * 
- * RÔLE : Configurer le routage, l'authentification et la mise en page
- */
-
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
-// ============================================
-// IMPORTS DES PAGES - DASHBOARDS
-// ============================================
-import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
-import SalesDashboard from './pages/dashboard/sales/SalesDashboard';
-import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashboard';
+import Header from './components/Header';
+import { AuthProvider } from './context/AuthContext';
+import { SidebarProvider } from './context/SidebarContext';
 
-// ============================================
-// IMPORTS DES PAGES - SALES (Commercial)
-// ============================================
+import LoginPage from './pages/auth/loginPage';
+import CreatePasswordPage from './pages/CreatePasswordPage';
+import AdminLogin from './pages/superAdmin/AdminLogin';
+
+import ProfilePage from './pages/shared/profilePage';
+import SettingsPage from './pages/shared/settingPage';
+import SuperAdminProfilePage from './pages/superAdmin/profilePage';
+import SuperAdminSettingsPage from './pages/superAdmin/settingPage';
+
+import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
+import ValidationCommande from './pages/dashboard/admin/ValidationCommande/ValidationCommande';
+import Statistiques from './pages/dashboard/admin/statestiques/Statistiques';
+import GestionUsers from './pages/dashboard/admin/users/gestionUsers';
+import Remise from './pages/dashboard/admin/remise/RemiseProduit';
+import FournisseurManagement from './pages/dashboard/admin/fournisseurs/Fournisseurs';
+
+import SalesDashboard from './pages/dashboard/sales/SalesDashboard';
 import DashboardPage from './pages/dashboard/sales/statistic/DashboardPage';
 import ProductsPage from './pages/dashboard/sales/products/ProductsConsultationPage';
 import OrdersPage from './pages/dashboard/sales/orders/OrderPage';
 import SalesPage from './pages/dashboard/sales/sales/SalesPage';
 import InvoicingPage from './pages/dashboard/sales/invoicing/InvoicingPage';
 import ClientManagePage from './pages/dashboard/sales/clients/ClientPageManage';
+import SalesTable from './pages/dashboard/sales/sales/components/SalesTable';
 
-// ============================================
-// IMPORTS DES PAGES - PROCUREMENT (Achats)
-// ============================================
+import ProcurementDashboard from './pages/dashboard/procurement/ProcurementDashboard';
 import StatsAchats from './pages/dashboard/procurement/Statistique/StatsAchats';
 import Produits from './pages/dashboard/procurement/produits/Produits';
 import GestionCategories from './pages/dashboard/procurement/categories/GestionCategories';
@@ -35,51 +39,20 @@ import CommandesFournisseurs from './pages/dashboard/procurement/commandeFournis
 import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/StockMovementsPage';
 import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 
-// ============================================
-// IMPORTS DES PAGES - AUTH & SHARED
-// ============================================
-import LoginPage from './pages/auth/loginPage';
-import CreatePasswordPage from './pages/CreatePasswordPage';
-import ProfilePage from './pages/shared/profilePage';
-import SettingsPage from './pages/shared/settingPage';
-
-// ============================================
-// IMPORTS DES COMPOSANTS & CONTEXTES
-// ============================================
-import Header from './components/Header';
-import { AuthProvider } from './context/AuthContext';
-import { SidebarProvider } from './context/SidebarContext';
-import ValidationCommande from './pages/dashboard/admin/ValidationCommande/ValidationCommande';
-import Statistiques from './pages/dashboard/admin/statestiques/Statistiques';
-import GestionUsers from './pages/dashboard/admin/users/gestionUsers';
-import Remise from './pages/dashboard/admin/remise/RemiseProduit';
-import FournisseurManagement from './pages/dashboard/admin/fournisseurs/Fournisseurs';
-import AdminLogin from './pages/superAdmin/AdminLogin';
 import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
-import SalesTable from './pages/dashboard/sales/sales/components/SalesTable';
-
-// ============================================
-// MAPPING DES RÔLES BACKEND → FRONTEND
-// ============================================
 
 const ROLE_MAPPING = {
-  // Super Admin
-  'SUPER_ADMIN': 'super_admin',
-  'ROLE_SUPER_ADMIN': 'super_admin',
-  
-  // Admin Client (corrigé)
-  'ADMIN_CLIENT': 'admin',        
-  'ROLE_ADMIN_CLIENT': 'admin',
-  
-  // Commercial
-  'COMMERCIAL': 'sales',
-  'ROLE_COMMERCIAL': 'sales',
-  
-  // Responsable Achat
-  'RESPONSABLE_ACHAT': 'procurement',
-  'ROLE_RESPONSABLE_ACHAT': 'procurement'
+  SUPER_ADMIN: 'super_admin',
+  ROLE_SUPER_ADMIN: 'super_admin',
+  ADMIN_CLIENT: 'admin',
+  ROLE_ADMIN_CLIENT: 'admin',
+  ADMIN: 'admin',
+  ROLE_ADMIN: 'admin',
+  COMMERCIAL: 'sales',
+  ROLE_COMMERCIAL: 'sales',
+  RESPONSABLE_ACHAT: 'procurement',
+  ROLE_RESPONSABLE_ACHAT: 'procurement',
 };
-
 
 const normalizeBackendRole = (role) => {
   if (!role) return null;
@@ -88,54 +61,30 @@ const normalizeBackendRole = (role) => {
 };
 
 const getUserData = () => {
-  console.log('=== getUserData START ===');
-  
-  // ============================================
-  // 1. RÉCUPÉRER LE TOKEN
-  // ============================================
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const userRole = localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
-  
-  console.log('Token présent:', !!token);
-  console.log('userRole stocké:', userRole);
-  
+
   if (!token) {
-    console.log('❌ Aucun token trouvé');
     return null;
   }
-  
-  // ============================================
-  // 2. NORMALISER LE RÔLE
-  // ============================================
+
   const normalizedRole = normalizeBackendRole(userRole);
-  console.log('Rôle normalisé:', normalizedRole);
-  
   if (!normalizedRole) {
-    console.log('❌ Rôle non reconnu:', userRole);
     return null;
   }
-  
-  // ============================================
-  // 3. RÉCUPÉRER LES INFOS UTILISATEUR
-  // ============================================
+
   const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || 'Utilisateur';
   const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
-  
-  console.log('✅ Utilisateur authentifié:', { role: normalizedRole, name: userName, email: userEmail });
-  
+
   return {
     token,
     role: normalizedRole,
     originalRole: userRole,
     name: userName,
     email: userEmail,
-    type: normalizedRole === 'super_admin' ? 'super_admin' : 'normal_user'
+    type: normalizedRole === 'super_admin' ? 'super_admin' : 'normal_user',
   };
 };
-
-// ============================================
-// COMPOSANTS DE MISE EN PAGE
-// ============================================
 
 const Layout = ({ children, userRole }) => (
   <div className="min-h-screen flex flex-col">
@@ -146,17 +95,14 @@ const Layout = ({ children, userRole }) => (
 
 const PublicLayout = ({ children }) => children;
 
-// ============================================
-// REDIRECTION PAR RÔLE
-// ============================================
-
 const DashboardRedirect = () => {
   const userData = getUserData();
+
   if (!userData) return <Navigate to="/login" replace />;
 
   switch (userData.role) {
     case 'super_admin':
-      return <Navigate to="/super-admin/clients" replace />;
+      return <Navigate to="/super-admin/dashboard/clients" replace />;
     case 'admin':
       return <Navigate to="/dashboard/admin" replace />;
     case 'sales':
@@ -168,13 +114,9 @@ const DashboardRedirect = () => {
   }
 };
 
-// ============================================
-// COMPOSANT DE PROTECTION DES ROUTES
-// ============================================
-
 const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   const userData = getUserData();
-  
+
   if (!userData) return <Navigate to="/login" replace />;
   if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
   if (!useLayout) return children;
@@ -182,17 +124,13 @@ const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
-// ============================================
-// PAGE D'ERREUR 403 (Non autorisé)
-// ============================================
-
 const UnauthorizedPage = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
       <h1 className="text-4xl font-bold text-red-600">403</h1>
-      <h2 className="text-2xl font-semibold mt-4">Accès non autorisé</h2>
+      <h2 className="text-2xl font-semibold mt-4">Acces non autorise</h2>
       <p className="mt-2 text-gray-600">
-        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+        Vous n&apos;avez pas les permissions necessaires pour acceder a cette page.
       </p>
       <div className="mt-6 space-x-4">
         <button
@@ -202,7 +140,9 @@ const UnauthorizedPage = () => (
           Retour
         </button>
         <button
-          onClick={() => (window.location.href = '/login')}
+          onClick={() => {
+            window.location.href = '/login';
+          }}
           className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
         >
           Se connecter
@@ -212,16 +152,11 @@ const UnauthorizedPage = () => (
   </div>
 );
 
-// ============================================
-// COMPOSANT PRINCIPAL APP
-// ============================================
-
 function App() {
   return (
     <Router>
       <AuthProvider>
         <SidebarProvider>
-          
           <Toaster
             position="top-right"
             containerStyle={{ top: 80, right: 24 }}
@@ -229,45 +164,62 @@ function App() {
               duration: 5000,
               closeButton: true,
               style: {
-                borderRadius: "10px",
-                background: "#ffffff",
-                color: "#0f172a",
-                padding: "14px 18px",
-                fontSize: "14px",
-                fontWeight: "500",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                border: "1px solid #e2e8f0",
-                maxWidth: "360px",
+                borderRadius: '10px',
+                background: '#ffffff',
+                color: '#0f172a',
+                padding: '14px 18px',
+                fontSize: '14px',
+                fontWeight: '500',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                border: '1px solid #e2e8f0',
+                maxWidth: '360px',
               },
               success: {
-                icon: "✓",
+                icon: '✓',
                 duration: 5000,
-                style: { borderLeft: "4px solid #22c55e" },
+                style: { borderLeft: '4px solid #22c55e' },
               },
               error: {
-                icon: "✕",
+                icon: '✕',
                 duration: 7000,
-                style: { borderLeft: "4px solid #ef4444" },
+                style: { borderLeft: '4px solid #ef4444' },
               },
               loading: {
-                icon: "⏳",
+                icon: '⏳',
                 duration: Infinity,
-                style: { borderLeft: "4px solid #3b82f6" },
+                style: { borderLeft: '4px solid #3b82f6' },
               },
             }}
           />
 
           <Routes>
-            {/* REDIRECTION PAR DÉFAUT */}
             <Route path="/" element={<Navigate to="/login" replace />} />
 
-            {/* ROUTES PUBLIQUES */}
-            <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
-            <Route path="/create-password" element={<PublicLayout><CreatePasswordPage /></PublicLayout>} />
+            <Route
+              path="/login"
+              element={
+                <PublicLayout>
+                  <LoginPage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/create-password"
+              element={
+                <PublicLayout>
+                  <CreatePasswordPage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/super-admin/login"
+              element={
+                <PublicLayout>
+                  <AdminLogin />
+                </PublicLayout>
+              }
+            />
 
-            {/* ROUTES SUPER ADMIN */}
-            <Route path="/super-admin/login" element={<PublicLayout><AdminLogin /></PublicLayout>} />
-            
             <Route
               path="/super-admin/dashboard"
               element={
@@ -280,13 +232,14 @@ function App() {
               <Route path="clients" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des clients</h1></div>} />
               <Route path="abonnements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des abonnements</h1></div>} />
               <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
+              <Route path="profile" element={<SuperAdminProfilePage />} />
+              <Route path="settings" element={<SuperAdminSettingsPage />} />
             </Route>
 
-            {/* ROUTES ADMIN */}
             <Route
               path="/dashboard/admin"
               element={
-                <ProtectedRoute allowedRoles={['admin']} useLayout={true}>
+                <ProtectedRoute allowedRoles={['admin']} useLayout>
                   <AdminDashboard />
                 </ProtectedRoute>
               }
@@ -299,11 +252,10 @@ function App() {
               <Route path="fournisseurs" element={<FournisseurManagement />} />
             </Route>
 
-            {/* ROUTES PROCUREMENT (Achats) */}
             <Route
               path="/dashboard/procurement/*"
               element={
-                <ProtectedRoute allowedRoles={['procurement']} useLayout={true}>
+                <ProtectedRoute allowedRoles={['procurement']} useLayout>
                   <ProcurementDashboard />
                 </ProtectedRoute>
               }
@@ -317,11 +269,10 @@ function App() {
               <Route path="etat_stock" element={<EtatStock />} />
             </Route>
 
-            {/* ROUTES SALES (Commercial) */}
             <Route
               path="/dashboard/sales/*"
               element={
-                <ProtectedRoute allowedRoles={['sales']} useLayout={true}>
+                <ProtectedRoute allowedRoles={['sales']} useLayout>
                   <SalesDashboard />
                 </ProtectedRoute>
               }
@@ -336,11 +287,10 @@ function App() {
               <Route path="sales-table" element={<SalesTable />} />
             </Route>
 
-            {/* ROUTES PARTAGÉES (tous rôles) */}
             <Route
               path="/profile"
               element={
-                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
                   <ProfilePage />
                 </ProtectedRoute>
               }
@@ -348,36 +298,35 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
                   <SettingsPage />
                 </ProtectedRoute>
               }
             />
 
-            {/* ROUTES UTILITAIRES */}
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-            {/* PAGE 404 */}
             <Route
               path="*"
               element={
                 <div className="min-h-screen flex items-center justify-center bg-gray-50">
                   <div className="text-center">
                     <h1 className="text-4xl font-bold text-gray-700">404</h1>
-                    <h2 className="text-2xl font-semibold mt-4">Page non trouvée</h2>
+                    <h2 className="text-2xl font-semibold mt-4">Page non trouvee</h2>
                     <button
-                      onClick={() => (window.location.href = '/login')}
+                      onClick={() => {
+                        window.location.href = '/login';
+                      }}
                       className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                     >
-                      Aller à la connexion
+                      Aller a la connexion
                     </button>
                   </div>
                 </div>
               }
             />
           </Routes>
-          
         </SidebarProvider>
       </AuthProvider>
     </Router>

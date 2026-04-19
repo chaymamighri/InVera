@@ -2,13 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { superAdminService } from '../../services/superAdminService';
-import { 
-  UsersIcon, 
-  CreditCardIcon, 
-  DocumentTextIcon, 
-  ArrowRightOnRectangleIcon
+import {
+  UsersIcon,
+  CreditCardIcon,
+  DocumentTextIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
-import toast from 'react-hot-toast';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -18,26 +17,29 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => {
     const loadAdmin = async () => {
-      // ✅ Vérifier d'abord le token localement
       const token = localStorage.getItem('token');
       const userRole = localStorage.getItem('userRole');
-      
+
       if (!token || userRole !== 'SUPER_ADMIN') {
-        console.log('❌ Pas de token ou mauvais rôle, redirection vers login');
         navigate('/super-admin/login', { replace: true });
         return;
       }
-      
+
       try {
         const profile = await superAdminService.getProfile();
-        console.log('📊 Profil Super Admin chargé:', profile);
         setAdminInfo(profile);
-      } catch (error) {
-        console.error('❌ Erreur chargement profil:', error);
-        // En cas d'erreur API, on utilise les données du localStorage
+      } catch {
+        const storedInfo = localStorage.getItem('superAdminInfo');
         const storedName = localStorage.getItem('userName');
         const storedEmail = localStorage.getItem('userEmail');
-        if (storedName && storedEmail) {
+
+        if (storedInfo) {
+          try {
+            setAdminInfo(JSON.parse(storedInfo));
+          } catch {
+            setAdminInfo({ nom: storedName, email: storedEmail });
+          }
+        } else if (storedName || storedEmail) {
           setAdminInfo({ nom: storedName, email: storedEmail });
         } else {
           navigate('/super-admin/login', { replace: true });
@@ -46,7 +48,7 @@ const SuperAdminDashboard = () => {
         setLoading(false);
       }
     };
-    
+
     loadAdmin();
   }, [navigate]);
 
@@ -54,10 +56,7 @@ const SuperAdminDashboard = () => {
     superAdminService.logout();
   };
 
-  // Déterminer l'onglet actif
-  const isActive = (path) => {
-    return location.pathname.includes(path);
-  };
+  const isActive = (path) => location.pathname.includes(path);
 
   if (loading) {
     return (
@@ -69,7 +68,6 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
@@ -87,14 +85,13 @@ const SuperAdminDashboard = () => {
                 className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center gap-2"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                Déconnexion
+                Deconnexion
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="bg-white shadow-md">
         <div className="container mx-auto px-6">
           <div className="flex gap-6">
@@ -135,7 +132,6 @@ const SuperAdminDashboard = () => {
         </div>
       </div>
 
-      {/* Contenu principal avec Outlet pour les sous-routes */}
       <div className="container mx-auto px-6 py-8">
         <Outlet />
       </div>
