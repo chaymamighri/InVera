@@ -48,7 +48,7 @@ api.interceptors.request.use(
   }
 );
 
-// Intercepteur response
+// Intercepteur response - CORRIGÉ
 api.interceptors.response.use(
   (response) => {
     console.log('✅ Réponse reçue:', response.status, response.config.url);
@@ -57,15 +57,73 @@ api.interceptors.response.use(
   (error) => {
     console.error('❌ Erreur réponse:', error.config?.url, error.response?.status);
     
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // ✅ Récupérer les données d'erreur
+    const errorData = error.response?.data;
+    const errorCode = errorData?.error;
+    const errorMessage = errorData?.message;
+    
+    // ✅ Cas 1: SESSION_EXPIRED (connexion depuis un autre appareil)
+    if (error.response?.status === 401 && errorCode === 'SESSION_EXPIRED') {
+      console.warn('🔒 Session unique - Connexion depuis un autre appareil');
+      
+      // Stocker le message pour l'afficher au prochain login
+      sessionStorage.setItem('sessionExpired', 'true');
+      sessionStorage.setItem('sessionExpiredMessage', errorMessage || 'Vous êtes connecté depuis un autre appareil.');
+      
       // Nettoyer les tokens
       ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
-       'rememberMe', 'savedEmail', 'tokenExpiry'].forEach(k => 
+       'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
         localStorage.removeItem(k)
       );
       sessionStorage.removeItem('token');
       
-      toast.error('Session expirée');
+      // Message spécifique
+      toast.error('🔒 Session fermée - Connexion depuis un autre appareil');
+      
+      // Redirection
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+    
+    // ✅ Cas 2: TOKEN_EXPIRED (token normalement expiré)
+    if (error.response?.status === 401 && errorCode === 'TOKEN_EXPIRED') {
+      console.warn('⏰ Token expiré');
+      sessionStorage.setItem('tokenExpired', 'true');
+      
+      // Nettoyer les tokens
+      ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+       'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+        localStorage.removeItem(k)
+      );
+      sessionStorage.removeItem('token');
+      
+      toast.error('⏰ Session expirée. Veuillez vous reconnecter.');
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+    
+    // ✅ Cas 3: Période d'essai expirée (status 403)
+    if (error.response?.status === 403 && errorMessage?.includes('Période d\'essai expirée')) {
+      console.warn('⚠️ Période d\'essai expirée');
+      sessionStorage.setItem('essaiExpire', 'true');
+      
+      toast.error('Période d\'essai expirée. Veuillez souscrire un abonnement.');
+      // Ne pas rediriger automatiquement, laisser le message s'afficher sur la page de login
+      return Promise.reject(error);
+    }
+    
+    // ✅ Cas 4: Autres erreurs 401/403
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.warn('🔒 Authentification invalide');
+      
+      // Nettoyer les tokens
+      ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+       'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+        localStorage.removeItem(k)
+      );
+      sessionStorage.removeItem('token');
+      
+      toast.error('Session invalide. Veuillez vous reconnecter.');
       window.location.href = '/login';
     }
     
