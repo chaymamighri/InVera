@@ -121,7 +121,8 @@ public class SecurityConfig {
                         // ========== PLATFORM CLIENTS ==========
                         .requestMatchers(
                                 "/api/platform/clients/register",
-                                "/api/platform/clients/login"
+                                "/api/platform/clients/login",
+                                "/api/platform/clients/request-otp"
                         ).permitAll()
 
                         .requestMatchers("/api/platform/clients/**")

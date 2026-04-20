@@ -9,6 +9,9 @@ import { SidebarProvider } from './context/SidebarContext';
 import LoginPage from './pages/auth/loginPage';
 import CreatePasswordPage from './pages/CreatePasswordPage';
 import AdminLogin from './pages/superAdmin/AdminLogin';
+import WelcomePage from './pages/public/WelcomePage';
+import MoreInformationPage from './pages/public/MoreInformationPage';
+import SubscriptionsPage from './pages/public/SubscriptionsPage';
 
 import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
@@ -193,7 +196,40 @@ function App() {
           />
 
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route
+              path="/"
+              element={
+                <PublicLayout>
+                  <WelcomePage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/welcome"
+              element={
+                <PublicLayout>
+                  <WelcomePage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/more-information"
+              element={
+                <PublicLayout>
+                  <MoreInformationPage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/subscriptions"
+              element={
+                <PublicLayout>
+                  <SubscriptionsPage />
+                </PublicLayout>
+              }
+            />
+            <Route path="/support" element={<Navigate to="/more-information" replace />} />
+            <Route path="/about" element={<Navigate to="/more-information" replace />} />
 
             <Route
               path="/login"
