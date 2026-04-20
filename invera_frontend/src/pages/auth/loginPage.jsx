@@ -1,36 +1,50 @@
-/**
- * LoginPage - Page de connexion
- * 
- * DESCRIPTION :
- * Page d'accueil de l'application avec :
- * - Présentation du produit (colonne gauche)
- * - Formulaire de connexion (colonne droite)
- * 
- * REDIRECTIONS :
- * - ADMIN → /dashboard/admin
- * - COMMERCIAL → /dashboard/sales/dashboard  
- * - RESPONSABLE_ACHAT → /dashboard/procurement
- * 
- * SOUS-COMPOSANTS :
- * - LoginForm (formulaire d'authentification)
- * 
- * GESTION DES ERREURS :
- * - Erreurs API (email/mot de passe incorrect)
- * - Erreurs interceptor (sessionStorage)
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import LoginForm from '../../components/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/images/logo.png';
+
+const signals = [
+  {
+    value: '01',
+    label: 'Espace de gestion unifié',
+    description:
+      'Centralisez l’ensemble de vos opérations dans un environnement unique et cohérent.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    ),
+  },
+  {
+    value: '02',
+    label: 'Accès métier structuré',
+    description:
+      'Des interfaces dédiées pour les commerciaux, achats et administrateurs, avec les bons outils.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
+    value: '03',
+    label: 'Pilotage plus lisible',
+    description:
+      'Tableaux de bord clairs et indicateurs pertinents pour des décisions éclairées.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+];
 
 const LoginPage = () => {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
 
-  // Récupère les erreurs de l'interceptor
   useEffect(() => {
     const msg = sessionStorage.getItem('authError');
     if (msg) {
@@ -39,7 +53,6 @@ const LoginPage = () => {
     }
   }, []);
 
-  // Connexion + redirection
   const handleSubmit = async (credentials) => {
     setLoginError(null);
 
@@ -61,7 +74,7 @@ const LoginPage = () => {
       setLoginError(
         backendMessage ||
           err.message ||
-          "Impossible de se connecter. Vérifiez votre email et mot de passe."
+          'Impossible de se connecter. Vérifiez votre email et mot de passe.'
       );
     }
   };
@@ -69,112 +82,167 @@ const LoginPage = () => {
   const getSavedEmail = () => localStorage.getItem('savedEmail') || '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col md:flex-row">
-      <div className="md:w-1/2 bg-gradient-to-br from-blue-900 to-blue-900 text-white p-6 md:p-12 flex flex-col">
-        <div className="max-w-lg mx-auto flex-1 flex flex-col">
-          <div className="mb-8">
-            <div className="flex flex-col items-center">
-              <div className="w-full max-w-md flex items-center justify-center mb-6">
-                <img
-                  src={logo}
-                  alt="InVera ERP Logo"
-                  className="w-40 md:w-48 h-auto"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    const parent = e.target.parentNode;
-                    parent.innerHTML = `
-                      <div class="flex flex-col items-center justify-center">
-                        <div class="text-5xl md:text-6xl font-bold text-white mb-2">InVera</div>
-                        <div class="text-blue-200 text-lg">ERP Cloud Intelligent</div>
-                      </div>
-                    `;
-                  }}
-                />
-              </div>
-              <div className="text-center">
-                <p className="text-blue-200 text-xl font-medium">ERP Cloud Intelligent</p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Titre principal */}
-          <div className="mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center leading-tight">
-              Connectez-vous à votre espace de gestion
-            </h2>
-            <p className="text-blue-200 text-center text-lg">
-              Accédez aux modules ventes, achats, stocks et facturation
-            </p>
-          </div>
-          
-          {/* Points clés */}
-          <div className="space-y-4 mb-8 md:mb-12">
-            {[
-              { 
-                title: 'Ventes & Facturation électronique', 
-      desc: 'Gérez vos ventes et générez facilement des factures électroniques conformes',
-      icon: '🧾'
-              },
-              { 
-                title: 'Gestion de stock intelligente', 
-      desc: 'Contrôlez vos niveaux de stock et évitez les ruptures',
-      icon: '📦'
-              },
-              { 
-              title: 'Achats fournisseurs simplifiés', 
-      desc: 'Créez facilement vos commandes fournisseurs et gérez vos approvisionnements',
-      icon: '🚚'
-              },
-              { 
-                title: 'Analytique avancée & Assistant intelligent', 
-      desc: 'Analysez vos ventes et votre stock grâce à des tableaux de bord intelligents',
-      icon: '📊'
-              },
-            ].map((feature, index) => (
-              <div key={index} className="flex items-start space-x-4 p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300 backdrop-blur-sm border border-white/10">
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-green-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md text-lg">
-                  {feature.icon}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">{feature.title}</h3>
-                  <p className="text-blue-200/80 text-sm">{feature.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-auto pt-6 border-t border-white/10">
-            <div className="text-center text-blue-300/80 text-sm">
-              <p className="mb-2">© {new Date().getFullYear()} InVera ERP. Tous droits réservés.</p>
-            </div>
-          </div>
-        </div>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f4fa] via-[#f8fafc] to-[#eef2f8]">
+      {/* Decor background elements */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-0 left-0 h-[500px] w-[500px] rounded-full bg-[#0b4ea2] opacity-[0.03] blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-[600px] w-[600px] rounded-full bg-[#1d75d6] opacity-[0.02] blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 h-64 w-64 rounded-full bg-sky-200 opacity-20 blur-2xl" />
       </div>
 
-      <div className="md:w-1/2 flex flex-col">
-        <div className="flex-1 flex items-center justify-center p-6 md:p-12">
-          <div className="w-full max-w-lg">
-            <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-              <LoginForm onSubmit={handleSubmit} loading={loading} savedEmail={getSavedEmail()} />
+      <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        {/* Header - refined and minimal */}
+        <header className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl bg-white/70 px-6 py-4 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:px-8">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#0b2f6b] shadow-md transition-all hover:shadow-lg">
+              <img src={logo} alt="InVera" className="max-h-11 max-w-full object-contain" />
+            </div>
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#0b4ea2]">
+                InVera ERP
+              </span>
+              <h1 className="text-xl font-semibold tracking-tight text-slate-800">
+                Plateforme de gestion intégrée
+              </h1>
+            </div>
+          </div>
 
-              {loginError && !loading && (
-                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  <div className="flex items-start gap-2">
-                    <span>⚠️</span>
-                    <span>{loginError}</span>
+          <Link
+            to="/welcome"
+            className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:border-sky-300 hover:bg-white hover:text-sky-700 hover:shadow"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour à l'accueil
+          </Link>
+        </header>
+
+        {/* Main grid - two column professional layout */}
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+          {/* Left column - Brand value & features */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b2f6b] via-[#0b4ea2] to-[#1a5fc4] p-8 text-white shadow-2xl md:p-10">
+            {/* Decorative blobs */}
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-32 left-12 h-80 w-80 rounded-full bg-sky-300/10 blur-3xl" />
+
+            <div className="relative z-10">
+              <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium tracking-wide backdrop-blur-sm">
+                ✨ Expérience nouvelle génération
+              </div>
+
+              <h2 className="mt-8 text-4xl font-bold leading-tight tracking-tight md:text-5xl">
+                Connexion simple,
+                <br />
+                pilotage <span className="text-sky-200">sans friction</span>
+              </h2>
+
+              <p className="mt-5 text-base leading-relaxed text-sky-50/90 md:text-lg">
+                Accédez à un environnement pensé pour la performance : rôles clairs, données
+                centralisées, et décisions rapides.
+              </p>
+
+              {/* Features grid - redesigned signals */}
+              <div className="mt-10 grid gap-5">
+                {signals.map((signal) => (
+                  <div
+                    key={signal.value}
+                    className="group flex gap-5 rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition hover:bg-white/10"
+                  >
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 text-sky-100 shadow-sm">
+                      {signal.icon}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-bold text-sky-200">
+                          {signal.value}
+                        </span>
+                        <h3 className="text-lg font-semibold">{signal.label}</h3>
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed text-sky-50/80">
+                        {signal.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Trust badge */}
+              <div className="mt-10 rounded-xl border border-white/15 bg-[#08264f]/40 p-5 backdrop-blur-sm">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-400/20">
+                    <svg className="h-4 w-4 text-emerald-300" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Sécurité & conformité</p>
+                    <p className="text-xs text-sky-100/70">Connexion chiffrée · RBAC intégré</p>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right column - Login form card */}
+          <div className="flex items-center">
+            <div className="w-full rounded-2xl border border-white/60 bg-white/90 p-6 shadow-xl backdrop-blur-md transition-all md:p-8">
+              <div className="mb-6 text-center sm:text-left">
+                <div className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#0b4ea2]">
+                  Accès sécurisé
+                </div>
+                <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-800">
+                  Bienvenue
+                </h2>
+                <p className="mt-2 text-slate-500">
+              Identifiez-vous pour accéder à votre espace de travail
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-1 md:p-2">
+                <LoginForm
+                  onSubmit={handleSubmit}
+                  loading={loading}
+                  savedEmail={getSavedEmail()}
+                />
+
+                {loginError && !loading && (
+                  <div className="mt-5 animate-in fade-in slide-in-from-top-2 rounded-xl border border-red-200 bg-red-50/80 px-5 py-4 text-sm text-red-700 backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                        <span className="text-xs font-bold">!</span>
+                      </div>
+                      <span className="leading-relaxed">{loginError}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-6 text-xs text-slate-400 sm:flex-row">
+                <p className="flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                  Connexion sécurisée TLS 1.3
+                </p>
+                <p>© {new Date().getFullYear()} InVera ERP — Tous droits réservés</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="hidden md:block p-8">
-          <div className="max-w-md mx-auto">
-            <p className="text-center text-gray-500 text-sm mb-2">
-              © {new Date().getFullYear()} InVera ERP. Tous droits réservés.
-            </p>
-          </div>
+        {/* Subtle helper for forgotten password (if not in LoginForm) */}
+        <div className="mt-6 text-center text-xs text-slate-400">
+          <span>Un problème ? </span>
+          <button
+            type="button"
+            className="font-medium text-[#0b4ea2] transition hover:underline"
+            onClick={() => alert("Contactez votre administrateur ou l'équipe support InVera.")}
+          >
+            Contacter le support
+          </button>
         </div>
       </div>
     </div>
