@@ -86,7 +86,8 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/create-password",
-                                "/api/platform/clients/request-otp"
+                                "/api/platform/clients/request-otp",
+                                "/api/platform/clients/*/justificatifs"
                                 ).permitAll()
 
                         // ========== GESTION DES UTILISATEURS (AJOUT) ==========

@@ -1,4 +1,4 @@
-package org.erp.invera.repository.erp;
+package org.erp.invera.repository.platform;
 
 import org.erp.invera.model.platform.UserSession;
 import org.erp.invera.model.platform.Utilisateur;  // ← Ajouter l'import

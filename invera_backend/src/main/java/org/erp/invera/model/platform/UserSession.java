@@ -1,11 +1,18 @@
-package org.erp.invera.model.erp;
+package org.erp.invera.model.platform;
 
 import jakarta.persistence.*;
-import org.erp.invera.model.platform.Utilisateur;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+@Data
 @Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "user_sessions")
 public class UserSession {
 
@@ -16,6 +23,9 @@ public class UserSession {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private Utilisateur user;
+
+    @Column(name = "token", nullable = false, length = 500)
+    private String token;
 
     @Column(name = "login_time", nullable = false)
     private LocalDateTime loginTime;
@@ -29,31 +39,7 @@ public class UserSession {
     @Column(name = "user_agent")
     private String userAgent;
 
-    public UserSession() {}
-
-    public UserSession(Utilisateur user, LocalDateTime loginTime, String ipAddress, String userAgent) {
-        this.user = user;
-        this.loginTime = loginTime;
-        this.ipAddress = ipAddress;
-        this.userAgent = userAgent;
-    }
-
-    // Getters and setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Utilisateur getUser() { return user; }
-    public void setUser(Utilisateur user) { this.user = user; }
-
-    public LocalDateTime getLoginTime() { return loginTime; }
-    public void setLoginTime(LocalDateTime loginTime) { this.loginTime = loginTime; }
-
-    public LocalDateTime getLogoutTime() { return logoutTime; }
-    public void setLogoutTime(LocalDateTime logoutTime) { this.logoutTime = logoutTime; }
-
-    public String getIpAddress() { return ipAddress; }
-    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
-
-    public String getUserAgent() { return userAgent; }
-    public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
+    @Column(name = "is_active")
+    @Builder.Default
+    private Boolean isActive = true;
 }
