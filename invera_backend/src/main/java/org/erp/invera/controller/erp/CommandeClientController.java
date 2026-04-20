@@ -9,7 +9,7 @@ import org.erp.invera.dto.erp.commandeClientdto.CommandeUpdateRequestDTO;
 import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.repository.erp.CommandeClientRepository;
-import org.erp.invera.repository.erp.UserRepository;
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.erp.invera.service.erp.CommandeClientService;
 import org.erp.invera.service.erp.ClientService;
 import org.erp.invera.service.erp.ProduitService;
@@ -57,18 +57,18 @@ public class CommandeClientController {
     private final CommandeClientRepository commandeClientRepository;
     private final ClientService clientService;
     private final ProduitService produitService;
-    private final UserRepository userRepository;
+    private utilisateurRepository utilisateurRepository;
 
     public CommandeClientController(CommandeClientService commandeService,
                                     CommandeClientRepository commandeClientRepository,
                                     ClientService clientService,
                                     ProduitService produitService,
-                                    UserRepository userRepository) {
+                                    utilisateurRepository utilisateurRepository) {
         this.commandeService = commandeService;
         this.commandeClientRepository = commandeClientRepository;
         this.clientService = clientService;
         this.produitService = produitService;
-        this.userRepository = userRepository;
+        this.utilisateurRepository = utilisateurRepository;
     }
 
     @GetMapping("/getAllCommandes")
@@ -319,7 +319,7 @@ public class CommandeClientController {
                 String email = auth.getName();
                 System.out.println("🔍 Recherche de l'utilisateur avec email: " + email);
 
-                userRepository.findByEmail(email).ifPresentOrElse(
+                utilisateurRepository.findByEmail(email).ifPresentOrElse(
                         user -> {
                             Map<String, Object> userInfo = new HashMap<>();
                             userInfo.put("id", user.getId());

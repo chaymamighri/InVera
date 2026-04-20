@@ -1,9 +1,9 @@
 package org.erp.invera.security;
 
 import lombok.RequiredArgsConstructor;
-import org.erp.invera.model.platform.ClientUser;
+import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.model.platform.SuperAdmin;
-import org.erp.invera.repository.platform.ClientUserRepository;
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.erp.invera.repository.platform.SuperAdminRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UnifiedUserDetailsService implements UserDetailsService {
 
-    private final ClientUserRepository clientUserRepository;
+    private final utilisateurRepository utilisateurRepository;
     private final SuperAdminRepository superAdminRepository;
 
     @Override
@@ -31,9 +31,9 @@ public class UnifiedUserDetailsService implements UserDetailsService {
         }
 
         // 2. Chercher parmi les employés des clients
-        ClientUser clientUser = clientUserRepository.findByEmail(email)
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé: " + email));
 
-        return clientUser;
+        return utilisateur;
     }
 }

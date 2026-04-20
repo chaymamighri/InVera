@@ -3,9 +3,9 @@ package org.erp.invera.controller.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.ClientUser;
+import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
-import org.erp.invera.repository.platform.ClientUserRepository;
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.platform.InvitationService;
 import org.erp.invera.service.platform.SessionManagementService;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
-    private final ClientUserRepository clientUserRepository;
+    private final utilisateurRepository utilisateurRepository;
     private final ClientPlatformRepository clientRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
@@ -53,18 +53,18 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             // Vérifier uniquement les clients
-            ClientUser clientUser = clientUserRepository.findByEmail(email).orElse(null);
+            Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElse(null);
 
-            if (clientUser == null) {
+            if (utilisateur == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
             }
 
             // Client ou employé
-            if (!clientUser.getEstActif()) {
+            if (!utilisateur.getEstActif()) {
                 return ResponseEntity.status(403).body(Map.of("error", "Compte désactivé"));
             }
 
-            Client client = clientUser.getClient();
+            Client client = utilisateur.getClient();
 
             // Gestion du compteur de connexions pour ESSAI
             if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
@@ -79,8 +79,8 @@ public class AuthController {
             }
 
             String token = jwtTokenProvider.generateToken(
-                    clientUser.getEmail(),
-                    clientUser.getRole().name(),
+                    utilisateur.getEmail(),
+                    utilisateur.getRole().name(),
                     client.getId()
             );
 
@@ -89,13 +89,13 @@ public class AuthController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
-            response.put("email", clientUser.getEmail());
-            response.put("role", clientUser.getRole().name());
+            response.put("email", utilisateur.getEmail());
+            response.put("role", utilisateur.getRole().name());
             response.put("type", "CLIENT");
             response.put("clientId", client.getId());
             response.put("clientName", client.getNom());
-            response.put("nom", clientUser.getNom());
-            response.put("prenom", clientUser.getPrenom());
+            response.put("nom", utilisateur.getNom());
+            response.put("prenom", utilisateur.getPrenom());
 
             // Message si une autre session a été fermée
             if (!wasOtherSessionActive) {
@@ -103,8 +103,8 @@ public class AuthController {
             }
 
             // Mettre à jour last_login
-            clientUser.setLastLogin(LocalDateTime.now());
-            clientUserRepository.save(clientUser);
+            utilisateur.setLastLogin(LocalDateTime.now());
+            utilisateurRepository.save(utilisateur);
 
             return ResponseEntity.ok(response);
 
@@ -122,23 +122,23 @@ public class AuthController {
         String email = authentication.getName();
         log.info("🔍 getCurrentUser client: {}", email);
 
-        ClientUser clientUser = clientUserRepository.findByEmail(email)
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        Client client = clientUser.getClient();
+        Client client = utilisateur.getClient();
 
         Map<String, Object> response = new HashMap<>();
-        response.put("id", clientUser.getId());
-        response.put("email", clientUser.getEmail());
-        response.put("nom", clientUser.getNom());
-        response.put("prenom", clientUser.getPrenom());
-        response.put("role", clientUser.getRole().name());
+        response.put("id", utilisateur.getId());
+        response.put("email", utilisateur.getEmail());
+        response.put("nom", utilisateur.getNom());
+        response.put("prenom", utilisateur.getPrenom());
+        response.put("role", utilisateur.getRole().name());
         response.put("type", "CLIENT");
         response.put("clientId", client.getId());
         response.put("clientName", client.getNom());
-        response.put("active", clientUser.getEstActif());
+        response.put("active", utilisateur.getEstActif());
         response.put("memberSince", client.getDateInscription());
-        response.put("lastLogin", clientUser.getLastLogin());
+        response.put("lastLogin", utilisateur.getLastLogin());
 
         return ResponseEntity.ok(response);
     }
@@ -162,11 +162,11 @@ public class AuthController {
     public ResponseEntity<?> getAllUsers(Authentication authentication) {
         try {
             String email = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(email)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             Client client = currentUser.getClient();
-            List<ClientUser> users = clientUserRepository.findByClientId(client.getId());
+            List<Utilisateur> users = utilisateurRepository.findByClientId(client.getId());
 
             List<Map<String, Object>> userList = users.stream()
                     .map(user -> {
@@ -198,11 +198,11 @@ public class AuthController {
             Authentication authentication) {
         try {
             String email = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(email)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             Client client = currentUser.getClient();
-            List<ClientUser> users = clientUserRepository.findByClientId(client.getId());
+            List<Utilisateur> users = utilisateurRepository.findByClientId(client.getId());
 
             List<Map<String, Object>> filteredUsers = users.stream()
                     .filter(user -> {
@@ -243,7 +243,7 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@RequestBody Map<String, String> request, Authentication authentication) {
         try {
             String currentUserEmail = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(currentUserEmail)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(currentUserEmail)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             Client client = currentUser.getClient();
@@ -261,7 +261,7 @@ public class AuthController {
             }
 
             // Vérifier si l'email existe déjà
-            if (clientUserRepository.findByEmail(email).isPresent()) {
+            if (utilisateurRepository.findByEmail(email).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Cet email est déjà utilisé"));
             }
 
@@ -277,9 +277,9 @@ public class AuthController {
 
             // Vérifier création d'admin en double
             if ("admin".equalsIgnoreCase(role)) {
-                boolean adminExists = clientUserRepository.findByClientId(client.getId())
+                boolean adminExists = utilisateurRepository.findByClientId(client.getId())
                         .stream()
-                        .anyMatch(u -> u.getRole() == ClientUser.RoleUtilisateur.ADMIN_CLIENT);
+                        .anyMatch(u -> u.getRole() == Utilisateur.RoleUtilisateur.ADMIN_CLIENT);
                 if (adminExists) {
                     return ResponseEntity.badRequest().body(Map.of(
                             "error", "Un administrateur existe déjà pour ce client"
@@ -289,7 +289,7 @@ public class AuthController {
 
             String tempPassword = generateTempPassword();
 
-            ClientUser newUser = ClientUser.builder()
+            Utilisateur newUser = Utilisateur.builder()
                     .nom(nom.trim())
                     .prenom(prenom != null ? prenom.trim() : "")
                     .email(email.toLowerCase().trim())
@@ -299,7 +299,7 @@ public class AuthController {
                     .estActif(true)
                     .build();
 
-            clientUserRepository.save(newUser);
+            utilisateurRepository.save(newUser);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -323,10 +323,10 @@ public class AuthController {
             Authentication authentication) {
         try {
             String currentUserEmail = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(currentUserEmail)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(currentUserEmail)
                     .orElseThrow(() -> new RuntimeException("Utilisateur courant non trouvé"));
 
-            ClientUser userToUpdate = clientUserRepository.findById(id)
+            Utilisateur userToUpdate = utilisateurRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé avec ID: " + id));
 
             if (!userToUpdate.getClient().getId().equals(currentUser.getClient().getId())) {
@@ -363,7 +363,7 @@ public class AuthController {
                     ));
                 }
 
-                boolean emailExists = clientUserRepository.findByEmail(newEmail)
+                boolean emailExists = utilisateurRepository.findByEmail(newEmail)
                         .map(existingUser -> !existingUser.getId().equals(id))
                         .orElse(false);
 
@@ -378,7 +378,7 @@ public class AuthController {
                 userToUpdate.setRole(mapRoleFromFrontend(role));
             }
 
-            clientUserRepository.save(userToUpdate);
+            utilisateurRepository.save(userToUpdate);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -401,10 +401,10 @@ public class AuthController {
     public ResponseEntity<?> deleteUser(@PathVariable String email, Authentication authentication) {
         try {
             String currentUserEmail = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(currentUserEmail)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(currentUserEmail)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            ClientUser userToDelete = clientUserRepository.findByEmail(email)
+            Utilisateur userToDelete = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             if (!userToDelete.getClient().getId().equals(currentUser.getClient().getId())) {
@@ -415,7 +415,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Vous ne pouvez pas supprimer votre propre compte"));
             }
 
-            clientUserRepository.delete(userToDelete);
+            utilisateurRepository.delete(userToDelete);
             return ResponseEntity.ok(Map.of("message", "Utilisateur supprimé avec succès"));
 
         } catch (Exception e) {
@@ -430,10 +430,10 @@ public class AuthController {
             Authentication authentication) {
         try {
             String currentUserEmail = authentication.getName();
-            ClientUser currentUser = clientUserRepository.findByEmail(currentUserEmail)
+            Utilisateur currentUser = utilisateurRepository.findByEmail(currentUserEmail)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            ClientUser userToUpdate = clientUserRepository.findByEmail(email)
+            Utilisateur userToUpdate = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             if (!userToUpdate.getClient().getId().equals(currentUser.getClient().getId())) {
@@ -441,7 +441,7 @@ public class AuthController {
             }
 
             userToUpdate.setEstActif(active);
-            clientUserRepository.save(userToUpdate);
+            utilisateurRepository.save(userToUpdate);
 
             return ResponseEntity.ok(Map.of(
                     "message", active ? "Utilisateur activé" : "Utilisateur désactivé",
@@ -458,16 +458,16 @@ public class AuthController {
                                            Authentication authentication) {
         try {
             String email = authentication.getName();
-            ClientUser clientUser = clientUserRepository.findByEmail(email)
+            Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             String nom = request.get("nom");
             String prenom = request.get("prenom");
 
-            if (nom != null && !nom.isEmpty()) clientUser.setNom(nom);
-            if (prenom != null && !prenom.isEmpty()) clientUser.setPrenom(prenom);
+            if (nom != null && !nom.isEmpty()) utilisateur.setNom(nom);
+            if (prenom != null && !prenom.isEmpty()) utilisateur.setPrenom(prenom);
 
-            clientUserRepository.save(clientUser);
+            utilisateurRepository.save(utilisateur);
 
             return ResponseEntity.ok(Map.of("message", "Profil mis à jour avec succès"));
 
@@ -484,10 +484,10 @@ public class AuthController {
             String oldPassword = request.get("oldPassword");
             String newPassword = request.get("newPassword");
 
-            ClientUser clientUser = clientUserRepository.findByEmail(email)
+            Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            if (!passwordEncoder.matches(oldPassword, clientUser.getMotDePasse())) {
+            if (!passwordEncoder.matches(oldPassword, utilisateur.getMotDePasse())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Mot de passe actuel incorrect"));
             }
 
@@ -495,8 +495,8 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Le mot de passe doit contenir au moins 8 caractères"));
             }
 
-            clientUser.setMotDePasse(passwordEncoder.encode(newPassword));
-            clientUserRepository.save(clientUser);
+            utilisateur.setMotDePasse(passwordEncoder.encode(newPassword));
+            utilisateurRepository.save(utilisateur);
 
             return ResponseEntity.ok(Map.of("message", "Mot de passe modifié avec succès"));
 
@@ -511,25 +511,25 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Code invalide ou expiré"));
         }
 
-        Client client = clientUserRepository.findByEmail(request.getEmail())
+        Client client = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Client non trouvé")).getClient();
 
-        ClientUser clientUser = ClientUser.builder()
+        Utilisateur utilisateur = Utilisateur.builder()
                 .email(client.getEmail())
                 .motDePasse(passwordEncoder.encode(request.getNewPassword()))
-                .role(ClientUser.RoleUtilisateur.ADMIN_CLIENT)
+                .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
                 .client(client)
                 .estActif(true)
                 .build();
 
-        clientUserRepository.save(clientUser);
+        utilisateurRepository.save(utilisateur);
 
         return ResponseEntity.ok(Map.of("message", "Mot de passe créé avec succès. Vous pouvez maintenant vous connecter."));
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================
 
-    private String mapRoleToFrontend(ClientUser.RoleUtilisateur role) {
+    private String mapRoleToFrontend(Utilisateur.RoleUtilisateur role) {
         switch (role) {
             case ADMIN_CLIENT: return "admin";
             case COMMERCIAL: return "sales";
@@ -538,12 +538,12 @@ public class AuthController {
         }
     }
 
-    private ClientUser.RoleUtilisateur mapRoleFromFrontend(String role) {
+    private Utilisateur.RoleUtilisateur mapRoleFromFrontend(String role) {
         switch (role.toLowerCase()) {
-            case "admin": return ClientUser.RoleUtilisateur.ADMIN_CLIENT;
-            case "sales": return ClientUser.RoleUtilisateur.COMMERCIAL;
-            case "procurement": return ClientUser.RoleUtilisateur.RESPONSABLE_ACHAT;
-            default: return ClientUser.RoleUtilisateur.COMMERCIAL;
+            case "admin": return Utilisateur.RoleUtilisateur.ADMIN_CLIENT;
+            case "sales": return Utilisateur.RoleUtilisateur.COMMERCIAL;
+            case "procurement": return Utilisateur.RoleUtilisateur.RESPONSABLE_ACHAT;
+            default: return Utilisateur.RoleUtilisateur.COMMERCIAL;
         }
     }
 

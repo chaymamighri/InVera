@@ -14,10 +14,11 @@ import org.erp.invera.model.erp.Produit;
 import org.erp.invera.model.erp.stock.StockMovement;
 import org.erp.invera.model.erp.Notification;
 import org.erp.invera.model.erp.Role;
-import org.erp.invera.model.erp.User;
+import org.erp.invera.model.platform.Utilisateur;
 
 import org.erp.invera.repository.erp.*;
 
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -42,7 +43,7 @@ public class CommandeFournisseurService {
     private final LigneCommandeFournisseurRepository ligneRepository;
     private final StockMovementRepository stockMovementRepository;
     private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
+    private final utilisateurRepository utilisateurRepository;
     private final BonCommandePdfService bonCommandePdfService;
     private final EmailService emailService;
     private final ProduitService produitService;
@@ -528,8 +529,8 @@ public class CommandeFournisseurService {
     }
 
     private void creerNotificationAdminPourCommande(CommandeFournisseur commande, String notificationType, Fournisseur fournisseur) {
-        User currentUser = getCurrentUser();
-        if (currentUser == null || currentUser.getRole() != Role.RESPONSABLE_ACHAT) return;
+        Utilisateur currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getRole() != Utilisateur.RoleUtilisateur.RESPONSABLE_ACHAT) return;
 
         String reference = commande.getNumeroCommande();
         String fournisseurNom = fournisseur != null ? fournisseur.getNomFournisseur() : "inconnu";
@@ -548,8 +549,8 @@ public class CommandeFournisseurService {
     }
 
     private void creerNotificationDecisionPourResponsableAchat(CommandeFournisseur commande, String notificationType, String motifRejet) {
-        User currentUser = getCurrentUser();
-        if (currentUser == null || currentUser.getRole() != Role.ADMIN) {
+        Utilisateur currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getRole() != Utilisateur.RoleUtilisateur.ADMIN_CLIENT) {
             return;
         }
 
@@ -593,22 +594,22 @@ public class CommandeFournisseurService {
         ));
     }
 
-    private User getCurrentUser() {
+    private Utilisateur getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
             return null;
         }
 
-        return userRepository.findByEmail(authentication.getName()).orElse(null);
+        return utilisateurRepository.findByEmail(authentication.getName()).orElse(null);
     }
 
-    private String buildUserFullName(User user) {
-        String fullName = Stream.of(user.getPrenom(), user.getNom())
+    private String buildUserFullName(Utilisateur utilisateur) {
+        String fullName = Stream.of(utilisateur.getPrenom(), utilisateur.getNom())
                 .filter(value -> value != null && !value.isBlank())
                 .collect(Collectors.joining(" "))
                 .trim();
 
-        return fullName.isBlank() ? user.getEmail() : fullName;
+        return fullName.isBlank() ? utilisateur.getEmail() : fullName;
     }
 
     private String genererNumeroCommande() {
