@@ -8,6 +8,7 @@ import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.ClientUserRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.platform.InvitationService;
+import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -34,10 +35,11 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final InvitationService invitationService;
+    private final SessionManagementService sessionManagementService;
 
     /**
      * Login UNIQUEMENT pour les clients (ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT)
-     * Le Super Admin utilise son propre endpoint /api/super-admin/login
+     *
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
@@ -50,7 +52,7 @@ public class AuthController {
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // ✅ Vérifier uniquement les clients, pas les Super Admin
+            // Vérifier uniquement les clients
             ClientUser clientUser = clientUserRepository.findByEmail(email).orElse(null);
 
             if (clientUser == null) {
@@ -82,6 +84,9 @@ public class AuthController {
                     client.getId()
             );
 
+            //  Enregistrement session unique
+            boolean wasOtherSessionActive = sessionManagementService.registerSession(email, token);
+
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
             response.put("email", clientUser.getEmail());
@@ -91,6 +96,11 @@ public class AuthController {
             response.put("clientName", client.getNom());
             response.put("nom", clientUser.getNom());
             response.put("prenom", clientUser.getPrenom());
+
+            // Message si une autre session a été fermée
+            if (!wasOtherSessionActive) {
+                response.put("warning", "Une autre session a été fermée suite à cette connexion");
+            }
 
             // Mettre à jour last_login
             clientUser.setLastLogin(LocalDateTime.now());
@@ -131,6 +141,19 @@ public class AuthController {
         response.put("lastLogin", clientUser.getLastLogin());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Déconnexion - Supprime la session active
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication authentication) {
+        if (authentication != null) {
+            String email = authentication.getName();
+            sessionManagementService.removeSession(email);
+            log.info("🔓 Déconnexion - Session supprimée pour {}", email);
+        }
+        return ResponseEntity.ok(Map.of("message", "Déconnecté avec succès"));
     }
 
     // ==================== GESTION DES UTILISATEURS ====================
@@ -538,4 +561,3 @@ public class AuthController {
         return sb.toString() + "@Temp2024";
     }
 }
-

@@ -8,7 +8,10 @@ import org.erp.invera.dto.platform.superAdmindto.LoginRequestDTO;
 import org.erp.invera.dto.platform.superAdmindto.LoginResponseDTO;
 import org.erp.invera.dto.platform.superAdmindto.SuperAdminDTO;
 import org.erp.invera.dto.platform.superAdmindto.UpdateSuperAdminProfileRequest;
+import org.erp.invera.repository.platform.SuperAdminRepository;
 import org.erp.invera.security.JwtTokenProvider;
+
+import org.erp.invera.service.platform.SessionManagementService;
 import org.erp.invera.security.SuperAdminPrincipal;
 import org.erp.invera.service.platform.SuperAdminService;
 import org.springframework.http.HttpStatus;
@@ -26,6 +29,9 @@ public class SuperAdminController {
 
     private final SuperAdminService superAdminService;
     private final JwtTokenProvider jwtTokenProvider;
+
+    private final SuperAdminRepository superAdminRepository;
+    private final SessionManagementService sessionManagementService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody SuperAdminDTO dto) {
@@ -49,11 +55,16 @@ public class SuperAdminController {
         try {
             SuperAdminDTO admin = superAdminService.authenticate(loginRequest);
 
+
+            // Génération token
             String token = jwtTokenProvider.generateTokenForSuperAdmin(
                     admin.getEmail(),
                     "SUPER_ADMIN",
                     null
             );
+
+            // ✅ AJOUT - Enregistrement session unique
+            boolean wasOtherSessionActive = sessionManagementService.registerSession(admin.getEmail(), token);
 
             LoginResponseDTO response = new LoginResponseDTO();
             response.setId(admin.getId());
@@ -61,12 +72,31 @@ public class SuperAdminController {
             response.setEmail(admin.getEmail());
             response.setToken(token);
 
+            // ✅ AJOUT - Message optionnel si une autre session a été fermée
+            if (!wasOtherSessionActive) {
+                response.setWarning("Une autre session a été fermée suite à cette connexion");
+            }
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
         }
     }
+    /**
+     * Déconnexion - Supprime la session active
+     * POST /api/super-admin/logout
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication authentication) {
+        if (authentication != null) {
+            String email = authentication.getName();
+            sessionManagementService.removeSession(email);
+            System.out.println("🔓 Déconnexion Super Admin - Session supprimée pour " + email);
+        }
+        return ResponseEntity.ok(Map.of("message", "Déconnecté avec succès"));
+    }
+
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentSuperAdmin(Authentication authentication) {
@@ -78,6 +108,7 @@ public class SuperAdminController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
 
     @PutMapping("/update-profile")
     public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateSuperAdminProfileRequest request,
@@ -123,3 +154,4 @@ public class SuperAdminController {
         return email;
     }
 }
+
