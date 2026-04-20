@@ -3,10 +3,9 @@ package org.erp.invera.service.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.ClientUser;
-import org.erp.invera.repository.erp.ClientRepository;
+import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
-import org.erp.invera.repository.platform.ClientUserRepository;
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,7 @@ public class ClientPlatformService {
 
     private final ClientPlatformRepository clientRepository;
     private final AsyncDatabaseService asyncDatabaseService;
-    private final ClientUserRepository clientUserRepository;
+    private final utilisateurRepository utilisateurRepository;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
 
@@ -60,14 +59,14 @@ public class ClientPlatformService {
             Client savedClient = clientRepository.save(client);
 
             // ✅ Créer ClientUser AVEC mot de passe
-            ClientUser clientUser = ClientUser.builder()
+            Utilisateur utilisateur = Utilisateur.builder()
                     .email(client.getEmail())
                     .motDePasse(passwordEncoder.encode(plainPassword))  // ← Mot de passe
-                    .role(ClientUser.RoleUtilisateur.ADMIN_CLIENT)
+                    .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
                     .client(savedClient)
                     .estActif(true)
                     .build();
-            clientUserRepository.save(clientUser);
+            utilisateurRepository.save(utilisateur);
 
             // Créer la base
             asyncDatabaseService.createClientDatabaseAsync(savedClient.getId());

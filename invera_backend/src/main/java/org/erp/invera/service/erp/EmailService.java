@@ -2,8 +2,8 @@ package org.erp.invera.service.erp;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.erp.invera.model.erp.User;
-import org.erp.invera.repository.erp.UserRepository;
+import org.erp.invera.model.platform.Utilisateur;  // ← Changer l'import
+import org.erp.invera.repository.platform.utilisateurRepository;  // ← Changer l'import
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -13,8 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-
-
 
 /**
  * Service d'envoi d'emails.
@@ -42,7 +40,7 @@ public class EmailService {
     private JavaMailSender mailSender;
 
     @Autowired
-    private UserRepository userRepository;
+    private utilisateurRepository utilisateurRepository;  // ← Changer le type
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -107,15 +105,17 @@ public class EmailService {
             helper.setTo(email);
             helper.setSubject("Lien d'activation - Invera ERP");
 
-            User newUser = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            // ✅ Remplacer User par Utilisateur
+            Utilisateur nouvelUtilisateur = utilisateurRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             LocalDateTime expiryTime = LocalDateTime.now().plusHours(24);
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a' HH:mm");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm");
             String expiryTimeFormatted = expiryTime.format(formatter);
 
-            String prenom = newUser.getPrenom() == null ? "" : newUser.getPrenom();
-            String nom = newUser.getNom() == null ? "" : newUser.getNom();
+            // ✅ Utiliser les bons getters
+            String prenom = nouvelUtilisateur.getPrenom() == null ? "" : nouvelUtilisateur.getPrenom();
+            String nom = nouvelUtilisateur.getNom() == null ? "" : nouvelUtilisateur.getNom();
             String fullName = (prenom + " " + nom).trim();
 
             if (fullName.isBlank()) {
@@ -136,15 +136,15 @@ public class EmailService {
                         <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
                             <h2 style="color: #1976d2;">Bonjour %s,</h2>
 
-                            <p>L'administrateur de la plateforme Invera a cree votre compte.</p>
+                            <p>L'administrateur de la plateforme Invera a créé votre compte.</p>
 
                             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
                                 <p style="margin: 5px 0;"><strong>Email :</strong> %s</p>
                                 <p style="margin: 5px 0;"><strong>Nom :</strong> %s</p>
-                                <p style="margin: 5px 0;"><strong>Prenom :</strong> %s</p>
+                                <p style="margin: 5px 0;"><strong>Prénom :</strong> %s</p>
                             </div>
 
-                            <p>Pour activer votre compte et creer votre mot de passe, cliquez sur le lien ci-dessous :</p>
+                            <p>Pour activer votre compte et créer votre mot de passe, cliquez sur le lien ci-dessous :</p>
 
                             <div style="margin: 24px 0; text-align: center;">
                                 <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #1976d2; color: #ffffff; text-decoration: none; font-weight: bold;">
@@ -152,18 +152,18 @@ public class EmailService {
                                 </a>
                             </div>
 
-                            <p>Le lien ouvre directement l'interface d'activation afin de definir votre mot de passe.</p>
+                            <p>Le lien ouvre directement l'interface d'activation afin de définir votre mot de passe.</p>
                             <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
                             <p style="word-break: break-all; color: #1976d2;">%s</p>
 
                             <p style="color: #666; font-size: 14px;">
-                                <strong>Validite :</strong> Ce code expirera le %s.
+                                <strong>Validité :</strong> Ce lien expirera le %s.
                             </p>
 
                             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
 
                             <p style="color: #999; font-size: 12px; text-align: center;">
-                                &copy; 2026 Invera ERP. Tous droits reserves.
+                                © 2026 Invera ERP. Tous droits réservés.
                             </p>
                         </div>
                     </div>
@@ -236,7 +236,7 @@ public class EmailService {
                         <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
 
                         <p style="color: #999; font-size: 12px; text-align: center;">
-                            &copy; 2026 Invera ERP. Tous droits réservés.
+                            © 2026 Invera ERP. Tous droits réservés.
                         </p>
                     </div>
                 </div>

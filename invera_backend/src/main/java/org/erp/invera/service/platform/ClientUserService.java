@@ -3,10 +3,10 @@ package org.erp.invera.service.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.ClientUser;
+import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
 
-import org.erp.invera.repository.platform.ClientUserRepository;
+import org.erp.invera.repository.platform.utilisateurRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ClientUserService {
 
-    private final ClientUserRepository clientUserRepository;
+    private final utilisateurRepository utilisateurRepository;
     private final ClientPlatformRepository clientRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
@@ -27,28 +27,28 @@ public class ClientUserService {
      * Créer le premier admin client (automatique à l'inscription)
      */
     @Transactional
-    public ClientUser createFirstAdmin(Client client, String tempPassword) {
-        ClientUser adminUser = ClientUser.builder()
+    public Utilisateur createFirstAdmin(Client client, String tempPassword) {
+        Utilisateur adminUser = Utilisateur.builder()
                 .email(client.getEmail())
                 .motDePasse(passwordEncoder.encode(tempPassword))
                 .nom(client.getNom())
                 .prenom(client.getPrenom())
-                .role(ClientUser.RoleUtilisateur.ADMIN_CLIENT)
+                .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
                 .client(client)
                 .estActif(true)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         log.info("✅ Premier admin client créé pour {}", client.getEmail());
-        return clientUserRepository.save(adminUser);
+        return utilisateurRepository.save(adminUser);
     }
 
     /**
      * Créer un employé (par l'admin client)
      */
     @Transactional
-    public ClientUser createEmployee(Long clientId, String email, String password,
-                                     String nom, String prenom, String role) {
+    public Utilisateur createEmployee(Long clientId, String email, String password,
+                                      String nom, String prenom, String role) {
 
         // 1. Vérifier que le client existe
         Client client = clientRepository.findById(clientId)
@@ -61,20 +61,20 @@ public class ClientUserService {
         }
 
         // 3. Vérifier que l'email n'existe pas déjà
-        if (clientUserRepository.existsByEmail(email)) {
+        if (utilisateurRepository.existsByEmail(email)) {
             throw new RuntimeException("Email déjà utilisé: " + email);
         }
 
         // 4. Vérifier que le rôle est valide
-        ClientUser.RoleUtilisateur roleEnum;
+        Utilisateur.RoleUtilisateur roleEnum;
         try {
-            roleEnum = ClientUser.RoleUtilisateur.valueOf(role.toUpperCase());
+            roleEnum = Utilisateur.RoleUtilisateur.valueOf(role.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Rôle invalide. Valeurs possibles: ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT");
         }
 
         // 5. Créer l'employé
-        ClientUser employee = ClientUser.builder()
+        Utilisateur employee = Utilisateur.builder()
                 .email(email)
                 .motDePasse(passwordEncoder.encode(password))
                 .nom(nom)
@@ -86,29 +86,29 @@ public class ClientUserService {
                 .build();
 
         log.info("✅ Employé créé: {} pour client {}", email, client.getNom());
-        return clientUserRepository.save(employee);
+        return utilisateurRepository.save(employee);
     }
 
     /**
      * Récupérer tous les employés d'un client
      */
-    public List<ClientUser> getEmployeesByClient(Long clientId) {
-        return clientUserRepository.findByClientId(clientId);
+    public List<Utilisateur> getEmployeesByClient(Long clientId) {
+        return utilisateurRepository.findByClientId(clientId);
     }
 
     /**
      * Récupérer un employé par son ID
      */
-    public ClientUser getEmployeeById(Long id) {
-        return clientUserRepository.findById(id)
+    public Utilisateur getEmployeeById(Long id) {
+        return utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
     }
 
     /**
      * Récupérer un employé par email
      */
-    public ClientUser getEmployeeByEmail(String email) {
-        return clientUserRepository.findByEmail(email)
+    public Utilisateur getEmployeeByEmail(String email) {
+        return utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + email));
     }
 
@@ -116,10 +116,10 @@ public class ClientUserService {
      * Modifier un employé
      */
     @Transactional
-    public ClientUser updateEmployee(Long id, Long clientId, String nom, String prenom,
-                                     String role, Boolean estActif) {
+    public Utilisateur updateEmployee(Long id, Long clientId, String nom, String prenom,
+                                      String role, Boolean estActif) {
 
-        ClientUser user = clientUserRepository.findById(id)
+        Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
 
         // Vérifier que l'employé appartient bien au client
@@ -131,7 +131,7 @@ public class ClientUserService {
         if (prenom != null) user.setPrenom(prenom);
         if (role != null) {
             try {
-                user.setRole(ClientUser.RoleUtilisateur.valueOf(role.toUpperCase()));
+                user.setRole(Utilisateur.RoleUtilisateur.valueOf(role.toUpperCase()));
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Rôle invalide");
             }
@@ -139,7 +139,7 @@ public class ClientUserService {
         if (estActif != null) user.setEstActif(estActif);
 
         log.info("✅ Employé modifié: {}", user.getEmail());
-        return clientUserRepository.save(user);
+        return utilisateurRepository.save(user);
     }
 
     /**
@@ -147,7 +147,7 @@ public class ClientUserService {
      */
     @Transactional
     public void deleteEmployee(Long id, Long clientId) {
-        ClientUser user = clientUserRepository.findById(id)
+        Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
 
         // Vérifier que l'employé appartient bien au client
@@ -155,7 +155,7 @@ public class ClientUserService {
             throw new RuntimeException("Accès non autorisé à cet employé");
         }
 
-        clientUserRepository.delete(user);
+        utilisateurRepository.delete(user);
         log.info("✅ Employé supprimé: {}", user.getEmail());
     }
 
@@ -163,8 +163,8 @@ public class ClientUserService {
      * Activer/Désactiver un employé
      */
     @Transactional
-    public ClientUser toggleEmployeeStatus(Long id, Long clientId) {
-        ClientUser user = clientUserRepository.findById(id)
+    public Utilisateur toggleEmployeeStatus(Long id, Long clientId) {
+        Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
 
         // Vérifier que l'employé appartient bien au client
@@ -175,7 +175,7 @@ public class ClientUserService {
         user.setEstActif(!user.getEstActif());
         log.info("{} employé: {}", user.getEstActif() ? "✅ Activé" : "❌ Désactivé", user.getEmail());
 
-        return clientUserRepository.save(user);
+        return utilisateurRepository.save(user);
     }
 
     /**
@@ -183,7 +183,7 @@ public class ClientUserService {
      */
     @Transactional
     public void changePassword(Long id, Long clientId, String oldPassword, String newPassword) {
-        ClientUser user = clientUserRepository.findById(id)
+        Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
 
         // Vérifier que l'employé appartient bien au client
@@ -199,7 +199,7 @@ public class ClientUserService {
         user.setMotDePasse(passwordEncoder.encode(newPassword));
         log.info("🔑 Mot de passe modifié pour: {}", user.getEmail());
 
-        clientUserRepository.save(user);
+        utilisateurRepository.save(user);
     }
 
     /**
@@ -207,7 +207,7 @@ public class ClientUserService {
      */
     @Transactional
     public void resetPassword(Long id, Long clientId, String newPassword) {
-        ClientUser user = clientUserRepository.findById(id)
+        Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé: " + id));
 
         // Vérifier que l'employé appartient bien au client
@@ -218,7 +218,7 @@ public class ClientUserService {
         user.setMotDePasse(passwordEncoder.encode(newPassword));
         log.info("🔑 Mot de passe réinitialisé pour: {}", user.getEmail());
 
-        clientUserRepository.save(user);
+        utilisateurRepository.save(user);
     }
 
     /**
@@ -226,10 +226,10 @@ public class ClientUserService {
      */
     @Transactional
     public void updateLastLogin(String email) {
-        ClientUser user = clientUserRepository.findByEmail(email)
+        Utilisateur user = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé: " + email));
 
         user.setLastLogin(LocalDateTime.now());
-        clientUserRepository.save(user);
+        utilisateurRepository.save(user);
     }
 }
