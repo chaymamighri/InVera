@@ -1,6 +1,7 @@
 package org.erp.invera.model.erp;
 
 import jakarta.persistence.*;
+import org.erp.invera.model.platform.Utilisateur;
 
 import java.time.LocalDateTime;
 
@@ -14,7 +15,7 @@ public class UserSession {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Utilisateur user;
 
     @Column(name = "login_time", nullable = false)
     private LocalDateTime loginTime;
@@ -30,7 +31,7 @@ public class UserSession {
 
     public UserSession() {}
 
-    public UserSession(User user, LocalDateTime loginTime, String ipAddress, String userAgent) {
+    public UserSession(Utilisateur user, LocalDateTime loginTime, String ipAddress, String userAgent) {
         this.user = user;
         this.loginTime = loginTime;
         this.ipAddress = ipAddress;
@@ -41,8 +42,8 @@ public class UserSession {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public Utilisateur getUser() { return user; }
+    public void setUser(Utilisateur user) { this.user = user; }
 
     public LocalDateTime getLoginTime() { return loginTime; }
     public void setLoginTime(LocalDateTime loginTime) { this.loginTime = loginTime; }

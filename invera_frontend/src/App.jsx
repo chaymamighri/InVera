@@ -13,6 +13,9 @@ import WelcomePage from './pages/public/WelcomePage';
 import MoreInformationPage from './pages/public/MoreInformationPage';
 import SubscriptionsPage from './pages/public/SubscriptionsPage';
 
+// ✅ NOUVEAUX IMPORTS POUR L'INSCRIPTION
+import RegisterPage from './pages/Register/RegisterPage';
+
 import ProfilePage from './pages/shared/profilePage';
 import SettingsPage from './pages/shared/settingPage';
 import SuperAdminProfilePage from './pages/superAdmin/profilePage';
@@ -43,6 +46,7 @@ import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/St
 import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 
 import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
+import RegisterSimplified from './pages/Register/RegisterSimplified';
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -196,6 +200,7 @@ function App() {
           />
 
           <Routes>
+            {/* Routes publiques */}
             <Route
               path="/"
               element={
@@ -212,6 +217,18 @@ function App() {
                 </PublicLayout>
               }
             />
+            
+            {/* ✅ NOUVELLES ROUTES D'INSCRIPTION */}
+            <Route
+              path="/register"
+              element={
+                <PublicLayout>
+                  <RegisterPage />
+                </PublicLayout>
+              }
+            />
+          
+            
             <Route
               path="/more-information"
               element={
@@ -231,6 +248,7 @@ function App() {
             <Route path="/support" element={<Navigate to="/more-information" replace />} />
             <Route path="/about" element={<Navigate to="/more-information" replace />} />
 
+            {/* Routes d'authentification */}
             <Route
               path="/login"
               element={
@@ -256,6 +274,7 @@ function App() {
               }
             />
 
+            {/* Routes Super Admin */}
             <Route
               path="/super-admin/dashboard"
               element={
@@ -272,6 +291,7 @@ function App() {
               <Route path="settings" element={<SuperAdminSettingsPage />} />
             </Route>
 
+            {/* Routes Admin Client */}
             <Route
               path="/dashboard/admin"
               element={
@@ -288,6 +308,7 @@ function App() {
               <Route path="fournisseurs" element={<FournisseurManagement />} />
             </Route>
 
+            {/* Routes Procurement */}
             <Route
               path="/dashboard/procurement/*"
               element={
@@ -305,6 +326,7 @@ function App() {
               <Route path="etat_stock" element={<EtatStock />} />
             </Route>
 
+            {/* Routes Sales */}
             <Route
               path="/dashboard/sales/*"
               element={
@@ -323,6 +345,7 @@ function App() {
               <Route path="sales-table" element={<SalesTable />} />
             </Route>
 
+            {/* Routes partagées */}
             <Route
               path="/profile"
               element={
@@ -340,9 +363,11 @@ function App() {
               }
             />
 
+            {/* Redirections */}
             <Route path="/dashboard" element={<DashboardRedirect />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+            {/* Route 404 */}
             <Route
               path="*"
               element={
