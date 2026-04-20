@@ -4,11 +4,16 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.erp.invera.model.erp.Role;
-import org.erp.invera.model.erp.User;
+
+import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import org.erp.invera.model.erp.Role;
+import org.erp.invera.model.erp.User;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -26,6 +31,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Autowired
+    private SessionManagementService sessionManagementService;
+
+    // Liste des endpoints publics qui ne doivent pas être filtrés
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -70,6 +79,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("\n=== JWT FILTER EXECUTE ===");
         System.out.println("Path: " + path);
 
+        // Ignorer les endpoints publics (déjà géré par shouldNotFilter, mais gardé pour la clarté)
+        if (shouldNotFilter(request)) {
+            System.out.println("🔓 Endpoint public: " + path + " - skip JWT filter");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String jwt = getJwtFromRequest(request);
         System.out.println("JWT present: " + (jwt != null ? "YES" : "NO"));
 
@@ -92,8 +108,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 superAdminPrincipal.setEmail(email);
                 superAdminPrincipal.setNom(nom);
 
-                List<SimpleGrantedAuthority> authorities =
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+                // ✅ VÉRIFICATION SESSION UNIQUE - Correction: utiliser 'jwt' au lieu de 'token'
+                if (!sessionManagementService.isSessionValid(email, jwt)) {
+                    System.out.println("🔒 Session invalide pour " + email + " - Connexion depuis un autre appareil");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Vous êtes connecté depuis un autre appareil. Veuillez vous reconnecter.\"}");
+                    return;  // ← Bloque la requête
+                }
+
+                // Correction: une seule définition de 'authorities'
+                List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(superAdminPrincipal, null, authorities);
@@ -154,8 +179,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                List<SimpleGrantedAuthority> authorities =
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+                // Correction: une seule définition de 'authorities' pour l'utilisateur ERP
+                List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(user, null, authorities);
