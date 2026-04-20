@@ -9,7 +9,6 @@ import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import org.erp.invera.model.erp.Role;
@@ -34,7 +33,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private SessionManagementService sessionManagementService;
 
-    // Liste des endpoints publics qui ne doivent pas être filtrés
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -79,7 +77,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("\n=== JWT FILTER EXECUTE ===");
         System.out.println("Path: " + path);
 
-        // Ignorer les endpoints publics (déjà géré par shouldNotFilter, mais gardé pour la clarté)
         if (shouldNotFilter(request)) {
             System.out.println("🔓 Endpoint public: " + path + " - skip JWT filter");
             filterChain.doFilter(request, response);
@@ -93,31 +90,48 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Map<String, Object> claims = jwtTokenProvider.getUserInfoFromToken(jwt);
 
             Integer adminId = (Integer) claims.get("adminId");
+            String role = (String) claims.get("role");
+            String type = (String) claims.get("type");
 
-            if (adminId != null) {
+            // Vérifier si c'est un SUPER_ADMIN (par adminId, par type, ou par rôle)
+            boolean isSuperAdmin = (adminId != null) ||
+                    ("SUPER_ADMIN".equals(type)) ||
+                    (role != null && role.equals("ROLE_SUPER_ADMIN"));
+
+            if (isSuperAdmin) {
+                // Récupérer les infos du super admin
                 String email = (String) claims.get("email");
                 String nom = (String) claims.get("nom");
+
+                // Si adminId est null, utiliser userId ou 0 par défaut
+                if (adminId == null) {
+                    adminId = (Integer) claims.get("userId");
+                    if (adminId == null) {
+                        adminId = 0;
+                    }
+                }
 
                 System.out.println("SUPER ADMIN detected:");
                 System.out.println(" - AdminId: " + adminId);
                 System.out.println(" - Email: " + email);
                 System.out.println(" - Nom: " + nom);
+                System.out.println(" - Role: " + role);
+                System.out.println(" - Type: " + type);
 
                 SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
                 superAdminPrincipal.setId(adminId);
-                superAdminPrincipal.setEmail(email);
+                superAdminPrincipal.setEmail(email != null ? email : (String) claims.get("sub"));
                 superAdminPrincipal.setNom(nom);
 
-                // ✅ VÉRIFICATION SESSION UNIQUE - Correction: utiliser 'jwt' au lieu de 'token'
-                if (!sessionManagementService.isSessionValid(email, jwt)) {
-                    System.out.println("🔒 Session invalide pour " + email + " - Connexion depuis un autre appareil");
+                // Vérification session unique
+                if (!sessionManagementService.isSessionValid(superAdminPrincipal.getEmail(), jwt)) {
+                    System.out.println("🔒 Session invalide pour " + superAdminPrincipal.getEmail());
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Vous êtes connecté depuis un autre appareil. Veuillez vous reconnecter.\"}");
-                    return;  // ← Bloque la requête
+                    return;
                 }
 
-                // Correction: une seule définition de 'authorities'
                 List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
 
                 UsernamePasswordAuthenticationToken authentication =
@@ -126,9 +140,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 System.out.println("Super admin authenticated successfully");
+
             } else {
+                // Traitement pour les utilisateurs ERP normaux
                 String username = (String) claims.get("sub");
-                String role = (String) claims.get("role");
                 String email = (String) claims.get("email");
                 String nom = (String) claims.get("nom");
                 String prenom = (String) claims.get("prenom");
@@ -158,18 +173,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         roleValue = roleValue.substring(5);
                     }
 
-                    boolean roleExists = false;
-                    for (Role existingRole : Role.values()) {
-                        if (existingRole.name().equals(roleValue)) {
-                            roleExists = true;
-                            break;
+                    // Vérifier si le rôle existe (sauf pour SUPER_ADMIN qui est déjà traité)
+                    if (!"SUPER_ADMIN".equals(roleValue)) {
+                        boolean roleExists = false;
+                        for (Role existingRole : Role.values()) {
+                            if (existingRole.name().equals(roleValue)) {
+                                roleExists = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if (!roleExists) {
-                        System.out.println("Role '" + roleValue + "' does not exist");
-                        filterChain.doFilter(request, response);
-                        return;
+                        if (!roleExists) {
+                            System.out.println("Role '" + roleValue + "' does not exist in ERP roles");
+                            filterChain.doFilter(request, response);
+                            return;
+                        }
                     }
 
                     user.setRole(Role.valueOf(roleValue));
@@ -179,7 +197,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                // Correction: une seule définition de 'authorities' pour l'utilisateur ERP
                 List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
                 UsernamePasswordAuthenticationToken authentication =

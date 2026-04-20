@@ -65,20 +65,33 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
     @PostMapping("/request-otp")
     public ResponseEntity<?> requestOtp(@RequestBody Map<String, String> request) {
         try {
             String email = request.get("email");
-            clientService.requestOtp(email);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Code OTP envoyé à " + email,
-                    "expiration", "10 minutes"
-            ));
+
+            // Validation de l'email
+            if (email == null || email.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email requis"));
+            }
+
+            // Appeler directement OtpService au lieu de clientService
+            String otp = otpService.sendOtpByEmail(email);
+            log.info("📧 OTP envoyé à {}: {}", email, otp);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Code OTP envoyé à " + email);
+            response.put("expiration", "10 minutes");
+            response.put("debug_otp", otp); // Pour les tests
+
+            return ResponseEntity.ok(response);
+
         } catch (Exception e) {
+            log.error("Erreur lors de l'envoi OTP: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-
     // ========== 2. UPLOAD JUSTIFICATIFS ==========
 
     /**
