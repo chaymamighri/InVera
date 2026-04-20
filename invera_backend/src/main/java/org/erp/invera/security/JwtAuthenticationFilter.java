@@ -13,8 +13,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import org.erp.invera.model.erp.Role;
-import org.erp.invera.model.erp.User;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -302,7 +300,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        User user = new User();
+        Utilisateur user = new Utilisateur();
         if (userId != null) {
             user.setId(Long.valueOf(userId));
         }
@@ -318,7 +316,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Vérifier si le rôle existe dans l'enum ERP Role
             boolean roleExists = false;
-            for (Role existingRole : Role.values()) {
+            for (Utilisateur.RoleUtilisateur existingRole : Utilisateur.RoleUtilisateur.values()) {
                 if (existingRole.name().equals(roleValue)) {
                     roleExists = true;
                     break;
@@ -327,12 +325,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (!roleExists) {
                 System.out.println("❌ Role '" + roleValue + "' does not exist in ERP roles");
-                System.out.println("✅ Valid ERP roles: " + Arrays.toString(Role.values()));
+                System.out.println("✅ Valid ERP roles: " + Arrays.toString(Utilisateur.RoleUtilisateur.values()));
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return false;
             }
 
-            user.setRole(Role.valueOf(roleValue));
+            user.setRole(Utilisateur.RoleUtilisateur.valueOf(roleValue));
         } catch (IllegalArgumentException e) {
             System.out.println("❌ Invalid role: " + role);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

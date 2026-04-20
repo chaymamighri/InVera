@@ -1,8 +1,7 @@
-package org.erp.invera.model.erp;
+package org.erp.invera.model.platform;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import org.erp.invera.model.platform.Utilisateur;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

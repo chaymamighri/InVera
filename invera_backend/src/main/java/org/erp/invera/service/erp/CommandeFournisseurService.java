@@ -13,7 +13,6 @@ import org.erp.invera.model.erp.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.model.erp.stock.StockMovement;
 import org.erp.invera.model.erp.Notification;
-import org.erp.invera.model.erp.Role;
 import org.erp.invera.model.platform.Utilisateur;
 
 import org.erp.invera.repository.erp.*;

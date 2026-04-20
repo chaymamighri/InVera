@@ -10,9 +10,16 @@ import org.erp.invera.service.payment.SubscriptionService;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
 import org.erp.invera.service.platform.OtpService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,33 +99,108 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    // ========== 2. UPLOAD JUSTIFICATIFS ==========
 
-    /**
-     * Soumettre les justificatifs
-     * POST /api/platform/clients/{id}/justificatifs
-     */
-    @PostMapping("/{id}/justificatifs")
-    public ResponseEntity<?> uploadJustificatifs(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> request) {
 
+    // À AJOUTER dans PlatformClientController.java
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
         try {
-            String typeDocument = request.get("typeDocument");
-            String fileUrl = request.get("fileUrl");
+            String email = request.get("email");
+            String code = request.get("code");
 
-            Client client = clientService.uploadJustificatifs(id, typeDocument, fileUrl);
+            if (email == null || code == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email et code requis"));
+            }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Justificatifs soumis avec succès");
-            response.put("statut", client.getStatut());
+            // Vérifier l'OTP
+            boolean isValid = otpService.verifyOtp(email, code);
 
-            return ResponseEntity.ok(response);
+            if (isValid) {
+                return ResponseEntity.ok(Map.of("valid", true, "message", "Code valide"));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("valid", false, "error", "Code OTP invalide ou expiré"));
+            }
 
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+// ========== 2. UPLOAD JUSTIFICATIFS ==========
+
+    /**
+     * Soumettre les justificatifs
+     * POST /api/platform/clients/{id}/justificatifs
+     *
+     * @param id ID du client
+     * @param file Fichier à uploader
+     * @param typeDocument Type de document (CIN, KBIS, PATENTE, RNE, etc.)
+     * @return Réponse avec statut
+     */
+    @PostMapping(value = "/{id}/justificatifs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadJustificatifs(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("typeDocument") String typeDocument) {
+
+        try {
+            // Validation
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Aucun fichier fourni"));
+            }
+
+            if (typeDocument == null || typeDocument.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Type de document requis"));
+            }
+
+            // 1. Sauvegarder le fichier
+            String fileUrl = saveJustificatifFile(file, typeDocument, id);
+
+            // 2. Mettre à jour le client avec l'URL du document
+            Client client = clientService.uploadJustificatifs(id, typeDocument, fileUrl);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Justificatif soumis avec succès");
+            response.put("statut", client.getStatut());
+            response.put("fileUrl", fileUrl);
+            response.put("typeDocument", typeDocument);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Erreur lors de l'upload du justificatif: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Sauvegarde le fichier justificatif sur le disque
+     */
+    private String saveJustificatifFile(MultipartFile file, String typeDocument, Long clientId) throws IOException {
+        // Créer le répertoire d'upload
+        String uploadDir = "uploads/justificatifs/client_" + clientId + "/";
+        Path uploadPath = Paths.get(uploadDir);
+
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        // Générer un nom de fichier unique
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+
+        String fileName = timestamp + "_" + typeDocument + extension;
+        Path filePath = uploadPath.resolve(fileName);
+
+        // Sauvegarder le fichier
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return filePath.toString();
     }
 
     // ========== 3. VALIDATION ADMIN ==========

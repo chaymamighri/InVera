@@ -1,4 +1,4 @@
-package org.erp.invera.repository.erp;
+package org.erp.invera.repository.platform;
 
 import org.erp.invera.model.platform.PasswordResetToken;
 import org.springframework.data.jpa.repository.JpaRepository;
