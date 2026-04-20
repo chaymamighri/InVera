@@ -2,6 +2,7 @@ package org.erp.invera.model.erp;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.erp.invera.model.platform.Utilisateur;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -20,7 +21,7 @@ public class ActivationToken {
 
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
+    private Utilisateur user;
 
     @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
