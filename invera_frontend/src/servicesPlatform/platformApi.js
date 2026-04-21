@@ -13,7 +13,7 @@ const platformApi = axios.create({
 // Intercepteur pour token Super Admin
 platformApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,11 +26,22 @@ platformApi.interceptors.request.use(
 platformApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url || '';
+    const isSessionProbe = requestUrl.includes('/super-admin/me');
+
+    if (status === 401 || (status === 403 && isSessionProbe)) {
+      localStorage.removeItem('token');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('adminInfo');
+      localStorage.removeItem('superAdminInfo');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
       toast.error('Session expirée');
       window.location.href = '/super-admin/login';
+    } else if (status === 403) {
+      toast.error("Acces refuse pour cette operation");
     }
     return Promise.reject(error);
   }

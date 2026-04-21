@@ -2,6 +2,7 @@ package org.erp.invera.model.platform;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -17,8 +18,15 @@ public class Abonnement {
     @JoinColumn(name = "client_id")
     private Client client;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "offre_abonnement_id")
+    private OffreAbonnement offreAbonnement;
+
     @Enumerated(EnumType.STRING)
-    private PeriodType periodType;  // MENSUEL ou ANNUEL
+    private PeriodType periodType;
+
+    @Column(name = "duree_mois")
+    private Integer dureeMois;
 
     private Double montant;
     private String devise;
@@ -33,8 +41,9 @@ public class Abonnement {
     private Boolean autoRenouvellement = true;
 
     public enum PeriodType {
-        MENSUEL("Mensuel", 1, 29.0),      // 29 TND/mois
-        ANNUEL("Annuel", 12, 313.2);       // 29 * 12 * 0.9 = 313.2 TND/an
+        MENSUEL("1 mois", 1, 29.0),
+        TROIS_MOIS("3 mois", 3, 79.0),
+        ANNUEL("1 an", 12, 313.2);
 
         private final String label;
         private final int mois;

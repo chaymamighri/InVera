@@ -1,6 +1,7 @@
 package org.erp.invera.repository.platform;
 
 import org.erp.invera.model.platform.Abonnement;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,28 +12,27 @@ import java.util.Optional;
 @Repository
 public interface AbonnementRepository extends JpaRepository<Abonnement, Long> {
 
-    /**
-     * Trouver les abonnements par statut et date d'expiration
-     */
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     List<Abonnement> findByStatutAndDateFinBefore(Abonnement.StatutAbonnement statut, LocalDateTime date);
 
-    /**
-     * Trouver l'abonnement actif d'un client
-     */
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     Optional<Abonnement> findByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
 
-    /**
-     * Trouver tous les abonnements d'un client
-     */
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     List<Abonnement> findByClientIdOrderByDateDebutDesc(Long clientId);
 
-    /**
-     * Vérifier si un client a un abonnement actif
-     */
     boolean existsByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
 
-    /**
-     * Compter les abonnements par statut
-     */
     long countByStatut(Abonnement.StatutAbonnement statut);
+
+    long countByOffreAbonnementId(Long offreAbonnementId);
+
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
+    List<Abonnement> findAllByOrderByDateDebutDesc();
+
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
+    List<Abonnement> findByStatutOrderByDateDebutDesc(Abonnement.StatutAbonnement statut);
+
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
+    Optional<Abonnement> findWithDetailsById(Long id);
 }
