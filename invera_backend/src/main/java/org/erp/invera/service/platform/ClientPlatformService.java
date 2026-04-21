@@ -30,7 +30,6 @@ public class ClientPlatformService {
      * Créer un nouveau client
      */
     public Client createClient(Client client, String otpCode, String plainPassword) {
-        // Vérifier l'OTP
         if (!otpService.verifyOtp(client.getEmail(), otpCode)) {
             throw new RuntimeException("Code OTP invalide ou expiré");
         }
@@ -39,13 +38,11 @@ public class ClientPlatformService {
             throw new RuntimeException("Email déjà utilisé: " + client.getEmail());
         }
 
-        // Extraire le domaine
         String domaine = client.getEmail().substring(client.getEmail().indexOf('@') + 1);
         client.setDomaine(domaine);
         client.setDateInscription(LocalDateTime.now());
 
         if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
-            // ESSAI - Pas besoin de justificatifs
             client.setConnexionsMax(30);
             client.setConnexionsRestantes(30);
             client.setStatut(Client.StatutClient.ACTIF);
@@ -54,7 +51,6 @@ public class ClientPlatformService {
 
             Client savedClient = clientRepository.save(client);
 
-            // Créer l'utilisateur associé
             Utilisateur utilisateur = Utilisateur.builder()
                     .email(client.getEmail())
                     .motDePasse(passwordEncoder.encode(plainPassword))
@@ -64,22 +60,19 @@ public class ClientPlatformService {
                     .build();
             utilisateurRepository.save(utilisateur);
 
-            // Créer la base de données
             asyncDatabaseService.createClientDatabaseAsync(savedClient.getId());
-
             return savedClient;
         } else {
             // DEFINITIF - Nécessite justificatifs + validation admin
             client.setConnexionsMax(999999);
             client.setConnexionsRestantes(999999);
             client.setNomBaseDonnees(null);
-            client.setStatut(Client.StatutClient.EN_ATTENTE);  // ← En attente de validation
+            client.setStatut(Client.StatutClient.EN_ATTENTE);
             client.setIsActive(false);
             client.setJustificatifsValides(false);
 
             Client savedClient = clientRepository.save(client);
-
-            log.info("📝 Client DEFINIITIF inscrit en attente de validation: {}", client.getEmail());
+            log.info("📝 Client DEFINITIF inscrit en attente de validation: {}", client.getEmail());
             return savedClient;
         }
     }
@@ -105,14 +98,12 @@ public class ClientPlatformService {
     public Client uploadJustificatifs(Long clientId, String typeDocument, String fileUrl) {
         Client client = getClientById(clientId);
 
-        // Vérifier que le client est bien en attente
         if (client.getStatut() != Client.StatutClient.EN_ATTENTE) {
             throw new IllegalStateException(
                     "Le client n'est pas en attente de validation. Statut actuel: " + client.getStatut().getLabel()
             );
         }
 
-        // Enregistrer le document selon son type
         switch (typeDocument.toUpperCase()) {
             case "CIN":
                 client.setCinUrl(fileUrl);
@@ -128,21 +119,16 @@ public class ClientPlatformService {
                 break;
             case "RNE":
                 client.setRneUrl(fileUrl);
-                log.info("📄 RNE uploadé pour client {} (date: {})", client.getEmail(), LocalDateTime.now());
+                log.info("📄 RNE uploadé pour client {}", client.getEmail());
                 break;
             default:
                 throw new RuntimeException("Type de document inconnu: " + typeDocument);
         }
 
-        // ⚠️ IMPORTANT: Le statut reste EN_ATTENTE
-        // La validation sera faite MANUELLEMENT par l'admin
-
         Client savedClient = clientRepository.save(client);
 
-        // Vérifier si tous les documents sont présents (juste pour log)
         if (hasAllRequiredDocuments(savedClient)) {
-            log.info("✅ Client {} a soumis tous ses justificatifs. En attente de validation admin.",
-                    client.getEmail());
+            log.info("✅ Client {} a soumis tous ses justificatifs. En attente de validation admin.", client.getEmail());
         }
 
         return savedClient;
@@ -152,17 +138,12 @@ public class ClientPlatformService {
 
     /**
      * VALIDATION MANUELLE par le Super Admin
-     * Appelé après que l'admin a VISUELLEMENT vérifié les documents
-     *
-     * L'admin doit vérifier lui-même que :
-     * - Tous les documents sont lisibles
-     * - Pour une entreprise : le RNE date de moins de 3 mois (lecture visuelle)
+     * L'admin doit vérifier visuellement que le RNE date de moins de 3 mois
      */
     @Transactional
     public Client validateClientManually(Long id, String adminComment) {
         Client client = getClientById(id);
 
-        // Vérifier que le client est en attente
         if (client.getStatut() != Client.StatutClient.EN_ATTENTE) {
             throw new IllegalStateException(
                     "Impossible de valider un client qui n'est pas en attente. Statut actuel: " +
@@ -170,15 +151,12 @@ public class ClientPlatformService {
             );
         }
 
-        // Vérifier que tous les documents requis sont présents
         if (!hasAllRequiredDocuments(client)) {
             throw new IllegalStateException(
-                    "Documents justificatifs incomplets pour valider le compte. " +
-                            "Veuillez demander au client de compléter ses documents."
+                    "Documents justificatifs incomplets pour valider le compte."
             );
         }
 
-        // Validation réussie
         client.setStatut(Client.StatutClient.VALIDE);
         client.setJustificatifsValides(true);
         client.setDateValidation(LocalDateTime.now());
@@ -188,6 +166,7 @@ public class ClientPlatformService {
 
         return clientRepository.save(client);
     }
+
     /**
      * REFUS MANUEL par le Super Admin
      */
@@ -212,20 +191,14 @@ public class ClientPlatformService {
         return clientRepository.save(client);
     }
 
-    // ========== VALIDATION (ancienne méthode, à garder pour compatibilité) ==========
+    // ========== MÉTHODES DE COMPATIBILITÉ ==========
 
-    /**
-     * @deprecated Utiliser validateClientManually() à la place
-     */
     @Deprecated
     @Transactional
     public Client validateClient(Long id, String commentaire) {
         return validateClientManually(id, commentaire);
     }
 
-    /**
-     * @deprecated Utiliser refuseClientManually() à la place
-     */
     @Deprecated
     @Transactional
     public Client refuseClient(Long id, String motif) {
@@ -234,18 +207,13 @@ public class ClientPlatformService {
 
     // ========== ACTIVATION (après paiement) ==========
 
-    /**
-     * Activer un client (après paiement de l'abonnement)
-     */
     @Transactional
     public Client activateClient(Long id, String dbName) {
         Client client = getClientById(id);
 
-        // Vérifier que le client est validé
         if (client.getStatut() != Client.StatutClient.VALIDE) {
             throw new RuntimeException(
-                    "Le client doit être validé avant activation. Statut actuel: " +
-                            client.getStatut().getLabel()
+                    "Le client doit être validé avant activation. Statut actuel: " + client.getStatut().getLabel()
             );
         }
 
@@ -256,10 +224,7 @@ public class ClientPlatformService {
         client.setConnexionsMax(999999);
         client.setConnexionsRestantes(999999);
 
-        // Créer l'utilisateur maintenant (après paiement)
         if (utilisateurRepository.findByEmail(client.getEmail()).isEmpty()) {
-            // L'utilisateur n'existe pas encore (cas DEFINITIF)
-            // À adapter selon votre logique de mot de passe
             Utilisateur utilisateur = Utilisateur.builder()
                     .email(client.getEmail())
                     .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
@@ -275,9 +240,6 @@ public class ClientPlatformService {
 
     // ========== GESTION DES CONNEXIONS ==========
 
-    /**
-     * Enregistrer une connexion client
-     */
     @Transactional
     public Client recordLogin(String email) {
         String domaine = email.substring(email.indexOf('@') + 1);
@@ -290,7 +252,6 @@ public class ClientPlatformService {
             throw new RuntimeException("Compte non actif. Statut: " + client.getStatut().getLabel());
         }
 
-        // Gestion compte essai
         if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
             if (client.getConnexionsRestantes() <= 0) {
                 client.setStatut(Client.StatutClient.INACTIF);
@@ -304,17 +265,12 @@ public class ClientPlatformService {
                     client.getNom(), client.getConnexionsRestantes(), client.getConnexionsMax());
         }
 
-        // Mettre à jour la date de dernière connexion
         client.setLastLoginDate(LocalDateTime.now());
-
         return clientRepository.save(client);
     }
 
     // ========== MÉTHODES UTILITAIRES PRIVÉES ==========
 
-    /**
-     * Vérifie si tous les documents requis sont présents
-     */
     private boolean hasAllRequiredDocuments(Client client) {
         if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
             return client.getGerantCinUrl() != null &&
@@ -325,11 +281,8 @@ public class ClientPlatformService {
         }
     }
 
-    /**
-     * Vérifie et met à jour automatiquement le statut
-     */
     private void checkAndUpdateStatus(Client client) {
-        if (client.getAbonnementActif() != null) {
+        if (client.getAbonnementActif() != null && client.getAbonnementActif().getDateFin() != null) {
             if (client.getAbonnementActif().getDateFin().isBefore(LocalDateTime.now())) {
                 client.setStatut(Client.StatutClient.INACTIF);
                 clientRepository.save(client);

@@ -40,4 +40,15 @@ export const superAdminService = {
       throw error;
     }
   },
+
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminInfo');
+    localStorage.removeItem('superAdminInfo');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    window.location.href = '/super-admin/login';
+  },
 };

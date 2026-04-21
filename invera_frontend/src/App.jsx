@@ -46,6 +46,8 @@ import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/St
 import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 
 import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
+import ClientsManagementPage from './pages/superAdmin/clients/ClientsManagementPage';
+import SubscriptionsManagementPage from './pages/superAdmin/abonnements/SubscriptionsManagementPage';
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -283,8 +285,8 @@ function App() {
               }
             >
               <Route index element={<Navigate to="clients" replace />} />
-              <Route path="clients" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des clients</h1></div>} />
-              <Route path="abonnements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des abonnements</h1></div>} />
+              <Route path="clients" element={<ClientsManagementPage />} />
+              <Route path="abonnements" element={<SubscriptionsManagementPage />} />
               <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
               <Route path="profile" element={<SuperAdminProfilePage />} />
               <Route path="settings" element={<SuperAdminSettingsPage />} />

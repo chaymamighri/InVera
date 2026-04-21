@@ -57,11 +57,7 @@ public class SuperAdminController {
 
 
             // Génération token
-            String token = jwtTokenProvider.generateTokenForSuperAdmin(
-                    admin.getEmail(),
-                    "SUPER_ADMIN",
-                    null
-            );
+            String token = jwtTokenProvider.generateTokenForSuperAdmin(admin.getId(), admin.getEmail(), admin.getNom());
 
             // ✅ AJOUT - Enregistrement session unique
             boolean wasOtherSessionActive = sessionManagementService.registerSession(admin.getEmail(), token);
@@ -154,4 +150,5 @@ public class SuperAdminController {
         return email;
     }
 }
+
 
