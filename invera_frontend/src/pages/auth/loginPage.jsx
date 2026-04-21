@@ -269,26 +269,24 @@ const LoginPage = () => {
                 )}
               </div>
 
-              <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-6 text-xs text-slate-400 sm:flex-row">
-                <p className="flex items-center gap-1.5">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                  Connexion securisee TLS 1.3
+              {/* ✅ Lien d'inscription - MIS EN ÉVIDENCE */}
+              <div className="mt-6 text-center">
+                <p className="text-sm text-slate-500">
+                  Pas encore de compte ?{' '}
+                  <Link
+                    to="/register"
+                    className="font-semibold text-[#0b4ea2] transition-all hover:text-[#0b3d82] hover:underline"
+                  >
+                    S'inscrire gratuitement
+                  </Link>
                 </p>
-                <p>© {new Date().getFullYear()} InVera ERP - Tous droits reserves</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="mt-6 text-center text-xs text-slate-400">
-          <span>Un probleme ? </span>
-          <button
-            type="button"
-            className="font-medium text-[#0b4ea2] transition hover:underline"
-            onClick={() => alert("Contactez votre administrateur ou l equipe support InVera.")}
-          >
-            Contacter le support
-          </button>
+          <p>© {new Date().getFullYear()} InVera ERP - Tous droits reserves</p>
         </div>
       </div>
     </div>
