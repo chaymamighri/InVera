@@ -157,6 +157,13 @@ const WelcomePage = () => {
             </div>
 
             <nav className="flex flex-col gap-3 sm:flex-row">
+              {/* ✅ NOUVEAU BOUTON INSCRIPTION - MIS EN AVANT */}
+              <Link
+                to="/register"
+                className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-emerald-600 hover:to-teal-600 hover:shadow-xl"
+              >
+                🚀 S'inscrire gratuitement
+              </Link>
               <Link
                 to="/login"
                 className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
@@ -195,6 +202,22 @@ const WelcomePage = () => {
                 avec une presentation sobre, lisible et adaptee a l univers visuel du produit.
               </p>
 
+              {/* ✅ BANNIÈRE PROMOTIONNELLE POUR L'INSCRIPTION */}
+              <div className="mt-8 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-200">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold text-emerald-800">🚀 Lancez-vous sans risque !</p>
+                    <p className="text-sm text-emerald-600">Profitez de 30 jours d'essai gratuit, sans engagement.</p>
+                  </div>
+                  <Link
+                    to="/register"
+                    className="whitespace-nowrap rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-emerald-600 hover:to-teal-600"
+                  >
+                    Commencer l'essai gratuit →
+                  </Link>
+                </div>
+              </div>
+
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
                 {companyStats.map((stat) => (
                   <div key={stat.label} className="rounded-[24px] border border-sky-100 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
@@ -228,10 +251,10 @@ const WelcomePage = () => {
               </div>
 
               <div className="mt-8 rounded-[28px] border border-white/10 bg-white/8 p-5">
-                <p className="text-sm font-medium text-slate-100">Integration des captures</p>
+                <p className="text-sm font-medium text-slate-100">Offre spéciale</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Les captures reelles sont deja connectees depuis `src/assets/images/welcome/`.
-                  Vous pouvez les remplacer a tout moment en changeant simplement les imports.
+                  🎁Profitez de 30 connexions gratuites pour découvrir notre solution.
+                  Toutes les fonctionnalités sont disponibles pendant l'essai.
                 </p>
               </div>
             </div>
@@ -251,11 +274,18 @@ const WelcomePage = () => {
                   agrandies pour privilegier la lisibilite et une presentation plus propre.
                 </p>
               </div>
+              
+              {/* ✅ BOUTON CTA SUPPLEMENTAIRE */}
+              <Link
+                to="/register"
+                className="hidden sm:flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-emerald-600 hover:to-teal-600"
+              >
+                <span>✨</span>
+                Essai gratuit
+              </Link>
             </div>
 
             <div className="relative left-1/2 right-1/2 ml-[-50vw] mr-[-50vw] w-screen overflow-x-auto overflow-y-visible pb-6 [scrollbar-width:thin]">
-              
-
               <div className="overflow-hidden">
                 <div className="dashboard-marquee flex w-max gap-10 px-6 pt-4 lg:px-12">
                   {carouselItems.map((preview, index) => (

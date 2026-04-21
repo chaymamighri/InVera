@@ -1,4 +1,4 @@
-package org.erp.invera.model.erp;
+package org.erp.invera.model.platform;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -26,7 +26,7 @@ public class PasswordResetToken {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Utilisateur user;
 
     @Column(name = "expiry_date" ,nullable = false)
     private LocalDateTime expiryDate;

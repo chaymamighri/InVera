@@ -1,6 +1,6 @@
-package org.erp.invera.repository.erp;
+package org.erp.invera.repository.platform;
 
-import org.erp.invera.model.erp.ActivationToken;
+import org.erp.invera.model.platform.ActivationToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
