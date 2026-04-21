@@ -2,12 +2,15 @@ package org.erp.invera.service.payment;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.dto.platform.abonnementdto.AbonnementResponse;
 import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
+import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.PaiementRepository;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
+import org.erp.invera.service.platform.OffreAbonnementService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,200 +26,281 @@ public class SubscriptionService {
     private final PaiementRepository paiementRepository;
     private final ClientPlatformService clientService;
     private final DatabaseCreationService databaseCreationService;
+    private final OffreAbonnementService offreAbonnementService;
 
-    // ========== CRÉATION ABONNEMENT ==========
-    /**
-     * Crée un abonnement pour un client
-     * @param clientId ID du client
-     * @param periodType MENSUEL ou ANNUEL
-     */
+    @Transactional(readOnly = true)
+    public List<AbonnementResponse> getAllSubscriptions(String statut) {
+        List<Abonnement> abonnements;
+        if (statut == null || statut.isBlank()) {
+            abonnements = abonnementRepository.findAllByOrderByDateDebutDesc();
+        } else {
+            abonnements = abonnementRepository.findByStatutOrderByDateDebutDesc(
+                    Abonnement.StatutAbonnement.valueOf(statut.toUpperCase())
+            );
+        }
+        return abonnements.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AbonnementResponse> getSubscriptionsByClient(Long clientId) {
+        clientService.getClientById(clientId);
+        return abonnementRepository.findByClientIdOrderByDateDebutDesc(clientId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AbonnementResponse getSubscriptionById(Long abonnementId) {
+        return toResponse(getSubscriptionEntity(abonnementId));
+    }
+
     @Transactional
     public Abonnement createSubscription(Long clientId, Abonnement.PeriodType periodType) {
         Client client = clientService.getClientById(clientId);
+        assertNoActiveSubscription(client.getId());
 
-        // Créer l'abonnement
+        int dureeMois = periodType.getMois();
         Abonnement abonnement = new Abonnement();
         abonnement.setClient(client);
         abonnement.setPeriodType(periodType);
+        abonnement.setDureeMois(dureeMois);
         abonnement.setMontant(calculerMontant(periodType));
         abonnement.setDevise("TND");
         abonnement.setDateDebut(LocalDateTime.now());
-        abonnement.setDateFin(calculerDateFin(periodType));
+        abonnement.setDateFin(calculerDateFin(dureeMois));
         abonnement.setDateProchainRenouvellement(abonnement.getDateFin());
         abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
         abonnement.setAutoRenouvellement(true);
 
         Abonnement saved = abonnementRepository.save(abonnement);
-        client.setAbonnementActif(saved);
+        applyActiveSubscriptionToClient(client, saved);
 
-        // Activer le client
-        client.setStatut(Client.StatutClient.ACTIF);
-        client.setIsActive(true);
-        client.setConnexionsMax(999999);
-        client.setConnexionsRestantes(999999);
-        clientService.updateClient(clientId, client);
-
-        log.info("✅ Abonnement créé pour client {} - Périodicité: {} - Montant: {} TND - Expiration: {}",
+        log.info("Abonnement cree pour client {} - Periodicite: {} - Montant: {} TND - Expiration: {}",
                 client.getEmail(), periodType.getLabel(), saved.getMontant(), saved.getDateFin());
 
         return saved;
     }
-    // ========== RENOUVELLEMENT ==========
+
+    @Transactional
+    public AbonnementResponse createSubscriptionFromOffer(Long clientId, Long offreId) {
+        OffreAbonnement offre = offreAbonnementService.getAvailableOfferEntityById(offreId);
+        Client client = clientService.getClientById(clientId);
+        assertNoActiveSubscription(clientId);
+
+        int dureeMois = offre.getDureeMois();
+        Abonnement abonnement = new Abonnement();
+        abonnement.setClient(client);
+        abonnement.setOffreAbonnement(offre);
+        abonnement.setPeriodType(null);
+        abonnement.setDureeMois(dureeMois);
+        abonnement.setMontant(offre.getPrix());
+        abonnement.setDevise(offre.getDevise());
+        abonnement.setDateDebut(LocalDateTime.now());
+        abonnement.setDateFin(LocalDateTime.now().plusMonths(dureeMois));
+        abonnement.setDateProchainRenouvellement(abonnement.getDateFin());
+        abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
+        abonnement.setAutoRenouvellement(true);
+
+        Abonnement saved = abonnementRepository.save(abonnement);
+        applyActiveSubscriptionToClient(client, saved);
+
+        log.info("Abonnement cree depuis offre {} pour client {}", offre.getNom(), client.getEmail());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public AbonnementResponse renewSubscription(Long abonnementId) {
+        Abonnement oldAbonnement = getSubscriptionEntity(abonnementId);
+        return toResponse(renewSubscription(oldAbonnement));
+    }
 
     @Transactional
     public Abonnement renewSubscription(Abonnement oldAbonnement) {
         Client client = oldAbonnement.getClient();
+        assertNoOtherActiveSubscription(client.getId(), oldAbonnement.getId());
 
-        // Créer le nouvel abonnement
+        int dureeMois = resolveDureeMois(oldAbonnement);
         Abonnement newAbonnement = new Abonnement();
         newAbonnement.setClient(client);
+        newAbonnement.setOffreAbonnement(oldAbonnement.getOffreAbonnement());
         newAbonnement.setPeriodType(oldAbonnement.getPeriodType());
+        newAbonnement.setDureeMois(dureeMois);
         newAbonnement.setMontant(oldAbonnement.getMontant());
         newAbonnement.setDevise(oldAbonnement.getDevise());
         newAbonnement.setDateDebut(LocalDateTime.now());
-        newAbonnement.setDateFin(calculerDateFin(oldAbonnement.getPeriodType()));
+        newAbonnement.setDateFin(calculerDateFin(dureeMois));
         newAbonnement.setDateProchainRenouvellement(newAbonnement.getDateFin());
         newAbonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
         newAbonnement.setAutoRenouvellement(oldAbonnement.getAutoRenouvellement());
 
-        Abonnement saved = abonnementRepository.save(newAbonnement);
-
-        // Mettre à jour le client
-        client.setAbonnementActif(saved);
-
-        if (client.getStatut() == Client.StatutClient.INACTIF) {
-            client.setStatut(Client.StatutClient.ACTIF);
-            client.setIsActive(true);
-        }
-
-        clientService.updateClient(client.getId(), client);
-
-        // Ancien abonnement expiré
         oldAbonnement.setStatut(Abonnement.StatutAbonnement.EXPIRE);
         abonnementRepository.save(oldAbonnement);
 
-        log.info("🔄 Abonnement renouvelé pour client {} - Expiration: {}",
+        Abonnement saved = abonnementRepository.save(newAbonnement);
+        applyActiveSubscriptionToClient(client, saved);
+
+        log.info("Abonnement renouvele pour client {} - Expiration: {}",
                 client.getEmail(), saved.getDateFin());
         return saved;
     }
 
-    // ========== VÉRIFICATION AUTOMATIQUE ==========
-
     @Transactional
     public void checkAndRenewSubscriptions() {
         LocalDateTime now = LocalDateTime.now();
-
-        // Trouver abonnements expirés
         List<Abonnement> expires = abonnementRepository.findByStatutAndDateFinBefore(
                 Abonnement.StatutAbonnement.ACTIF, now
         );
 
         for (Abonnement abonnement : expires) {
-            if (abonnement.getAutoRenouvellement()) {
+            if (Boolean.TRUE.equals(abonnement.getAutoRenouvellement())) {
                 try {
                     renewSubscription(abonnement);
-                    log.info("✅ Renouvellement réussi pour client {}", abonnement.getClient().getId());
+                    log.info("Renouvellement reussi pour client {}", abonnement.getClient().getId());
                 } catch (Exception e) {
-                    // Échec renouvellement → SUSPENDU + client INACTIF
                     abonnement.setStatut(Abonnement.StatutAbonnement.SUSPENDU);
                     abonnementRepository.save(abonnement);
-
-                    Client client = abonnement.getClient();
-                    client.setStatut(Client.StatutClient.INACTIF);
-                    client.setIsActive(false);
-                    clientService.updateClient(client.getId(), client);
-
-                    log.error("❌ Échec renouvellement pour client {} - Compte désactivé",
+                    deactivateClientAccess(abonnement.getClient());
+                    log.error("Echec renouvellement pour client {} - Compte desactive",
                             abonnement.getClient().getId());
                 }
             } else {
-                // Auto-renouvellement désactivé → EXPIRE + client INACTIF
                 abonnement.setStatut(Abonnement.StatutAbonnement.EXPIRE);
                 abonnementRepository.save(abonnement);
-
-                Client client = abonnement.getClient();
-                client.setStatut(Client.StatutClient.INACTIF);
-                client.setIsActive(false);
-                clientService.updateClient(client.getId(), client);
-
-                log.warn("⏰ Abonnement expiré pour client {} - Compte désactivé",
+                deactivateClientAccess(abonnement.getClient());
+                log.warn("Abonnement expire pour client {} - Compte desactive",
                         abonnement.getClient().getId());
             }
         }
     }
 
-    // ========== GESTION MANUELLE ==========
-
     @Transactional
-    public void suspendSubscription(Long abonnementId, String motif) {
-        Abonnement abonnement = abonnementRepository.findById(abonnementId)
-                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
-
+    public AbonnementResponse suspendSubscription(Long abonnementId, String motif) {
+        Abonnement abonnement = getSubscriptionEntity(abonnementId);
         abonnement.setStatut(Abonnement.StatutAbonnement.SUSPENDU);
         abonnementRepository.save(abonnement);
-
-        Client client = abonnement.getClient();
-        client.setStatut(Client.StatutClient.INACTIF);
-        client.setIsActive(false);
-        clientService.updateClient(client.getId(), client);
-
-        log.warn("🚫 Abonnement suspendu pour client {} - Motif: {}", client.getEmail(), motif);
+        deactivateClientAccess(abonnement.getClient());
+        log.warn("Abonnement suspendu pour client {} - Motif: {}", abonnement.getClient().getEmail(), motif);
+        return toResponse(abonnement);
     }
 
     @Transactional
-    public void reactivateSubscription(Long abonnementId) {
-        Abonnement abonnement = abonnementRepository.findById(abonnementId)
-                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
-
+    public AbonnementResponse reactivateSubscription(Long abonnementId) {
+        Abonnement abonnement = getSubscriptionEntity(abonnementId);
+        assertNoOtherActiveSubscription(abonnement.getClient().getId(), abonnement.getId());
         abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
         abonnementRepository.save(abonnement);
-
-        Client client = abonnement.getClient();
-        client.setStatut(Client.StatutClient.ACTIF);
-        client.setIsActive(true);
-        clientService.updateClient(client.getId(), client);
-
-        log.info("🟢 Abonnement réactivé pour client {}", client.getEmail());
+        applyActiveSubscriptionToClient(abonnement.getClient(), abonnement);
+        log.info("Abonnement reactive pour client {}", abonnement.getClient().getEmail());
+        return toResponse(abonnement);
     }
 
     @Transactional
-    public void cancelSubscription(Long abonnementId) {
-        Abonnement abonnement = abonnementRepository.findById(abonnementId)
-                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
-
+    public AbonnementResponse cancelSubscription(Long abonnementId) {
+        Abonnement abonnement = getSubscriptionEntity(abonnementId);
         abonnement.setStatut(Abonnement.StatutAbonnement.ANNULE);
         abonnement.setAutoRenouvellement(false);
         abonnementRepository.save(abonnement);
-
-        log.info("✖️ Abonnement annulé pour client {}", abonnement.getClient().getEmail());
+        deactivateClientAccess(abonnement.getClient());
+        log.info("Abonnement annule pour client {}", abonnement.getClient().getEmail());
+        return toResponse(abonnement);
     }
 
-    // ========== MÉTHODES PRIVÉES ==========
+    @Transactional
+    public AbonnementResponse updateAutoRenewal(Long abonnementId, boolean autoRenouvellement) {
+        Abonnement abonnement = getSubscriptionEntity(abonnementId);
+        abonnement.setAutoRenouvellement(autoRenouvellement);
+        abonnementRepository.save(abonnement);
+        return toResponse(abonnement);
+    }
 
-    /**
-     * Calcule le montant selon la périodicité
-     * Prix unique: 29 TND/mois
-     */
+    @Transactional(readOnly = true)
+    public Abonnement getSubscriptionEntity(Long abonnementId) {
+        return abonnementRepository.findWithDetailsById(abonnementId)
+                .orElseThrow(() -> new RuntimeException("Abonnement non trouve"));
+    }
+
+    private void assertNoActiveSubscription(Long clientId) {
+        if (abonnementRepository.existsByClientIdAndStatut(clientId, Abonnement.StatutAbonnement.ACTIF)) {
+            throw new RuntimeException("Ce client a deja un abonnement actif");
+        }
+    }
+
+    private void assertNoOtherActiveSubscription(Long clientId, Long currentAbonnementId) {
+        abonnementRepository.findByClientIdAndStatut(clientId, Abonnement.StatutAbonnement.ACTIF)
+                .ifPresent(active -> {
+                    if (!active.getId().equals(currentAbonnementId)) {
+                        throw new RuntimeException("Un autre abonnement actif existe deja pour ce client");
+                    }
+                });
+    }
+
+    private void applyActiveSubscriptionToClient(Client client, Abonnement abonnement) {
+        client.setAbonnementActif(abonnement);
+        client.setTypeInscription(Client.TypeInscription.DEFINITIF);
+        client.setStatut(Client.StatutClient.ACTIF);
+        client.setIsActive(true);
+        client.setConnexionsMax(999999);
+        client.setConnexionsRestantes(999999);
+        clientService.saveClient(client);
+    }
+
+    private void deactivateClientAccess(Client client) {
+        client.setAbonnementActif(null);
+        client.setStatut(Client.StatutClient.INACTIF);
+        client.setIsActive(false);
+        clientService.saveClient(client);
+    }
+
     private double calculerMontant(Abonnement.PeriodType periodType) {
-        double prixMensuel = 29.0;
-
-        if (periodType == Abonnement.PeriodType.MENSUEL) {
-            return prixMensuel;  // 29 TND
-        } else {
-            return prixMensuel * 12 * 0.9;  // 29 * 12 * 0.9 = 313.2 TND
-        }
+        return periodType.getPrix();
     }
 
-    /**
-     * Calcule la date de fin selon la périodicité
-     * @param periodType MENSUEL ou ANNUEL
-     * @return Date de fin de l'abonnement
-     */
-    private LocalDateTime calculerDateFin(Abonnement.PeriodType periodType) {
-        if (periodType == Abonnement.PeriodType.MENSUEL) {
-            return LocalDateTime.now().plusMonths(1);
-        } else {
-            return LocalDateTime.now().plusYears(1);
+    private LocalDateTime calculerDateFin(int dureeMois) {
+        return LocalDateTime.now().plusMonths(dureeMois);
+    }
+
+    private int resolveDureeMois(Abonnement abonnement) {
+        if (abonnement.getDureeMois() != null && abonnement.getDureeMois() > 0) {
+            return abonnement.getDureeMois();
         }
+        if (abonnement.getOffreAbonnement() != null && abonnement.getOffreAbonnement().getDureeMois() != null) {
+            return abonnement.getOffreAbonnement().getDureeMois();
+        }
+        if (abonnement.getPeriodType() != null) {
+            return abonnement.getPeriodType().getMois();
+        }
+        throw new RuntimeException("Impossible de determiner la duree de cet abonnement");
+    }
+
+    private String formatDurationLabel(int dureeMois) {
+        return dureeMois == 1 ? "1 mois" : dureeMois + " mois";
+    }
+
+    private AbonnementResponse toResponse(Abonnement abonnement) {
+        OffreAbonnement offre = abonnement.getOffreAbonnement();
+        Client client = abonnement.getClient();
+        Integer dureeMois = resolveDureeMois(abonnement);
+
+        return AbonnementResponse.builder()
+                .id(abonnement.getId())
+                .clientId(client != null ? client.getId() : null)
+                .clientNom(client != null ? ((client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom()).trim() : null)
+                .clientEmail(client != null ? client.getEmail() : null)
+                .offreId(offre != null ? offre.getId() : null)
+                .offreNom(offre != null ? offre.getNom() : null)
+                .typeOffre(offre != null ? offre.getTypeOffre().name() : null)
+                .duree(formatDurationLabel(dureeMois))
+                .dureeMois(dureeMois)
+                .periodType(abonnement.getPeriodType() != null ? abonnement.getPeriodType().name() : null)
+                .montant(abonnement.getMontant())
+                .devise(abonnement.getDevise())
+                .dateDebut(abonnement.getDateDebut())
+                .dateFin(abonnement.getDateFin())
+                .dateProchainRenouvellement(abonnement.getDateProchainRenouvellement())
+                .statut(abonnement.getStatut().name())
+                .autoRenouvellement(abonnement.getAutoRenouvellement())
+                .offreToujoursActive(offre != null ? Boolean.TRUE.equals(offre.getActive()) && !Boolean.TRUE.equals(offre.getDeleted()) : null)
+                .build();
     }
 }
