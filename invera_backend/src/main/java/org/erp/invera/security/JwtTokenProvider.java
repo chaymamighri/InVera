@@ -4,8 +4,6 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.erp.invera.model.platform.Utilisateur;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -47,28 +45,47 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String generateToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    // Dans JwtTokenProvider.java - Ajouter cette méthode
+
+    /**
+     * Génère un token d'activation (valable 24h)
+     */
+    public String generateActivationToken(String email, int i) {
+        long activationExpirationMs = 24 * 60 * 60 * 1000; // 24h
 
         Map<String, Object> claims = new HashMap<>();
-        claims.put("email", userDetails.getUsername());
-
-        String role = userDetails.getAuthorities().stream()
-                .findFirst()
-                .map(auth -> auth.getAuthority())
-                .orElse("ROLE_USER");
-        claims.put("role", role);
+        claims.put("email", email);
+        claims.put("type", "ACTIVATION");
+        claims.put("purpose", "ACCOUNT_ACTIVATION");
 
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+        Date expiryDate = new Date(now.getTime() + activationExpirationMs);
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(userDetails.getUsername())
+                .setSubject(email)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getKey(), SignatureAlgorithm.HS512)
                 .compact();
+    }
+
+    /**
+     * Valide un token d'activation et retourne l'email
+     */
+    public String validateActivationToken(String token) {
+        try {
+            Claims claims = getClaims(token);
+            String type = claims.get("type", String.class);
+            String purpose = claims.get("purpose", String.class);
+
+            if ("ACTIVATION".equals(type) && "ACCOUNT_ACTIVATION".equals(purpose)) {
+                return claims.get("email", String.class);
+            }
+            return null;
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
     }
 
     public Integer getUserIdFromToken(String token) {

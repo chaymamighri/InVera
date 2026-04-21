@@ -10,7 +10,6 @@ export const registerService = {
     try {
       const response = await api.post('/platform/clients/request-otp', { email });
       
-      // ✅ Maintenant pendingOtpCode est défini
       pendingOtpCode = response.data.debug_otp;
       pendingOtpEmail = email;
       
@@ -33,7 +32,6 @@ export const registerService = {
     console.log('🔍 Code saisi:', code);
     console.log('🔍 Code attendu:', pendingOtpCode);
     
-    // ✅ Vérifier que pendingOtpCode existe
     if (pendingOtpCode && code === pendingOtpCode) {
       console.log('✅ Code OTP valide');
       return true;
@@ -47,11 +45,13 @@ export const registerService = {
     try {
       console.log('=== REGISTER DEBUG ===');
       console.log('Email:', formData.email);
+      console.log('Type compte:', formData.typeCompte);
+      console.log('Type inscription:', formData.typeInscription);
       console.log('Code OTP saisi:', formData.code);
       console.log('Code OTP stocké:', pendingOtpCode);
       console.log('=====================');
       
-      // Vérification supplémentaire
+      // Vérification OTP
       if (formData.code !== pendingOtpCode) {
         console.error('❌ Code OTP incorrect avant envoi!');
         return { 
@@ -60,18 +60,24 @@ export const registerService = {
         };
       }
       
+      // ✅ Construire le payload selon le type de compte
       const payload = {
         email: formData.email,
         telephone: formData.telephone,
-        nom: formData.nom || '',
-        prenom: formData.prenom || '',
-        raisonSociale: formData.raisonSociale || '',
-        siret: formData.siret || '',
         typeCompte: formData.typeCompte,
         typeInscription: formData.typeInscription || 'ESSAI',
         otp: formData.code,
         password: formData.motDePasse
       };
+      
+      // ✅ Ajouter les champs spécifiques selon le type de compte
+      if (formData.typeCompte === 'ENTREPRISE') {
+        payload.raisonSociale = formData.raisonSociale;
+        payload.siret = formData.siret;
+      } else {
+        payload.nom = formData.nom || '';
+        payload.prenom = formData.prenom || '';
+      }
       
       const response = await api.post('/platform/clients/register', payload);
       
@@ -81,21 +87,23 @@ export const registerService = {
       
       const clientId = response.data.clientId;
       
-      // Upload des documents si DEFINITIF
+      // ✅ Upload des documents si DEFINITIF
       if (formData.typeInscription === 'DEFINITIF' && formData.documents && formData.documents.length > 0) {
         console.log('📎 Upload des documents pour le client:', clientId);
         
         for (const doc of formData.documents) {
           const uploadFormData = new FormData();
           uploadFormData.append('file', doc.file);
-          uploadFormData.append('typeDocument', doc.field);
+          uploadFormData.append('typeDocument', doc.type);  // ✅ Utiliser 'type' au lieu de 'field'
           
           await api.post(`/platform/clients/${clientId}/justificatifs`, uploadFormData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
+          
+          console.log(`✅ Document ${doc.type} uploadé avec succès`);
         }
         
-        console.log('✅ Documents uploadés avec succès');
+        console.log('✅ Tous les documents uploadés avec succès');
       }
       
       return { 
@@ -103,13 +111,14 @@ export const registerService = {
         clientId: clientId,
         message: response.data.message,
         connexionsRestantes: response.data.connexionsRestantes,
-        motDePasse: formData.motDePasse
+        motDePasse: formData.motDePasse,
+        statut: response.data.statut
       };
+      
     } catch (error) {
       console.error('❌ Erreur inscription:', error);
       console.error('❌ Détails réponse:', error.response?.data);
       
-      // ✅ Nettoyer en cas d'erreur aussi
       pendingOtpCode = null;
       pendingOtpEmail = null;
       
@@ -126,9 +135,14 @@ export const registerService = {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('userRole', 'ADMIN_CLIENT');
         localStorage.setItem('userEmail', response.data.email);
-        localStorage.setItem('userName', response.data.nom);
+        localStorage.setItem('userName', response.data.nom || response.data.raisonSociale);
         localStorage.setItem('clientDatabase', response.data.database || '');
         localStorage.setItem('clientId', response.data.clientId);
+        
+        // ✅ Stocker le type de compte
+        if (response.data.typeCompte) {
+          localStorage.setItem('clientType', response.data.typeCompte);
+        }
       }
       
       return { success: true, data: response.data };
@@ -136,6 +150,40 @@ export const registerService = {
       console.error('Erreur connexion:', error);
       const message = error.response?.data?.error || 'Erreur lors de la connexion';
       return { success: false, message };
+    }
+  },
+  
+  // ✅ Nouvelle méthode : Upload de justificatifs après inscription
+  async uploadJustificatif(clientId, file, typeDocument) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('typeDocument', typeDocument);
+      
+      const response = await api.post(`/platform/clients/${clientId}/justificatifs`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Erreur upload document:', error);
+      const message = error.response?.data?.error || 'Erreur lors de l\'upload du document';
+      return { success: false, message };
+    }
+  },
+  
+  // ✅ Nouvelle méthode : Récupérer les documents requis selon le type de compte
+  getRequiredDocuments(typeCompte) {
+    if (typeCompte === 'ENTREPRISE') {
+      return [
+        { field: 'GERANT_CIN', label: 'Carte d\'identité du gérant', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] },
+        { field: 'PATENTE', label: 'Patente', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] },
+        { field: 'RNE', label: 'Extrait RNE (moins de 3 mois)', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
+      ];
+    } else {
+      return [
+        { field: 'CIN', label: 'Carte d\'identité nationale', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
+      ];
     }
   }
 };
@@ -145,5 +193,7 @@ export const sendOtp = (email) => registerService.sendOtp(email);
 export const verifyOtp = (email, code) => registerService.verifyOtp(email, code);
 export const register = (formData) => registerService.register(formData);
 export const login = (email, password) => registerService.login(email, password);
+export const uploadJustificatif = (clientId, file, typeDocument) => registerService.uploadJustificatif(clientId, file, typeDocument);
+export const getRequiredDocuments = (typeCompte) => registerService.getRequiredDocuments(typeCompte);
 
 export default registerService;

@@ -46,7 +46,6 @@ import StockMovementsPage from './pages/dashboard/procurement/stock/mouvement/St
 import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 
 import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
-import RegisterSimplified from './pages/Register/RegisterSimplified';
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',

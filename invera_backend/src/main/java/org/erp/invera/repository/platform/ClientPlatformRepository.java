@@ -16,6 +16,7 @@ public interface ClientPlatformRepository extends JpaRepository<Client, Long> {
     // ========== RECHERCHES DE BASE ==========
     Optional<Client> findByEmail(String email);
 
+
     boolean existsByEmail(String email);
 
     boolean existsByTelephone(String telephone);

@@ -34,6 +34,12 @@ public class Client {
 
     private String prenom;
 
+    @Column(name = "raison_sociale")
+    private String raisonSociale;      // Nom légal de l'entreprise
+
+    @Column(name = "siret", unique = true)
+    private String siret;     // Numéro SIRET (14 chiffres)
+
     // ========== DOMAINE POUR IDENTIFICATION ==========
     @Column(name = "domaine", unique = true)
     private String domaine;  // ← AJOUTÉ : ex: "abc.com" pour l'entreprise
@@ -59,9 +65,6 @@ public class Client {
 
     @Column(name = "rne_url")
     private String rneUrl;
-
-    @Column(name = "rne_date")
-    private LocalDateTime rneDate;
 
     // ========== STATUT ==========
     @Enumerated(EnumType.STRING)
@@ -115,6 +118,9 @@ public class Client {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "last_login_date")
+    private LocalDateTime lastLoginDate;
+
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = false;
@@ -151,5 +157,23 @@ public class Client {
         private final String label;
         StatutClient(String label) { this.label = label; }
         public String getLabel() { return label; }
+    }
+
+    // Dans Client.java - Gestion conditionnelle
+
+    public String getDisplayName() {
+        if (typeCompte == TypeCompte.ENTREPRISE) {
+            return raisonSociale != null ? raisonSociale : nom;
+        } else {
+            return (prenom != null ? prenom + " " : "") + nom;
+        }
+    }
+
+    public String getLegalIdentifier() {
+        if (typeCompte == TypeCompte.ENTREPRISE) {
+            return siret;  // Pour entreprise : SIRET
+        } else {
+            return cinUrl; // Pour particulier : CIN
+        }
     }
 }

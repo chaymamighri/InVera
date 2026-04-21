@@ -48,7 +48,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/otp/verify",
             "/api/otp/login",
             "/api/platform/clients/register",
-            "/api/platform/clients/login"
+            "/api/platform/clients/login",
+            "/api/platform/clients/request-otp",
+            "/api/platform/clients/verify-otp",
+            "/api/platform/clients/*/justificatifs"
     );
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
@@ -58,7 +61,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+
+        // Vérification exacte des chemins publics
+        if (PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith)) {
+            return true;
+        }
+
+        // ✅ Vérification spécifique pour les justificatifs (pattern avec ID)
+        if (path.matches("/api/platform/clients/\\d+/justificatifs")) {
+            System.out.println("🔓 Upload justificatif détecté, autorisé sans JWT");
+            return true;
+        }
+
+        return false;
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
@@ -134,6 +149,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     /**
      * Traitement pour SUPER_ADMIN avec vérification session unique
      */
+    /**
+     * Traitement pour SUPER_ADMIN avec vérification session unique
+     */
     private void handleSuperAdmin(HttpServletRequest request,
                                   HttpServletResponse response,
                                   Map<String, Object> claims,
@@ -158,19 +176,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println(" - Role: " + role);
         System.out.println(" - Type: " + type);
 
-        SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
-        superAdminPrincipal.setId(adminId);
-        superAdminPrincipal.setEmail(email != null ? email : (String) claims.get("sub"));
-        superAdminPrincipal.setNom(nom);
+        // ✅ IMPORTANT : Enregistrer la session AVANT de la vérifier
+        // La session n'existe pas encore, il faut la créer
+        sessionManagementService.registerSession(email, jwt);
+        System.out.println("📝 Session enregistrée pour Super Admin: " + email);
 
-        // ✅ Vérification session unique pour SUPER_ADMIN
-        if (!sessionManagementService.isSessionValid(superAdminPrincipal.getEmail(), jwt)) {
-            System.out.println("🔒 Session invalide pour " + superAdminPrincipal.getEmail());
+        // ✅ Maintenant vérifier la session (optionnel, mais gardé pour cohérence)
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
+            System.out.println("🔒 Session invalide pour " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Vous êtes connecté depuis un autre appareil. Veuillez vous reconnecter.\"}");
             return;
         }
+
+        SuperAdminPrincipal superAdminPrincipal = new SuperAdminPrincipal();
+        superAdminPrincipal.setId(adminId);
+        superAdminPrincipal.setEmail(email != null ? email : (String) claims.get("sub"));
+        superAdminPrincipal.setNom(nom);
 
         List<GrantedAuthority> authorities = Collections.singletonList(
                 new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")

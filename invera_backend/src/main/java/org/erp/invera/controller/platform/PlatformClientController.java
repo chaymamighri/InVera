@@ -1,12 +1,13 @@
 package org.erp.invera.controller.platform;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.erp.invera.dto.erp.RegisterRequest;
 import org.erp.invera.dto.platform.clientsdto.ClientRegistrationRequest;
-import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.service.payment.SubscriptionService;
+import org.erp.invera.repository.platform.ClientPlatformRepository;
+import org.erp.invera.service.docJusticatif.DocumentUploadService;
+import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
 import org.erp.invera.service.platform.OtpService;
@@ -15,11 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,42 +30,73 @@ public class PlatformClientController {
 
     private final ClientPlatformService clientService;
     private final DatabaseCreationService databaseCreationService;
-    private final SubscriptionService subscriptionService;
     private final OtpService otpService ;
+    private final ClientPlatformRepository clientRepository;
+    private final DocumentUploadService documentUploadService;
+    private final EmailService emailService;
 
 
     // ========== 1. INSCRIPTION ==========
+// ========== 1. INSCRIPTION ==========
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request) {
         try {
-
-            // 2. Créer le client
+            // 1. Créer le client avec les bons champs selon le type
             Client client = new Client();
             client.setEmail(request.getEmail());
             client.setTelephone(request.getTelephone());
-            client.setNom(request.getNom());
-            client.setPrenom(request.getPrenom());
             client.setTypeCompte(Client.TypeCompte.valueOf(request.getTypeCompte()));
             client.setTypeInscription(Client.TypeInscription.valueOf(request.getTypeInscription()));
 
+            // 2. Remplir les champs selon le type de compte
+            if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+                // Pour une entreprise
+                client.setRaisonSociale(request.getRaisonSociale());
+                client.setSiret(request.getSiret());
+
+                // Le nom par défaut = raison sociale
+                client.setNom(request.getRaisonSociale());
+                client.setPrenom(null);  // Pas de prénom pour entreprise
+
+            } else {
+                // Pour un particulier
+                client.setNom(request.getNom());
+                client.setPrenom(request.getPrenom());
+            }
+
+            // 3. Appeler le service de création
             Client newClient = clientService.createClient(client, request.getOtp(), request.getPassword());
 
+            // 4. Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("clientId", newClient.getId());
             response.put("statut", newClient.getStatut().getLabel());
 
+            // Ajouter le nom affichable
+            if (newClient.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+                response.put("raisonSociale", newClient.getRaisonSociale());
+                response.put("siret", newClient.getSiret());
+            } else {
+                response.put("nom", newClient.getNom());
+                response.put("prenom", newClient.getPrenom());
+            }
+
+            // Message selon le type d'inscription
             if (newClient.getTypeInscription() == Client.TypeInscription.ESSAI) {
                 response.put("message", "Inscription réussie. Vous pouvez vous connecter avec votre email et mot de passe.");
                 response.put("connexionsRestantes", newClient.getConnexionsRestantes());
             } else {
-                response.put("message", "Inscription réussie. En attente de validation.");
+                response.put("message", "Inscription réussie. En attente de validation des justificatifs par l'administrateur.");
             }
 
             return ResponseEntity.ok(response);
 
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            log.error("Erreur lors de l'inscription", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -125,85 +153,112 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-// ========== 2. UPLOAD JUSTIFICATIFS ==========
+
+    // ========== 2. UPLOAD JUSTIFICATIFS ==========
 
     /**
-     * Soumettre les justificatifs
+     * Upload des justificatifs avec chiffrement automatique
      * POST /api/platform/clients/{id}/justificatifs
-     *
-     * @param id ID du client
-     * @param file Fichier à uploader
-     * @param typeDocument Type de document (CIN, KBIS, PATENTE, RNE, etc.)
-     * @return Réponse avec statut
      */
     @PostMapping(value = "/{id}/justificatifs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
     public ResponseEntity<?> uploadJustificatifs(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
             @RequestParam("typeDocument") String typeDocument) {
 
         try {
-            // Validation
+            log.info("========== UPLOAD JUSTIFICATIF ==========");
+            log.info("Client ID: {}", id);
+            log.info("Type document: {}", typeDocument);
+            log.info("Fichier reçu: {}", file.getOriginalFilename());
+            log.info("Taille: {} bytes", file.getSize());
+
+            // Vérifier que le fichier n'est pas vide
             if (file == null || file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Aucun fichier fourni"));
             }
 
-            if (typeDocument == null || typeDocument.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Type de document requis"));
+            // Récupérer le client
+            Client client = clientRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Client non trouvé"));
+
+            // Vérifier que le client est bien en attente
+            if (client.getStatut() != Client.StatutClient.EN_ATTENTE) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Le client n'est pas en attente de validation. Statut actuel: " + client.getStatut()
+                ));
             }
 
-            // 1. Sauvegarder le fichier
-            String fileUrl = saveJustificatifFile(file, typeDocument, id);
+            // Convertir le type document
+            DocumentUploadService.DocumentType docType = mapToDocumentType(typeDocument);
 
-            // 2. Mettre à jour le client avec l'URL du document
-            Client client = clientService.uploadJustificatifs(id, typeDocument, fileUrl);
+            // Upload et chiffrement
+            String encryptedPath = documentUploadService.uploadJustificatif(id, file, docType);
+            log.info("✅ Fichier chiffré sauvegardé: {}", encryptedPath);
 
+            // Mettre à jour l'URL dans l'entité
+            updateDocumentUrl(client, docType, encryptedPath);
+
+            // Sauvegarder
+            Client savedClient = clientRepository.save(client);
+
+            // Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Justificatif soumis avec succès");
-            response.put("statut", client.getStatut());
-            response.put("fileUrl", fileUrl);
+            response.put("statut", savedClient.getStatut().getLabel());
             response.put("typeDocument", typeDocument);
+            response.put("fileUrl", encryptedPath);
+
+            log.info("✅ Justificatif {} uploadé pour client {} (toujours en attente de validation)",
+                    typeDocument, client.getEmail());
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
-            log.error("Erreur lors de l'upload du justificatif: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Erreur paramètre: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de l'upload: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 
-    /**
-     * Sauvegarde le fichier justificatif sur le disque
-     */
-    private String saveJustificatifFile(MultipartFile file, String typeDocument, Long clientId) throws IOException {
-        // Créer le répertoire d'upload
-        String uploadDir = "uploads/justificatifs/client_" + clientId + "/";
-        Path uploadPath = Paths.get(uploadDir);
 
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
+    private boolean hasAllRequiredDocuments(Client client) {
+        if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+            return client.getGerantCinUrl() != null &&
+                    client.getPatenteUrl() != null &&
+                    client.getRneUrl() != null;
+        } else {
+            return client.getCinUrl() != null;
         }
+    }
 
-        // Générer un nom de fichier unique
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
+    private DocumentUploadService.DocumentType mapToDocumentType(String typeDocument) {
+        return switch (typeDocument.toUpperCase()) {
+            case "CIN" -> DocumentUploadService.DocumentType.CIN;
+            case "GERANT_CIN", "CIN_GERANT" -> DocumentUploadService.DocumentType.GERANT_CIN;
+            case "PATENTE" -> DocumentUploadService.DocumentType.PATENTE;
+            case "RNE" -> DocumentUploadService.DocumentType.RNE;
+            default -> throw new IllegalArgumentException("Type de document inconnu: " + typeDocument);
+        };
+    }
 
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+    private void updateDocumentUrl(Client client, DocumentUploadService.DocumentType type, String url) {
+        switch (type) {
+            case CIN -> client.setCinUrl(url);
+            case GERANT_CIN -> client.setGerantCinUrl(url);
+            case PATENTE -> client.setPatenteUrl(url);
+            case RNE -> {
+                client.setRneUrl(url);
+            }
         }
-
-        String fileName = timestamp + "_" + typeDocument + extension;
-        Path filePath = uploadPath.resolve(fileName);
-
-        // Sauvegarder le fichier
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        return filePath.toString();
     }
 
     // ========== 3. VALIDATION ADMIN ==========
+
 
     /**
      * Valider un client (Super Admin)
@@ -214,10 +269,23 @@ public class PlatformClientController {
         try {
             Client client = clientService.validateClient(id, null);
 
+            // ✅ Envoyer l'email de validation avec lien de paiement
+            String clientName = client.getTypeCompte() == Client.TypeCompte.ENTREPRISE
+                    ? client.getRaisonSociale()
+                    : (client.getPrenom() != null ? client.getPrenom() + " " + client.getNom() : client.getNom());
+
+            emailService.sendValidationPaymentEmail(
+                    client.getEmail(),
+                    clientName,
+                    client.getId()
+            );
+
+            log.info("📧 Email de validation/paiement envoyé à {}", client.getEmail());
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Client validé avec succès");
-            response.put("statut", client.getStatut());
+            response.put("message", "Client validé avec succès. Un email a été envoyé au client pour procéder au paiement.");
+            response.put("statut", client.getStatut().getLabel());
 
             return ResponseEntity.ok(response);
 
@@ -239,6 +307,16 @@ public class PlatformClientController {
             String motif = request.get("motif");
             Client client = clientService.refuseClient(id, motif);
 
+            // ✅ Envoyer l'email de refus (utiliser votre service existant)
+            String clientName = client.getTypeCompte() == Client.TypeCompte.ENTREPRISE
+                    ? client.getRaisonSociale()
+                    : (client.getPrenom() != null ? client.getPrenom() + " " + client.getNom() : client.getNom());
+
+            // Vous pouvez ajouter une méthode sendRefusalEmail dans EmailService
+            // emailService.sendRefusalEmail(client.getEmail(), clientName, motif);
+
+            log.info("📧 Email de refus à envoyer à {}", client.getEmail());
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Client refusé");
@@ -250,7 +328,6 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-
     // ========== 4. ACTIVATION + CRÉATION BASE ==========
 
     /**
@@ -260,22 +337,41 @@ public class PlatformClientController {
     @PostMapping("/{id}/activate")
     public ResponseEntity<?> activateClient(@PathVariable Long id) {
         try {
-            // 1. Créer la base de données
+            Client client = clientService.getClientById(id);
+
+            // ✅ Vérifier que le client est VALIDE avant activation
+            if (client.getStatut() != Client.StatutClient.VALIDE) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Ce client n'est pas encore validé par l'administrateur. " +
+                                "Statut actuel: " + client.getStatut().getLabel()
+                ));
+            }
+
+            // ✅ Vérifier qu'un abonnement est souscrit
+            if (client.getAbonnementActif() == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Aucun abonnement souscrit. Veuillez d'abord choisir un plan."
+                ));
+            }
+
+            // Créer la base de données
             DatabaseCreationService.DatabaseInfo dbInfo =
                     databaseCreationService.createClientDatabase(id);
 
-            // 2. Activer le client
-            Client client = clientService.activateClient(id, dbInfo.dbName);
+            // Activer le client
+            Client activatedClient = clientService.activateClient(id, dbInfo.dbName);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Client activé avec succès");
-            response.put("database", dbInfo.dbName);
-            response.put("username", dbInfo.username);
-            response.put("connectionUrl", dbInfo.connectionUrl);
-            response.put("statut", client.getStatut());
+            // ✅ Envoyer email de bienvenue avec accès
+            // emailService.sendWelcomeEmail(activatedClient.getEmail(), dbInfo);
 
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Client activé avec succès",
+                    "database", dbInfo.dbName,
+                    "username", dbInfo.username,
+                    "connectionUrl", dbInfo.connectionUrl,
+                    "statut", activatedClient.getStatut().getLabel()
+            ));
 
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
