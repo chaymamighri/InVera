@@ -16,8 +16,8 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-import { clientPlatformService } from '../../servicesPlatform/clientPlatformService';
-import { subscriptionPlatformService } from '../../servicesPlatform/subscriptionPlatformService';
+import { clientPlatformService } from '../../../servicesPlatform/clientPlatformService';
+import { subscriptionPlatformService } from '../../../servicesPlatform/subscriptionPlatformService';
 
 const OFFER_TYPES = [
   { value: 'CLIENT', label: 'Client' },

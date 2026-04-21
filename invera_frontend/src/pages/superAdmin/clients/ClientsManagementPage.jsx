@@ -13,7 +13,7 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-import { clientPlatformService } from '../../servicesPlatform/clientPlatformService';
+import { clientPlatformService } from '../../../servicesPlatform/clientPlatformService';
 
 const STATUS_OPTIONS = [
   { label: 'Tous', value: 'ALL' },
