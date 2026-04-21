@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { superAdminService } from '../../services/superAdminService';
+import { superAdminService } from '../../servicesPlatform/superAdminService';
 import toast from 'react-hot-toast';
 import {
   Mail,
@@ -83,15 +83,22 @@ const AdminLogin = () => {
         throw new Error('Token manquant dans la réponse');
       }
       
-      // ✅ STOCKAGE CORRECT - C'est la partie cruciale !
+      // ✅ Stockage aligne pour tous les ecrans super admin
       localStorage.clear(); // Nettoyer les anciennes données
       
       localStorage.setItem('token', response.token);
+      localStorage.setItem('adminToken', response.token);
       localStorage.setItem('userRole', 'SUPER_ADMIN');
       localStorage.setItem('userName', response.nom);
       localStorage.setItem('userEmail', response.email);
       
       // Stockage spécifique pour Super Admin
+      localStorage.setItem('adminInfo', JSON.stringify({
+        id: response.id,
+        nom: response.nom,
+        email: response.email,
+        role: 'SUPER_ADMIN'
+      }));
       localStorage.setItem('superAdminInfo', JSON.stringify({
         id: response.id,
         nom: response.nom,
@@ -102,6 +109,7 @@ const AdminLogin = () => {
       // ✅ Vérification du stockage
       console.log('✅ Stockage effectué:');
       console.log('  - token:', localStorage.getItem('token') ? 'Présent' : 'ABSENT');
+      console.log('  - adminToken:', localStorage.getItem('adminToken') ? 'Présent' : 'ABSENT');
       console.log('  - userRole:', localStorage.getItem('userRole'));
       console.log('  - userName:', localStorage.getItem('userName'));
       console.log('  - userEmail:', localStorage.getItem('userEmail'));

@@ -1,5 +1,6 @@
 package org.erp.invera.model.platform;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -97,9 +98,11 @@ public class Client {
     @JoinColumn(name = "abonnement_actif_id")
     private Abonnement abonnementActif;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
     private List<Abonnement> abonnements = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
     private List<Paiement> paiements = new ArrayList<>();
 
@@ -159,7 +162,6 @@ public class Client {
         public String getLabel() { return label; }
     }
 
-    // Dans Client.java - Gestion conditionnelle
 
     public String getDisplayName() {
         if (typeCompte == TypeCompte.ENTREPRISE) {
@@ -176,4 +178,7 @@ public class Client {
             return cinUrl; // Pour particulier : CIN
         }
     }
+
+
 }
+

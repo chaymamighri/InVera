@@ -1,7 +1,7 @@
 // pages/superAdmin/SuperAdminDashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { superAdminService } from '../../services/superAdminService';
+import { superAdminService } from '../../servicesPlatform/superAdminService';
 import {
   UsersIcon,
   CreditCardIcon,
@@ -17,7 +17,7 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => {
     const loadAdmin = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
       const userRole = localStorage.getItem('userRole');
 
       if (!token || userRole !== 'SUPER_ADMIN') {
@@ -26,16 +26,23 @@ const SuperAdminDashboard = () => {
       }
 
       try {
-        const profile = await superAdminService.getProfile();
+        const profile = await superAdminService.getMe();
         setAdminInfo(profile);
       } catch {
         const storedInfo = localStorage.getItem('superAdminInfo');
+        const legacyInfo = localStorage.getItem('adminInfo');
         const storedName = localStorage.getItem('userName');
         const storedEmail = localStorage.getItem('userEmail');
 
         if (storedInfo) {
           try {
             setAdminInfo(JSON.parse(storedInfo));
+          } catch {
+            setAdminInfo({ nom: storedName, email: storedEmail });
+          }
+        } else if (legacyInfo) {
+          try {
+            setAdminInfo(JSON.parse(legacyInfo));
           } catch {
             setAdminInfo({ nom: storedName, email: storedEmail });
           }
@@ -76,10 +83,13 @@ const SuperAdminDashboard = () => {
               <p className="text-purple-200 text-sm">Espace Super Admin</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
+              <button
+                onClick={() => navigate('/super-admin/dashboard/profile')}
+                className="text-right transition hover:opacity-80"
+              >
                 <p className="font-semibold">{adminInfo?.nom || 'Administrateur'}</p>
                 <p className="text-sm text-purple-200">{adminInfo?.email}</p>
-              </div>
+              </button>
               <button
                 onClick={handleLogout}
                 className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center gap-2"
@@ -94,7 +104,7 @@ const SuperAdminDashboard = () => {
 
       <div className="bg-white shadow-md">
         <div className="container mx-auto px-6">
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-6">
             <button
               onClick={() => navigate('/super-admin/dashboard/clients')}
               className={`flex items-center gap-2 py-3 px-2 transition ${
