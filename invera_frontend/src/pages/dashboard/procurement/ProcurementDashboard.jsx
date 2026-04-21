@@ -138,7 +138,7 @@ const ProcurementDashboard = () => {
   // ========== TITRES DYNAMIQUES ==========
   const getPageTitle = () => {
     switch (activePage) {
-      case 'stats': return 'Statistiques Achats';
+      case 'stats': return 'Statistiques réapprovisionnement';
       case 'produits': return 'Gestion des Produits';
       case 'categories': return 'Gestion des Catégories';
       case 'commandes': return 'Bons de commande fournisseurs';

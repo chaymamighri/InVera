@@ -7,6 +7,7 @@ import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.utilisateurRepository;
 import org.erp.invera.security.JwtTokenProvider;
+import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.platform.InvitationService;
 import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,8 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final InvitationService invitationService;
     private final SessionManagementService sessionManagementService;
+    private final EmailService emailService;
+
 
     /**
      * Login UNIQUEMENT pour les clients (ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT)
@@ -239,6 +242,7 @@ public class AuthController {
         }
     }
 
+
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody Map<String, String> request, Authentication authentication) {
         try {
@@ -253,6 +257,7 @@ public class AuthController {
             String email = request.get("email");
             String role = request.get("role");
 
+            // Validations
             if (nom == null || nom.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Le nom est requis"));
             }
@@ -287,23 +292,31 @@ public class AuthController {
                 }
             }
 
-            String tempPassword = generateTempPassword();
+            // ✅ Générer un token JWT temporaire (valable 24h)
+            String activationToken = jwtTokenProvider.generateActivationToken(email, 24);
 
+            // Créer l'utilisateur (sans token en base)
             Utilisateur newUser = Utilisateur.builder()
                     .nom(nom.trim())
                     .prenom(prenom != null ? prenom.trim() : "")
                     .email(email.toLowerCase().trim())
-                    .motDePasse(passwordEncoder.encode(tempPassword))
+                    .motDePasse(null)  // Pas de mot de passe
                     .role(mapRoleFromFrontend(role))
                     .client(client)
-                    .estActif(true)
+                    .estActif(false)  // Désactivé jusqu'à activation
                     .build();
 
             utilisateurRepository.save(newUser);
 
+            // ✅ Envoyer l'email avec le token JWT comme lien d'activation
+            String activationLink = "https://app.invera.com/activate?token=" + activationToken;
+            emailService.sendActivationLinkEmail(email, activationToken);
+
+            log.info("📧 Email d'activation envoyé à {}", email);
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Utilisateur créé avec succès");
+            response.put("message", "Utilisateur créé avec succès. Un email d'activation lui a été envoyé.");
             response.put("id", newUser.getId());
             response.put("email", newUser.getEmail());
             response.put("role", role);

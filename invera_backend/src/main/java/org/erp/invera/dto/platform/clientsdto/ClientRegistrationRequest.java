@@ -12,5 +12,7 @@ public class ClientRegistrationRequest {
     private String typeInscription;   // ESSAI, DEFINITIF
     private String typeAbonnement;    // MENSUEL, ANNUEL (si DEFINITIF)
     private String otp;               // Code OTP (pour vérification email)
-    private String password;          // ← AJOUTER LE MOT DE PASSE
+    private String password;
+    private String raisonSociale;
+    private String siret;
 }

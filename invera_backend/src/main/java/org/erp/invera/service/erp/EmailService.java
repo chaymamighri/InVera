@@ -264,4 +264,73 @@ public class EmailService {
             System.err.println("❌ Erreur envoi email: " + e.getMessage());
         }
     }
+
+    // Dans EmailService.java - Ajouter cette méthode
+
+    /**
+     * Envoi d'email après validation admin pour inviter au paiement
+     * @param email Email du client
+     * @param clientName Nom du client (raison sociale ou nom complet)
+     * @param clientId ID du client
+     */
+    public void sendValidationPaymentEmail(String email, String clientName, Long clientId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(email);
+            helper.setSubject("✅ Votre compte InVera a été validé - Passez au paiement");
+
+            String paymentLink = "https://app.invera.com/payment/" + clientId;
+
+            String htmlContent = String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1>InVera ERP</h1>
+                    </div>
+
+                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
+                        <h2 style="color: #1976d2;">Bonjour %s,</h2>
+
+                        <p>Nous avons le plaisir de vous informer que <strong>votre dossier a été validé</strong> par notre équipe administrative.</p>
+
+                        <p>Pour finaliser votre inscription et accéder à votre espace, vous devez :</p>
+                        <ol>
+                            <li>Choisir votre formule d'abonnement</li>
+                            <li>Effectuer le paiement sécurisé</li>
+                        </ol>
+
+                        <div style="margin: 24px 0; text-align: center;">
+                            <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #28a745; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                💰 Payer mon abonnement
+                            </a>
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+
+                        <p style="color: #999; font-size: 12px; text-align: center;">
+                            © 2026 InVera ERP. Tous droits réservés.<br>
+                            Besoin d'aide ? Contactez-nous : support@invera.com
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """,
+                    clientName,
+                    paymentLink,
+                    30  // nombre de connexions restantes en essai
+            );
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            System.out.println("✅ Email de validation/paiement envoyé à " + email);
+
+        } catch (MessagingException e) {
+            System.err.println("❌ Erreur envoi email validation: " + e.getMessage());
+        }
+    }
 }

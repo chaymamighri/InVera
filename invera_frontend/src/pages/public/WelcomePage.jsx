@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../../assets/images/logo.png';
-import commercialStatsCapture from '../../assets/images/welcome/commercialDashboard.png';
-import achatsStatsCapture from '../../assets/images/welcome/dashboardStock.png';
-import adminStatsCapture from '../../assets/images/welcome/StatestiqueAdmin.png';
+import commercialStatsCapture from '../../assets/images/welcome/photo5.png';
+import achatsStatsCapture from '../../assets/images/welcome/photo1.png';
+import adminStatsCapture from '../../assets/images/welcome/photo3.png';
 
 const dashboardPreviews = [
   {

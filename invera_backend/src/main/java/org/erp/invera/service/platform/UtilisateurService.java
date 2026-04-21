@@ -17,7 +17,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ClientUserService {
+public class UtilisateurService {
 
     private final utilisateurRepository utilisateurRepository;
     private final ClientPlatformRepository clientRepository;

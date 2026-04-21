@@ -13,12 +13,14 @@ const RegisterPage = () => {
   const [otpError, setOtpError] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
-  // Formulaire principal (tout en un)
+  // Formulaire principal
   const [formData, setFormData] = useState({
     typeCompte: 'PARTICULIER',
     typeInscription: 'ESSAI',
+    // Particulier
     nom: '',
     prenom: '',
+    // Entreprise
     raisonSociale: '',
     siret: '',
     telephone: '',
@@ -84,14 +86,19 @@ const RegisterPage = () => {
     if (!file) return;
     const currentDocs = formData.documents || [];
     const newDocs = [...currentDocs];
-    const existingIndex = newDocs.findIndex(d => d.field === field);
+    const existingIndex = newDocs.findIndex(d => d.type === field); // ✅ Changé: field → type
     
     if (existingIndex !== -1) {
-      newDocs[existingIndex] = { field, file };
+      newDocs[existingIndex] = { type: field, file }; // ✅ Changé: field → type
     } else {
-      newDocs.push({ field, file });
+      newDocs.push({ type: field, file }); // ✅ Changé: field → type
     }
     updateFormData('documents', newDocs);
+  };
+
+  // ✅ Vérifier si un document a été uploadé
+  const hasDocument = (field) => {
+    return formData.documents?.some(d => d.type === field);
   };
 
   const isEssai = formData.typeInscription === 'ESSAI';
@@ -100,22 +107,23 @@ const RegisterPage = () => {
   const isValid = () => {
     const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
     
+    if (!hasBasicInfo) return false;
+    
     if (isParticulier) {
       if (!formData.nom || !formData.prenom) return false;
     } else {
       if (!formData.raisonSociale) return false;
     }
     
-    if (!hasBasicInfo) return false;
-    
     if (!isEssai) {
       if (isParticulier) {
-        if (!formData.documents?.find(d => d.field === 'CIN')) return false;
+        if (!hasDocument('CIN')) return false;
       } else {
-        const hasCinGerant = formData.documents?.find(d => d.field === 'CIN_DIRIGEANT');
-        const hasPatente = formData.documents?.find(d => d.field === 'PATENTE');
-        const hasRne = formData.documents?.find(d => d.field === 'RNE');
-        if (!hasCinGerant || !hasPatente || !hasRne) return false;
+        // ✅ Correction: Utiliser les bons noms de champs
+        const hasGerantCin = hasDocument('GERANT_CIN');
+        const hasPatente = hasDocument('PATENTE');
+        const hasRne = hasDocument('RNE');
+        if (!hasGerantCin || !hasPatente || !hasRne) return false;
       }
     }
     
@@ -129,15 +137,17 @@ const RegisterPage = () => {
     const registerData = {
       email: formData.email,
       telephone: formData.telephone,
-      nom: formData.nom || '',
-      prenom: formData.prenom || '',
-      raisonSociale: formData.raisonSociale || '',
-      siret: formData.siret || '',
       typeCompte: formData.typeCompte,
       typeInscription: formData.typeInscription,
       code: otpCode,
       motDePasse: formData.motDePasse,
-      documents: formData.documents
+      documents: formData.documents,
+      // Particulier
+      nom: formData.nom || '',
+      prenom: formData.prenom || '',
+      // Entreprise
+      raisonSociale: formData.raisonSociale || '',
+      siret: formData.siret || '',
     };
     
     const result = await register(registerData);
@@ -301,7 +311,8 @@ const RegisterPage = () => {
                   </>
                 ) : (
                   <>
-                    <p className="text-gray-600 mb-4">Votre dossier est en cours de validation.</p>
+                    <p className="text-gray-600 mb-4">Votre dossier est en cours de validation par l'administrateur.</p>
+                    <p className="text-sm text-gray-500 mb-4">Vous serez notifié par email dès que votre compte sera activé.</p>
                     <button
                       onClick={() => window.location.href = '/'}
                       className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
@@ -318,7 +329,7 @@ const RegisterPage = () => {
     );
   }
 
-  // ==================== ÉCRAN PRINCIPAL (FORMULAIRE UNIQUE) ====================
+  // ==================== ÉCRAN PRINCIPAL (FORMULAIRE) ====================
   return (
     <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
       <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
@@ -360,6 +371,7 @@ const RegisterPage = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-2">Type de compte</label>
                   <div className="flex gap-4">
                     <button
+                      type="button"
                       className={`flex-1 py-3 rounded-xl font-semibold transition ${
                         formData.typeCompte === 'PARTICULIER' ? 'bg-[#0b4ea2] text-white' : 'bg-white border-2 border-gray-200 hover:border-[#0b4ea2]'
                       }`}
@@ -368,6 +380,7 @@ const RegisterPage = () => {
                       👤 Particulier
                     </button>
                     <button
+                      type="button"
                       className={`flex-1 py-3 rounded-xl font-semibold transition ${
                         formData.typeCompte === 'ENTREPRISE' ? 'bg-[#0b4ea2] text-white' : 'bg-white border-2 border-gray-200 hover:border-[#0b4ea2]'
                       }`}
@@ -383,6 +396,7 @@ const RegisterPage = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-2">Type d'inscription</label>
                   <div className="flex gap-4">
                     <button
+                      type="button"
                       className={`flex-1 py-3 rounded-xl font-semibold transition ${
                         formData.typeInscription === 'ESSAI' ? 'bg-green-500 text-white' : 'bg-white border-2 border-gray-200 hover:border-green-400'
                       }`}
@@ -392,6 +406,7 @@ const RegisterPage = () => {
                       <span className="block text-xs">30 connexions</span>
                     </button>
                     <button
+                      type="button"
                       className={`flex-1 py-3 rounded-xl font-semibold transition ${
                         formData.typeInscription === 'DEFINITIF' ? 'bg-[#0b4ea2] text-white' : 'bg-white border-2 border-gray-200 hover:border-[#0b4ea2]'
                       }`}
@@ -406,40 +421,167 @@ const RegisterPage = () => {
                 {/* Champs selon le type */}
                 {isParticulier ? (
                   <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="Nom *" className="px-4 py-3 border rounded-xl" value={formData.nom} onChange={(e) => updateFormData('nom', e.target.value)} />
-                    <input type="text" placeholder="Prénom *" className="px-4 py-3 border rounded-xl" value={formData.prenom} onChange={(e) => updateFormData('prenom', e.target.value)} />
+                    <input 
+                      type="text" 
+                      placeholder="Nom *" 
+                      className="px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      value={formData.nom} 
+                      onChange={(e) => updateFormData('nom', e.target.value)} 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Prénom *" 
+                      className="px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      value={formData.prenom} 
+                      onChange={(e) => updateFormData('prenom', e.target.value)} 
+                    />
                   </div>
                 ) : (
-                  <>
-                    <input type="text" placeholder="Raison sociale *" className="w-full px-4 py-3 border rounded-xl" value={formData.raisonSociale} onChange={(e) => updateFormData('raisonSociale', e.target.value)} />
-                    <input type="text" placeholder="SIRET (optionnel)" className="w-full px-4 py-3 border rounded-xl" value={formData.siret} onChange={(e) => updateFormData('siret', e.target.value)} />
-                  </>
+                  <div className="space-y-4">
+                    <input 
+                      type="text" 
+                      placeholder="Raison sociale *" 
+                      className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      value={formData.raisonSociale} 
+                      onChange={(e) => updateFormData('raisonSociale', e.target.value)} 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="SIRET (14 chiffres)" 
+                      className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      value={formData.siret} 
+                      onChange={(e) => updateFormData('siret', e.target.value)} 
+                      maxLength="14"
+                    />
+                  
+                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="email" placeholder="Email *" className="px-4 py-3 border rounded-xl" value={formData.email} onChange={(e) => updateFormData('email', e.target.value)} />
-                  <input type="tel" placeholder="Téléphone *" className="px-4 py-3 border rounded-xl" value={formData.telephone} onChange={(e) => updateFormData('telephone', e.target.value)} />
+                  <input 
+                    type="email" 
+                    placeholder="Email *" 
+                    className="px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                    value={formData.email} 
+                    onChange={(e) => updateFormData('email', e.target.value)} 
+                  />
+                  <input 
+                    type="tel" 
+                    placeholder="Téléphone *" 
+                    className="px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                    value={formData.telephone} 
+                    onChange={(e) => updateFormData('telephone', e.target.value)} 
+                  />
                 </div>
 
                 <div className="relative">
-                  <input type={showPassword ? "text" : "password"} placeholder="Mot de passe *" className="w-full px-4 py-3 border rounded-xl pr-12" value={formData.motDePasse} onChange={(e) => updateFormData('motDePasse', e.target.value)} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">{showPassword ? '👁️' : '👁️‍🗨️'}</button>
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Mot de passe *" 
+                    className="w-full px-4 py-3 border rounded-xl pr-12 focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                    value={formData.motDePasse} 
+                    onChange={(e) => updateFormData('motDePasse', e.target.value)} 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
                 </div>
 
                 {/* Documents pour DEFINITIF */}
                 {!isEssai && (
                   <div className="border-t pt-4">
-                    <label className="block text-sm font-medium mb-2">📎 Documents obligatoires</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                      📎 Documents justificatifs obligatoires
+                    </label>
+                    
                     {isParticulier ? (
-                      <div className="border-2 border-dashed rounded-xl p-4 text-center">
-                        <input type="file" id="cin" className="hidden" onChange={(e) => handleFileUpload('CIN', e.target.files[0])} />
-                        <label htmlFor="cin" className="cursor-pointer block">🪪 Carte d'identité</label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-[#0b4ea2] transition">
+                        <input 
+                          type="file" 
+                          id="cin" 
+                          className="hidden" 
+                          accept="image/jpeg,image/png,application/pdf"
+                          onChange={(e) => handleFileUpload('CIN', e.target.files[0])} 
+                        />
+                        <label htmlFor="cin" className="cursor-pointer block">
+                          <div className="text-3xl mb-2">🪪</div>
+                          <div className="font-medium text-[#0b4ea2]">Carte d'identité nationale</div>
+                          <div className="text-xs text-gray-400 mt-1">JPG, PNG ou PDF</div>
+                        </label>
+                        {hasDocument('CIN') && (
+                          <div className="mt-2 text-sm text-green-600">✓ Document uploadé</div>
+                        )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="border-2 border-dashed rounded-xl p-2 text-center"><input type="file" id="cinGerant" className="hidden" onChange={(e) => handleFileUpload('CIN_DIRIGEANT', e.target.files[0])} /><label htmlFor="cinGerant" className="cursor-pointer">👤 CIN Gérant</label></div>
-                        <div className="border-2 border-dashed rounded-xl p-2 text-center"><input type="file" id="patente" className="hidden" onChange={(e) => handleFileUpload('PATENTE', e.target.files[0])} /><label htmlFor="patente" className="cursor-pointer">📜 Patente</label></div>
-                        <div className="border-2 border-dashed rounded-xl p-2 text-center"><input type="file" id="rne" className="hidden" onChange={(e) => handleFileUpload('RNE', e.target.files[0])} /><label htmlFor="rne" className="cursor-pointer">🏢 RNE</label></div>
+                      <div className="space-y-4">
+                        {/* CIN Gérant */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-[#0b4ea2] transition">
+                          <input 
+                            type="file" 
+                            id="cinGerant" 
+                            className="hidden" 
+                            accept="image/jpeg,image/png,application/pdf"
+                            onChange={(e) => handleFileUpload('GERANT_CIN', e.target.files[0])} 
+                          />
+                          <label htmlFor="cinGerant" className="cursor-pointer block">
+                            <div className="text-3xl mb-2">👤</div>
+                            <div className="font-medium text-[#0b4ea2]">Carte d'identité du gérant</div>
+                            <div className="text-xs text-gray-400 mt-1">JPG, PNG ou PDF</div>
+                          </label>
+                          {hasDocument('GERANT_CIN') && (
+                            <div className="mt-2 text-sm text-green-600">✓ Document uploadé</div>
+                          )}
+                        </div>
+                        
+                        {/* Patente */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-[#0b4ea2] transition">
+                          <input 
+                            type="file" 
+                            id="patente" 
+                            className="hidden" 
+                            accept="image/jpeg,image/png,application/pdf"
+                            onChange={(e) => handleFileUpload('PATENTE', e.target.files[0])} 
+                          />
+                          <label htmlFor="patente" className="cursor-pointer block">
+                            <div className="text-3xl mb-2">📜</div>
+                            <div className="font-medium text-[#0b4ea2]">Patente</div>
+                            <div className="text-xs text-gray-400 mt-1">JPG, PNG ou PDF</div>
+                          </label>
+                          {hasDocument('PATENTE') && (
+                            <div className="mt-2 text-sm text-green-600">✓ Document uploadé</div>
+                          )}
+                        </div>
+                        
+                        {/* RNE avec avertissement */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-[#0b4ea2] transition">
+                          <input 
+                            type="file" 
+                            id="rne" 
+                            className="hidden" 
+                            accept="image/jpeg,image/png,application/pdf"
+                            onChange={(e) => handleFileUpload('RNE', e.target.files[0])} 
+                          />
+                          <label htmlFor="rne" className="cursor-pointer block">
+                            <div className="text-3xl mb-2">🏢</div>
+                            <div className="font-medium text-[#0b4ea2]">Extrait RNE</div>
+                            <div className="text-xs text-gray-400 mt-1">JPG, PNG ou PDF</div>
+                          </label>
+                          {hasDocument('RNE') && (
+                            <div className="mt-2 text-sm text-green-600">✓ Document uploadé</div>
+                          )}
+                        </div>
+                        
+                        {/* ⚠️ Avertissement RNE */}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ <strong>Attention :</strong> L'extrait RNE doit dater de <strong>moins de 3 mois</strong>.
+                            L'administrateur vérifiera visuellement la date sur le document.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -447,17 +589,22 @@ const RegisterPage = () => {
 
                 {/* Abonnement pour DEFINITIF */}
                 {!isEssai && (
-                  <div className="bg-blue-50 rounded-xl p-3 text-center">
-                    <p className="font-bold text-[#0b4ea2]">📅 Mensuel - 29€/mois</p>
+                  <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
+                    <p className="font-bold text-[#0b4ea2]">📅 Abonnement mensuel - 29€ HT / mois</p>
+                    <p className="text-xs text-gray-500 mt-1">Paiement à effectuer après validation de votre dossier</p>
                   </div>
                 )}
 
-                {error && <div className="p-3 bg-red-100 text-red-700 rounded-xl">{error}</div>}
+                {error && (
+                  <div className="p-3 bg-red-100 border border-red-200 text-red-700 rounded-xl text-sm">
+                    {error}
+                  </div>
+                )}
 
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !isValid()}
-                  className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400"
+                  className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Inscription en cours...' : '📝 S\'inscrire'}
                 </button>

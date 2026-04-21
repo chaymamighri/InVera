@@ -3,47 +3,41 @@ package org.erp.invera.service.platform;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 @Service
+@Slf4j
 public class SessionManagementService {
 
-    // Map: email -> token actif
-    private final Map<String, String> activeSessions = new ConcurrentHashMap<>();
+    private final Map<String, SessionInfo> activeSessions = new ConcurrentHashMap<>();
 
-    /**
-     * Enregistre une nouvelle session
-     * @return true si la session actuelle est valide, false si une autre session a été fermée
-     */
+    record SessionInfo(String token, LocalDateTime lastActivityTime, int timeoutSeconds) {}
+
     public boolean registerSession(String email, String token) {
-        String oldToken = activeSessions.get(email);
-
-        if (oldToken != null && !oldToken.equals(token)) {
-            log.warn("⚠️ Nouvelle connexion pour {} - Ancienne session invalidée", email);
-            activeSessions.put(email, token);
-            return false; // L'ancienne session a été remplacée
-        }
-
-        activeSessions.put(email, token);
-        log.info("✅ Session enregistrée pour {}", email);
-        return true;
+        boolean wasActive = activeSessions.containsKey(email);
+        activeSessions.put(email, new SessionInfo(token, LocalDateTime.now(), 1800));
+        if (wasActive) log.warn("⚠️ Ancienne session fermée pour {}", email);
+        return !wasActive;
     }
 
-    /**
-     * Vérifie si le token est la session active
-     */
     public boolean isSessionValid(String email, String token) {
-        String activeToken = activeSessions.get(email);
-        return activeToken != null && activeToken.equals(token);
+        SessionInfo session = activeSessions.get(email);
+        if (session == null || !session.token().equals(token)) return false;
+        boolean expired = LocalDateTime.now().isAfter(session.lastActivityTime().plusSeconds(session.timeoutSeconds()));
+        if (expired) activeSessions.remove(email);
+        return !expired;
     }
 
-    /**
-     * Supprime une session (déconnexion)
-     */
+    public void updateActivity(String email) {
+        SessionInfo session = activeSessions.get(email);
+        if (session != null) {
+            activeSessions.put(email, new SessionInfo(session.token(), LocalDateTime.now(), session.timeoutSeconds()));
+        }
+    }
+
     public void removeSession(String email) {
         activeSessions.remove(email);
-        log.info("🔓 Session supprimée pour {}", email);
     }
 }
