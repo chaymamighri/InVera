@@ -207,7 +207,7 @@ const WelcomePage = () => {
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <p className="text-lg font-semibold text-emerald-800">🚀 Lancez-vous sans risque !</p>
-                    <p className="text-sm text-emerald-600">Profitez de 30 jours d'essai gratuit, sans engagement.</p>
+                    <p className="text-sm text-emerald-600">Profitez de 30 connexions d'essai gratuit,sans engagement.</p>
                   </div>
                   <Link
                     to="/register"
