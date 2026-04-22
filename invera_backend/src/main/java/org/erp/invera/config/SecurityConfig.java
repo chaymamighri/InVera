@@ -127,7 +127,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         .requestMatchers("/api/platform/clients/**")
-                        .hasRole("SUPER_ADMIN")
+                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT")
 
                         // ========== COMMANDES ==========
                         .requestMatchers("/api/commandes/**")
