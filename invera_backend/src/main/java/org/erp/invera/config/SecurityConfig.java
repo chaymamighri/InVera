@@ -101,6 +101,9 @@ public class SecurityConfig {
                                 "/api/auth/activate/**"
                         ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN")
 
+                        .requestMatchers("/api/users/me/preferences/**")
+                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+
 
                         // ========== SUPER ADMIN ==========
                         .requestMatchers(
