@@ -7,6 +7,7 @@ import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.repository.platform.AbonnementRepository;
+import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.PaiementRepository;
 import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.DatabaseCreationService;
@@ -23,6 +24,7 @@ import java.util.List;
 public class SubscriptionService {
 
     private final AbonnementRepository abonnementRepository;
+    private final ClientPlatformRepository clientRepository;
     private final PaiementRepository paiementRepository;
     private final ClientPlatformService clientService;
     private final DatabaseCreationService databaseCreationService;
@@ -242,14 +244,14 @@ public class SubscriptionService {
         client.setIsActive(true);
         client.setConnexionsMax(999999);
         client.setConnexionsRestantes(999999);
-        clientService.saveClient(client);
+        clientRepository.save(client);
     }
 
     private void deactivateClientAccess(Client client) {
         client.setAbonnementActif(null);
         client.setStatut(Client.StatutClient.INACTIF);
         client.setIsActive(false);
-        clientService.saveClient(client);
+        clientRepository.save(client);
     }
 
     private double calculerMontant(Abonnement.PeriodType periodType) {
