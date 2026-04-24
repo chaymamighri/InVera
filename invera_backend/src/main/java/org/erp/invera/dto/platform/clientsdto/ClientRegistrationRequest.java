@@ -4,15 +4,25 @@ import lombok.Data;
 
 @Data
 public class ClientRegistrationRequest {
+    // Champs existants
     private String email;
     private String telephone;
+    private String typeCompte;  // PARTICULIER / ENTREPRISE
+
+
+    private Long offreId;        // ID de l'offre choisie
+
+    // Particulier
     private String nom;
     private String prenom;
-    private String typeCompte;        // PARTICULIER, ENTREPRISE
-    private String typeInscription;   // ESSAI, DEFINITIF
-    private String typeAbonnement;    // MENSUEL, ANNUEL (si DEFINITIF)
-    private String otp;               // Code OTP (pour vérification email)
-    private String password;
+
+    // Entreprise
     private String raisonSociale;
-    private String siret;
+    private String matriculeFiscal;
+
+    // Authentification
+    private String otp;
+    private String password;
+
+    // getters et setters
 }

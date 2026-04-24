@@ -38,8 +38,8 @@ public class Client {
     @Column(name = "raison_sociale")
     private String raisonSociale;      // Nom légal de l'entreprise
 
-    @Column(name = "siret", unique = true)
-    private String siret;     // Numéro SIRET (14 chiffres)
+    @Column(name = "matricule_fiscal", unique = true, nullable = true)
+    private String matriculeFiscal;    //  (composé de chiffres et des caractères)
 
     // ========== DOMAINE POUR IDENTIFICATION ==========
     @Column(name = "domaine", unique = true)
@@ -173,7 +173,7 @@ public class Client {
 
     public String getLegalIdentifier() {
         if (typeCompte == TypeCompte.ENTREPRISE) {
-            return siret;  // Pour entreprise : SIRET
+            return matriculeFiscal;  // Pour entreprise : SIRET
         } else {
             return cinUrl; // Pour particulier : CIN
         }

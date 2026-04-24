@@ -82,16 +82,28 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/activation-link",
                                 "/api/auth/activate-account",
-
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/create-password",
                                 "/api/platform/clients/request-otp",
                                 "/api/platform/clients/*/justificatifs"
-                                ).permitAll()
+                        ).permitAll()
+
+                        // ENDPOINTS POUR ABONNEMENTS (CLIENT)
+
+                        .requestMatchers(HttpMethod.GET, "/api/public/offres").permitAll()
+
+                        // ========== GESTION DES OFFRES (SUPER ADMIN) ==========
+                        .requestMatchers(HttpMethod.GET, "/api/super-admin/offres").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/super-admin/offres/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/super-admin/offres").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/super-admin/offres/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/super-admin/offres/**").hasRole("SUPER_ADMIN")
+
+                        // ========== GESTION DES ABONNEMENTS (SUPER ADMIN) ==========
+                        .requestMatchers("/api/super-admin/abonnements/**").hasRole("SUPER_ADMIN")
 
                         // ========== GESTION DES UTILISATEURS (AJOUT) ==========
-                        // ✅ Permettre aux ADMIN_CLIENT de gérer les utilisateurs
                         .requestMatchers(
                                 "/api/auth/all",
                                 "/api/auth/filter",
@@ -100,7 +112,6 @@ public class SecurityConfig {
                                 "/api/auth/delete/**",
                                 "/api/auth/activate/**"
                         ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN")
-
 
                         // ========== SUPER ADMIN ==========
                         .requestMatchers(
@@ -177,7 +188,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/procurement/stats/**").hasRole("RESPONSABLE_ACHAT")
-
 
                         .anyRequest().authenticated()
                 )
