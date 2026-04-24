@@ -73,7 +73,7 @@ export const registerService = {
       // ✅ Ajouter les champs spécifiques selon le type de compte
       if (formData.typeCompte === 'ENTREPRISE') {
         payload.raisonSociale = formData.raisonSociale;
-        payload.siret = formData.siret;
+        payload.matriculeFiscal = formData.matriculeFiscal;
       } else {
         payload.nom = formData.nom || '';
         payload.prenom = formData.prenom || '';
@@ -185,6 +185,26 @@ export const registerService = {
         { field: 'CIN', label: 'Carte d\'identité nationale', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
       ];
     }
+  }
+};
+
+export const fetchOffres = async () => {
+  try {
+    console.log('📡 Appel API: /api/public/offres');
+    const response = await fetch('/api/public/offres');
+    
+    console.log('📡 Statut réponse:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('📦 Offres chargées:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Erreur fetchOffres:', error);
+    return { success: false, data: [] };
   }
 };
 
