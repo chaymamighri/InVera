@@ -53,7 +53,7 @@ public class PlatformClientController {
             if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
                 // Pour une entreprise
                 client.setRaisonSociale(request.getRaisonSociale());
-                client.setSiret(request.getSiret());
+                client.setMatriculeFiscal(request.getSiret());
 
                 // Le nom par défaut = raison sociale
                 client.setNom(request.getRaisonSociale());
@@ -77,7 +77,7 @@ public class PlatformClientController {
             // Ajouter le nom affichable
             if (newClient.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
                 response.put("raisonSociale", newClient.getRaisonSociale());
-                response.put("siret", newClient.getSiret());
+                response.put("MatriculeFiscal", newClient.getMatriculeFiscal());
             } else {
                 response.put("nom", newClient.getNom());
                 response.put("prenom", newClient.getPrenom());
@@ -130,7 +130,7 @@ public class PlatformClientController {
 
 
     // À AJOUTER dans PlatformClientController.java
-    @PostMapping("/verify-otp")
+    /*@PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
         try {
             String email = request.get("email");
@@ -153,7 +153,7 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-
+*/
     // ========== 2. UPLOAD JUSTIFICATIFS ==========
 
     /**

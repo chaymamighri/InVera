@@ -113,21 +113,6 @@ public class OtpService {
         log.info("🗑️ OTP invalidé pour {}", email);
     }
 
-    /**
-     * Vérifie si un OTP existe pour cet email
-     */
-    public boolean hasOtp(String email) {
-        return otpCache.containsKey(email);
-    }
-
-    /**
-     * Renvoie un nouvel OTP (sans attendre l'expiration)
-     */
-    public String resendOtp(String email) {
-        invalidateOtp(email);
-        return sendOtpByEmail(email);
-    }
-
     // Classe interne pour stocker les données OTP
     private record OtpData(String code, LocalDateTime expiration) {}
 }

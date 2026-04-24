@@ -5,5 +5,4 @@ import lombok.Data;
 @Data
 public class SubscriptionActionRequest {
     private String motif;
-    private Boolean autoRenouvellement;
 }

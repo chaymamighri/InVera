@@ -2,7 +2,7 @@ package org.erp.invera.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.erp.invera.service.payment.SubscriptionService;
+import org.erp.invera.service.platform.SubscriptionService;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,6 +22,16 @@ public class SubscriptionScheduler {
     @Scheduled(cron = "0 0 1 * * *")
     public void checkExpiredSubscriptions() {
         log.info("🔍 Vérification des abonnements expirés...");
-        subscriptionService.checkAndRenewSubscriptions();
+        subscriptionService.checkAndExpireSubscriptions();  // ← CORRIGÉ
+    }
+
+    /**
+     * Envoi des rappels d'expiration
+     * Exécuté tous les jours à 09:00
+     */
+    @Scheduled(cron = "0 0 9 * * *")
+    public void sendExpirationReminders() {
+        log.info("📧 Envoi des rappels d'expiration...");
+        subscriptionService.sendExpirationReminders();
     }
 }
