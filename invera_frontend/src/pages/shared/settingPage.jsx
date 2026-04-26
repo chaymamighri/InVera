@@ -42,6 +42,9 @@ const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('profile');     // Onglet actif
   const [loadingMe, setLoadingMe] = useState(true);          // Chargement du profil
   const [me, setMe] = useState(null);                        // Données utilisateur
+const [notifications, setNotifications] = useState([]);
+const [notifLoading, setNotifLoading] = useState(false);
+const [notifActionLoading, setNotifActionLoading] = useState(false);
 
   // Formulaire profil
   const [profileForm, setProfileForm] = useState({

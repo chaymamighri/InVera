@@ -6,19 +6,11 @@
  * - La connexion utilisateur avec "Se souvenir de moi"
  * - La réinitialisation du mot de passe (3 étapes)
  * - L'affichage des erreurs et messages de succès
- * 
- * 
- * @example
- * // Utilisation dans une page de connexion
- * <LoginForm 
- *   onSubmit={handleLogin}
- *   loading={isLoggingIn}
- *   savedEmail={storedEmail}
- * />
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Button from './Button';
 import { useAuth } from '../hooks/useAuth'; 
 
@@ -27,7 +19,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   const { forgotPassword, resetPassword, loading: authLoading } = useAuth(); 
   
   // ===== ÉTATS =====
-  const [mode, setMode] = useState('login');              // 'login' ou 'forgot'
+  const [mode, setMode] = useState('login');
   const [formData, setFormData] = useState({
     email: savedEmail || '',
     password: '',
@@ -36,29 +28,24 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     newPassword: '',
     confirmPassword: ''
   });
-  const [step, setStep] = useState(1);                    // Étape réinitialisation (1,2,3)
+  const [step, setStep] = useState(1);
   const [internalLoading, setInternalLoading] = useState(false);
-  const [errors, setErrors] = useState({});               // Erreurs de validation
-  const [message, setMessage] = useState({ type: '', text: '' }); // Messages succès/erreur
-  const [showPassword, setShowPassword] = useState({      // Visibilité des mots de passe
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [showPassword, setShowPassword] = useState({
     password: false,
     newPassword: false,
     confirmPassword: false
   });
-  const [countdown, setCountdown] = useState(0);          // Timer renvoi code (60s)
+  const [countdown, setCountdown] = useState(0);
 
   // ===== EFFETS =====
   
-  /**
-   * Effet : Restaure l'email sauvegardé si "Se souvenir de moi" était actif
-   * Vérifie également l'expiration du token
-   */
   useEffect(() => {
     const rememberMe = localStorage.getItem('rememberMe');
     const savedEmail = localStorage.getItem('savedEmail');
     const expiry = localStorage.getItem('tokenExpiry');
     
-    // Nettoyer si token expiré
     if (expiry && new Date(expiry) < new Date()) {
       localStorage.removeItem('rememberMe');
       localStorage.removeItem('savedEmail');
@@ -66,7 +53,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
       return;
     }
     
-    // Restaurer l'email
     if (rememberMe === 'true' && savedEmail) {
       setFormData(prev => ({
         ...prev,
@@ -76,9 +62,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   }, []);
 
-  /**
-   * Effet : Gère le compte à rebours pour le renvoi de code
-   */
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -91,11 +74,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // ===== VALIDATIONS =====
   
-  /**
-   * Valide le format d'un email
-   * @param {string} email - Email à valider
-   * @returns {string} Message d'erreur ou chaîne vide
-   */
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email?.trim()) return 'Email requis';
@@ -103,22 +81,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     return '';
   };
 
-  /**
-   * Valide le mot de passe de connexion
-   * @param {string} password - Mot de passe à valider
-   * @returns {string} Message d'erreur ou chaîne vide
-   */
   const validatePassword = (password) => {
     if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 6) return 'Minimum 6 caractères';
     return '';
   };
 
-  /**
-   * Valide le nouveau mot de passe (réinitialisation)
-   * @param {string} password - Nouveau mot de passe
-   * @returns {string} Message d'erreur ou chaîne vide
-   */
   const validateNewPassword = (password) => {
     if (!password?.trim()) return 'Mot de passe requis';
     if (password.length < 8) return 'Minimum 8 caractères';
@@ -130,10 +98,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // ===== GESTIONNAIRES DE FORMULAIRE =====
   
-  /**
-   * Gère les changements dans les champs du formulaire
-   * @param {Event} e - Événement de changement
-   */
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -141,15 +105,10 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
       [name]: type === 'checkbox' ? checked : value
     }));
     
-    // Efface les erreurs du champ modifié
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     if (message.text) setMessage({ type: '', text: '' });
   };
 
-  /**
-   * Affiche/masque un champ de mot de passe
-   * @param {string} field - Champ à basculer ('password', 'newPassword', 'confirmPassword')
-   */
   const togglePasswordVisibility = (field) => {
     setShowPassword(prev => ({
       ...prev,
@@ -159,14 +118,10 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // ===== CONNEXION =====
   
-  /**
-   * Soumet le formulaire de connexion
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
     
-    // Validation des champs
     const newErrors = {};
     const emailError = validateEmail(formData.email);
     if (emailError) newErrors.email = emailError;
@@ -182,11 +137,42 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     setInternalLoading(true);
 
     try {
-      await onSubmit(formData);
+      const response = await onSubmit(formData);
+      const data = response?.data || response;
+      
+      // Stocker les informations dans localStorage
+      if (data) {
+        if (data.connexionsRestantes !== undefined) localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+        if (data.connexionsMax !== undefined) localStorage.setItem('connexionsMax', data.connexionsMax);
+        if (data.typeInscription) localStorage.setItem('typeInscription', data.typeInscription);
+        if (data.hasActiveSubscription !== undefined) localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+        if (data.statut) localStorage.setItem('clientStatut', data.statut);
+        if (data.clientId) localStorage.setItem('clientId', data.clientId);
+        if (data.motifRefus) localStorage.setItem('motifRefus', data.motifRefus);
+      }
+      
+      // ⭐ STOCKER UN FLAG POUR AFFICHER LE TOAST DANS LE DASHBOARD
+      sessionStorage.setItem('justLoggedIn', 'true');
+      
+      // Redirection après un court délai
+      setTimeout(() => {
+        const userRole = localStorage.getItem('userRole');
+        if (userRole === 'SUPER_ADMIN') {
+          navigate('/super-admin/dashboard/clients');
+        } else if (userRole === 'ADMIN_CLIENT') {
+          navigate('/dashboard/admin');
+        } else if (userRole === 'COMMERCIAL') {
+          navigate('/dashboard/sales/dashboard');
+        } else if (userRole === 'RESPONSABLE_ACHAT') {
+          navigate('/dashboard/procurement');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 300);
+      
     } catch (error) {
       console.error('Login error:', error);
       
-      // Gestion des erreurs par type
       if (error.message) {
         if (error.message.includes('Email ou mot de passe incorrect') || 
             error.message.includes('401')) {
@@ -201,6 +187,29 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
             submit: 'Aucun compte trouvé avec cet email',
             email: 'Email non reconnu'
           });
+        } else if (error.message.includes('Période d\'essai expirée') || 
+                   error.message.includes('ESSAI_EXPIRE')) {
+          toast.error(
+            <div className="flex flex-col gap-2">
+              <span className="font-semibold">❌ Période d'essai expirée</span>
+              <p className="text-sm">Veuillez souscrire un abonnement pour continuer.</p>
+              <button
+                onClick={() => window.location.href = '/subscriptions'}
+                className="mt-2 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+              >
+                Souscrire un abonnement
+              </button>
+            </div>,
+            { duration: 8000 }
+          );
+        } else if (error.message.includes('refusé') || error.message.includes('REFUSE')) {
+          toast.error(
+            <div className="flex flex-col gap-2">
+              <span className="font-semibold">⛔ Compte refusé</span>
+              <p className="text-sm">Votre dossier a été refusé. Contactez le support.</p>
+            </div>,
+            { duration: 5000 }
+          );
         } else {
           setErrors({ 
             submit: error.message || 'Une erreur est survenue lors de la connexion'
@@ -218,9 +227,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // ===== RÉINITIALISATION MOT DE PASSE =====
   
-  /**
-   * Étape 1 : Envoie le code de réinitialisation par email
-   */
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -250,9 +256,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   };
 
-  /**
-   * Étape 2 : Vérifie le code saisi
-   */
   const handleVerifyCode = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -273,21 +276,16 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     });
   };
 
-  /**
-   * Étape 3 : Réinitialise le mot de passe avec le code validé
-   */
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setErrors({});
 
-    // Validation du nouveau mot de passe
     const passwordError = validateNewPassword(formData.newPassword);
     if (passwordError) {
       setErrors({ newPassword: passwordError });
       return;
     }
 
-    // Vérification de la confirmation
     if (formData.newPassword !== formData.confirmPassword) {
       setErrors({ confirmPassword: 'Les mots de passe ne correspondent pas' });
       return;
@@ -306,7 +304,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         text: 'Mot de passe réinitialisé avec succès ! Redirection...'
       });
       
-      // Retour à la connexion après 3 secondes
       setTimeout(() => {
         setMode('login');
         setStep(1);
@@ -329,9 +326,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }
   };
 
-  /**
-   * Renvoie un nouveau code de réinitialisation
-   */
   const handleResendCode = async () => {
     if (countdown > 0) return;
     setInternalLoading(true);
@@ -354,12 +348,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   // ===== RENDU DES FORMULAIRES =====
   
-  /**
-   * Rendu du formulaire de connexion
-   */
   const renderLoginForm = () => (
     <form className="space-y-5" onSubmit={handleSubmit}>
-      {/* Champ Email avec icône */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
           Adresse email
@@ -387,7 +377,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
       </div>
 
-      {/* Champ Mot de passe avec icône et bouton d'affichage */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -445,8 +434,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
       </div>
 
-        {/* Checkbox "Se souvenir de moi" */}
-        <div className="flex items-center">
+      <div className="flex items-center">
         <input
           id="remember-me"
           name="rememberMe"
@@ -461,7 +449,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         </label>
       </div>
 
-      {/* Bouton de soumission */}
       <Button
         type="submit"
         loading={isLoading}
@@ -472,7 +459,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
         {isLoading ? 'Connexion...' : 'Se connecter'}
       </Button>
 
-      {/* Message d'erreur général */}
       {errors.submit && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           <div className="flex items-center">
@@ -486,13 +472,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     </form>
   );
 
-  /**
-   * Rendu du formulaire de réinitialisation (3 étapes)
-   */
   const renderForgotForm = () => {
-    /**
-     * Indicateur visuel des étapes (1,2,3)
-     */
     const renderStepIndicator = () => (
       <div className="flex items-center justify-center mb-6">
         {[1, 2, 3].map((stepNumber) => (
@@ -517,7 +497,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
     return (
       <div className="space-y-5">
-        {/* Bouton retour à la connexion */}
         <button
           type="button"
           onClick={() => {
@@ -534,7 +513,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           <span>Retour à la connexion</span>
         </button>
 
-        {/* En-tête de l'étape */}
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {step === 1 && 'Réinitialisation du mot de passe'}
@@ -548,10 +526,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           </p>
         </div>
 
-        {/* Indicateur d'étapes */}
         {renderStepIndicator()}
 
-        {/* Message de succès/erreur */}
         {message.text && (
           <div className={`p-3 rounded-lg ${
             message.type === 'success' 
@@ -573,7 +549,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           </div>
         )}
 
-        {/* ÉTAPE 1 : Email */}
         {step === 1 && (
           <form onSubmit={handleForgotPassword}>
             <div className="mb-4">
@@ -613,7 +588,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           </form>
         )}
 
-        {/* ÉTAPE 2 : Code de vérification */}
         {step === 2 && (
           <form onSubmit={handleVerifyCode}>
             <div className="mb-4">
@@ -674,7 +648,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
           </form>
         )}
 
-        {/* ÉTAPE 3 : Nouveau mot de passe */}
         {step === 3 && (
           <form onSubmit={handleResetPassword}>
             <div className="mb-4">
