@@ -11,9 +11,12 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import Footer from '../../../components/Footer';
+import Header from '../../../components/Header';
 
 const AdminDashboard = () => {
+  const { t } = useLanguage();
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
   const navigate = useNavigate();
@@ -53,23 +56,23 @@ const AdminDashboard = () => {
 
   const sections = [
     {
-      title: 'TABLEAU DE BORD',
+      title: t('dashboard.adminSectionDashboard'),
       items: [
-        { id: 'stats', label: 'Statistiques', icon: ChartBarIcon, path: '/dashboard/admin/stats' },
+        { id: 'stats', label: t('dashboard.adminStatistics'), icon: ChartBarIcon, path: '/dashboard/admin/stats' },
       ]
     },
     {
-      title: 'COMMANDES',
+      title: t('dashboard.adminSectionOrders'),
       items: [
-        { id: 'validation-commandes', label: 'Validation commandes', icon: DocumentCheckIcon, path: '/dashboard/admin/validation-commandes' },
+        { id: 'validation-commandes', label: t('dashboard.adminValidationOrders'), icon: DocumentCheckIcon, path: '/dashboard/admin/validation-commandes' },
       ]
     },
     {
-      title: 'GESTION',
+      title: t('dashboard.adminSectionManagement'),
       items: [
-        { id: 'users', label: 'Utilisateurs', icon: UsersIcon, path: '/dashboard/admin/users' },
-        { id: 'remises', label: 'Remises', icon: TagIcon, path: '/dashboard/admin/remises' },
-        { id: 'fournisseurs', label: 'Fournisseurs', icon: UserGroupIcon, path: '/dashboard/admin/fournisseurs' },
+        { id: 'users', label: t('dashboard.adminUsers'), icon: UsersIcon, path: '/dashboard/admin/users' },
+        { id: 'remises', label: t('dashboard.adminDiscounts'), icon: TagIcon, path: '/dashboard/admin/remises' },
+        { id: 'fournisseurs', label: t('dashboard.adminSuppliers'), icon: UserGroupIcon, path: '/dashboard/admin/fournisseurs' },
       ]
     }
   ];
@@ -80,6 +83,8 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Header userRole={admin?.role || localStorage.getItem('userRole') || 'ADMIN'} />
+
       {/* Sidebar */}
       <div className={`fixed top-0 left-0 h-full bg-white border-r shadow-xl transition-all duration-300 z-30 ${
         collapsed ? 'w-20' : 'w-64'
@@ -90,17 +95,17 @@ const AdminDashboard = () => {
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Administration
+                  {t('dashboard.adminPanelTitle')}
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                  Gestion et configuration
+                  {t('dashboard.adminPanelDescription')}
                 </p>
               </div>
             )}
             <button
               onClick={toggleSidebar}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label={collapsed ? "Développer le menu" : "Réduire le menu"}
+              aria-label={collapsed ? t('dashboard.expandMenu') : t('dashboard.collapseMenu')}
             >
               {collapsed ? '→' : '←'}
             </button>
@@ -192,18 +197,18 @@ const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">
-                  {activePage === 'stats' && 'Statistiques'}
-                  {activePage === 'validation-commandes' && 'Validation commandes'}
-                  {activePage === 'users' && 'Gestion utilisateurs'}
-                  {activePage === 'remises' && 'Gestion Remises'}
-                  {activePage === 'fournisseurs' && 'Gestion Fournisseurs'}
+                  {activePage === 'stats' && t('dashboard.adminStatsTitle')}
+                  {activePage === 'validation-commandes' && t('dashboard.adminValidationTitle')}
+                  {activePage === 'users' && t('dashboard.adminUsersTitle')}
+                  {activePage === 'remises' && t('dashboard.adminDiscountsTitle')}
+                  {activePage === 'fournisseurs' && t('dashboard.adminSuppliersTitle')}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
-                  {activePage === 'stats' && "Statistiques et indicateurs de performance"}
-                  {activePage === 'validation-commandes' && "Validez ou rejetez les commandes en attente"}
-                  {activePage === 'users' && "Gérez les utilisateurs et leurs permissions"}
-                  {activePage === 'remises' && "Gérez les remises clients et produits"}
-                  {activePage === 'fournisseurs' && "Gérez les fournisseurs"}
+                  {activePage === 'stats' && t('dashboard.adminStatsDescription')}
+                  {activePage === 'validation-commandes' && t('dashboard.adminValidationDescription')}
+                  {activePage === 'users' && t('dashboard.adminUsersDescription')}
+                  {activePage === 'remises' && t('dashboard.adminDiscountsDescription')}
+                  {activePage === 'fournisseurs' && t('dashboard.adminSuppliersDescription')}
                 </p>
               </div>
             </div>

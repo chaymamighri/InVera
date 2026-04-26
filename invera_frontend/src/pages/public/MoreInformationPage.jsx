@@ -1,27 +1,61 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logo from '../../assets/images/logo.png';
+import PublicHeader from '../../components/PublicHeader';
+import { useLanguage } from '../../context/LanguageContext';
 
 const sections = [
   {
-    title: 'A propos d’InVera',
-    text: "InVera est une plateforme ERP SaaS pensée pour centraliser les activites commerciales, les achats, le stock, la facturation et le pilotage administratif dans une interface claire et professionnelle.",
+    key: 'about',
+    title: {
+      fr: 'A propos d InVera',
+      en: 'About InVera',
+      ar: 'حول InVera',
+    },
+    text: {
+      fr: 'InVera est une plateforme ERP SaaS pensee pour centraliser les activites commerciales, les achats, le stock, la facturation et le pilotage administratif dans une interface claire et professionnelle.',
+      en: 'InVera is a SaaS ERP platform designed to centralize sales activity, procurement, stock, invoicing, and administrative oversight in one clear professional interface.',
+      ar: 'InVera هي منصة ERP سحابية صممت لتجميع المبيعات والمشتريات والمخزون والفوترة والمتابعة الإدارية داخل واجهة واضحة واحترافية.',
+    },
   },
   {
-    title: 'Notre vision',
-    text: "L’objectif du projet est d’offrir un environnement de gestion moderne, structure et evolutif, adapte aux equipes qui ont besoin d’un outil fiable pour suivre leurs operations au quotidien.",
+    key: 'vision',
+    title: {
+      fr: 'Notre vision',
+      en: 'Our vision',
+      ar: 'رؤيتنا',
+    },
+    text: {
+      fr: 'L objectif du projet est d offrir un environnement de gestion moderne, structure et evolutif, adapte aux equipes qui ont besoin d un outil fiable pour suivre leurs operations au quotidien.',
+      en: 'The goal is to provide a modern, structured, and scalable management environment for teams that need a reliable tool to follow their daily operations.',
+      ar: 'هدف المشروع هو تقديم بيئة إدارة حديثة ومنظمة وقابلة للتطور للفرق التي تحتاج إلى أداة موثوقة لمتابعة عملياتها اليومية.',
+    },
   },
   {
-    title: 'Support et accompagnement',
-    text: "La plateforme peut integrer un espace de support, un canal de contact commercial, une prise de rendez-vous de demonstration, ainsi qu’un accompagnement pour l’onboarding des nouveaux clients.",
+    key: 'support',
+    title: {
+      fr: 'Support et accompagnement',
+      en: 'Support and onboarding',
+      ar: 'الدعم والمرافقة',
+    },
+    text: {
+      fr: 'La plateforme peut integrer un espace de support, un canal de contact commercial, une prise de rendez-vous de demonstration, ainsi qu un accompagnement pour l onboarding des nouveaux clients.',
+      en: 'The platform can include support space, direct commercial contact, demo booking, and onboarding guidance for new clients.',
+      ar: 'يمكن للمنصة أن تتضمن مساحة دعم وقناة تواصل تجاري وحجز عرض توضيحي ومرافقة لدمج العملاء الجدد.',
+    },
   },
 ];
 
 const contactItems = [
-  { label: 'Email commercial', value: 'contact@invera.app' },
-  { label: 'Email support', value: 'support@invera.app' },
-  { label: 'Telephone', value: '+216 00 000 000' },
+  { key: 'sales', value: 'contact@invera.app' },
+  { key: 'support', value: 'support@invera.app' },
+  { key: 'phone', value: '+216 00 000 000' },
 ];
+
+const contactLabels = {
+  sales: { fr: 'Email commercial', en: 'Sales email', ar: 'بريد المبيعات' },
+  support: { fr: 'Email support', en: 'Support email', ar: 'بريد الدعم' },
+  phone: { fr: 'Telephone', en: 'Phone', ar: 'الهاتف' },
+};
 
 const whatsappUrl =
   'https://wa.me/21600000000?text=Bonjour%20InVera%2C%20je%20souhaite%20obtenir%20des%20informations%20sur%20la%20plateforme.';
@@ -41,55 +75,35 @@ const TelegramIcon = () => (
 );
 
 const MoreInformationPage = () => {
+  const { language, t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-[#f6f9fc] text-slate-900">
       <div className="mx-auto max-w-6xl px-6 py-8 lg:px-8">
-        <header className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2">
-                <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#0b4ea2]">
-                  InVera ERP
-                </p>
-                <h1 className="text-2xl font-semibold text-slate-950">Plus d&apos;informations</h1>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/welcome"
-                className="inline-flex rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Retour a l accueil
-                </span>
-              </Link>
-              <Link
-                to="/login"
-                className="inline-flex rounded-full bg-[#0b2f6b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0b4ea2]"
-              >
-                Se connecter
-              </Link>
-            </div>
-          </div>
-        </header>
+        <PublicHeader
+          title={t('publicInfo.pageTitle')}
+          backTo="/welcome"
+          backLabel={t('common.backToWelcome')}
+          actions={
+            <Link
+              to="/login"
+              className="inline-flex rounded-full bg-[#0b2f6b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0b4ea2]"
+            >
+              {t('common.login')}
+            </Link>
+          }
+        />
 
         <main className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="rounded-[28px] border border-sky-100 bg-white p-8 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0b4ea2]">
-              Presentation
+              {t('publicInfo.offersBadge')}
             </p>
             <div className="mt-6 space-y-6">
               {sections.map((section) => (
-                <div key={section.title} className="rounded-[22px] bg-[#f8fbff] p-5">
-                  <h2 className="text-xl font-semibold text-slate-950">{section.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{section.text}</p>
+                <div key={section.key} className="rounded-[22px] bg-[#f8fbff] p-5">
+                  <h2 className="text-xl font-semibold text-slate-950">{section.title[language]}</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{section.text[language]}</p>
                 </div>
               ))}
             </div>
@@ -97,16 +111,16 @@ const MoreInformationPage = () => {
 
           <aside className="rounded-[28px] border border-[#d7e6fb] bg-[linear-gradient(180deg,#0b2f6b_0%,#0b4ea2_100%)] p-8 text-white shadow-[0_24px_80px_rgba(11,47,107,0.18)]">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-200">
-              Contact direct
+              {t('common.moreInformation')}
             </p>
             <h2 className="mt-4 text-3xl font-semibold leading-tight">
-              Un seul espace pour comprendre le projet et savoir comment nous joindre.
+              {t('publicInfo.title')}
             </h2>
             <div className="mt-8 space-y-4">
               {contactItems.map((item) => (
-                <div key={item.label} className="rounded-[22px] border border-white/15 bg-white/10 p-4">
+                <div key={item.key} className="rounded-[22px] border border-white/15 bg-white/10 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
-                    {item.label}
+                    {contactLabels[item.key][language]}
                   </p>
                   <p className="mt-2 text-lg font-semibold text-white">{item.value}</p>
                 </div>
@@ -116,11 +130,10 @@ const MoreInformationPage = () => {
             <div className="mt-8 grid gap-4">
               <div className="rounded-[22px] border border-emerald-300/20 bg-emerald-500/10 p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                  Assistance WhatsApp
+                  WhatsApp
                 </p>
                 <p className="mt-3 text-sm leading-7 text-sky-50">
-                  Un bouton WhatsApp est deja pret cote frontend. Il pourra ensuite etre relie a votre
-                  chatbot pour repondre automatiquement aux questions sur l application.
+                  {t('publicInfo.description')}
                 </p>
                 <a
                   href={whatsappUrl}
@@ -129,17 +142,16 @@ const MoreInformationPage = () => {
                   className="mt-5 inline-flex items-center gap-3 rounded-full bg-[#25D366] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1fb85a]"
                 >
                   <WhatsAppIcon />
-                  Ouvrir WhatsApp
+                  WhatsApp
                 </a>
               </div>
 
               <div className="rounded-[22px] border border-sky-300/20 bg-sky-400/10 p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
-                  Chatbot Telegram
+                  Telegram
                 </p>
                 <p className="mt-3 text-sm leading-7 text-sky-50">
-                  Ce bouton Telegram est pret cote frontend pour accueillir plus tard votre chatbot
-                  capable de repondre aux questions des visiteurs sur l application.
+                  {t('publicInfo.description')}
                 </p>
                 <a
                   href={telegramUrl}
@@ -148,7 +160,7 @@ const MoreInformationPage = () => {
                   className="mt-5 inline-flex items-center gap-3 rounded-full bg-[#229ED9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1b87bb]"
                 >
                   <TelegramIcon />
-                  Ouvrir Telegram
+                  Telegram
                 </a>
               </div>
             </div>

@@ -16,9 +16,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BellIcon, ChevronDownIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import logo from '../assets/images/logo.png';
+import LanguageSwitcher from './LanguageSwitcher';
 import { notificationService } from '../services/notificationService';
 import commandeFournisseurService from '../services/commandeFournisseurService';
 import procurementReminderService from '../services/procurementReminderService';
+import { useLanguage } from '../context/LanguageContext';
 import { useSidebar } from '../context/SidebarContext';
 import { decorateNotification } from '../utils/notificationRouting';
 
@@ -31,9 +33,100 @@ import { decorateNotification } from '../utils/notificationRouting';
 const normalizeRole = (value) => String(value || '').trim().toUpperCase().replace(/^ROLE_/, '');
 
 const Header = ({ userRole }) => {
+  const { t, language } = useLanguage();
   const { collapsed } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
+  const locale = language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR';
+  const notificationCopy = {
+    fr: {
+      unknownMonth: 'Inconnu',
+      errorNotifications: 'Erreur notifications',
+      markReadError: 'Impossible de marquer comme lu',
+      markAllReadError: 'Impossible de tout marquer comme lu',
+      deletedSuccess: 'Notification supprimee',
+      deleteError: 'Erreur suppression notification',
+      deleteWeekError: 'Erreur suppression (7 jours)',
+      deleteMonthRangeError: 'Erreur suppression (30 jours)',
+      deletedCount: 'Supprime: {{count}}',
+      deletedMonth: 'Supprime ({{month}}): {{count}}',
+      deleteMonthError: 'Erreur suppression mois',
+      deleteAllError: 'Erreur suppression totale',
+      unreadToast: 'Vous avez {{count}} notification(s) non lue(s)',
+      markAllRead: 'Tout lire',
+      delete7Days: 'Supprimer 7 jours',
+      delete30Days: 'Supprimer 30 jours',
+      deleteCurrentMonth: 'Supprimer ce mois',
+      deleteAll: 'Tout supprimer',
+      deleteAllConfirm: 'Supprimer TOUTES les notifications ?',
+      deleteMonthConfirm: 'Supprimer toutes les notifications de {{month}} ?',
+      deleteMonthShort: 'Supprimer mois',
+      clickToRead: 'Cliquer pour marquer comme lu',
+      supplier: 'Fournisseur',
+      actionHint: "Accedez directement a l element concerne.",
+      view: 'Voir',
+      deleteOneConfirm: 'Supprimer cette notification ?',
+      deleteOneTitle: 'Supprimer',
+    },
+    en: {
+      unknownMonth: 'Unknown',
+      errorNotifications: 'Notification error',
+      markReadError: 'Unable to mark as read',
+      markAllReadError: 'Unable to mark all as read',
+      deletedSuccess: 'Notification deleted',
+      deleteError: 'Notification deletion failed',
+      deleteWeekError: 'Deletion failed (7 days)',
+      deleteMonthRangeError: 'Deletion failed (30 days)',
+      deletedCount: 'Deleted: {{count}}',
+      deletedMonth: 'Deleted ({{month}}): {{count}}',
+      deleteMonthError: 'Month deletion failed',
+      deleteAllError: 'Full deletion failed',
+      unreadToast: 'You have {{count}} unread notification(s)',
+      markAllRead: 'Mark all read',
+      delete7Days: 'Delete 7 days',
+      delete30Days: 'Delete 30 days',
+      deleteCurrentMonth: 'Delete this month',
+      deleteAll: 'Delete all',
+      deleteAllConfirm: 'Delete ALL notifications?',
+      deleteMonthConfirm: 'Delete all notifications from {{month}}?',
+      deleteMonthShort: 'Delete month',
+      clickToRead: 'Click to mark as read',
+      supplier: 'Supplier',
+      actionHint: 'Open the related item directly.',
+      view: 'View',
+      deleteOneConfirm: 'Delete this notification?',
+      deleteOneTitle: 'Delete',
+    },
+    ar: {
+      unknownMonth: 'غير معروف',
+      errorNotifications: 'خطأ في الاشعارات',
+      markReadError: 'تعذر تعليم الاشعار كمقروء',
+      markAllReadError: 'تعذر تعليم كل الاشعارات كمقروءة',
+      deletedSuccess: 'تم حذف الاشعار',
+      deleteError: 'فشل حذف الاشعار',
+      deleteWeekError: 'فشل الحذف (7 ايام)',
+      deleteMonthRangeError: 'فشل الحذف (30 يوما)',
+      deletedCount: 'تم حذف: {{count}}',
+      deletedMonth: 'تم حذف ({{month}}): {{count}}',
+      deleteMonthError: 'فشل حذف الشهر',
+      deleteAllError: 'فشل الحذف الكامل',
+      unreadToast: 'لديك {{count}} اشعار غير مقروء',
+      markAllRead: 'قراءة الكل',
+      delete7Days: 'حذف 7 ايام',
+      delete30Days: 'حذف 30 يوما',
+      deleteCurrentMonth: 'حذف هذا الشهر',
+      deleteAll: 'حذف الكل',
+      deleteAllConfirm: 'حذف كل الاشعارات؟',
+      deleteMonthConfirm: 'حذف كل اشعارات {{month}}؟',
+      deleteMonthShort: 'حذف الشهر',
+      clickToRead: 'اضغط للتعليم كمقروء',
+      supplier: 'المورد',
+      actionHint: 'افتح العنصر المرتبط مباشرة.',
+      view: 'عرض',
+      deleteOneConfirm: 'حذف هذا الاشعار؟',
+      deleteOneTitle: 'حذف',
+    },
+  }[language] || {};
 
   // ===== ÉTATS LOCAUX =====
   const [isProfileOpen, setIsProfileOpen] = useState(false);      // Menu profil ouvert/fermé
@@ -74,16 +167,17 @@ const Header = ({ userRole }) => {
 
     // Traduction des rôles
     const roleTranslations = {
-      ADMIN: 'Administrateur',
-      COMMERCIAL: 'Responsable Ventes',
-      RESPONSABLE_ACHAT: 'Responsable Achats',
-      PROCUREMENT: 'Responsable Achats',
+      ADMIN: t('header.administrator'),
+      ADMIN_CLIENT: t('header.administrator'),
+      COMMERCIAL: t('header.salesManager'),
+      RESPONSABLE_ACHAT: t('header.procurementManager'),
+      PROCUREMENT: t('header.procurementManager'),
       SUPER_ADMIN: 'Super Admin',
-      admin: 'Administrateur',
-      sales: 'Responsable Ventes',
-      procurement: 'Responsable Achats',
+      admin: t('header.administrator'),
+      sales: t('header.salesManager'),
+      procurement: t('header.procurementManager'),
       super_admin: 'Super Admin',
-      user: 'Utilisateur',
+      user: t('header.user'),
     };
 
     // Génération des initiales
@@ -102,14 +196,14 @@ const Header = ({ userRole }) => {
       normalizedRole,
       role: roleTranslations[role] || roleTranslations[normalizedRole] || roleTranslations[normalizedRole.toLowerCase()] || role,
       initials: initials || 'U',
-      isAdmin: normalizedRole === 'ADMIN',
+      isAdmin: ['ADMIN', 'ADMIN_CLIENT'].includes(normalizedRole),
       isSuperAdmin,
       // Les responsables achats et admins peuvent voir les notifications
-      canUseNotifications: ['ADMIN', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
+      canUseNotifications: ['ADMIN', 'ADMIN_CLIENT', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
       // Seuls les responsables achats voient les rappels
       canUseProcurementReminders: ['RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
     };
-  }, [userRole]);
+  }, [t, userRole]);
 
   // ===== NOTIFICATIONS =====
   /**
@@ -188,7 +282,7 @@ const Header = ({ userRole }) => {
     try {
       const date = new Date(value);
       if (!Number.isNaN(date.getTime())) {
-        return date.toLocaleString();
+        return date.toLocaleString(locale);
       }
       return value;
     } catch {
@@ -209,8 +303,8 @@ const Header = ({ userRole }) => {
         ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         : 'unknown';
       const monthLabel = !Number.isNaN(date.getTime())
-        ? date.toLocaleString(undefined, { month: 'long', year: 'numeric' })
-        : 'Inconnu';
+        ? date.toLocaleString(locale, { month: 'long', year: 'numeric' })
+        : notificationCopy.unknownMonth;
       const enriched = { ...notification, __monthValue: monthValue };
       if (!map.has(monthLabel)) {
         map.set(monthLabel, []);
@@ -249,8 +343,8 @@ const Header = ({ userRole }) => {
       const items = Array.isArray(res.data) ? res.data.map(decorateNotification) : [];
       setServerNotifications(items);
     } catch (error) {
-      const msg = error?.response?.data?.message || error?.response?.data || error?.message || 'Erreur notifications';
-      toast.error(typeof msg === 'string' ? msg : 'Erreur notifications');
+      const msg = error?.response?.data?.message || error?.response?.data || error?.message || notificationCopy.errorNotifications;
+      toast.error(typeof msg === 'string' ? msg : notificationCopy.errorNotifications);
     } finally {
       setNotifLoading(false);
     }
@@ -301,7 +395,7 @@ const Header = ({ userRole }) => {
       setServerNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
       setServerUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
-      toast.error('Impossible de marquer comme lu');
+      toast.error(notificationCopy.markReadError);
     }
   };
 
@@ -315,7 +409,7 @@ const Header = ({ userRole }) => {
       setServerNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
       setServerUnreadCount(0);
     } catch {
-      toast.error('Impossible de tout marquer comme lu');
+      toast.error(notificationCopy.markAllReadError);
     }
   };
 
@@ -356,16 +450,16 @@ const Header = ({ userRole }) => {
   const handleDeleteNotification = async (notification) => {
     if (notification.source === 'procurement-reminder') {
       procurementReminderService.dismiss(notification.id);
-      toast.success('Notification supprimée');
+      toast.success(notificationCopy.deletedSuccess);
       return;
     }
     try {
       await notificationService.deleteOne(notification.id);
-      toast.success('Notification supprimée');
+      toast.success(notificationCopy.deletedSuccess);
       setServerNotifications((prev) => prev.filter((item) => item.id !== notification.id));
       await loadUnreadCount();
     } catch {
-      toast.error('Erreur suppression notification');
+      toast.error(notificationCopy.deleteError);
     }
   };
 
@@ -379,11 +473,11 @@ const Header = ({ userRole }) => {
       const res = await notificationService.deleteRange(range);
       deleted += Number(res?.data?.deleted || 0);
     } catch {
-      toast.error(`Erreur suppression (${range === 'week' ? '7 jours' : '30 jours'})`);
+      toast.error(range === 'week' ? notificationCopy.deleteWeekError : notificationCopy.deleteMonthRangeError);
       return;
     }
     deleted += procurementReminderService.dismissRange(range);
-    toast.success(`Supprimé: ${deleted}`);
+    toast.success(notificationCopy.deletedCount.replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();
   };
@@ -398,11 +492,11 @@ const Header = ({ userRole }) => {
       const res = await notificationService.deleteMonth(monthValue);
       deleted += Number(res?.data?.deleted || 0);
     } catch {
-      toast.error('Erreur suppression mois');
+      toast.error(notificationCopy.deleteMonthError);
       return;
     }
     deleted += procurementReminderService.dismissMonth(monthValue);
-    toast.success(`Supprimé (${monthValue}): ${deleted}`);
+    toast.success(notificationCopy.deletedMonth.replace('{{month}}', monthValue).replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();
   };
@@ -416,11 +510,11 @@ const Header = ({ userRole }) => {
       const res = await notificationService.deleteAll();
       deleted += Number(res?.data?.deleted || 0);
     } catch {
-      toast.error('Erreur suppression totale');
+      toast.error(notificationCopy.deleteAllError);
       return;
     }
     deleted += procurementReminderService.dismissAll();
-    toast.success(`Supprimé: ${deleted}`);
+    toast.success(notificationCopy.deletedCount.replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();
   };
@@ -469,7 +563,7 @@ const Header = ({ userRole }) => {
     // Premier chargement
     if (!initialUnreadSnapshotRef.current) {
       if (unreadCount > 0) {
-        toast(`Vous avez ${unreadCount} notification(s) non lue(s)`);
+        toast(notificationCopy.unreadToast.replace('{{count}}', String(unreadCount)));
       }
       lastUnreadRef.current = unreadCount;
       initialUnreadSnapshotRef.current = true;
@@ -477,7 +571,7 @@ const Header = ({ userRole }) => {
     }
     // Nouvelles notifications
     if (!isNotifOpen && unreadCount > lastUnreadRef.current) {
-      toast.success(`Vous avez ${unreadCount} notification(s) non lue(s)`);
+      toast.success(notificationCopy.unreadToast.replace('{{count}}', String(unreadCount)));
     }
     lastUnreadRef.current = unreadCount;
   }, [isNotifOpen, unreadCount, user.canUseNotifications]);
@@ -550,9 +644,9 @@ const Header = ({ userRole }) => {
               <Link to={dashboardHome} className="flex items-center space-x-3">
                 {logo && <img src={logo} alt="InVera ERP Logo" className="h-10 w-auto" />}
                 <div className="hidden md:block">
-                  <h1 className="text-lg font-bold text-white">InVera ERP</h1>
+                  <h1 className="text-lg font-bold text-white">{t('common.appName')}</h1>
                   <p className="text-xs text-blue-200">
-                    {user.isSuperAdmin ? 'Administration plateforme' : 'Système de Gestion Intégré'}
+                    {user.isSuperAdmin ? t('common.superAdminSpace') : t('login.heroTitle')}
                   </p>
                 </div>
               </Link>
@@ -560,13 +654,14 @@ const Header = ({ userRole }) => {
 
             {/* ===== ACTIONS DROITES ===== */}
             <div className="flex items-center space-x-4">
+              <LanguageSwitcher menuClassName="z-[9999]" />
               {/* BOUTON NOTIFICATIONS */}
               {user.canUseNotifications && (
                 <div className="relative" ref={notifRef}>
                   <button
                     onClick={toggleNotifications}
                     className="relative p-2 text-blue-100 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
-                    title="Notifications"
+                    title={t('common.notifications')}
                   >
                     <BellIcon className="h-5 w-5" />
                     {unreadCount > 0 ? (
@@ -585,19 +680,19 @@ const Header = ({ userRole }) => {
                       <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-semibold">Notifications</p>
-                            <p className="text-xs text-blue-100">Non lues: {unreadCount}</p>
+                            <p className="font-semibold">{t('common.notifications')}</p>
+                            <p className="text-xs text-blue-100">{t('common.notifications')}: {unreadCount}</p>
                           </div>
                           <button onClick={markAllRead} className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full">
-                            Tout lire
+                            {notificationCopy.markAllRead}
                           </button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <button onClick={() => handleDeleteRange('week')} className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full">
-                            Supprimer 7 jours
+                            {notificationCopy.delete7Days}
                           </button>
                           <button onClick={() => handleDeleteRange('month')} className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full">
-                            Supprimer 30 jours
+                            {notificationCopy.delete30Days}
                           </button>
                           <button
                             onClick={() => {
@@ -607,13 +702,13 @@ const Header = ({ userRole }) => {
                             }}
                             className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full"
                           >
-                            Supprimer ce mois
+                            {notificationCopy.deleteCurrentMonth}
                           </button>
                           <button
-                            onClick={() => confirmToast('Supprimer TOUTES les notifications ?', async () => await handleDeleteAll())}
+                            onClick={() => confirmToast(notificationCopy.deleteAllConfirm, async () => await handleDeleteAll())}
                             className="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full"
                           >
-                            Tout supprimer
+                            {notificationCopy.deleteAll}
                           </button>
                         </div>
                       </div>
@@ -621,9 +716,9 @@ const Header = ({ userRole }) => {
                       {/* Liste des notifications */}
                       <div className="max-h-[380px] overflow-auto">
                         {notifLoading ? (
-                          <div className="p-4 text-sm text-gray-500">Chargement...</div>
+                          <div className="p-4 text-sm text-gray-500">{t('common.loading')}</div>
                         ) : notifications.length === 0 ? (
-                          <div className="p-6 text-center text-sm text-gray-500">Aucune notification</div>
+                          <div className="p-6 text-center text-sm text-gray-500">{t('common.noNotifications')}</div>
                         ) : (
                           <div className="p-2">
                             {groupByMonth(notifications).map(([monthLabel, items]) => (
@@ -634,13 +729,13 @@ const Header = ({ userRole }) => {
                                     onClick={() => {
                                       const monthValue = items?.[0]?.__monthValue;
                                       if (!monthValue) return;
-                                      confirmToast(`Supprimer toutes les notifications de ${monthValue} ?`, async () => {
+                                      confirmToast(notificationCopy.deleteMonthConfirm.replace('{{month}}', monthValue), async () => {
                                         await handleDeleteMonth(monthValue);
                                       });
                                     }}
                                     className="text-[11px] px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
                                   >
-                                    Supprimer mois
+                                    {notificationCopy.deleteMonthShort}
                                   </button>
                                 </div>
                                 <div className="divide-y divide-gray-100 rounded-xl overflow-hidden border border-gray-100">
@@ -658,7 +753,7 @@ const Header = ({ userRole }) => {
                                             <button
                                               onClick={() => { if (!notification.read) markRead(notification.id); }}
                                               className="text-left w-full"
-                                              title={!notification.read ? 'Cliquer pour marquer comme lu' : ''}
+                                              title={!notification.read ? notificationCopy.clickToRead : ''}
                                             >
                                               {(notification.title || notification.badgeLabel) && (
                                                 <div className="flex items-center gap-2 mb-1">
@@ -678,14 +773,14 @@ const Header = ({ userRole }) => {
                                                 {notification.message}
                                               </p>
                                               {notification.fournisseurNom && (
-                                                <p className="text-xs text-gray-500 mt-1">Fournisseur: {notification.fournisseurNom}</p>
+                                                <p className="text-xs text-gray-500 mt-1">{notificationCopy.supplier}: {notification.fournisseurNom}</p>
                                               )}
                                               <p className="text-xs text-gray-500 mt-1">{formatDate(notification.createdAt)}</p>
                                             </button>
                                             {(isReminder || notification.actionPath) && (
                                               <div className="mt-3 flex items-center justify-between gap-3">
                                                 <p className={`text-xs ${isReminder ? 'text-amber-700' : 'text-blue-700'}`}>
-                                                  {notification.actionHint || 'Accedez directement a l element concerne.'}
+                                                  {notification.actionHint || notificationCopy.actionHint}
                                                 </p>
                                                 <button
                                                   onClick={() => handleNotificationAction(notification)}
@@ -693,15 +788,15 @@ const Header = ({ userRole }) => {
                                                     isReminder ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'
                                                   }`}
                                                 >
-                                                  {notification.actionLabel || 'Voir'}
+                                                  {notification.actionLabel || notificationCopy.view}
                                                 </button>
                                               </div>
                                             )}
                                           </div>
                                           <button
-                                            onClick={() => confirmToast('Supprimer cette notification ?', async () => await handleDeleteNotification(notification))}
+                                            onClick={() => confirmToast(notificationCopy.deleteOneConfirm, async () => await handleDeleteNotification(notification))}
                                             className="text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700"
-                                            title="Supprimer"
+                                            title={notificationCopy.deleteOneTitle}
                                           >
                                             ✕
                                           </button>
@@ -716,7 +811,7 @@ const Header = ({ userRole }) => {
                         )}
                       </div>
                       <div className="px-4 py-3 bg-gray-50 text-xs text-gray-500">
-                        Cliquez sur une notification pour la marquer comme lue. Les notifications liees aux demandes incluent un acces direct a l element concerne.
+                        {t('header.notificationFooter')}
                       </div>
                     </div>
                   )}
@@ -752,14 +847,14 @@ const Header = ({ userRole }) => {
                     <div className="py-2">
                       <Link to={profilePath} className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
                         <UserCircleIcon className="h-5 w-5 mr-3 text-blue-600" />
-                        Mon profil
+                        {t('common.profile')}
                       </Link>
                       <Link to={settingsPath} className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50" onClick={() => setIsProfileOpen(false)}>
                         <svg className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        Paramètres
+                        {t('common.settings')}
                       </Link>
                     </div>
                     <div className="border-t border-gray-100"></div>
@@ -767,7 +862,7 @@ const Header = ({ userRole }) => {
                       <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      Déconnexion
+                      {t('common.logout')}
                     </button>
                   </div>
                 )}

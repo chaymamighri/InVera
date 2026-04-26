@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ClientStats = ({ clients }) => {
+const ClientStats = ({ clients, t }) => {
   const stats = {
     total: clients?.length || 0,
     particulier: clients?.filter((c) => c.typeClient === 'PARTICULIER').length || 0,
@@ -26,31 +26,31 @@ const ClientStats = ({ clients }) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
       <StatCard
-        title="Total"
+        title={t('salesPages.total')}
         value={stats.total}
         icon="ALL"
         bgColor="bg-blue-50"
       />
       <StatCard
-        title="Particuliers"
+        title={t('salesPages.individuals')}
         value={stats.particulier}
         icon="PAR"
         bgColor="bg-indigo-50"
       />
       <StatCard
-        title="Entreprises"
+        title={t('salesPages.companies')}
         value={stats.entreprise}
         icon="ENT"
         bgColor="bg-purple-50"
       />
       <StatCard
-        title="VIP"
+        title={t('salesPages.vip')}
         value={stats.vip}
         icon="VIP"
         bgColor="bg-rose-50"
       />
       <StatCard
-        title="Fideles"
+        title={t('salesPages.loyal')}
         value={stats.fidele}
         icon="FID"
         bgColor="bg-emerald-50"
