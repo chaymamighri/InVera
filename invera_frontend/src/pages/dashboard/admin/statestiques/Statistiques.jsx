@@ -19,17 +19,19 @@ import {
 
 import { useReports } from '../../../../hooks/useReports';
 import commandeFournisseurService from '../../../../services/commandeFournisseurService';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { getStatsCopy } from './statsTranslations';
 
 const COLORS = ['#10b981', '#3b82f6', '#059669', '#2563eb', '#f59e0b', '#ef4444'];
 const PIE_COLORS = ['#0f766e', '#0ea5e9', '#f59e0b', '#dc2626', '#8b5cf6', '#14b8a6'];
 
-const formatMoney = (value) => {
+const formatMoney = (value, locale = 'fr-FR') => {
   const number = Number(value || 0);
   if (Number.isNaN(number)) return '0';
-  return number.toLocaleString('fr-FR');
+  return number.toLocaleString(locale);
 };
 
-const formatPercent = (value) => `${Number(value || 0).toLocaleString('fr-FR')}%`;
+const formatPercent = (value, locale = 'fr-FR') => `${Number(value || 0).toLocaleString(locale)}%`;
 
 const isValidISODate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 
@@ -46,10 +48,10 @@ const sanitizeRange = (from, to) => {
   return { startDate: start, endDate: end, swapped: false };
 };
 
-const formatDayLabel = (value) => {
+const formatDayLabel = (value, locale = 'fr-FR') => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value || '').slice(0, 10);
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
 };
 
 // ========== STYLED COMPONENTS ==========
@@ -92,7 +94,7 @@ const KpiCard = ({ label, value, hint }) => (
   </div>
 );
 
-const ChartTypeSelector = ({ value, onChange, options = ['bar', 'area'] }) => {
+const ChartTypeSelector = ({ value, onChange, labels = {}, options = ['bar', 'area'] }) => {
   if (!Array.isArray(options) || options.length <= 1) return null;
 
   return (
@@ -107,7 +109,7 @@ const ChartTypeSelector = ({ value, onChange, options = ['bar', 'area'] }) => {
             : 'text-gray-600 hover:bg-gray-200'
         }`}
       >
-        {opt === 'bar' ? 'Histogramme' : opt === 'area' ? 'Aire' : opt === 'pie' ? 'Circulaire' : opt === 'composed' ? 'Pareto' : opt}
+        {labels[opt] || opt}
       </button>
     ))}
   </div>
@@ -153,7 +155,7 @@ const ErrorBox = ({ message, onRetry }) => (
     <p className="text-sm font-medium text-red-700">{message}</p>
     {onRetry && (
       <button onClick={onRetry} className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
-        Réessayer
+        Retry
       </button>
     )}
   </div>
@@ -171,7 +173,7 @@ const InlineNotice = ({ tone = 'neutral', children }) => {
   );
 };
 
-const ProTooltip = ({ active, payload, label, suffix = '' }) => {
+const ProTooltip = ({ active, payload, label, suffix = '', locale = 'fr-FR' }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="min-w-[200px] rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
@@ -185,8 +187,8 @@ const ProTooltip = ({ active, payload, label, suffix = '' }) => {
             </div>
             <span className="font-semibold text-gray-800">
               {item.name === 'Cumul %' 
-                ? `${Math.round(item.value)}%` 
-                : `${formatMoney(item.value)} DT`}
+                ? `${Math.round(item.value)}%`
+                : `${formatMoney(item.value, locale)} ${suffix}`}
             </span>
           </div>
         ))}
@@ -211,7 +213,7 @@ const pickFirst = (obj, keys, fallback = null) => {
   return fallback;
 };
 
-const buildTimeSeries = (items = []) => {
+const buildTimeSeries = (items = [], locale = 'fr-FR') => {
   const dateKeys = ['date', 'createdAt', 'created_at'];
   const amountKeys = ['montant', 'amount', 'total', 'totalAmount'];
   // Expanded list of possible responsable field names
@@ -225,7 +227,7 @@ const buildTimeSeries = (items = []) => {
   const byDay = new Map();
   for (const row of items) {
     const rawDate = pickFirst(row, dateKeys, null);
-    const day = rawDate ? formatDayLabel(rawDate) : 'N/A';
+    const day = rawDate ? formatDayLabel(rawDate, locale) : 'N/A';
     const amount = Number(pickFirst(row, amountKeys, 0)) || 0;
     let responsable = pickFirst(row, responsableKeys, null);
     // If responsable is an object (like client object), try to extract name
@@ -291,7 +293,7 @@ const getPurchaseStatusLabel = (status) => {
   return labels[status] || status || 'Inconnu';
 };
 
-const buildPurchaseSeries = (commandes = []) => {
+const buildPurchaseSeries = (commandes = [], locale = 'fr-FR') => {
   if (!commandes.length) return [];
   const timestamps = commandes
     .map((c) => new Date(c.dateCommande).getTime())
@@ -310,8 +312,8 @@ const buildPurchaseSeries = (commandes = []) => {
       grouped.set(key, {
         key,
         name: byMonth
-          ? date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
-          : formatDayLabel(c.dateCommande),
+          ? date.toLocaleDateString(locale, { month: 'short', year: '2-digit' })
+          : formatDayLabel(c.dateCommande, locale),
         totalTTC: 0,
         totalHT: 0,
         commandes: 0,
@@ -384,6 +386,8 @@ const buildClientValueCurve = (topClients = []) => {
 
 // ========== MAIN COMPONENT ==========
 const Statistiques = () => {
+  const { language, isArabic } = useLanguage();
+  const text = getStatsCopy(language);
   const [dateFromDraft, setDateFromDraft] = useState('');
   const [dateToDraft, setDateToDraft] = useState('');
   const [filterHint, setFilterHint] = useState('');
@@ -421,7 +425,7 @@ const Statistiques = () => {
   }, [loadPurchaseOrders]);
 
   const salesItems = sales.data?.ventes || [];
-  const salesSeries = useMemo(() => buildTimeSeries(salesItems), [salesItems]);
+  const salesSeries = useMemo(() => buildTimeSeries(salesItems, text.locale), [salesItems, text.locale]);
   const comparison = useMemo(() => buildComparison(salesItems), [salesItems]);
 
   const topClients = clients.data?.topClients || [];
@@ -440,7 +444,7 @@ const Statistiques = () => {
     });
   }, [purchaseOrders, activeFilters]);
 
-  const purchaseSeries = useMemo(() => buildPurchaseSeries(filteredPurchaseOrders), [filteredPurchaseOrders]);
+  const purchaseSeries = useMemo(() => buildPurchaseSeries(filteredPurchaseOrders, text.locale), [filteredPurchaseOrders, text.locale]);
   const purchaseSupplierData = useMemo(() => buildPurchaseSupplierData(filteredPurchaseOrders), [filteredPurchaseOrders]);
   const purchaseStatusData = useMemo(() => buildPurchaseStatusData(filteredPurchaseOrders), [filteredPurchaseOrders]);
   const purchaseHasData = filteredPurchaseOrders.length > 0;
@@ -507,7 +511,7 @@ const Statistiques = () => {
   const applyFilters = useCallback(() => {
     const { startDate, endDate, swapped } = sanitizeRange(dateFromDraft, dateToDraft);
     const nextFilters = { startDate, endDate };
-    setFilterHint(swapped ? 'Dates inversées : correction automatique.' : '');
+    setFilterHint(swapped ? text.swappedHint : '');
     setDateFromDraft(startDate || '');
     setDateToDraft(endDate || '');
     setActiveFilters(nextFilters);
@@ -524,41 +528,59 @@ const Statistiques = () => {
   const salesKpis = useMemo(() => {
     const s = sales.data?.summary || {};
     return [
-      { label: 'CA total', value: `${formatMoney(s.totalCA)} DT` },
-      { label: 'Nombre de ventes', value: formatMoney(s.totalCommandes) },
-      { label: 'Panier moyen', value: `${formatMoney(s.panierMoyen)} DT` },
-      { label: 'Taux transformation', value: formatPercent(s.tauxTransformation) },
+      { label: text.salesTotalRevenue, value: `${formatMoney(s.totalCA, text.locale)} ${text.currencySuffix}` },
+      { label: text.salesCount, value: formatMoney(s.totalCommandes, text.locale) },
+      { label: text.averageBasket, value: `${formatMoney(s.panierMoyen, text.locale)} ${text.currencySuffix}` },
+      { label: text.conversionRate, value: formatPercent(s.tauxTransformation, text.locale) },
     ];
-  }, [sales.data]);
+  }, [sales.data, text]);
 
   const clientsKpis = useMemo(() => [
-    { label: 'Total clients', value: formatMoney(clientSummary.totalClients) },
-    { label: 'Clients actifs', value: formatMoney(clientSummary.clientsActifs) },
-    { label: 'Clients inactifs', value: formatMoney(clientSummary.clientsInactifs) },
-    { label: "Taux d'activation", value: formatPercent(clientActivationRate), hint: 'Calculé à partir du rapport clients' },
-  ], [clientSummary, clientActivationRate]);
+    { label: text.totalClients, value: formatMoney(clientSummary.totalClients, text.locale) },
+    { label: text.activeClients, value: formatMoney(clientSummary.clientsActifs, text.locale) },
+    { label: text.inactiveClients, value: formatMoney(clientSummary.clientsInactifs, text.locale) },
+    { label: text.activationRate, value: formatPercent(clientActivationRate, text.locale), hint: text.activationRateHint },
+  ], [clientSummary, clientActivationRate, text]);
 
   const purchasesKpis = useMemo(() => [
-    { label: 'Montant TTC', value: `${formatMoney(purchaseTotals.totalTTC)} DT`, hint: purchaseTotals.commandes ? `${formatMoney(purchaseTotals.commandes)} commandes` : 'Aucune commande' },
-    { label: 'Montant HT', value: `${formatMoney(purchaseTotals.totalHT)} DT`, hint: `${formatMoney(purchaseTotals.totalTVA)} DT de TVA` },
-    { label: 'Panier moyen', value: `${formatMoney(purchaseAverage)} DT`, hint: 'Moyenne par commande fournisseur' },
-    { label: 'Fournisseurs actifs', value: formatMoney(purchaseTotals.fournisseurs), hint: 'Selon les commandes retournées' },
-  ], [purchaseTotals, purchaseAverage]);
+    {
+      label: text.amountTtc,
+      value: `${formatMoney(purchaseTotals.totalTTC, text.locale)} ${text.currencySuffix}`,
+      hint: purchaseTotals.commandes
+        ? text.ordersHint.replace('{{count}}', formatMoney(purchaseTotals.commandes, text.locale))
+        : text.noOrdersHint,
+    },
+    {
+      label: text.amountHt,
+      value: `${formatMoney(purchaseTotals.totalHT, text.locale)} ${text.currencySuffix}`,
+      hint: text.vatHint.replace('{{count}}', formatMoney(purchaseTotals.totalTVA, text.locale)),
+    },
+    {
+      label: text.averageOrder,
+      value: `${formatMoney(purchaseAverage, text.locale)} ${text.currencySuffix}`,
+      hint: text.supplierAverageHint,
+    },
+    {
+      label: text.activeSuppliers,
+      value: formatMoney(purchaseTotals.fournisseurs, text.locale),
+      hint: text.activeSuppliersHint,
+    },
+  ], [purchaseTotals, purchaseAverage, text]);
 
   // ---------- RENDER CHARTS ----------
   const renderSalesCharts = () => {
-    if (sales.loading && !sales.data) return <LoadingBox label="Chargement des ventes..." />;
+    if (sales.loading && !sales.data) return <LoadingBox label={text.salesLoading} />;
     if (sales.error) return <ErrorBox message={sales.error} onRetry={handleRefresh} />;
-    if (!salesItems.length) return <EmptyBox title="Aucune vente" description="Élargissez la période pour voir les données." />;
+    if (!salesItems.length) return <EmptyBox title={text.noSalesTitle} description={text.noSalesDescription} />;
 
     const hasMissingResponsableData = comparison.length === 1 && comparison[0]?.missingData === true;
 
     return (
       <>
         <Card
-          title="Évolution du chiffre d'affaires"
-          subtitle="Tendance journalière"
-          right={<ChartTypeSelector value={salesChartType} onChange={setSalesChartType} options={['area','bar']} />}
+          title={text.revenueEvolutionTitle}
+          subtitle={text.revenueEvolutionSubtitle}
+          right={<ChartTypeSelector value={salesChartType} onChange={setSalesChartType} options={['area','bar']} labels={{ bar: text.chartBar, area: text.chartArea }} />}
         >
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -567,9 +589,9 @@ const Statistiques = () => {
                   <defs><linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.2} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
-                  <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Area type="monotone" dataKey="Total" name="CA realise" stroke="#059669" strokeWidth={2} fill="url(#totalFill)" />
+                  <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} tick={{ fontSize: 12 }} />
+                  <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
+                  <Area type="monotone" dataKey="Total" name={text.achievedRevenue} stroke="#059669" strokeWidth={2} fill="url(#totalFill)" />
                   <Brush dataKey="name" height={24} />
                 </AreaChart>
               )}
@@ -577,9 +599,9 @@ const Statistiques = () => {
                 <BarChart data={salesSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
-                  <Tooltip content={<ProTooltip suffix="DT" />} />
-                  <Bar dataKey="Total" name="CA realise" fill="#059669" radius={[6,6,0,0]} />
+                  <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} tick={{ fontSize: 12 }} />
+                  <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
+                  <Bar dataKey="Total" name={text.achievedRevenue} fill="#059669" radius={[6,6,0,0]} />
                   <Brush dataKey="name" height={24} />
                 </BarChart>
               )}
@@ -588,9 +610,9 @@ const Statistiques = () => {
         </Card>
 
         <Card
-          title="Performance par responsable"
-          subtitle="Chiffre d'affaires par vendeur"
-          right={<ChartTypeSelector value={responsableChartType} onChange={setResponsableChartType} options={['bar','pie']} />}
+          title={text.responsiblePerformanceTitle}
+          subtitle={text.responsiblePerformanceSubtitle}
+          right={<ChartTypeSelector value={responsableChartType} onChange={setResponsableChartType} options={['bar','pie']} labels={{ bar: text.chartBar, pie: text.chartPie }} />}
         >
           {hasMissingResponsableData ? (
             <div className="py-8 text-center">
@@ -599,27 +621,27 @@ const Statistiques = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h4 className="text-lg font-semibold text-gray-800">Données responsables manquantes</h4>
+              <h4 className="text-lg font-semibold text-gray-800">{text.missingResponsibleTitle}</h4>
               <p className="mt-2 max-w-md mx-auto text-sm text-gray-600">
-                L'API `/api/reports/sales` ne retourne aucun champ correspondant au responsable (vendeur, created_by, etc.).
+                {text.missingResponsibleDescription}
               </p>
               <div className="mt-4 rounded-lg bg-gray-50 p-3 text-left text-xs font-mono">
-                <p className="font-semibold">Champs actuellement disponibles dans votre API :</p>
+                <p className="font-semibold">{text.availableFields}</p>
                 <pre className="mt-1 overflow-x-auto text-gray-700">
-                  {salesItems[0] ? JSON.stringify(Object.keys(salesItems[0]), null, 2) : 'Aucune donnée'}
+                  {salesItems[0] ? JSON.stringify(Object.keys(salesItems[0]), null, 2) : text.noData}
                 </pre>
                 <p className="mt-2 text-amber-600">
-                  Aucun de ces champs ne correspond à 'created_by', 'responsable', 'vendeur' ou 'agent'.
+                  {text.missingResponsibleFields}
                 </p>
               </div>
               <div className="mt-4 rounded-lg bg-blue-50 p-3 text-left text-xs">
-                <p className="font-semibold">Solution :</p>
+                <p className="font-semibold">{text.solution}</p>
                 <ol className="mt-1 list-decimal list-inside space-y-1 text-gray-700">
-                  <li>Dans <code className="bg-gray-200 px-1 rounded">ReportService.java</code>, modifiez <code className="bg-gray-200 px-1 rounded">mapCommandeToDTO</code> pour ajouter :<br />
+                  <li>{text.solutionStepOne}<br />
                     <code className="bg-gray-200 px-1 rounded">map.put("created_by", commande.getCreatedBy());</code>
                   </li>
-                  <li>Redémarrez le backend Spring Boot.</li>
-                  <li>Rafraîchissez cette page.</li>
+                  <li>{text.solutionStepTwo}</li>
+                  <li>{text.solutionStepThree}</li>
                 </ol>
               </div>
             </div>
@@ -630,10 +652,10 @@ const Statistiques = () => {
                   <BarChart data={comparison} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} tick={{ fontSize: 12 }} />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} tick={{ fontSize: 12 }} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Bar dataKey="total" name="CA" fill="#059669" radius={[6,6,0,0]}>
-                      <LabelList dataKey="total" position="top" formatter={(v) => `${formatMoney(v)} DT`} style={{ fontSize: 11, fill: '#059669' }} />
+                    <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} tick={{ fontSize: 12 }} />
+                    <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
+                    <Bar dataKey="total" name={text.revenueShort} fill="#059669" radius={[6,6,0,0]}>
+                      <LabelList dataKey="total" position="top" formatter={(v) => `${formatMoney(v, text.locale)} ${text.currencySuffix}`} style={{ fontSize: 11, fill: '#059669' }} />
                     </Bar>
                   </BarChart>
                 )}
@@ -642,7 +664,7 @@ const Statistiques = () => {
                     <Pie data={comparison} dataKey="total" nameKey="name" innerRadius={60} outerRadius={100} label={(entry) => entry.name}>
                       {comparison.map((e, idx) => <Cell key={e.name} fill={COLORS[idx % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v) => `${formatMoney(v)} DT`} />
+                    <Tooltip formatter={(v) => `${formatMoney(v, text.locale)} ${text.currencySuffix}`} />
                     <Legend />
                   </PieChart>
                 )}
@@ -655,34 +677,34 @@ const Statistiques = () => {
   };
 
   const renderClientsCharts = () => {
-    if (clients.loading && !clients.data) return <LoadingBox label="Chargement des clients..." />;
+    if (clients.loading && !clients.data) return <LoadingBox label={text.clientsLoading} />;
     if (clients.error) return <ErrorBox message={clients.error} onRetry={handleRefresh} />;
     const hasData = topClients.length > 0 || clientTypeData.length > 0 || clientSummary.totalClients;
-    if (!hasData) return <EmptyBox title="Aucune donnée client" description="Le rapport clients n'a pas retourné de données." />;
+    if (!hasData) return <EmptyBox title={text.noClientDataTitle} description={text.noClientDataDescription} />;
 
     return (
       <>
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="Top clients" subtitle="Classement par chiffre d'affaires">
+          <Card title={text.topClients} subtitle={text.clientRanking}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
-                  <tr><th className="px-4 py-2 text-left">Client</th><th className="px-4 py-2 text-left">Type</th><th className="px-4 py-2 text-left">Commandes</th><th className="px-4 py-2 text-left">CA</th></tr>
+                  <tr><th className="px-4 py-2 text-left">{text.clientColumn}</th><th className="px-4 py-2 text-left">{text.typeColumn}</th><th className="px-4 py-2 text-left">{text.ordersColumn}</th><th className="px-4 py-2 text-left">{text.revenueColumn}</th></tr>
                 </thead>
                 <tbody>
                   {topClients.map((c, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">{c.nom ?? c.name ?? 'Client'}</td>
-                      <td className="px-4 py-2">{c.type ?? 'N/A'}</td>
-                      <td className="px-4 py-2">{formatMoney(c.commandes ?? c.orders ?? 0)}</td>
-                      <td className="px-4 py-2 font-semibold text-emerald-600">{formatMoney(c.ca ?? c.totalCA ?? 0)} DT</td>
+                      <td className="px-4 py-2 font-medium">{c.nom ?? c.name ?? text.clientColumn}</td>
+                      <td className="px-4 py-2">{c.type ?? text.notAvailable}</td>
+                      <td className="px-4 py-2">{formatMoney(c.commandes ?? c.orders ?? 0, text.locale)}</td>
+                      <td className="px-4 py-2 font-semibold text-emerald-600">{formatMoney(c.ca ?? c.totalCA ?? 0, text.locale)} {text.currencySuffix}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Card>
-          <Card title="Segmentation clients" subtitle="Répartition par type de client (base de données)">
+          <Card title={text.clientSegmentation} subtitle={text.clientSegmentationSubtitle}>
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -691,7 +713,7 @@ const Statistiques = () => {
                       <Cell key={entry.name} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value, name) => [`${formatMoney(value)} clients`, name]} />
+                  <Tooltip formatter={(value, name) => [`${formatMoney(value, text.locale)} ${text.clientsTitle.toLowerCase()}`, name]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -709,17 +731,17 @@ const Statistiques = () => {
   };
 
   const renderPurchasesCharts = () => {
-    if (purchaseLoading && !purchaseOrders.length) return <LoadingBox label="Chargement des achats..." />;
+    if (purchaseLoading && !purchaseOrders.length) return <LoadingBox label={text.purchasesLoading} />;
     if (purchaseError) return <ErrorBox message={purchaseError} onRetry={handleRefresh} />;
-    if (!purchaseHasData) return <EmptyBox title="Aucune commande fournisseur" description="Aucune donnée pour la période sélectionnée." />;
+    if (!purchaseHasData) return <EmptyBox title={text.noPurchaseDataTitle} description={text.noPurchaseDataDescription} />;
 
     return (
       <>
         <div className="grid gap-6 lg:grid-cols-2">
           <Card
-            title="Évolution des achats"
-            subtitle="Montants TTC"
-            right={<ChartTypeSelector value={purchaseEvolutionType} onChange={setPurchaseEvolutionType} options={['area','bar']} />}
+            title={text.purchasesEvolutionTitle}
+            subtitle={text.purchasesEvolutionSubtitle}
+            right={<ChartTypeSelector value={purchaseEvolutionType} onChange={setPurchaseEvolutionType} options={['area','bar']} labels={{ bar: text.chartBar, area: text.chartArea }} />}
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -728,38 +750,38 @@ const Statistiques = () => {
                     <defs><linearGradient id="purchaseFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.2} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
+                    <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} />
+                    <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
                     <Legend />
-                    <Area type="monotone" dataKey="totalTTC" name="Montant TTC" stroke="#2563eb" strokeWidth={2} fill="url(#purchaseFill)" />
+                    <Area type="monotone" dataKey="totalTTC" name={text.amountTtc} stroke="#2563eb" strokeWidth={2} fill="url(#purchaseFill)" />
                   </AreaChart>
                 )}
                 {purchaseEvolutionType === 'bar' && (
                   <BarChart data={purchaseSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(v) => formatMoney(v)} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
+                    <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} />
+                    <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
                     <Legend />
-                    <Bar dataKey="totalTTC" name="Montant TTC" fill="#2563eb" radius={[6,6,0,0]} />
+                    <Bar dataKey="totalTTC" name={text.amountTtc} fill="#2563eb" radius={[6,6,0,0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
             </div>
           </Card>
           <Card
-            title="Top fournisseurs"
-            subtitle="Montant TTC"
-            right={<ChartTypeSelector value={purchaseSupplierType} onChange={setPurchaseSupplierType} options={['bar','pie']} />}
+            title={text.topSuppliers}
+            subtitle={text.topSuppliersSubtitle}
+            right={<ChartTypeSelector value={purchaseSupplierType} onChange={setPurchaseSupplierType} options={['bar','pie']} labels={{ bar: text.chartBar, pie: text.chartPie }} />}
           >
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 {purchaseSupplierType === 'bar' && (
                   <BarChart data={purchaseSupplierData.slice(0,6)} layout="vertical" margin={{ top: 5, right: 10, left: 30, bottom: 5 }}>
-                    <XAxis type="number" tickFormatter={(v) => formatMoney(v)} />
+                    <XAxis type="number" tickFormatter={(v) => formatMoney(v, text.locale)} />
                     <YAxis type="category" dataKey="name" width={100} />
-                    <Tooltip content={<ProTooltip suffix="DT" />} />
-                    <Bar dataKey="montant" name="Montant TTC" fill="#10b981" radius={[0,6,6,0]} />
+                    <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
+                    <Bar dataKey="montant" name={text.amountTtc} fill="#10b981" radius={[0,6,6,0]} />
                   </BarChart>
                 )}
                 {purchaseSupplierType === 'pie' && (
@@ -767,7 +789,7 @@ const Statistiques = () => {
                     <Pie data={purchaseSupplierData.slice(0,6)} dataKey="montant" nameKey="name" innerRadius={50} outerRadius={90} label={(e) => e.name}>
                       {purchaseSupplierData.slice(0,6).map((e, idx) => <Cell key={e.name} fill={COLORS[idx % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v) => `${formatMoney(v)} DT`} />
+                    <Tooltip formatter={(v) => `${formatMoney(v, text.locale)} ${text.currencySuffix}`} />
                     <Legend />
                   </PieChart>
                 )}
@@ -777,24 +799,24 @@ const Statistiques = () => {
         </div>
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           
-          <Card title="Détail fournisseurs" subtitle="Classement complet" compact>
+          <Card title={text.supplierDetails} subtitle={text.supplierDetailsSubtitle} compact>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left">Fournisseur</th>
-                    <th className="px-3 py-2 text-left">Commandes</th>
-                    <th className="px-3 py-2 text-left">HT</th>
-                    <th className="px-3 py-2 text-left">TTC</th>
+                    <th className="px-3 py-2 text-left">{text.supplierColumn}</th>
+                    <th className="px-3 py-2 text-left">{text.ordersColumn}</th>
+                    <th className="px-3 py-2 text-left">{text.htColumn}</th>
+                    <th className="px-3 py-2 text-left">{text.ttcColumn}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {purchaseSupplierData.slice(0,8).map((s) => (
                     <tr key={s.name} className="border-b">
                       <td className="px-3 py-2 font-medium">{s.name}</td>
-                      <td className="px-3 py-2">{formatMoney(s.commandes)}</td>
-                      <td className="px-3 py-2">{formatMoney(s.totalHT)} DT</td>
-                      <td className="px-3 py-2 font-semibold text-emerald-600">{formatMoney(s.montant)} DT</td>
+                      <td className="px-3 py-2">{formatMoney(s.commandes, text.locale)}</td>
+                      <td className="px-3 py-2">{formatMoney(s.totalHT, text.locale)} {text.currencySuffix}</td>
+                      <td className="px-3 py-2 font-semibold text-emerald-600">{formatMoney(s.montant, text.locale)} {text.currencySuffix}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -802,8 +824,8 @@ const Statistiques = () => {
             </div>
           </Card>
           <Card
-            title="Pareto fournisseurs"
-            subtitle="Concentration des dépenses"
+            title={text.supplierPareto}
+            subtitle={text.supplierParetoSubtitle}
             right={null}
           >
             <div className="h-[300px]">
@@ -811,10 +833,10 @@ const Statistiques = () => {
                 <BarChart data={purchaseParetoData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" angle={-25} textAnchor="end" height={70} />
-                  <YAxis tickFormatter={(v) => formatMoney(v)} />
-                  <Tooltip content={<ProTooltip suffix="DT" />} />
+                  <YAxis tickFormatter={(v) => formatMoney(v, text.locale)} />
+                  <Tooltip content={<ProTooltip suffix={text.currencySuffix} locale={text.locale} />} />
                   <Legend />
-                  <Bar dataKey="montant" name="Montant TTC" fill="#14b8a6" radius={[6,6,0,0]} />
+                  <Bar dataKey="montant" name={text.amountTtc} fill="#14b8a6" radius={[6,6,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -829,41 +851,39 @@ const Statistiques = () => {
   };
 
   // ---------- MAIN LAYOUT ----------
-  const filterNotice = (activeFilters.startDate || activeFilters.endDate)
-    ? 'Les filtres sont appliqués aux sections Ventes, Achats et Clients.'
-    : '';
+  const filterNotice = (activeFilters.startDate || activeFilters.endDate) ? text.filterNotice : '';
 
   return (
     <Shell>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Tableau de bord</h1>
-        <p className="text-gray-500">Synthèse des ventes, achats et clients</p>
+      <div className={`mb-8 ${isArabic ? 'text-right' : 'text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+        <h1 className="text-2xl font-bold text-gray-800">{text.dashboardTitle}</h1>
+        <p className="text-gray-500">{text.dashboardSubtitle}</p>
       </div>
 
       {/* Filter Card */}
-      <Card title="Filtrer par période" subtitle="Sélectionnez une plage de dates">
+      <Card title={text.filterTitle} subtitle={text.filterSubtitle}>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-44">
-            <label className="mb-1 block text-xs font-medium text-emerald-600">Date début</label>
+            <label className="mb-1 block text-xs font-medium text-emerald-600">{text.startDate}</label>
             <input type="date" value={dateFromDraft} onChange={(e) => setDateFromDraft(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div className="w-44">
-            <label className="mb-1 block text-xs font-medium text-emerald-600">Date fin</label>
+            <label className="mb-1 block text-xs font-medium text-emerald-600">{text.endDate}</label>
             <input type="date" value={dateToDraft} onChange={(e) => setDateToDraft(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
           <div className="flex gap-2">
-            <SecondaryButton onClick={() => setQuickDate('today')}>Aujourd'hui</SecondaryButton>
-            <SecondaryButton onClick={() => setQuickDate('thisWeek')}>Cette semaine</SecondaryButton>
-            <SecondaryButton onClick={() => setQuickDate('thisMonth')}>Ce mois</SecondaryButton>
-            <SecondaryButton onClick={() => setQuickDate('lastMonth')}>Mois dernier</SecondaryButton>
-            <SecondaryButton onClick={clearFilters}>Effacer</SecondaryButton>
+            <SecondaryButton onClick={() => setQuickDate('today')}>{text.today}</SecondaryButton>
+            <SecondaryButton onClick={() => setQuickDate('thisWeek')}>{text.thisWeek}</SecondaryButton>
+            <SecondaryButton onClick={() => setQuickDate('thisMonth')}>{text.thisMonth}</SecondaryButton>
+            <SecondaryButton onClick={() => setQuickDate('lastMonth')}>{text.lastMonth}</SecondaryButton>
+            <SecondaryButton onClick={clearFilters}>{text.clear}</SecondaryButton>
           </div>
           <PrimaryButton onClick={applyFilters} disabled={sales.loading || clients.loading || purchaseLoading}>
-            Appliquer
+            {text.apply}
           </PrimaryButton>
           <PrimaryButton onClick={handleRefresh} className="bg-gray-600 hover:bg-gray-700">
-            Actualiser
+            {text.refresh}
           </PrimaryButton>
         </div>
         {filterHint && <div className="mt-2 text-sm text-amber-600">{filterHint}</div>}
@@ -872,7 +892,7 @@ const Statistiques = () => {
 
       {/* Ventes Section */}
       <div className="mt-10">
-        <SectionTitle icon="📊" title="Ventes" description="Chiffre d'affaires et performance commerciale" />
+        <SectionTitle icon="📊" title={text.salesTitle} description={text.salesDescription} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           {salesKpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
         </div>
@@ -881,7 +901,7 @@ const Statistiques = () => {
 
       {/* Achats Section */}
       <div className="mt-12">
-        <SectionTitle icon="🛒" title="Achats" description="Commandes fournisseurs et analyse des dépenses" />
+        <SectionTitle icon="🛒" title={text.purchasesTitle} description={text.purchasesDescription} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           {purchasesKpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
         </div>
@@ -890,7 +910,7 @@ const Statistiques = () => {
 
       {/* Clients Section */}
       <div className="mt-12">
-        <SectionTitle icon="👥" title="Clients" description="Analyse du portefeuille et segmentation" />
+        <SectionTitle icon="👥" title={text.clientsTitle} description={text.clientsDescription} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
           {clientsKpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
         </div>

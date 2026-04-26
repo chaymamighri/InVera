@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 import { SidebarProvider } from './context/SidebarContext';
 
 import LoginPage from './pages/auth/loginPage';
@@ -132,35 +133,41 @@ const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
   return <Layout userRole={userData.originalRole}>{children}</Layout>;
 };
 
-const UnauthorizedPage = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="text-center">
-      <h1 className="text-4xl font-bold text-red-600">403</h1>
-      <h2 className="text-2xl font-semibold mt-4">Acces non autorise</h2>
-      <p className="mt-2 text-gray-600">
-        Vous n&apos;avez pas les permissions necessaires pour acceder a cette page.
-      </p>
-      <div className="mt-6 space-x-4">
-        <button
-          onClick={() => window.history.back()}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Retour
-        </button>
-        <button
-          onClick={() => {
-            window.location.href = '/login';
-          }}
-          className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-        >
-          Se connecter
-        </button>
+const UnauthorizedPage = () => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-red-600">403</h1>
+        <h2 className="text-2xl font-semibold mt-4">{t('app.unauthorizedTitle')}</h2>
+        <p className="mt-2 text-gray-600">
+          {t('app.unauthorizedDescription')}
+        </p>
+        <div className="mt-6 space-x-4">
+          <button
+            onClick={() => window.history.back()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            {t('app.back')}
+          </button>
+          <button
+            onClick={() => {
+              window.location.href = '/login';
+            }}
+            className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+          >
+            {t('app.signIn')}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 function App() {
+  const { t } = useLanguage();
+
   return (
     <Router>
       <AuthProvider>
@@ -375,14 +382,14 @@ function App() {
                 <div className="min-h-screen flex items-center justify-center bg-gray-50">
                   <div className="text-center">
                     <h1 className="text-4xl font-bold text-gray-700">404</h1>
-                    <h2 className="text-2xl font-semibold mt-4">Page non trouvee</h2>
+                    <h2 className="text-2xl font-semibold mt-4">{t('app.notFoundTitle')}</h2>
                     <button
                       onClick={() => {
                         window.location.href = '/login';
                       }}
                       className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                     >
-                      Aller a la connexion
+                      {t('app.goToLogin')}
                     </button>
                   </div>
                 </div>

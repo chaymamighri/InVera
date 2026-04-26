@@ -36,9 +36,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import Footer from '../../../components/Footer';
 
 const ProcurementDashboard = () => {
+  const { t } = useLanguage();
   const { getCurrentUser } = useAuth(); 
   const admin = getCurrentUser(); 
   const navigate = useNavigate(); 
@@ -81,29 +83,29 @@ const ProcurementDashboard = () => {
   // ========== STRUCTURE DE NAVIGATION ==========
   const sections = [
     {
-      title: 'TABLEAU DE BORD',
+      title: t('dashboard.procurementSectionDashboard'),
       items: [
-        { id: 'stats', label: 'Statistiques', icon: ChartBarIcon },
+        { id: 'stats', label: t('dashboard.procurementStats'), icon: ChartBarIcon },
       ]
     },
     {
-      title: 'GESTION',
+      title: t('dashboard.procurementSectionManagement'),
       items: [
-        { id: 'produits', label: 'Catalogue produits', icon: CubeIcon },
-        { id: 'categories', label: 'Catégories', icon: Square3Stack3DIcon },
+        { id: 'produits', label: t('dashboard.procurementProducts'), icon: CubeIcon },
+        { id: 'categories', label: t('dashboard.procurementCategories'), icon: Square3Stack3DIcon },
       ]
     },
     {
-      title: 'RÉAPPROVISIONNEMENT',
+      title: t('dashboard.procurementSectionReplenishment'),
       items: [
-        { id: 'commandes', label: 'Bons de commande', icon: ShoppingCartIcon },
+        { id: 'commandes', label: t('dashboard.procurementOrders'), icon: ShoppingCartIcon },
       ]
     },
     {
-      title: 'STOCK',
+      title: t('dashboard.procurementSectionStock'),
       items: [
-        { id: 'mouvements', label: 'Mouvements', icon: ArrowPathIcon },
-        { id: 'etat_stock', label: 'État du stock', icon: ArchiveBoxIcon },
+        { id: 'mouvements', label: t('dashboard.procurementMovements'), icon: ArrowPathIcon },
+        { id: 'etat_stock', label: t('dashboard.procurementStockState'), icon: ArchiveBoxIcon },
       ]
     },
    
@@ -138,24 +140,24 @@ const ProcurementDashboard = () => {
   // ========== TITRES DYNAMIQUES ==========
   const getPageTitle = () => {
     switch (activePage) {
-      case 'stats': return 'Statistiques réapprovisionnement';
-      case 'produits': return 'Gestion des Produits';
-      case 'categories': return 'Gestion des Catégories';
-      case 'commandes': return 'Bons de commande fournisseurs';
-      case 'mouvements': return 'Mouvements de stock'; 
-      case 'etat_stock': return 'État de stock';
-      default: return 'Tableau de bord';
+      case 'stats': return t('dashboard.procurementStatsTitle');
+      case 'produits': return t('dashboard.procurementProductsTitle');
+      case 'categories': return t('dashboard.procurementCategoriesTitle');
+      case 'commandes': return t('dashboard.procurementOrdersTitle');
+      case 'mouvements': return t('dashboard.procurementMovementsTitle'); 
+      case 'etat_stock': return t('dashboard.procurementStockStateTitle');
+      default: return t('dashboard.procurementPanelTitle');
     }
   };
 
   const getPageDescription = () => {
     switch (activePage) {
-      case 'stats': return 'Indicateurs de performance achats et stocks';
-      case 'produits': return 'Gérez votre catalogue produits';
-      case 'categories': return 'Gérez les catégories de vos produits';
-      case 'commandes': return 'Gérez vos bons de commande fournisseurs';
-      case 'mouvements': return 'Visualisez l\'historique des entrées et sorties de stock'; 
-      case 'etat_stock': return 'Consultez l\'état actuel du stock, les quantités disponibles et les niveaux critiques';
+      case 'stats': return t('dashboard.procurementStatsDescription');
+      case 'produits': return t('dashboard.procurementProductsDescription');
+      case 'categories': return t('dashboard.procurementCategoriesDescription');
+      case 'commandes': return t('dashboard.procurementOrdersDescription');
+      case 'mouvements': return t('dashboard.procurementMovementsDescription'); 
+      case 'etat_stock': return t('dashboard.procurementStockStateDescription');
       default: return '';
     }
   };
@@ -173,10 +175,10 @@ const ProcurementDashboard = () => {
             {!collapsed && (
                <div>
                 <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Gestion Achats et Stock
+                  {t('dashboard.procurementPanelTitle')}
                 </h1>
                 <p className="text-[10px] text-gray-400 mt-1">
-                  Stocks, Commandes et Facturation
+                  {t('dashboard.procurementPanelDescription')}
                 </p>
               </div>
             )}

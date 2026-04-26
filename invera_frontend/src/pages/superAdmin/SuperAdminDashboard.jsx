@@ -1,6 +1,8 @@
 // pages/superAdmin/SuperAdminDashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { useLanguage } from '../../context/LanguageContext';
 import { superAdminService } from '../../servicesPlatform/superAdminService';
 import {
   UsersIcon,
@@ -10,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SuperAdminDashboard = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [adminInfo, setAdminInfo] = useState(null);
@@ -80,9 +83,10 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold">InVera Platform</h1>
-              <p className="text-purple-200 text-sm">Espace Super Admin</p>
+              <p className="text-purple-200 text-sm">{t('common.superAdminSpace')}</p>
             </div>
             <div className="flex items-center gap-4">
+              <LanguageSwitcher menuClassName="z-[100]" />
               <button
                 onClick={() => navigate('/super-admin/dashboard/profile')}
                 className="text-right transition hover:opacity-80"
@@ -95,7 +99,7 @@ const SuperAdminDashboard = () => {
                 className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center gap-2"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                Deconnexion
+                {t('common.logout')}
               </button>
             </div>
           </div>
@@ -114,7 +118,7 @@ const SuperAdminDashboard = () => {
               }`}
             >
               <UsersIcon className="w-5 h-5" />
-              Clients
+              {t('dashboard.superAdminClients')}
             </button>
             <button
               onClick={() => navigate('/super-admin/dashboard/abonnements')}
@@ -125,7 +129,7 @@ const SuperAdminDashboard = () => {
               }`}
             >
               <DocumentTextIcon className="w-5 h-5" />
-              Abonnements
+              {t('dashboard.superAdminSubscriptions')}
             </button>
             <button
               onClick={() => navigate('/super-admin/dashboard/paiements')}
@@ -136,7 +140,7 @@ const SuperAdminDashboard = () => {
               }`}
             >
               <CreditCardIcon className="w-5 h-5" />
-              Paiements
+              {t('dashboard.superAdminPayments')}
             </button>
           </div>
         </div>

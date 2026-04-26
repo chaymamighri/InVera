@@ -24,6 +24,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../../../context/SidebarContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import Footer from '../../../components/Footer';
 
 // ============================================
@@ -40,6 +41,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SalesDashboard = () => {
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const { collapsed, toggleSidebar } = useSidebar();
@@ -105,24 +107,24 @@ const SalesDashboard = () => {
   
   const sections = [
     {
-      title: 'TABLEAU DE BORD',
+      title: t('dashboard.salesSectionDashboard'),
       items: [
-        { id: 'dashboard', label: 'Statistiques', icon: ChartBarIcon, path: 'dashboard' },
+        { id: 'dashboard', label: t('dashboard.salesStats'), icon: ChartBarIcon, path: 'dashboard' },
       ]
     },
     {
-      title: 'GESTION COMMERCIALE',
+      title: t('dashboard.salesSectionCatalog'),
       items: [
-        { id: 'products', label: 'Catalogue produits', icon: CubeIcon, path: 'products' },
-        { id: 'clients', label: 'Clients', icon: UsersIcon, path: 'clients' },
+        { id: 'products', label: t('dashboard.salesProducts'), icon: CubeIcon, path: 'products' },
+        { id: 'clients', label: t('dashboard.salesClients'), icon: UsersIcon, path: 'clients' },
       ]
     },
     {
-      title: 'TRANSACTIONS',
+      title: t('dashboard.salesSectionSales'),
       items: [
-        { id: 'orders', label: 'Commandes clients', icon: ShoppingCartIcon, path: 'orders' },
-        { id: 'sales', label: 'Ventes', icon: CurrencyDollarIcon, path: 'sales' },
-        { id: 'invoices', label: 'Facturation', icon: DocumentTextIcon, path: 'invoices' },
+        { id: 'orders', label: t('dashboard.salesOrders'), icon: ShoppingCartIcon, path: 'orders' },
+        { id: 'sales', label: t('dashboard.salesSales'), icon: CurrencyDollarIcon, path: 'sales' },
+        { id: 'invoices', label: t('dashboard.salesInvoices'), icon: DocumentTextIcon, path: 'invoices' },
       ]
     }
   ];
@@ -164,15 +166,15 @@ const SalesDashboard = () => {
     if (currentPath === '/dashboard/sales' || 
         currentPath === '/dashboard/sales/' ||
         currentPath === '/dashboard/sales/dashboard') {
-      return 'Tableau de bord commercial';
+      return t('dashboard.salesStatsTitle');
     }
-    if (currentPath.includes('/products')) return 'Catalogue produits';
-    if (currentPath.includes('/clients')) return 'Gestion des clients';
-    if (currentPath.includes('/orders')) return 'Commandes clients';
-    if (currentPath.includes('/sales')) return 'Ventes';
-    if (currentPath.includes('/invoices')) return 'Facturation';
+    if (currentPath.includes('/products')) return t('dashboard.salesProductsTitle');
+    if (currentPath.includes('/clients')) return t('dashboard.salesClientsTitle');
+    if (currentPath.includes('/orders')) return t('dashboard.salesOrdersTitle');
+    if (currentPath.includes('/sales')) return t('dashboard.salesSalesTitle');
+    if (currentPath.includes('/invoices')) return t('dashboard.salesInvoicesTitle');
     
-    return 'Tableau de bord commercial';
+    return t('dashboard.salesStatsTitle');
   };
 
   /**
@@ -185,15 +187,15 @@ const SalesDashboard = () => {
     if (currentPath === '/dashboard/sales' || 
         currentPath === '/dashboard/sales/' ||
         currentPath === '/dashboard/sales/dashboard') {
-      return 'Statistiques et indicateurs de performance commerciale';
+      return t('dashboard.salesStatsDescription');
     }
-    if (currentPath.includes('/products')) return 'Consultez le catalogue des produits disponibles à la vente';
-    if (currentPath.includes('/clients')) return 'Gérez votre portefeuille clients et leurs informations';
-    if (currentPath.includes('/orders')) return 'Suivez et gérez toutes les commandes clients';
-    if (currentPath.includes('/sales')) return 'Historique et suivi des ventes réalisées';
-    if (currentPath.includes('/invoices')) return 'Gérez la facturation et les paiements clients';
+    if (currentPath.includes('/products')) return t('dashboard.salesProductsDescription');
+    if (currentPath.includes('/clients')) return t('dashboard.salesClientsDescription');
+    if (currentPath.includes('/orders')) return t('dashboard.salesOrdersDescription');
+    if (currentPath.includes('/sales')) return t('dashboard.salesSalesDescription');
+    if (currentPath.includes('/invoices')) return t('dashboard.salesInvoicesDescription');
     
-    return 'Gestion commerciale et suivi des opérations';
+    return t('dashboard.salesDashboardDescription');
   };
 
   // ============================================
@@ -214,17 +216,17 @@ const SalesDashboard = () => {
             {!collapsed && (
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Tableau de Bord Commercial
+                  {t('dashboard.salesDashboardTitle')}
                 </h1>
                 <p className="text-xs text-gray-400 mt-1">
-                  Suivi des ventes et gestion des produits
+                  {t('dashboard.salesDashboardDescription')}
                 </p>
               </div>
             )}
             <button
               onClick={toggleSidebar}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label={collapsed ? "Développer le menu" : "Réduire le menu"}
+              aria-label={collapsed ? t('dashboard.expandMenu') : t('dashboard.collapseMenu')}
             >
               {collapsed ? '→' : '←'}
             </button>
