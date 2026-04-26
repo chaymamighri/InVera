@@ -22,7 +22,7 @@ public class OtpService {
     private final Map<String, OtpData> otpCache = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
-    private static final int OTP_EXPIRATION_MINUTES = 10;
+    private static final int OTP_EXPIRATION_MINUTES = 15;
     private static final int OTP_LENGTH = 6;
 
     /**

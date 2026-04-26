@@ -80,10 +80,12 @@ public class SecurityConfig {
                         // ========== AUTH PUBLICS ==========
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/activation-link",
                                 "/api/auth/activate-account",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
+                                "/api/auth/activation-link",
+                                "/api/auth/activation-link-info",
+                                "/api/auth/activate-account",
                                 "/api/auth/create-password",
                                 "/api/platform/clients/request-otp",
                                 "/api/platform/clients/*/justificatifs"

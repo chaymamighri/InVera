@@ -19,18 +19,6 @@ public class InvitationService {
 
     private static final int CODE_EXPIRATION_MINUTES = 60; // 1 heure
 
-    /**
-     * Génère et stocke un code d'invitation pour un email
-     */
-    public String generateInvitationCode(String email) {
-        String code = generateCode();
-        LocalDateTime expiration = LocalDateTime.now().plusMinutes(CODE_EXPIRATION_MINUTES);
-
-        invitationCache.put(email, new InvitationData(code, expiration));
-        log.info("📧 Code d'invitation généré pour {}: {}", email, code);
-
-        return code;
-    }
 
     /**
      * Vérifie si le code d'invitation est valide

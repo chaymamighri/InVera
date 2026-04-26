@@ -7,7 +7,8 @@ public class ClientRegistrationRequest {
     // Champs existants
     private String email;
     private String telephone;
-    private String typeCompte;  // PARTICULIER / ENTREPRISE
+    private String typeCompte; // PARTICULIER / ENTREPRISE
+    private String typeInscription;   //(ESSAI / DEFINITIF)
 
 
     private Long offreId;        // ID de l'offre choisie
@@ -23,6 +24,7 @@ public class ClientRegistrationRequest {
     // Authentification
     private String otp;
     private String password;
+
 
     // getters et setters
 }
