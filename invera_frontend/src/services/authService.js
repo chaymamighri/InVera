@@ -32,7 +32,14 @@ const normalizeCurrentUser = (data) => ({
     active: data?.active !== false,
     memberSince: data?.memberSince || null,
     lastLogin: data?.lastLogin || null,
-    sessionsThisWeek: data?.sessionsThisWeek ?? 0
+    sessionsThisWeek: data?.sessionsThisWeek ?? 0,
+    // ⭐ Ajout des informations de connexion
+    connexionsRestantes: data?.connexionsRestantes,
+    connexionsMax: data?.connexionsMax,
+    typeInscription: data?.typeInscription,
+    hasActiveSubscription: data?.hasActiveSubscription,
+    clientStatut: data?.statut,
+    clientId: data?.clientId
   }
 });
 
@@ -87,11 +94,36 @@ export const authService = {
     localStorage.setItem('userName', fullName);
     localStorage.setItem('userEmail', backendEmail);
 
-    // ✅ Stocker le warning si une autre session a été fermée
+    // ⭐ STOCKER LES INFORMATIONS DE CONNEXION CLIENT
+    if (data.connexionsRestantes !== undefined) {
+      localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+    }
+    if (data.connexionsMax !== undefined) {
+      localStorage.setItem('connexionsMax', data.connexionsMax);
+    }
+    if (data.typeInscription) {
+      localStorage.setItem('typeInscription', data.typeInscription);
+    }
+    if (data.hasActiveSubscription !== undefined) {
+      localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+    }
+    if (data.statut) {
+      localStorage.setItem('clientStatut', data.statut);
+    }
+    if (data.clientId) {
+      localStorage.setItem('clientId', data.clientId);
+    }
+
+    // ⭐ STOCKER LE FLAG POUR LE TOAST
+    sessionStorage.setItem('justLoggedIn', 'true');
+    console.log('✅ Flag justLoggedIn stocké dans sessionStorage');
+
+    // Stocker le warning si une autre session a été fermée
     if (data.warning) {
       sessionStorage.setItem('sessionWarning', data.warning);
     }
 
+    // ⭐ RETOURNER TOUTES LES DONNÉES CLIENT DANS LA RÉPONSE
     return {
       success: true,
       data: {
@@ -104,7 +136,14 @@ export const authService = {
           lastName: data.nom,
           prenom: data.prenom,
           nom: data.nom
-        }
+        },
+        // ⭐ DONNÉES DE CONNEXION ESSENTIELLES POUR LE TOAST
+        connexionsRestantes: data.connexionsRestantes,
+        connexionsMax: data.connexionsMax,
+        typeInscription: data.typeInscription,
+        hasActiveSubscription: data.hasActiveSubscription,
+        statut: data.statut,
+        clientId: data.clientId
       }
     };
   },
@@ -128,7 +167,6 @@ export const authService = {
     localStorage.setItem('userName', data.nom);
     localStorage.setItem('userEmail', data.email);
     
-    // ✅ Stocker le warning si une autre session a été fermée
     if (data.warning) {
       sessionStorage.setItem('sessionWarning', data.warning);
     }
@@ -147,7 +185,6 @@ export const authService = {
     };
   },
 
-  // ✅ CORRIGÉ: Logout avec appel API pour supprimer la session backend
   logout: async () => {
     clearCurrentUserCache();
     
@@ -155,7 +192,6 @@ export const authService = {
     const userRole = localStorage.getItem('userRole');
     const isSuperAdmin = userRole === 'SUPER_ADMIN';
     
-    // ✅ Appeler l'endpoint logout pour supprimer la session backend
     if (token) {
       try {
         const endpoint = isSuperAdmin ? '/super-admin/logout' : '/auth/logout';
@@ -166,42 +202,90 @@ export const authService = {
       }
     }
     
-    // Nettoyer le storage
+    // ⭐ NETTOYER LES DONNÉES DE CONNEXION
+    localStorage.removeItem('connexionsRestantes');
+    localStorage.removeItem('connexionsMax');
+    localStorage.removeItem('typeInscription');
+    localStorage.removeItem('hasActiveSubscription');
+    localStorage.removeItem('clientStatut');
+    localStorage.removeItem('clientId');
+    sessionStorage.removeItem('justLoggedIn');
+    sessionStorage.removeItem('toastShownForSession');
+    
     localStorage.clear();
     sessionStorage.clear();
     
     return { success: true };
   },
 
+  // ✅ CORRIGÉ: Récupérer les infos du token d'activation
   getActivationLinkInfo: async (token) => {
-    const response = await api.get(`/auth/activation-link?token=${encodeURIComponent(token)}`);
-    return response.data;
+    try {
+      const response = await api.get(`/auth/activation-link-info?token=${encodeURIComponent(token)}`);
+      console.log('✅ getActivationLinkInfo - Réponse reçue:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getActivationLinkInfo - Erreur:', error);
+      throw error;
+    }
   },
 
+  // ✅ CORRIGÉ: Activer le compte avec le mot de passe
   activateAccount: async (token, newPassword) => {
-    const response = await api.post('/auth/activate-account', {
-      token,
-      newPassword
-    });
-    return response.data;
+    try {
+      const response = await api.post('/auth/activate-account', {
+        token: token,
+        newPassword: newPassword
+      });
+      console.log('✅ activateAccount - Compte activé avec succès');
+      return response.data;
+    } catch (error) {
+      console.error('❌ activateAccount - Erreur:', error);
+      throw error;
+    }
   },
 
+  // ✅ NOUVEAU: Vérifier si le token d'activation est valide
+  verifyActivationToken: async (token) => {
+    try {
+      const response = await api.get(`/auth/verify-activation-token?token=${encodeURIComponent(token)}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ verifyActivationToken - Token invalide:', error);
+      throw error;
+    }
+  },
+
+  // ✅ NOUVEAU: Renvoyer un email d'activation
+  resendActivationEmail: async (email) => {
+    try {
+      const response = await api.post('/auth/resend-activation', { email });
+      return response.data;
+    } catch (error) {
+      console.error('❌ resendActivationEmail - Erreur:', error);
+      throw error;
+    }
+  },
+
+  // Mot de passe oublié
   forgotPassword: async (email) => {
-    await api.post(
-      `/auth/forgot-password?email=${encodeURIComponent(email)}`,
-      {},
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-    return { success: true, message: 'Instructions envoyées par email' };
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
   },
 
+  // Réinitialisation avec code OTP
   resetPassword: async (code, email, newPassword) => {
-    const response = await api.post('/auth/reset-password', {
-      code,
-      email,
-      newPassword
-    });
-    return response.data;
+    try {
+      const response = await api.post('/auth/reset-password', {
+        code: code,
+        email: email,
+        newPassword: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Reset password error:', error);
+      throw error;
+    }
   },
 
   isAuthenticated: () => {
@@ -228,12 +312,10 @@ export const authService = {
     }
   },
 
-  // Détecter Super Admin et utiliser le bon endpoint
   getCurrentUser: async ({ force = false } = {}) => {
     const token = authService.getToken();
     if (!token) throw new Error('Non authentifié');
 
-    // Vérifier si c'est un Super Admin
     const userRole = localStorage.getItem('userRole');
     const isSuperAdmin = userRole === 'SUPER_ADMIN';
     
@@ -256,7 +338,6 @@ export const authService = {
 
     currentUserCacheToken = token;
     
-    // Choisir le bon endpoint
     const endpoint = isSuperAdmin ? '/super-admin/me' : '/auth/me';
     console.log(`🔍 getCurrentUser - Endpoint: ${endpoint}`);
 
@@ -265,7 +346,6 @@ export const authService = {
       .then(async (response) => {
         const data = response.data;
         
-        // Normaliser selon le type
         const normalized = isSuperAdmin ? normalizeSuperAdmin(data) : normalizeCurrentUser(data);
 
         if (normalized.data?.active === false) {
@@ -294,7 +374,6 @@ export const authService = {
     return sessionStorage.getItem('token') || localStorage.getItem('token');
   },
 
-  // ✅ NOUVEAU: Récupérer le warning de session
   getSessionWarning: () => {
     const warning = sessionStorage.getItem('sessionWarning');
     if (warning) {

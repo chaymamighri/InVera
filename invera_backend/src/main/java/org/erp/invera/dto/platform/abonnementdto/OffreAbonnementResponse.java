@@ -13,13 +13,11 @@ public class OffreAbonnementResponse {
     private String typeOffre;
     private String typeOffreLabel;
     private String duree;
-    private String dureeLabel;
     private Integer dureeMois;
     private Double prix;
     private String devise;
     private String description;
     private Boolean active;
-    private Boolean deleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private long abonnementsAssocies;

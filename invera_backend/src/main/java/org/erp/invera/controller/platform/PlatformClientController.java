@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -28,7 +29,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PlatformClientController {
 
-    private final ClientPlatformService clientService;
+    private final ClientPlatformService clientPlatformService;
     private final DatabaseCreationService databaseCreationService;
     private final OtpService otpService ;
     private final ClientPlatformRepository clientRepository;
@@ -36,70 +37,90 @@ public class PlatformClientController {
     private final EmailService emailService;
 
 
-    // ========== 1. INSCRIPTION ==========
 // ========== 1. INSCRIPTION ==========
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request) {
-        try {
-            // 1. Créer le client avec les bons champs selon le type
-            Client client = new Client();
-            client.setEmail(request.getEmail());
-            client.setTelephone(request.getTelephone());
-            client.setTypeCompte(Client.TypeCompte.valueOf(request.getTypeCompte()));
-            client.setTypeInscription(Client.TypeInscription.valueOf(request.getTypeInscription()));
+@PostMapping("/register")
+public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request) {
+    try {
+        // 1. Créer le client avec les informations de base
+        Client client = new Client();
+        client.setEmail(request.getEmail());
+        client.setTelephone(request.getTelephone());
+        client.setTypeCompte(Client.TypeCompte.valueOf(request.getTypeCompte()));
+        client.setTypeInscription(Client.TypeInscription.valueOf(request.getTypeInscription()));
 
-            // 2. Remplir les champs selon le type de compte
-            if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
-                // Pour une entreprise
-                client.setRaisonSociale(request.getRaisonSociale());
-                client.setSiret(request.getSiret());
-
-                // Le nom par défaut = raison sociale
-                client.setNom(request.getRaisonSociale());
-                client.setPrenom(null);  // Pas de prénom pour entreprise
-
-            } else {
-                // Pour un particulier
-                client.setNom(request.getNom());
-                client.setPrenom(request.getPrenom());
-            }
-
-            // 3. Appeler le service de création
-            Client newClient = clientService.createClient(client, request.getOtp(), request.getPassword());
-
-            // 4. Construire la réponse
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("clientId", newClient.getId());
-            response.put("statut", newClient.getStatut().getLabel());
-
-            // Ajouter le nom affichable
-            if (newClient.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
-                response.put("raisonSociale", newClient.getRaisonSociale());
-                response.put("siret", newClient.getSiret());
-            } else {
-                response.put("nom", newClient.getNom());
-                response.put("prenom", newClient.getPrenom());
-            }
-
-            // Message selon le type d'inscription
-            if (newClient.getTypeInscription() == Client.TypeInscription.ESSAI) {
-                response.put("message", "Inscription réussie. Vous pouvez vous connecter avec votre email et mot de passe.");
-                response.put("connexionsRestantes", newClient.getConnexionsRestantes());
-            } else {
-                response.put("message", "Inscription réussie. En attente de validation des justificatifs par l'administrateur.");
-            }
-
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Erreur lors de l'inscription", e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        // 2. Remplir les champs selon le type de compte
+        if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+            client.setRaisonSociale(request.getRaisonSociale());
+            client.setMatriculeFiscal(request.getMatriculeFiscal());
+            client.setNom(request.getNom());
+            client.setPrenom(request.getPrenom());
+        } else {
+            client.setNom(request.getNom());
+            client.setPrenom(request.getPrenom());
         }
+
+        // TOUS les clients ont 30 connexions gratuites immédiatement
+        client.setConnexionsMax(30);
+        client.setConnexionsRestantes(30);
+        client.setIsActive(true);
+
+        // == DÉFINIR LE STATUT ET JUSTIFICATIFS ==
+        if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
+            // ESSAI : accès direct, pas de documents requis
+            client.setStatut(Client.StatutClient.ACTIF);
+            client.setJustificatifsValides(true);   // Pas besoin de documents
+            log.info("📝 ESSAI - Statut ACTIF, justificatifs non requis");
+        } else {
+            // DEFINITIF : en attente validation, documents requis
+            client.setStatut(Client.StatutClient.EN_ATTENTE);
+            client.setJustificatifsValides(false);  // Documents à fournir
+            log.info("📝 DEFINITIF - Statut EN_ATTENTE, justificatifs requis");
+        }
+
+        // 3. Appeler le service de création
+        Client newClient = clientPlatformService.createClient(client, request.getOtp(), request.getPassword());
+
+        // 4. Construire la réponse
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("clientId", newClient.getId());
+        response.put("statut", newClient.getStatut().getLabel());
+        response.put("connexionsRestantes", newClient.getConnexionsRestantes());
+        response.put("typeInscription", newClient.getTypeInscription().name());
+        response.put("justificatifsValides", newClient.getJustificatifsValides());
+
+        // Ajouter le nom affichable
+        if (newClient.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+            response.put("raisonSociale", newClient.getRaisonSociale());
+            response.put("matriculeFiscal", newClient.getMatriculeFiscal());
+        } else {
+            response.put("nom", newClient.getNom());
+            response.put("prenom", newClient.getPrenom());
+        }
+
+        // Message adapté
+        if (newClient.getTypeInscription() == Client.TypeInscription.ESSAI) {
+            response.put("message", "✅ Inscription réussie ! Vous disposez de 30 connexions gratuites pour découvrir la plateforme.");
+        } else {
+            response.put("message", "✅ Inscription réussie ! Vous disposez de 30 connexions gratuites en attendant la validation de vos documents par l'administrateur.");
+        }
+
+        log.info("Nouvelle inscription - Client: {} - Type: {} - Statut: {} - Justificatifs: {} - Connexions: {}",
+                newClient.getEmail(), newClient.getTypeInscription(),
+                newClient.getStatut(), newClient.getJustificatifsValides(),
+                newClient.getConnexionsRestantes());
+
+        return ResponseEntity.ok(response);
+
+    } catch (IllegalArgumentException e) {
+        log.error("Erreur paramètre inscription: {}", e.getMessage());
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    } catch (Exception e) {
+        log.error("Erreur lors de l'inscription", e);
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+}
 
     @PostMapping("/request-otp")
     public ResponseEntity<?> requestOtp(@RequestBody Map<String, String> request) {
@@ -124,32 +145,6 @@ public class PlatformClientController {
 
         } catch (Exception e) {
             log.error("Erreur lors de l'envoi OTP: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-
-    // À AJOUTER dans PlatformClientController.java
-    @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
-        try {
-            String email = request.get("email");
-            String code = request.get("code");
-
-            if (email == null || code == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email et code requis"));
-            }
-
-            // Vérifier l'OTP
-            boolean isValid = otpService.verifyOtp(email, code);
-
-            if (isValid) {
-                return ResponseEntity.ok(Map.of("valid", true, "message", "Code valide"));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("valid", false, "error", "Code OTP invalide ou expiré"));
-            }
-
-        } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -257,8 +252,25 @@ public class PlatformClientController {
         }
     }
 
-    // ========== 3. VALIDATION ADMIN ==========
+    /**
+     * Récupérer UNIQUEMENT les clients DEFINITIF
+     * GET /api/platform/clients/definitif
+     */
+    @GetMapping("/definitif")
+    public ResponseEntity<?> getDefinitifClients() {
+        try {
+            List<Client> allClients = clientPlatformService.getAllClients();
+            List<Client> definitifClients = allClients.stream()
+                    .filter(client -> client.getTypeInscription() == Client.TypeInscription.DEFINITIF)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(definitifClients);
+        } catch (Exception e) {
+            log.error("Erreur getDefinitifClients: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
+// ========== 3. VALIDATION ADMIN ==========
 
     /**
      * Valider un client (Super Admin)
@@ -267,29 +279,27 @@ public class PlatformClientController {
     @PutMapping("/{id}/validate")
     public ResponseEntity<?> validateClient(@PathVariable Long id) {
         try {
-            Client client = clientService.validateClient(id, null);
+            // ✅ Appeler la bonne méthode de validation
+            Client client = clientPlatformService.validateClientManually(id, "Validation par admin");
 
-            // ✅ Envoyer l'email de validation avec lien de paiement
             String clientName = client.getTypeCompte() == Client.TypeCompte.ENTREPRISE
                     ? client.getRaisonSociale()
                     : (client.getPrenom() != null ? client.getPrenom() + " " + client.getNom() : client.getNom());
 
-            emailService.sendValidationPaymentEmail(
-                    client.getEmail(),
-                    clientName,
-                    client.getId()
-            );
+            // Envoyer email de paiement
+            emailService.sendValidationEmail(client.getEmail(), clientName, client.getId());
 
-            log.info("📧 Email de validation/paiement envoyé à {}", client.getEmail());
+            log.info("📧 Client validé - Email de paiement envoyé à {}", client.getEmail());
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Client validé avec succès. Un email a été envoyé au client pour procéder au paiement.");
-            response.put("statut", client.getStatut().getLabel());
-
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Client validé avec succès. Un email a été envoyé pour le paiement.",
+                    "clientId", client.getId(),
+                    "statut", client.getStatut().getLabel()
+            ));
 
         } catch (Exception e) {
+            log.error("Erreur validation client: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -305,177 +315,73 @@ public class PlatformClientController {
 
         try {
             String motif = request.get("motif");
-            Client client = clientService.refuseClient(id, motif);
 
-            // ✅ Envoyer l'email de refus (utiliser votre service existant)
+            // ✅ CORRIGÉ : Appeler refuseClientManually, pas activateAfterPayment
+            Client client = clientPlatformService.refuseClientManually(id, motif);
+
             String clientName = client.getTypeCompte() == Client.TypeCompte.ENTREPRISE
                     ? client.getRaisonSociale()
                     : (client.getPrenom() != null ? client.getPrenom() + " " + client.getNom() : client.getNom());
 
-            // Vous pouvez ajouter une méthode sendRefusalEmail dans EmailService
-            // emailService.sendRefusalEmail(client.getEmail(), clientName, motif);
+            // Envoyer email de refus
+            emailService.sendRefusalEmail(client.getEmail(), clientName, motif);
 
-            log.info("📧 Email de refus à envoyer à {}", client.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Client refusé");
-            response.put("motif", motif);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-    // ========== 4. ACTIVATION + CRÉATION BASE ==========
-
-    /**
-     * Activer un client et créer sa base de données
-     * POST /api/platform/clients/{id}/activate
-     */
-    @PostMapping("/{id}/activate")
-    public ResponseEntity<?> activateClient(@PathVariable Long id) {
-        try {
-            Client client = clientService.getClientById(id);
-
-            // ✅ Vérifier que le client est VALIDE avant activation
-            if (client.getStatut() != Client.StatutClient.VALIDE) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Ce client n'est pas encore validé par l'administrateur. " +
-                                "Statut actuel: " + client.getStatut().getLabel()
-                ));
-            }
-
-            // ✅ Vérifier qu'un abonnement est souscrit
-            if (client.getAbonnementActif() == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Aucun abonnement souscrit. Veuillez d'abord choisir un plan."
-                ));
-            }
-
-            // Créer la base de données
-            DatabaseCreationService.DatabaseInfo dbInfo =
-                    databaseCreationService.createClientDatabase(id);
-
-            // Activer le client
-            Client activatedClient = clientService.activateClient(id, dbInfo.dbName);
-
-            // ✅ Envoyer email de bienvenue avec accès
-            // emailService.sendWelcomeEmail(activatedClient.getEmail(), dbInfo);
+            log.info("📧 Client refusé: {} - Motif: {}", client.getEmail(), motif);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Client activé avec succès",
+                    "message", "Client refusé",
+                    "clientId", client.getId(),
+                    "motif", motif,
+                    "statut", client.getStatut().getLabel()
+            ));
+
+        } catch (Exception e) {
+            log.error("Erreur refus client: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+// ========== 4. ACTIVATION APRÈS PAIEMENT ==========
+
+    /**
+     * Activer un client APRÈS PAIEMENT RÉUSSI
+     * POST /api/platform/clients/{id}/activate-after-payment
+     */
+    @PostMapping("/{id}/activate-after-payment")
+    public ResponseEntity<?> activateAfterPayment(
+            @PathVariable Long id,
+            @RequestParam Long offreId,
+            @RequestParam(required = false) String transactionId) {
+
+        try {
+            // ✅ CORRIGÉ : Appeler avec offreId, pas avec dbInfo.dbName
+            Client activatedClient = clientPlatformService.activateAfterPayment(id, offreId);
+
+            // La base de données devrait déjà être créée à l'inscription
+            // Si ce n'est pas le cas, la créer ici
+            DatabaseCreationService.DatabaseInfo dbInfo = databaseCreationService.createClientDatabase(id);
+            activatedClient.setNomBaseDonnees(dbInfo.dbName);
+            clientPlatformService.saveClient(activatedClient);
+
+            log.info("💰 Client activé après paiement - ID: {} - Offre: {}", id, offreId);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Paiement réussi, abonnement activé",
+                    "clientId", activatedClient.getId(),
+                    "statut", activatedClient.getStatut().getLabel(),
                     "database", dbInfo.dbName,
                     "username", dbInfo.username,
-                    "connectionUrl", dbInfo.connectionUrl,
-                    "statut", activatedClient.getStatut().getLabel()
+                    "connectionUrl", dbInfo.connectionUrl
             ));
 
         } catch (Exception e) {
+            log.error("Erreur activation après paiement: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    /**
-     * Activer avec plan d'abonnement
-     * POST /api/platform/clients/{id}/activate-with-plan?plan=PRO
-     */
-    @PostMapping("/{id}/activate-with-plan")
-    public ResponseEntity<?> activateClientWithPlan(
-            @PathVariable Long id,
-            @RequestParam String plan) {
-
-        try {
-            // 1. Créer base avec plan
-            DatabaseCreationService.DatabaseInfo dbInfo =
-                    databaseCreationService.createClientDatabaseWithPlan(id, plan);
-
-            // 2. Activer le client
-            Client client = clientService.activateClient(id, dbInfo.dbName);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Client activé avec succès");
-            response.put("plan", plan);
-            response.put("database", dbInfo.dbName);
-            response.put("username", dbInfo.username);
-            response.put("statut", client.getStatut());
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ========== 5. CONNEXION CLIENT ==========
-
-    /**
-     * Connexion client
-     * POST /api/platform/clients/login
-     */
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
-        try {
-            String email = request.get("email");
-            Client client = clientService.recordLogin(email);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("clientId", client.getId());
-            response.put("nom", client.getNom());
-            response.put("email", client.getEmail());
-            response.put("statut", client.getStatut());
-            response.put("database", client.getNomBaseDonnees());
-            response.put("typeInscription", client.getTypeInscription());
-
-            if ("ESSAI".equals(client.getTypeInscription())) {
-                response.put("connexionsRestantes", client.getConnexionsRestantes());
-                response.put("message", "Il vous reste " + client.getConnexionsRestantes() +
-                        " connexions avant expiration de votre période d'essai");
-            }
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ========== 6. GESTION DES BASES ==========
-
-    /**
-     * Supprimer la base d'un client
-     * DELETE /api/platform/clients/{id}/database
-     */
-    @DeleteMapping("/{id}/database")
-    public ResponseEntity<?> dropDatabase(@PathVariable Long id) {
-        try {
-            databaseCreationService.dropClientDatabase(id);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Base de données supprimée avec succès"
-            ));
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ========== 7. LISTES ET RECHERCHES ==========
-
-    /**
-     * Liste tous les clients
-     * GET /api/platform/clients
-     */
-    @GetMapping
-    public ResponseEntity<?> getAllClients() {
-        List<Client> clients = clientService.getAllClients();
-        return ResponseEntity.ok(clients);
-    }
 
     /**
      * Clients par statut
@@ -483,7 +389,7 @@ public class PlatformClientController {
      */
     @GetMapping("/statut/{statut}")
     public ResponseEntity<?> getClientsByStatut(@PathVariable String statut) {
-        List<Client> clients = clientService.getClientsByStatut(Client.StatutClient.valueOf(statut));
+        List<Client> clients = clientPlatformService.getClientsByStatut(Client.StatutClient.valueOf(statut));
         return ResponseEntity.ok(clients);
     }
 
@@ -493,7 +399,7 @@ public class PlatformClientController {
      */
     @GetMapping("/pending")
     public ResponseEntity<?> getPendingClients() {
-        List<Client> clients = clientService.getPendingValidationClients();
+        List<Client> clients = clientPlatformService.getPendingValidationClients();
         return ResponseEntity.ok(clients);
     }
 
@@ -504,7 +410,7 @@ public class PlatformClientController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getClient(@PathVariable Long id) {
         try {
-            Client client = clientService.getClientById(id);
+            Client client = clientPlatformService.getClientById(id);
             return ResponseEntity.ok(client);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();

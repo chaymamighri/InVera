@@ -33,6 +33,21 @@ public interface AbonnementRepository extends JpaRepository<Abonnement, Long> {
     @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     List<Abonnement> findByStatutOrderByDateDebutDesc(Abonnement.StatutAbonnement statut);
 
+    /**
+     * Vérifie s'il existe des abonnements avec un statut donné pour une offre spécifique
+     * Utilisé dans OffreAbonnementService.deactivateOffer()
+     */
+    boolean existsByOffreAbonnementIdAndStatut(Long offreAbonnementId, Abonnement.StatutAbonnement statut);
+
+    /**
+     * Trouve les abonnements actifs dont la date de fin est entre deux dates
+     * Utile pour les notifications d'expiration (J-7, J-1, etc.)
+     */
     @EntityGraph(attributePaths = {"client", "offreAbonnement"})
-    Optional<Abonnement> findWithDetailsById(Long id);
+    List<Abonnement> findByStatutAndDateFinBetween(
+            Abonnement.StatutAbonnement statut,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
 }

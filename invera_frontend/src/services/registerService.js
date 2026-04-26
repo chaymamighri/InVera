@@ -67,45 +67,68 @@ export const registerService = {
         typeCompte: formData.typeCompte,
         typeInscription: formData.typeInscription || 'ESSAI',
         otp: formData.code,
-        password: formData.motDePasse
+        password: formData.motDePasse,
+        offreId: formData.offreId || null,
+        nom: formData.nom || '',
+        prenom: formData.prenom || ''
       };
       
-      // ✅ Ajouter les champs spécifiques selon le type de compte
+      // ✅ Ajouter les champs spécifiques pour entreprise
       if (formData.typeCompte === 'ENTREPRISE') {
         payload.raisonSociale = formData.raisonSociale;
-        payload.siret = formData.siret;
-      } else {
-        payload.nom = formData.nom || '';
-        payload.prenom = formData.prenom || '';
+        payload.matriculeFiscal = formData.matriculeFiscal;
       }
       
+      console.log('📤 Payload inscription:', payload);
+      
+      // ⭐ ÉTAPE 1: Inscription
       const response = await api.post('/platform/clients/register', payload);
+      
+      console.log('📥 Réponse inscription:', response.data);
       
       // ✅ Nettoyer après succès
       pendingOtpCode = null;
       pendingOtpEmail = null;
       
+      // ⭐ Récupérer le clientId APRÈS la réponse
       const clientId = response.data.clientId;
+      console.log('✅ Client créé avec ID:', clientId);
       
-      // ✅ Upload des documents si DEFINITIF
+      // ⭐ ÉTAPE 2: Upload des documents si DEFINITIF
       if (formData.typeInscription === 'DEFINITIF' && formData.documents && formData.documents.length > 0) {
         console.log('📎 Upload des documents pour le client:', clientId);
+        console.log('📎 Nombre de documents à uploader:', formData.documents.length);
+        console.log('📎 Détails des documents:', formData.documents.map(d => ({ 
+          type: d.type, 
+          name: d.file?.name, 
+          size: d.file?.size 
+        })));
         
         for (const doc of formData.documents) {
+          console.log(`📤 Upload de ${doc.type} - Fichier: ${doc.file?.name}`);
+          
           const uploadFormData = new FormData();
           uploadFormData.append('file', doc.file);
-          uploadFormData.append('typeDocument', doc.type);  // ✅ Utiliser 'type' au lieu de 'field'
+          uploadFormData.append('typeDocument', doc.type);
           
-          await api.post(`/platform/clients/${clientId}/justificatifs`, uploadFormData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          
-          console.log(`✅ Document ${doc.type} uploadé avec succès`);
+          try {
+            const uploadResponse = await api.post(`/platform/clients/${clientId}/justificatifs`, uploadFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            console.log(`✅ Document ${doc.type} uploadé avec succès:`, uploadResponse.data);
+          } catch (uploadError) {
+            console.error(`❌ Échec upload ${doc.type}:`, uploadError.response?.data || uploadError.message);
+            console.error(`❌ Statut erreur:`, uploadError.response?.status);
+            // Continuer avec les autres documents même si un échoue
+          }
         }
         
-        console.log('✅ Tous les documents uploadés avec succès');
+        console.log('✅ Traitement des documents terminé');
+      } else {
+        console.log('ℹ️ Aucun document à uploader (ESSAI ou aucun document sélectionné)');
       }
       
+      // ⭐ Retourner la réponse
       return { 
         success: true, 
         clientId: clientId,
@@ -126,34 +149,8 @@ export const registerService = {
       return { success: false, message };
     }
   },
-
-  async login(email, password) {
-    try {
-      const response = await api.post('/platform/clients/login', { email, password });
-      
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('userRole', 'ADMIN_CLIENT');
-        localStorage.setItem('userEmail', response.data.email);
-        localStorage.setItem('userName', response.data.nom || response.data.raisonSociale);
-        localStorage.setItem('clientDatabase', response.data.database || '');
-        localStorage.setItem('clientId', response.data.clientId);
-        
-        // ✅ Stocker le type de compte
-        if (response.data.typeCompte) {
-          localStorage.setItem('clientType', response.data.typeCompte);
-        }
-      }
-      
-      return { success: true, data: response.data };
-    } catch (error) {
-      console.error('Erreur connexion:', error);
-      const message = error.response?.data?.error || 'Erreur lors de la connexion';
-      return { success: false, message };
-    }
-  },
   
-  // ✅ Nouvelle méthode : Upload de justificatifs après inscription
+  // Upload de justificatifs après inscription
   async uploadJustificatif(clientId, file, typeDocument) {
     try {
       const formData = new FormData();
@@ -172,7 +169,7 @@ export const registerService = {
     }
   },
   
-  // ✅ Nouvelle méthode : Récupérer les documents requis selon le type de compte
+  //  Récupérer les documents requis selon le type de compte
   getRequiredDocuments(typeCompte) {
     if (typeCompte === 'ENTREPRISE') {
       return [
@@ -185,6 +182,26 @@ export const registerService = {
         { field: 'CIN', label: 'Carte d\'identité nationale', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
       ];
     }
+  }
+};
+
+export const fetchOffres = async () => {
+  try {
+    console.log('📡 Appel API: /api/public/offres');
+    const response = await fetch('/api/public/offres');
+    
+    console.log('📡 Statut réponse:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('📦 Offres chargées:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Erreur fetchOffres:', error);
+    return { success: false, data: [] };
   }
 };
 

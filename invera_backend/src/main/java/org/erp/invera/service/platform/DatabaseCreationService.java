@@ -61,30 +61,6 @@ public class DatabaseCreationService {
 
 
 
-    // Ajoutez cette méthode dans la classe DatabaseCreationService
-
-    /**
-     * Force la déconnexion de toutes les sessions sur template_invera
-     */
-    private void forceDisconnectFromTemplate() {
-        String disconnectSql = """
-        SELECT pg_terminate_backend(pid)
-        FROM pg_stat_activity
-        WHERE datname = 'template_invera' AND pid <> pg_backend_pid()
-        """;
-        try {
-            List<Integer> terminated = platformJdbcTemplate.queryForList(disconnectSql, Integer.class);
-            if (terminated != null && !terminated.isEmpty()) {
-                log.info("✅ {} connexion(s) terminée(s) sur template_invera", terminated.size());
-            } else {
-                log.debug("✅ Aucune connexion active sur template_invera");
-            }
-        } catch (Exception e) {
-            log.warn("⚠️ Impossible de terminer les connexions: {}", e.getMessage());
-        }
-    }
-
-
     // ============================================================
     // CRÉATION DE BASE (avec isolation totale)
     // ============================================================
@@ -160,18 +136,6 @@ public class DatabaseCreationService {
     }
 
     /**
-     * Crée une base avec plan d'abonnement (définit les limites de connexions)
-     *
-     * @param clientId ID du client
-     * @param planType BASIC (5), PRO (50), ENTERPRISE (∞), défaut ESSAI (30)
-     */
-    public DatabaseInfo createClientDatabaseWithPlan(Long clientId, String planType) {
-        DatabaseInfo dbInfo = createClientDatabase(clientId);
-        applyPlanLimits(clientId, planType);
-        return dbInfo;
-    }
-
-    /**
      * Applique les limites de connexions selon le plan
      */
     private void applyPlanLimits(Long clientId, String planType) {
@@ -201,61 +165,6 @@ public class DatabaseCreationService {
     }
 
     // ============================================================
-    // SUPPRESSION DE BASE
-    // ============================================================
-
-    /**
-     * Supprime la base de données et l'utilisateur d'un client
-     *
-     * @param clientId ID du client
-     */
-    @Transactional
-    public void dropClientDatabase(Long clientId) {
-        Client client = clientRepository.findById(clientId)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé: " + clientId));
-
-        String dbName = client.getNomBaseDonnees();
-        String userName = generateUsername(clientId);
-
-        if (dbName == null) {
-            log.warn("Client {} n'a pas de base associée", clientId);
-            return;
-        }
-
-        log.info("🗑️ Suppression base {} et utilisateur {} pour client {}", dbName, userName, client.getEmail());
-
-        try {
-            // 1. Terminer toutes les connexions actives
-            terminateConnections(dbName);
-
-            // 2. Supprimer la base
-            String dropDbSql = String.format("DROP DATABASE IF EXISTS %s", sanitizeIdentifier(dbName));
-            platformJdbcTemplate.execute(dropDbSql);
-            log.info("✅ Base supprimée: {}", dbName);
-
-            // 3. Supprimer l'utilisateur DÉDIÉ
-            String dropUserSql = String.format("DROP USER IF EXISTS %s", sanitizeIdentifier(userName));
-            platformJdbcTemplate.execute(dropUserSql);
-            log.info("✅ Utilisateur supprimé: {}", userName);
-
-            // 4. Supprimer les credentials stockés
-            credentialService.deleteCredentials(clientId);
-
-            // 5. Mettre à jour le client
-            client.setNomBaseDonnees(null);
-            client.setStatut(Client.StatutClient.valueOf("INACTIF"));
-            client.setIsActive(false);
-            clientRepository.save(client);
-
-            log.info("✅ Client {} mis à jour après suppression", clientId);
-
-        } catch (Exception e) {
-            log.error("❌ Erreur suppression: {}", e.getMessage());
-            throw new RuntimeException("Erreur suppression base: " + e.getMessage(), e);
-        }
-    }
-
-    // ============================================================
     // MÉTHODES UTILITAIRES
     // ============================================================
 
@@ -270,20 +179,6 @@ public class DatabaseCreationService {
             return false;
         }
     }
-
-    /**
-     * Liste toutes les bases clients (métadonnées uniquement)
-     * ⚠️ Le Super Admin peut voir la liste mais PAS les données
-     */
-    public List<String> listAllClientDatabases() {
-        try {
-            return platformJdbcTemplate.queryForList(LIST_CLIENT_DBS, String.class);
-        } catch (Exception e) {
-            log.error("Erreur liste bases: {}", e.getMessage());
-            return List.of();
-        }
-    }
-
     /**
      * Vérifie si un utilisateur existe dans PostgreSQL
      */
@@ -402,11 +297,13 @@ public class DatabaseCreationService {
                 .orElseThrow(() -> new RuntimeException("Client non trouvé"));
 
         client.setNomBaseDonnees(dbName);
-        client.setStatut(Client.StatutClient.valueOf("ACTIF"));
+        // client.setStatut(Client.StatutClient.valueOf("ACTIF"));
+
+        // Garder le statut actuel (EN_ATTENTE pour DEFINITIF, ACTIF pour ESSAI)
         client.setDateActivation(LocalDateTime.now());
         client.setIsActive(true);
         clientRepository.save(client);
-        log.info("✅ Client mis à jour: {}", client.getEmail());
+        log.info("✅ Client mis à jour: {} - Statut inchangé: {}", client.getEmail(), client.getStatut());
     }
 
     // ============================================================
