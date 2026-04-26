@@ -2,9 +2,13 @@ package org.erp.invera.service.platform;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
+import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.model.platform.Utilisateur;
+import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
+import org.erp.invera.repository.platform.OffreAbonnementRepository;
 import org.erp.invera.repository.platform.utilisateurRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,162 +17,127 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Slf4j
+/**
+ * Service de gestion des clients
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ClientPlatformService {
 
     private final ClientPlatformRepository clientRepository;
-    private final AsyncDatabaseService asyncDatabaseService;
     private final utilisateurRepository utilisateurRepository;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
+    private final AsyncDatabaseService asyncDatabaseService;
+    private final OffreAbonnementRepository offreAbonnementRepository;
+    private final AbonnementRepository abonnementRepository;
 
-    // ========== CRUD DE BASE ==========
-
+    // ========== CRÉATION ==========
     /**
-     * Créer un nouveau client
+     * Créer un nouveau client (ESSAI ou DEFINITIF)
      */
+    @Transactional
     public Client createClient(Client client, String otpCode, String plainPassword) {
+        // Vérifier l'OTP
         if (!otpService.verifyOtp(client.getEmail(), otpCode)) {
             throw new RuntimeException("Code OTP invalide ou expiré");
         }
 
+        // Vérifier l'unicité
         if (clientRepository.existsByEmail(client.getEmail())) {
             throw new RuntimeException("Email déjà utilisé: " + client.getEmail());
         }
 
+        // Définir le domaine
         String domaine = client.getEmail().substring(client.getEmail().indexOf('@') + 1);
         client.setDomaine(domaine);
         client.setDateInscription(LocalDateTime.now());
 
-        if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
-            client.setConnexionsMax(30);
-            client.setConnexionsRestantes(30);
-            client.setStatut(Client.StatutClient.ACTIF);
-            client.setIsActive(true);
-            client.setJustificatifsValides(true);
+        // TOUS les clients commencent avec 30 connexions gratuites
+        client.setConnexionsMax(30);
+        client.setConnexionsRestantes(30);
+        client.setIsActive(true);
 
-            Client savedClient = clientRepository.save(client);
 
-            Utilisateur utilisateur = Utilisateur.builder()
-                    .email(client.getEmail())
-                    .motDePasse(passwordEncoder.encode(plainPassword))
-                    .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
-                    .client(savedClient)
-                    .estActif(true)
-                    .build();
-            utilisateurRepository.save(utilisateur);
-
-            asyncDatabaseService.createClientDatabaseAsync(savedClient.getId());
-            return savedClient;
-        } else {
-            // DEFINITIF - Nécessite justificatifs + validation admin
-            client.setConnexionsMax(999999);
-            client.setConnexionsRestantes(999999);
-            client.setNomBaseDonnees(null);
+        // Différence selon le type d'inscription (seulement pour justificatifs)
+        if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
             client.setStatut(Client.StatutClient.EN_ATTENTE);
-            client.setIsActive(false);
             client.setJustificatifsValides(false);
-
-            Client savedClient = clientRepository.save(client);
-            log.info("📝 Client DEFINITIF inscrit en attente de validation: {}", client.getEmail());
-            return savedClient;
-        }
-    }
-
-    /**
-     * Demander un code OTP pour l'inscription
-     */
-    public void requestOtp(String email) {
-        if (clientRepository.existsByEmail(email)) {
-            throw new RuntimeException("Email déjà utilisé");
-        }
-        otpService.sendOtpByEmail(email);
-        log.info("📧 OTP envoyé à {}", email);
-    }
-
-    // ========== UPLOAD JUSTIFICATIFS ==========
-
-    /**
-     * Upload des justificatifs selon le type de document
-     * Le client reste EN_ATTENTE jusqu'à validation manuelle par l'admin
-     */
-    @Transactional
-    public Client uploadJustificatifs(Long clientId, String typeDocument, String fileUrl) {
-        Client client = getClientById(clientId);
-
-        if (client.getStatut() != Client.StatutClient.EN_ATTENTE) {
-            throw new IllegalStateException(
-                    "Le client n'est pas en attente de validation. Statut actuel: " + client.getStatut().getLabel()
-            );
+            log.info("🔍 Client DEFINITIF - Statut EN_ATTENTE, documents requis");
+        } else {
+            client.setStatut(Client.StatutClient.ACTIF);
+            client.setJustificatifsValides(true);
+            log.info("🔍 Client ESSAI - Statut ACTIF, documents non requis");
         }
 
-        switch (typeDocument.toUpperCase()) {
-            case "CIN":
-                client.setCinUrl(fileUrl);
-                log.info("📄 CIN uploadée pour client {}", client.getEmail());
-                break;
-            case "GERANT_CIN":
-                client.setGerantCinUrl(fileUrl);
-                log.info("📄 CIN du gérant uploadée pour client {}", client.getEmail());
-                break;
-            case "PATENTE":
-                client.setPatenteUrl(fileUrl);
-                log.info("📄 Patente uploadée pour client {}", client.getEmail());
-                break;
-            case "RNE":
-                client.setRneUrl(fileUrl);
-                log.info("📄 RNE uploadé pour client {}", client.getEmail());
-                break;
-            default:
-                throw new RuntimeException("Type de document inconnu: " + typeDocument);
-        }
-
+        client.setAbonnementActif(null);
+        // Sauvegarder le client
         Client savedClient = clientRepository.save(client);
 
-        if (hasAllRequiredDocuments(savedClient)) {
-            log.info("✅ Client {} a soumis tous ses justificatifs. En attente de validation admin.", client.getEmail());
-        }
+        // Créer l'utilisateur associé
+        Utilisateur utilisateur = Utilisateur.builder()
+                .email(client.getEmail())
+                .motDePasse(passwordEncoder.encode(plainPassword))
+                .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
+                .client(savedClient)
+                .estActif(true)
+                .nom(client.getNom())
+                .prenom(client.getPrenom())
+                .build();
+        utilisateurRepository.save(utilisateur);
+
+        // Créer la base de données pour TOUS les clients
+        asyncDatabaseService.createClientDatabaseAsync(savedClient.getId());
+
+        log.info("✅ Client créé: {} - Type: {} - Statut: {} - Justificatifs: {} - Connexions: {}/{}",
+                savedClient.getEmail(), savedClient.getTypeInscription(),
+                savedClient.getStatut(), savedClient.getJustificatifsValides(),
+                savedClient.getConnexionsRestantes(), savedClient.getConnexionsMax());
 
         return savedClient;
     }
 
-    // ========== VALIDATION ADMIN (MANUELLE) ==========
+    /**
+     * Sauvegarder un client (utile pour les mises à jour mineures)
+     */
+    @Transactional
+    public Client saveClient(Client client) {
+        return clientRepository.save(client);
+    }
+    // ========== VALIDATION ADMIN (POUR DEFINITIF) ==========
 
     /**
-     * VALIDATION MANUELLE par le Super Admin
-     * L'admin doit vérifier visuellement que le RNE date de moins de 3 mois
+     * VALIDATION manuelle par le Super Admin
      */
     @Transactional
     public Client validateClientManually(Long id, String adminComment) {
         Client client = getClientById(id);
 
         if (client.getStatut() != Client.StatutClient.EN_ATTENTE) {
-            throw new IllegalStateException(
-                    "Impossible de valider un client qui n'est pas en attente. Statut actuel: " +
-                            client.getStatut().getLabel()
-            );
+            throw new IllegalStateException("Client non en attente");
         }
 
-        if (!hasAllRequiredDocuments(client)) {
-            throw new IllegalStateException(
-                    "Documents justificatifs incomplets pour valider le compte."
-            );
+        if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
+            // Vérifier les documents pour DEFINITIF
+            if (!hasAllRequiredDocuments(client)) {
+                throw new IllegalStateException("Documents justificatifs incomplets");
+            }
+            client.setJustificatifsValides(true);
+            client.setStatut(Client.StatutClient.VALIDE);  // En attente de paiement
+            log.info("✅ Client DEFINITIF validé - En attente de paiement");
+        } else {
+            // ESSAI : validation directe
+            client.setStatut(Client.StatutClient.ACTIF);
+            log.info("✅ Client ESSAI validé - Compte actif");
         }
 
-        client.setStatut(Client.StatutClient.VALIDE);
-        client.setJustificatifsValides(true);
         client.setDateValidation(LocalDateTime.now());
-
-        log.info("✅ ADMIN: Client {} VALIDÉ manuellement après vérification visuelle. Commentaire: {}",
-                client.getEmail(), adminComment);
-
         return clientRepository.save(client);
     }
 
     /**
-     * REFUS MANUEL par le Super Admin
+     * REFUS manuel par le Super Admin
      */
     @Transactional
     public Client refuseClientManually(Long id, String refusalReason) {
@@ -186,90 +155,138 @@ public class ClientPlatformService {
         client.setJustificatifsValides(false);
         client.setIsActive(false);
 
-        log.warn("❌ ADMIN: Client {} REFUSÉ. Motif: {}", client.getEmail(), refusalReason);
+        log.warn("❌ Client {} REFUSÉ. Motif: {}", client.getEmail(), refusalReason);
 
         return clientRepository.save(client);
     }
 
-    // ========== MÉTHODES DE COMPATIBILITÉ ==========
-
-    @Deprecated
-    @Transactional
-    public Client validateClient(Long id, String commentaire) {
-        return validateClientManually(id, commentaire);
-    }
-
-    @Deprecated
-    @Transactional
-    public Client refuseClient(Long id, String motif) {
-        return refuseClientManually(id, motif);
-    }
-
-    // ========== ACTIVATION (après paiement) ==========
+    // ========== ACTIVATION APRÈS PAIEMENT ==========
 
     @Transactional
-    public Client activateClient(Long id, String dbName) {
-        Client client = getClientById(id);
+    public Client activateAfterPayment(Long clientId, Long offreId) {
+        Client client = getClientById(clientId);
+
+        if (client.getTypeInscription() != Client.TypeInscription.DEFINITIF) {
+            throw new RuntimeException("Ce client n'est pas un abonnement DEFINITIF");
+        }
 
         if (client.getStatut() != Client.StatutClient.VALIDE) {
-            throw new RuntimeException(
-                    "Le client doit être validé avant activation. Statut actuel: " + client.getStatut().getLabel()
-            );
+            throw new RuntimeException("Client non encore validé par l'administrateur");
         }
 
-        client.setNomBaseDonnees(dbName);
+        // Pas besoin de conversion
+        OffreAbonnement offre = offreAbonnementRepository.findById(offreId)
+                .orElseThrow(() -> new RuntimeException("Offre non trouvée"));
+
+        // Créer l'abonnement
+        Abonnement abonnement = Abonnement.builder()
+                .client(client)
+                .offreAbonnement(offre)
+                .dateDebut(LocalDateTime.now())
+                .dateFin(LocalDateTime.now().plusMonths(offre.getDureeMois()))
+                .statut(Abonnement.StatutAbonnement.ACTIF)
+                .build();
+        abonnementRepository.save(abonnement);
+
+        // Mettre à jour le client
         client.setStatut(Client.StatutClient.ACTIF);
-        client.setDateActivation(LocalDateTime.now());
-        client.setIsActive(true);
         client.setConnexionsMax(999999);
         client.setConnexionsRestantes(999999);
+        client.setAbonnementActif(abonnement);
+        client.setJustificatifsValides(true);
+        client.setDateActivation(LocalDateTime.now());
 
-        if (utilisateurRepository.findByEmail(client.getEmail()).isEmpty()) {
-            Utilisateur utilisateur = Utilisateur.builder()
-                    .email(client.getEmail())
-                    .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
-                    .client(client)
-                    .estActif(true)
-                    .build();
-            utilisateurRepository.save(utilisateur);
-        }
+        clientRepository.save(client);
 
-        log.info("🚀 Client {} ACTIVÉ avec base {}", client.getEmail(), dbName);
-        return clientRepository.save(client);
+        log.info("💰 Client activé après paiement: {} - Offre: {}", client.getEmail(), offre.getNom());
+
+        return client;
     }
 
     // ========== GESTION DES CONNEXIONS ==========
 
+    /**
+     * Enregistrer une connexion et décrémenter le compteur pour TOUS les clients en EN_ATTENTE
+     */
     @Transactional
     public Client recordLogin(String email) {
-        String domaine = email.substring(email.indexOf('@') + 1);
-        Client client = clientRepository.findByDomaine(domaine)
-                .orElseThrow(() -> new RuntimeException("Aucune entreprise trouvée pour ce domaine: " + domaine));
+        log.info("========== RECORD LOGIN ==========");
+        log.info("Email reçu: {}", email);
 
+        String domaine = email.substring(email.indexOf('@') + 1);
+        log.info("Domaine extrait: {}", domaine);
+
+        Client client = clientRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Client non trouvé pour cet email: " + email));
+
+        log.info("Client trouvé: ID={}, Email={}, Type={}, Statut={}, Connexions={}/{}",
+                client.getId(),
+                client.getEmail(),
+                client.getTypeInscription(),
+                client.getStatut(),
+                client.getConnexionsRestantes(),
+                client.getConnexionsMax());
+
+        // Vérifier et mettre à jour le statut (expiration)
         checkAndUpdateStatus(client);
 
-        if (client.getStatut() != Client.StatutClient.ACTIF) {
+        // Vérifier que le client peut se connecter
+        if (client.getStatut() != Client.StatutClient.ACTIF &&
+                client.getStatut() != Client.StatutClient.EN_ATTENTE &&
+                client.getStatut() != Client.StatutClient.VALIDE) {
+            log.error("❌ Client non autorisé à se connecter - Statut: {}", client.getStatut());
             throw new RuntimeException("Compte non actif. Statut: " + client.getStatut().getLabel());
         }
 
-        if (client.getTypeInscription() == Client.TypeInscription.ESSAI) {
+        // Décrémentation
+        boolean isEssai = client.getTypeInscription() == Client.TypeInscription.ESSAI;
+        boolean isEnAttente = client.getStatut() == Client.StatutClient.EN_ATTENTE;
+
+        log.info("Conditions: isEssai={}, isEnAttente={}", isEssai, isEnAttente);
+
+        if (isEnAttente || isEssai) {
+            log.info("✅ Client éligible à la décrémentation");
             if (client.getConnexionsRestantes() <= 0) {
                 client.setStatut(Client.StatutClient.INACTIF);
+                client.setIsActive(false);
                 clientRepository.save(client);
-                throw new RuntimeException("Période d'essai expirée. Veuillez souscrire un abonnement.");
+                throw new RuntimeException("❌ Période d'essai expirée.");
             }
-            client.setConnexionsRestantes(client.getConnexionsRestantes() - 1);
+            int anciennesConnexions = client.getConnexionsRestantes();
+            client.setConnexionsRestantes(anciennesConnexions - 1);
             clientRepository.save(client);
 
-            log.info("🔐 Connexion enregistrée pour {} - Reste: {}/{}",
-                    client.getNom(), client.getConnexionsRestantes(), client.getConnexionsMax());
+            log.info("🔐 Connexion: {} → {} restantes", anciennesConnexions, client.getConnexionsRestantes());
+        } else {
+            log.info("⚠️ Client non éligible à la décrémentation - Pas de changement");
         }
 
         client.setLastLoginDate(LocalDateTime.now());
-        return clientRepository.save(client);
+        Client saved = clientRepository.save(client);
+        log.info("========== FIN RECORD LOGIN ==========");
+
+        return saved;
+    }
+    // ========== MÉTHODES UTILITAIRES ==========
+
+    public Client getClientById(Long id) {
+        return clientRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Client non trouvé: " + id));
     }
 
-    // ========== MÉTHODES UTILITAIRES PRIVÉES ==========
+    public List<Client> getAllClients() {
+        return clientRepository.findAll();
+    }
+
+    public List<Client> getPendingValidationClients() {
+        return clientRepository.findByStatut(Client.StatutClient.EN_ATTENTE);
+    }
+
+    public List<Client> getClientsByStatut(Client.StatutClient statut) {
+        return clientRepository.findByStatut(statut);
+    }
+
+    // ========== MÉTHODES PRIVÉES ==========
 
     private boolean hasAllRequiredDocuments(Client client) {
         if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
@@ -282,7 +299,11 @@ public class ClientPlatformService {
     }
 
     private void checkAndUpdateStatus(Client client) {
-        if (client.getAbonnementActif() != null && client.getAbonnementActif().getDateFin() != null) {
+        // Vérifier l'expiration de l'abonnement pour les clients ACTIF
+        if (client.getAbonnementActif() != null &&
+                client.getAbonnementActif().getDateFin() != null &&
+                client.getStatut() == Client.StatutClient.ACTIF) {
+
             if (client.getAbonnementActif().getDateFin().isBefore(LocalDateTime.now())) {
                 client.setStatut(Client.StatutClient.INACTIF);
                 clientRepository.save(client);
@@ -291,48 +312,4 @@ public class ClientPlatformService {
         }
     }
 
-    // ========== RECHERCHES ET LISTES ==========
-
-    public Client getClientById(Long id) {
-        return clientRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé: " + id));
-    }
-
-    public Client getClientByEmail(String email) {
-        return clientRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé: " + email));
-    }
-
-    @Transactional
-    public Client updateClient(Long id, Client updatedClient) {
-        Client client = getClientById(id);
-        client.setNom(updatedClient.getNom());
-        client.setPrenom(updatedClient.getPrenom());
-        client.setTelephone(updatedClient.getTelephone());
-        return clientRepository.save(client);
-    }
-
-    @Transactional
-    public void deleteClient(Long id) {
-        Client client = getClientById(id);
-        client.setIsActive(false);
-        client.setStatut(Client.StatutClient.INACTIF);
-        clientRepository.save(client);
-    }
-
-    public List<Client> getAllClients() {
-        return clientRepository.findAll();
-    }
-
-    public List<Client> getClientsByStatut(Client.StatutClient statut) {
-        return clientRepository.findByStatut(statut);
-    }
-
-    public List<Client> getPendingValidationClients() {
-        return clientRepository.findByStatut(Client.StatutClient.EN_ATTENTE);
-    }
-
-    public List<Client> getActiveClientsWithDatabase() {
-        return clientRepository.findClientsWithDatabase();
-    }
 }

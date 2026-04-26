@@ -163,22 +163,5 @@ public class Client {
     }
 
 
-    public String getDisplayName() {
-        if (typeCompte == TypeCompte.ENTREPRISE) {
-            return raisonSociale != null ? raisonSociale : nom;
-        } else {
-            return (prenom != null ? prenom + " " : "") + nom;
-        }
-    }
-
-    public String getLegalIdentifier() {
-        if (typeCompte == TypeCompte.ENTREPRISE) {
-            return matriculeFiscal;  // Pour entreprise : SIRET
-        } else {
-            return cinUrl; // Pour particulier : CIN
-        }
-    }
-
-
 }
 
