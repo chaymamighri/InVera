@@ -67,25 +67,53 @@ const LoginPage = () => {
     }
   }, []);
 
-  const handleSubmit = async (credentials) => {
-    setLoginError(null);
-    setEssaiExpire(false);
+const handleSubmit = async (credentials) => {
+  setLoginError(null);
+  setEssaiExpire(false);
 
-    try {
-      const result = await login(credentials);
+  try {
+    const result = await login(credentials);
 
-      if (result?.success) {
-        const userRole = localStorage.getItem('userRole');
-
-        let dashboardPath = '/dashboard';
-        if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
-        else if (userRole === 'ADMIN') dashboardPath = '/dashboard/admin';
-        else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
-        else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
-
-        navigate(dashboardPath, { replace: true });
+    if (result?.success) {
+      // ⭐ STOCKER LES INFOS DE CONNEXION ET LE FLAG ICI
+      const { data } = result;
+      
+      if (data) {
+        if (data.connexionsRestantes !== undefined) {
+          localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+        }
+        if (data.connexionsMax !== undefined) {
+          localStorage.setItem('connexionsMax', data.connexionsMax);
+        }
+        if (data.typeInscription) {
+          localStorage.setItem('typeInscription', data.typeInscription);
+        }
+        if (data.hasActiveSubscription !== undefined) {
+          localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+        }
+        if (data.statut) {
+          localStorage.setItem('clientStatut', data.statut);
+        }
+        if (data.clientId) {
+          localStorage.setItem('clientId', data.clientId);
+        }
+        
+        // ⭐ STOCKER LE FLAG POUR LE TOAST DANS LE DASHBOARD
+        sessionStorage.setItem('justLoggedIn', 'true');
+        console.log('✅ Flag justLoggedIn stocké dans sessionStorage depuis LoginPage');
       }
-    } catch (err) {
+
+      const userRole = localStorage.getItem('userRole');
+
+      let dashboardPath = '/dashboard';
+      if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
+      else if (userRole === 'ADMIN') dashboardPath = '/dashboard/admin';
+      else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
+      else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
+
+      navigate(dashboardPath, { replace: true });
+    }
+  } catch (err) {
       const backendMessage = err?.response?.data?.message;
       const errorCode = err?.response?.data?.error;
 

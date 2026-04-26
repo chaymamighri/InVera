@@ -123,82 +123,140 @@ const RegisterPage = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileUpload = (field, file) => {
-    if (!file) return;
-    const currentDocs = formData.documents || [];
-    const newDocs = [...currentDocs];
-    const existingIndex = newDocs.findIndex(d => d.type === field);
-    
-    if (existingIndex !== -1) {
-      newDocs[existingIndex] = { type: field, file };
-    } else {
-      newDocs.push({ type: field, file });
-    }
-    updateFormData('documents', newDocs);
-  };
+ const handleFileUpload = (field, file) => {
+  console.log('🔍 [UPLOAD] handleFileUpload appelé');
+  console.log('🔍 [UPLOAD] field:', field);
+  console.log('🔍 [UPLOAD] file:', file);
+  console.log('🔍 [UPLOAD] file name:', file?.name);
+  console.log('🔍 [UPLOAD] file size:', file?.size);
+  console.log('🔍 [UPLOAD] file type:', file?.type);
+  
+  if (!file) {
+    console.warn('⚠️ [UPLOAD] Aucun fichier reçu, annulation');
+    return;
+  }
+  
+  const currentDocs = formData.documents || [];
+  console.log('🔍 [UPLOAD] Documents actuels:', currentDocs);
+  console.log('🔍 [UPLOAD] Nombre de documents actuels:', currentDocs.length);
+  
+  const newDocs = [...currentDocs];
+  const existingIndex = newDocs.findIndex(d => d.type === field);
+  
+  if (existingIndex !== -1) {
+    console.log(`🔍 [UPLOAD] Document ${field} existe déjà à l'index ${existingIndex}, remplacement`);
+    newDocs[existingIndex] = { type: field, file };
+  } else {
+    console.log(`🔍 [UPLOAD] Document ${field} n'existe pas, ajout`);
+    newDocs.push({ type: field, file });
+  }
+  
+  console.log('🔍 [UPLOAD] Nouveaux documents après modification:', newDocs);
+  console.log('🔍 [UPLOAD] Nombre de documents après modification:', newDocs.length);
+  
+  updateFormData('documents', newDocs);
+  
+  console.log('✅ [UPLOAD] handleFileUpload terminé avec succès');
+};
 
-  const hasDocument = (field) => {
-    return formData.documents?.some(d => d.type === field);
-  };
+const hasDocument = (field) => {
+  const exists = formData.documents?.some(d => d.type === field);
+  console.log(`🔍 [HAS_DOCUMENT] Vérification document ${field}: ${exists ? '✅ Présent' : '❌ Absent'}`);
+  console.log(`🔍 [HAS_DOCUMENT] Documents actuels:`, formData.documents);
+  return exists;
+};
 
   const isEssai = formData.typeAbonnement === 'ESSAI';
   const isPayant = formData.typeAbonnement === 'PAYANT';
   const isParticulier = formData.typeCompte === 'PARTICULIER';
 
-  const isValid = () => {
-    const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
-    
-    if (!hasBasicInfo) return false;
+const isValid = () => {
+  console.log('🔍 [VALIDATE] Début validation formulaire');
+  console.log('🔍 [VALIDATE] isPayant:', isPayant);
+  console.log('🔍 [VALIDATE] isParticulier:', isParticulier);
+  console.log('🔍 [VALIDATE] Documents:', formData.documents);
+  
+  const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
+  console.log('🔍 [VALIDATE] hasBasicInfo:', hasBasicInfo);
+  
+  if (!hasBasicInfo) {
+    console.log('❌ [VALIDATE] Échec: informations de base manquantes');
+    return false;
+  }
+  
+  if (!formData.nom || !formData.prenom) {
+    console.log('❌ [VALIDATE] Échec: nom ou prénom manquant');
+    return false;
+  }
+  
+  if (!isParticulier && !formData.raisonSociale) {
+    console.log('❌ [VALIDATE] Échec: raison sociale manquante pour entreprise');
+    return false;
+  }
+  
+  if (isPayant) {
+    console.log('🔍 [VALIDATE] Vérification documents pour abonnement payant');
     
     if (isParticulier) {
-      if (!formData.nom || !formData.prenom) return false;
-    } else {
-      if (!formData.raisonSociale) return false;
-    }
-    
-    if (isPayant) {
-      if (isParticulier) {
-        if (!hasDocument('CIN')) return false;
-      } else {
-        const hasGerantCin = hasDocument('GERANT_CIN');
-        const hasPatente = hasDocument('PATENTE');
-        const hasRne = hasDocument('RNE');
-        if (!hasGerantCin || !hasPatente || !hasRne) return false;
+      const hasCIN = hasDocument('CIN');
+      console.log('🔍 [VALIDATE] hasCIN:', hasCIN);
+      if (!hasCIN) {
+        console.log('❌ [VALIDATE] Échec: CIN manquant pour particulier');
+        return false;
       }
-      if (!selectedOffre) return false;
+    } else {
+      const hasGerantCin = hasDocument('GERANT_CIN');
+      const hasPatente = hasDocument('PATENTE');
+      const hasRne = hasDocument('RNE');
+      
+      console.log('🔍 [VALIDATE] hasGerantCin:', hasGerantCin);
+      console.log('🔍 [VALIDATE] hasPatente:', hasPatente);
+      console.log('🔍 [VALIDATE] hasRne:', hasRne);
+      
+      if (!hasGerantCin || !hasPatente || !hasRne) {
+        console.log('❌ [VALIDATE] Échec: documents entreprise manquants');
+        return false;
+      }
     }
     
-    return true;
-  };
+    if (!selectedOffre) {
+      console.log('❌ [VALIDATE] Échec: aucune offre sélectionnée');
+      return false;
+    }
+  }
+  
+  console.log('✅ [VALIDATE] Formulaire valide');
+  return true;
+};
 
   const handleSubmit = async () => {
-    setLoading(true);
-    setError('');
-    
-    const registerData = {
-      email: formData.email,
-      telephone: formData.telephone,
-      typeCompte: formData.typeCompte,
-      typeInscription: isEssai ? 'ESSAI' : 'DEFINITIF',
-      code: otpCode,
-      motDePasse: formData.motDePasse,
-      documents: formData.documents,
-      nom: formData.nom || '',
-      prenom: formData.prenom || '',
-      raisonSociale: formData.raisonSociale || '',
-      matriculeFiscal: formData.matriculeFiscal || '',
-      offreId: selectedOffre?.id || null
-    };
-    
-    const result = await register(registerData);
-    
-    if (result.success) {
-      setSuccess(true);
-    } else {
-      setError(result.message);
-    }
-    setLoading(false);
+  setLoading(true);
+  setError('');
+  
+  const registerData = {
+    email: formData.email,
+    telephone: formData.telephone,
+    typeCompte: formData.typeCompte,
+    typeInscription: isEssai ? 'ESSAI' : 'DEFINITIF',
+    code: otpCode,
+    motDePasse: formData.motDePasse,
+    documents: formData.documents,
+    nom: formData.nom || '',
+    prenom: formData.prenom || '',
+    raisonSociale: formData.raisonSociale || '',
+    matriculeFiscal: formData.matriculeFiscal || '',
+    offreId: selectedOffre?.id || null
   };
+  
+  const result = await register(registerData);
+  
+  if (result.success) {
+    setSuccess(true);
+  } else {
+    setError(result.message);
+  }
+  setLoading(false);
+};
 
   // Grouper les offres par durée
   const groupedOffres = offres.reduce((acc, offre) => {
@@ -302,56 +360,103 @@ const RegisterPage = () => {
     );
   }
 
-  // ==================== ÉCRAN DE SUCCÈS ====================
-  if (success) {
-    return (
-      <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
-        <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
-        <div className="mx-auto max-w-7xl px-6 pb-24 pt-6 lg:px-8">
-          <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <Link to="/" className="flex items-center gap-4 group cursor-pointer">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2 transition group-hover:bg-[#0b4ea2]">
-                  <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
-                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
-                </div>
-              </Link>
-              <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-                <ArrowLeftIcon className="w-4 h-4" /> Retour à l'accueil
-              </Link>
-            </div>
-          </header>
-          <main className="pt-14">
-            <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-2xl border border-sky-100 p-8 shadow-sm text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckBadgeIcon className="w-10 h-10 text-green-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {isEssai ? 'Compte essai créé !' : 'Inscription enregistrée !'}
-                </h2>
-                {isEssai ? (
-                  <>
-                    <p className="text-gray-600 mb-4">Vous pouvez dès maintenant vous connecter.</p>
-                    <button onClick={() => window.location.href = '/login'} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">Se connecter</button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-gray-600 mb-4">Votre dossier est en cours de validation par l'administrateur.</p>
-                    <p className="text-sm text-gray-500 mb-4">Vous serez notifié par email dès que votre compte sera activé.</p>
-                    <button onClick={() => window.location.href = '/'} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">Retour à l'accueil</button>
-                  </>
-                )}
+ // ==================== ÉCRAN DE SUCCÈS ====================
+if (success) {
+  return (
+    <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
+      <div className="mx-auto max-w-7xl px-6 pb-24 pt-6 lg:px-8">
+        <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link to="/" className="flex items-center gap-4 group cursor-pointer">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2 transition group-hover:bg-[#0b4ea2]">
+                <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
               </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
+                <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
+              </div>
+            </Link>
+            <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
+              <ArrowLeftIcon className="w-4 h-4" /> Retour à l'accueil
+            </Link>
+          </div>
+        </header>
+        <main className="pt-14">
+          <div className="max-w-md mx-auto">
+            <div className="bg-white rounded-2xl border border-sky-100 p-8 shadow-sm text-center">
+              
+              {/* Icône de succès */}
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckBadgeIcon className="w-10 h-10 text-green-600" />
+              </div>
+              
+              {/* Titre selon le type */}
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                {isEssai ? 'Compte essai créé !' : 'Inscription enregistrée !'}
+              </h2>
+              
+              {/* Message selon le type d'inscription */}
+              {isEssai ? (
+                <>
+                  <p className="text-gray-600 mb-4">Vous pouvez dès maintenant vous connecter.</p>
+                  <button 
+                    onClick={() => window.location.href = '/login'} 
+                    className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
+                  >
+                    Se connecter
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Message personnalisé pour DEFINITIF */}
+                  <div className="text-left space-y-3 mb-6">
+                    <p className="text-gray-700">
+                      ✅ Votre inscription a été bien enregistrée !
+                    </p>
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                      <p className="text-blue-800 text-sm font-medium mb-2">
+                        🎁 Période d'essai offerte
+                      </p>
+                      <p className="text-blue-700 text-sm">
+                        Vous bénéficiez immédiatement de <strong>30 connexions gratuites</strong> 
+                        pour découvrir la plateforme en attendant la validation de votre dossier.
+                      </p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                      <p className="text-yellow-800 text-sm font-medium mb-2">
+                        ⏳ En attente de validation
+                      </p>
+                      <p className="text-yellow-700 text-sm">
+                        Votre dossier est en cours de vérification par notre équipe administrative.
+                        Vous recevrez un email dès que votre compte sera validé pour finaliser votre abonnement.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Bouton Se connecter */}
+                  <button 
+                    onClick={() => window.location.href = '/login'} 
+                    className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
+                  >
+                    🔑 Se connecter
+                  </button>
+                  
+                  {/* Lien retour accueil */}
+                  <div className="mt-4">
+                    <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
+                      ← Retour à l'accueil
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // ==================== ÉCRAN PRINCIPAL (FORMULAIRE) ====================
   return (
@@ -416,46 +521,102 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              {/* 2. INFORMATIONS PERSONNELLES */}
-              <div className="bg-white rounded-2xl border border-sky-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                    <IdentificationIcon className="w-5 h-5 text-[#0b4ea2]" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-800">Informations personnelles</h2>
-                    <p className="text-xs text-gray-400">Vos coordonnées</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {isParticulier ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder="Nom *" className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.nom} onChange={(e) => updateFormData('nom', e.target.value)} />
-                      <input type="text" placeholder="Prénom *" className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.prenom} onChange={(e) => updateFormData('prenom', e.target.value)} />
-                    </div>
-                  ) : (
-                    <>
-                      <input type="text" placeholder="Raison sociale *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.raisonSociale} onChange={(e) => updateFormData('raisonSociale', e.target.value)} />
-                      <input type="text" placeholder="Matricule fiscal *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.matriculeFiscal} onChange={(e) => updateFormData('matriculeFiscal', e.target.value)} />
-                    </>
-                  )}
-                  <div className="relative">
-                    <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="email" placeholder="Email *" className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.email} onChange={(e) => updateFormData('email', e.target.value)} />
-                  </div>
-                  <div className="relative">
-                    <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="tel" placeholder="Téléphone *" className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.telephone} onChange={(e) => updateFormData('telephone', e.target.value)} />
-                  </div>
-                  <div className="relative">
-                    <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type={showPassword ? "text" : "password"} placeholder="Mot de passe *" className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" value={formData.motDePasse} onChange={(e) => updateFormData('motDePasse', e.target.value)} />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                      {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
+             {/* 2. INFORMATIONS PERSONNELLES */}
+<div className="bg-white rounded-2xl border border-sky-100 p-6 shadow-sm">
+  <div className="flex items-center gap-3 mb-5">
+    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+      <IdentificationIcon className="w-5 h-5 text-[#0b4ea2]" />
+    </div>
+    <div>
+      <h2 className="text-lg font-semibold text-slate-800">Informations personnelles</h2>
+      <p className="text-xs text-gray-400">Vos coordonnées</p>
+    </div>
+  </div>
+  
+  <div className="space-y-4">
+    {/* Pour TOUS les types de compte, on affiche nom et prénom */}
+    <div className="grid grid-cols-2 gap-4">
+      <input 
+        type="text" 
+        placeholder="Nom *" 
+        className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+        value={formData.nom} 
+        onChange={(e) => updateFormData('nom', e.target.value)} 
+      />
+      <input 
+        type="text" 
+        placeholder="Prénom *" 
+        className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+        value={formData.prenom} 
+        onChange={(e) => updateFormData('prenom', e.target.value)} 
+      />
+    </div>
+
+    {/* Champs spécifiques selon le type de compte */}
+    {isParticulier ? (
+      // Particulier : pas de champs supplémentaires
+      <></>
+    ) : (
+      // Entreprise : ajouter Raison sociale et Matricule fiscal
+      <>
+        <input 
+          type="text" 
+          placeholder="Raison sociale *" 
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+          value={formData.raisonSociale} 
+          onChange={(e) => updateFormData('raisonSociale', e.target.value)} 
+        />
+        <input 
+          type="text" 
+          placeholder="Matricule fiscal *" 
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+          value={formData.matriculeFiscal} 
+          onChange={(e) => updateFormData('matriculeFiscal', e.target.value)} 
+        />
+      </>
+    )}
+
+    <div className="relative">
+      <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <input 
+        type="email" 
+        placeholder="Email *" 
+        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+        value={formData.email} 
+        onChange={(e) => updateFormData('email', e.target.value)} 
+      />
+    </div>
+
+    <div className="relative">
+      <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <input 
+        type="tel" 
+        placeholder="Téléphone *" 
+        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+        value={formData.telephone} 
+        onChange={(e) => updateFormData('telephone', e.target.value)} 
+      />
+    </div>
+
+    <div className="relative">
+      <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <input 
+        type={showPassword ? "text" : "password"} 
+        placeholder="Mot de passe *" 
+        className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+        value={formData.motDePasse} 
+        onChange={(e) => updateFormData('motDePasse', e.target.value)} 
+      />
+      <button 
+        type="button" 
+        onClick={() => setShowPassword(!showPassword)} 
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+      >
+        {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+      </button>
+    </div>
+  </div>
+</div>
 
               {/* 3. DOCUMENTS JUSTIFICATIFS (AFFICHÉ UNIQUEMENT SI ABONNEMENT PAYANT) */}
               {isPayant && (
@@ -494,8 +655,11 @@ const RegisterPage = () => {
                               </label>
                             </div>
                           ) : (
-                            <label htmlFor="cin" className="cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                              📎 Uploader
+                            <label htmlFor="cin" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              Importer
                             </label>
                           )}
                         </div>
@@ -526,8 +690,11 @@ const RegisterPage = () => {
                               </label>
                             </div>
                           ) : (
-                            <label htmlFor="cinGerant" className="cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                              📎 Uploader
+                            <label htmlFor="cinGerant" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              Importer
                             </label>
                           )}
                         </div>
@@ -556,8 +723,11 @@ const RegisterPage = () => {
                               </label>
                             </div>
                           ) : (
-                            <label htmlFor="patente" className="cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                              📎 Uploader
+                            <label htmlFor="patente" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              Importer
                             </label>
                           )}
                         </div>
@@ -586,8 +756,11 @@ const RegisterPage = () => {
                               </label>
                             </div>
                           ) : (
-                            <label htmlFor="rne" className="cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                              📎 Uploader
+                            <label htmlFor="rne" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              Importer
                             </label>
                           )}
                         </div>
@@ -630,111 +803,110 @@ const RegisterPage = () => {
                     onChange={(e) => { updateFormData('typeAbonnement', e.target.value); setSelectedOffre(null); }}
                     className="w-full appearance-none px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] bg-white cursor-pointer"
                   >
-                    <option value="ESSAI">🎁 Essai gratuit (30 jours)</option>
+                    <option value="ESSAI">🎁 Essai gratuit (30 connexions)</option>
                     <option value="PAYANT">💰 Abonnement payant</option>
                   </select>
                   <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 </div>
 
-    {/* Offres (si payant) */}
-{isPayant ? (
-  <div className="mt-4">
-    <p className="text-sm font-medium text-slate-700 mb-3">Choisissez votre formule :</p>
-    
-    {offresLoading ? (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-        <p className="text-sm text-gray-500 mt-2">Chargement des offres...</p>
-      </div>
-    ) : (
-      <>
-        {/* Offres mensuelles */}
-        {groupedOffres[1]?.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-medium text-gray-400 mb-2">📅 Formules mensuelles</p>
-            {groupedOffres[1].map(offre => (
-              <div 
-                key={offre.id} 
-                className={`border rounded-xl p-4 mb-3 cursor-pointer transition-all ${
-                  selectedOffre?.id === offre.id 
-                    ? 'border-green-500 bg-green-50 shadow-md' 
-                    : 'border-gray-200 hover:border-green-400 hover:bg-green-50/30'
-                }`} 
-                onClick={() => setSelectedOffre(offre)}
-              >
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800 text-base">{offre.nom}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{offre.duree}</p>
-                    {offre.description && (
-                      <p className="text-sm text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">
-                        {offre.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <p className="font-bold text-green-600 text-xl">{offre.prix} TND</p>
-                    <p className="text-xs text-gray-400">/ mois</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                {/* Offres (si payant) */}
+                {isPayant ? (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-slate-700 mb-3">Choisissez votre formule :</p>
+                    
+                    {offresLoading ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                        <p className="text-sm text-gray-500 mt-2">Chargement des offres...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Offres mensuelles */}
+                        {groupedOffres[1]?.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-xs font-medium text-gray-400 mb-2">📅 Formules mensuelles</p>
+                            {groupedOffres[1].map(offre => (
+                              <div 
+                                key={offre.id} 
+                                className={`border rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                                  selectedOffre?.id === offre.id 
+                                    ? 'border-green-500 bg-green-50 shadow-md' 
+                                    : 'border-gray-200 hover:border-green-400 hover:bg-green-50/30'
+                                }`} 
+                                onClick={() => setSelectedOffre(offre)}
+                              >
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-slate-800 text-base">{offre.nom}</h3>
+                                    <p className="text-xs text-gray-500 mt-1">{offre.duree}</p>
+                                    {offre.description && (
+                                      <p className="text-sm text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">
+                                        {offre.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-left sm:text-right">
+                                    <p className="font-bold text-green-600 text-xl">{offre.prix} TND</p>
+                                    <p className="text-xs text-gray-400">/ mois</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-        {/* Offres annuelles */}
-        {groupedOffres[12]?.length > 0 && (
-          <div className="border-t border-gray-200 pt-4 mt-2">
-            
-            {groupedOffres[12].map(offre => (
-              <div 
-                key={offre.id} 
-                className={`border rounded-xl p-4 mb-3 cursor-pointer transition-all ${
-                  selectedOffre?.id === offre.id 
-                    ? 'border-green-500 bg-green-50 shadow-md' 
-                    : 'border-gray-200 hover:border-green-400 hover:bg-green-50/30'
-                }`} 
-                onClick={() => setSelectedOffre(offre)}
-              >
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800 text-base">{offre.nom}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{offre.duree}</p>
-                    {offre.description && (
-                      <p className="text-sm text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">
-                        {offre.description}
-                      </p>
+                        {/* Offres annuelles */}
+                        {groupedOffres[12]?.length > 0 && (
+                          <div className="border-t border-gray-200 pt-4 mt-2">
+                            <div className="mb-4 p-3 bg-green-100 rounded-lg text-center">
+                              <p className="text-sm font-semibold text-green-800">
+                                ⭐ Choisissez l'abonnement annuel et économisez
+                              </p>
+                              <p className="text-xs text-green-700">
+                                Le meilleur rapport qualité-prix • Paiement 100% sécurisé
+                              </p>
+                            </div>
+                            
+                            {groupedOffres[12].map(offre => (
+                              <div 
+                                key={offre.id} 
+                                className={`border rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                                  selectedOffre?.id === offre.id 
+                                    ? 'border-green-500 bg-green-50 shadow-md' 
+                                    : 'border-gray-200 hover:border-green-400 hover:bg-green-50/30'
+                                }`} 
+                                onClick={() => setSelectedOffre(offre)}
+                              >
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-slate-800 text-base">{offre.nom}</h3>
+                                    <p className="text-xs text-gray-500 mt-1">{offre.duree}</p>
+                                    {offre.description && (
+                                      <p className="text-sm text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">
+                                        {offre.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-left sm:text-right">
+                                    <p className="font-bold text-green-600 text-xl">{offre.prix} TND</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="font-bold text-green-600 text-xl">{offre.prix} TND</p>
+                ) : (
+                  <div className="bg-green-50 rounded-xl p-5 text-center border border-green-200">
+                    <GiftIcon className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                    <p className="font-semibold text-green-700 text-base">Essai gratuit de 30 connexions</p>
+                    <p className="text-sm text-green-600 mt-1">Accédez immédiatement à toutes les fonctionnalités</p>
+                    <p className="text-xs text-green-500 mt-2">Aucune information bancaire requise</p>
                   </div>
-                </div>
-              </div>
-              
-            ))}
-          </div>
-          
-        )}
-      </>
-    )}
-   <div className="mb-4 p-3 bg-green-100 rounded-lg text-center">
-  <p className="text-sm font-semibold text-green-800">
-    ⭐ Choisissez l’abonnement annuel et économisez
-  </p>
-  <p className="text-xs text-green-700">
-    Le meilleur rapport qualité-prix • Paiement 100% sécurisé
-  </p>
-</div>
-  </div>
-) : (
-  <div className="bg-green-50 rounded-xl p-5 text-center border border-green-200">
-    <GiftIcon className="w-10 h-10 text-green-500 mx-auto mb-2" />
-    <p className="font-semibold text-green-700 text-base">Essai gratuit de 30 jours</p>
-    <p className="text-sm text-green-600 mt-1">Accédez immédiatement à toutes les fonctionnalités</p>
-    <p className="text-xs text-green-500 mt-2">Aucune information bancaire requise</p>
-  </div>
-)}
+                )}
+
                 {/* BOUTON CRÉER MON COMPTE */}
                 <button 
                   onClick={handleSubmit} 

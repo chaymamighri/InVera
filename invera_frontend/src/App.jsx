@@ -13,7 +13,7 @@ import WelcomePage from './pages/public/WelcomePage';
 import MoreInformationPage from './pages/public/MoreInformationPage';
 import SubscriptionsPage from './pages/public/SubscriptionsPage';
 
-// ✅ NOUVEAUX IMPORTS POUR L'INSCRIPTION
+// IMPORTS POUR L'INSCRIPTION
 import RegisterPage from './pages/Register/RegisterPage';
 
 import ProfilePage from './pages/shared/profilePage';
@@ -48,6 +48,9 @@ import EtatStock from './pages/dashboard/procurement/stock/etat/etatStock';
 import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
 import ClientsManagementPage from './pages/superAdmin/clients/ClientsManagementPage';
 import SubscriptionsManagementPage from './pages/superAdmin/abonnements/SubscriptionsManagementPage';
+
+// === IMPORT DU COMPOSANT TOAST DE CONNEXION ===
+import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -165,6 +168,7 @@ function App() {
     <Router>
       <AuthProvider>
         <SidebarProvider>
+          {/* Toaster pour les notifications */}
           <Toaster
             position="top-right"
             containerStyle={{ top: 80, right: 24 }}
@@ -200,6 +204,9 @@ function App() {
             }}
           />
 
+          {/* =====> COMPOSANT TOAST DE CONNEXION - S'AFFICHE SUR TOUTES LES PAGES  <==== */}
+          <ConnexionInfoToast />
+
           <Routes>
             {/* Routes publiques */}
             <Route
@@ -219,7 +226,7 @@ function App() {
               }
             />
             
-            {/* ✅ NOUVELLES ROUTES D'INSCRIPTION */}
+            {/* Routes d'inscription */}
             <Route
               path="/register"
               element={

@@ -1,56 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../../assets/images/logo.png';
 
-const plans = [
-  {
-    name: 'Gratuite',
-    price: 'Gratuit',
-    tone: 'from-slate-700 to-slate-900',
-    badge: 'Decouverte',
-    description:
-      'Une formule simple pour explorer la plateforme, comprendre les modules et presenter le produit.',
-    durations: ['Acces de decouverte'],
-    features: [
-      'Presentation generale de la plateforme',
-      'Decouverte de l interface et des modules',
-      'Convient pour une premiere prise en main',
-    ],
-    idealFor: 'Prospects et demonstrations initiales',
-  },
-  {
-    name: 'Client',
-    price: 'Selon la duree',
-    tone: 'from-[#0b4ea2] to-[#1d75d6]',
-    badge: 'Standard',
-    description:
-      'Une formule adaptee aux structures qui souhaitent acceder a un environnement de gestion sur une periode definie.',
-    durations: ['1 mois', '3 mois', '1 an'],
-    features: [
-      'Acces a la plateforme selon la duree choisie',
-      'Utilisation des modules metier disponibles',
-      'Formule flexible pour un besoin progressif',
-    ],
-    idealFor: 'Clients ayant besoin d un acces metier classique',
-  },
-  {
-    name: 'Entreprise',
-    price: 'Selon la duree',
-    tone: 'from-emerald-600 to-teal-500',
-    badge: 'Avancee',
-    description:
-      'Une formule plus large pour les entreprises qui ont besoin d un cadre plus complet et evolutif.',
-    durations: ['1 mois', '3 mois', '1 an'],
-    features: [
-      'Cadre plus adapte aux besoins d entreprise',
-      'Possibilite d evolution selon l organisation',
-      'Approche plus complete pour un usage professionnel regulier',
-    ],
-    idealFor: 'Entreprises avec besoin de structure et de continuite',
-  },
-];
-
 const SubscriptionsPage = () => {
+  const [offres, setOffres] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchOffres = async () => {
+      try {
+        const response = await fetch('/api/public/offres');
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement des offres');
+        }
+        const data = await response.json();
+        setOffres(data);
+      } catch (err) {
+        console.error('Erreur fetchOffres:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOffres();
+  }, []);
+
+  const getPlanStyle = (dureeMois) => {
+    if (dureeMois === 1) {
+      return {
+        tone: 'from-[#0b4ea2] to-[#1d75d6]',
+        badge: 'Mensuel',
+      };
+    } else if (dureeMois === 12) {
+      return {
+        tone: 'from-emerald-600 to-teal-500',
+        badge: 'Annuel',
+      };
+    }
+    return {
+      tone: 'from-slate-700 to-slate-900',
+      badge: `${dureeMois} mois`,
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f6f9fc] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0b4ea2] mx-auto"></div>
+          <p className="mt-4 text-slate-600">Chargement des offres...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f6f9fc] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">⚠️</div>
+          <p className="text-slate-600">Erreur: {error}</p>
+          <Link to="/welcome" className="mt-4 inline-block text-[#0b4ea2] hover:underline">
+            Retour à l'accueil
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f6f9fc] text-slate-900">
       <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
@@ -64,7 +83,7 @@ const SubscriptionsPage = () => {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#0b4ea2]">
                   InVera ERP
                 </p>
-                <h1 className="text-2xl font-semibold text-slate-950">Types d&apos;abonnement</h1>
+                <h1 className="text-2xl font-semibold text-slate-950">Nos offres d'abonnement</h1>
               </div>
             </div>
 
@@ -77,7 +96,7 @@ const SubscriptionsPage = () => {
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
-                  Retour a l accueil
+                  Retour à l'accueil
                 </span>
               </Link>
               <Link
@@ -93,71 +112,109 @@ const SubscriptionsPage = () => {
         <main className="mt-8">
           <section className="mb-8 rounded-[30px] border border-sky-100 bg-white p-8 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0b4ea2]">
-              Offres
+              Formules disponibles
             </p>
             <h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight text-slate-950">
-              Consultez les formules d abonnement et la structure des durees.
+              Choisissez l'offre qui vous convient
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
-              Les types d abonnement disponibles sont `Gratuite`, `Client` et `Entreprise`.
-              Les formules `Client` et `Entreprise` peuvent etre proposees sur `1 mois`, `3 mois`
-              ou `1 an`.
+              Découvrez nos formules d'abonnement. Chaque offre vous donne accès à toutes les fonctionnalités
+              de la plateforme. Les formules annuelles vous permettent de réaliser des économies
+              significatives.
             </p>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-3">
-            {plans.map((plan) => (
-              <article
-                key={plan.name}
-                className="rounded-[30px] border border-sky-100 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]"
-              >
-                <div className={`inline-flex rounded-full bg-gradient-to-r ${plan.tone} px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white`}>
-                  {plan.badge}
-                </div>
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {offres.map((offre) => {
+              const style = getPlanStyle(offre.dureeMois);
+              const estAnnuel = offre.dureeMois === 12;
+              const prixMensuel = estAnnuel ? (offre.prix / 12).toFixed(2) : null;
 
-                <div className="mt-5 flex items-end justify-between gap-4">
-                  <div>
-                    <h3 className="text-3xl font-semibold text-slate-950">{plan.name}</h3>
-                    <p className="mt-2 text-sm text-slate-500">{plan.price}</p>
-                  </div>
-                </div>
-
-                <p className="mt-5 text-sm leading-7 text-slate-600">{plan.description}</p>
-
-                <div className="mt-6 rounded-[22px] bg-[#f8fbff] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0b4ea2]">
-                    Durees
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {plan.durations.map((duration) => (
-                      <span
-                        key={duration}
-                        className="rounded-full border border-sky-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-600"
-                      >
-                        {duration}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-3">
-                  {plan.features.map((feature) => (
-                    <div key={feature} className="flex gap-3 rounded-2xl bg-[#f8fbff] p-3">
-                      <span className="mt-2 h-2.5 w-2.5 flex-none rounded-full bg-[#0b4ea2]" />
-                      <p className="text-sm leading-6 text-slate-600">{feature}</p>
+              return (
+                <article
+                  key={offre.id}
+                  className="rounded-[30px] border border-sky-100 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)] transition-all hover:shadow-lg flex flex-col h-full"
+                >
+                  {/* Badge */}
+                  <div className="flex justify-between items-start">
+                    <div className={`inline-flex rounded-full bg-gradient-to-r ${style.tone} px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white`}>
+                      {style.badge}
                     </div>
-                  ))}
-                </div>
+                    {estAnnuel && (
+                      <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                        Économie
+                      </span>
+                    )}
+                  </div>
 
-                <div className="mt-6 border-t border-slate-100 pt-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Ideal pour
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">{plan.idealFor}</p>
-                </div>
-              </article>
-            ))}
+                  {/* Nom et prix */}
+                  <div className="mt-5">
+                    <h3 className="text-2xl font-bold text-slate-950">{offre.nom}</h3>
+                    <div className="mt-3">
+                      <p className="text-3xl font-bold text-[#0b4ea2]">
+                        {offre.prix} <span className="text-base font-normal text-slate-500">TND</span>
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {estAnnuel ? 'par an' : `pour ${offre.dureeMois} mois`}
+                      </p>
+                      {estAnnuel && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Soit {prixMensuel} TND/mois
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="mt-4 flex-grow">
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {offre.description || (estAnnuel 
+                        ? "Abonnement annuel avec économies substantielles"
+                        : "Formule flexible pour découvrir la plateforme")}
+                    </p>
+                  </div>
+
+                  {/* Durée */}
+                  <div className="mt-6 rounded-[22px] bg-[#f8fbff] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0b4ea2]">
+                      Durée
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-700">
+                      {offre.dureeMois === 1 ? '1 mois' : offre.dureeMois === 12 ? '12 mois' : `${offre.dureeMois} mois`}
+                    </p>
+                  </div>
+
+                  {/* Ideal pour */}
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Idéal pour
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {estAnnuel 
+                        ? "Engagement long terme avec économies" 
+                        : "Flexibilité mensuelle, test de la plateforme"}
+                    </p>
+                  </div>
+
+                  {/* Bouton */}
+                  <div className="mt-6">
+                    <Link
+                      to="/register"
+                      className="block w-full text-center rounded-full bg-gradient-to-r from-[#0b4ea2] to-[#1d75d6] px-4 py-3 text-sm font-semibold text-white transition hover:from-[#0b3d82] hover:to-[#0b4ea2]"
+                    >
+                   🚀 S'inscrire et choisir cette offre
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </section>
+
+          {offres.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <p className="text-slate-500">Aucune offre disponible pour le moment.</p>
+            </div>
+          )}
         </main>
       </div>
     </div>
