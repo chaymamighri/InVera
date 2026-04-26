@@ -195,6 +195,164 @@ const Modal = ({ open, onClose, children, isArabic = false }) => {
   );
 };
 
+<<<<<<< HEAD
+=======
+const ConfirmModal = ({ open, onCancel, onConfirm, title, message, confirmText = "Confirmer" }) => {
+  if (!open) return null;
+  return (
+    <Modal open={open} onClose={onCancel}>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+      <p className="text-sm text-gray-600 mb-6">{message}</p>
+      <div className="flex gap-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={onConfirm}
+          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          {confirmText}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
+const InputField = ({ label, value, onChange, placeholder, type = "text", error, disabled = false }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <input
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+        disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+      } ${
+        error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+      }`}
+    />
+    {error && (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <ExclamationCircleIcon className="w-3 h-3" />
+        {error}
+      </p>
+    )}
+  </div>
+);
+
+const SelectField = ({ label, value, onChange, options, disabled = false }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+        disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+      }`}
+    >
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  </div>
+);
+
+const EmailField = ({ label, value, onChange, placeholder, error, onBlur, disabled = false, domainHint }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <div className="relative">
+      <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      <input
+        type="email"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        disabled={disabled}
+        className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white ${
+          disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+        } ${
+          error ? 'border-red-500 bg-red-50' : 'border-gray-300'
+        }`}
+      />
+    </div>
+   
+    {error && (
+      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+        <ExclamationCircleIcon className="w-3 h-3" />
+        {error}
+      </p>
+    )}
+  </div>
+);
+
+const ToggleSwitch = ({ checked, onChange, disabled }) => (
+  <button
+    onClick={() => onChange(!checked)}
+    disabled={disabled}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+      checked ? 'bg-emerald-500' : 'bg-gray-200'
+    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+      checked ? 'translate-x-6' : 'translate-x-1'
+    }`} />
+  </button>
+);
+
+// ✅ Fonction pour déterminer si un rôle est affichable (uniquement Commercial et Achat)
+const isDisplayableRole = (role) => {
+  return role === 'sales' || role === 'procurement';
+};
+
+// ✅ Fonction pour vérifier si un rôle est modifiable
+const isModifiableRole = (role) => {
+  return role === 'sales' || role === 'procurement';
+};
+
+const roleLabel = (role) => {
+  if (role === 'admin' || role === 'ADMIN_CLIENT') return 'Admin';
+  if (role === 'sales' || role === 'COMMERCIAL') return 'Commercial';
+  if (role === 'procurement' || role === 'RESPONSABLE_ACHAT') return 'Achat';
+  return role;
+};
+
+const getRoleColor = (role) => {
+  // Ne jamais afficher admin (mais si par erreur on en a un)
+  if (role === 'admin' || role === 'ADMIN_CLIENT') {
+    return 'bg-gray-100 text-gray-500';
+  }
+  switch(role) {
+    case 'sales':
+    case 'COMMERCIAL':
+      return 'bg-emerald-100 text-emerald-700';
+    case 'procurement':
+    case 'RESPONSABLE_ACHAT':
+      return 'bg-blue-100 text-blue-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+};
+
+// ✅ Uniquement les rôles ajoutables (pas d'admin)
+const ASSIGNABLE_ROLE_OPTIONS = [
+  { label: 'Commercial', value: 'sales' },
+  { label: 'Responsable Achat', value: 'procurement' }
+];
+
+// ✅ Fonction pour extraire le domaine d'un email
+const extractEmailDomain = (email) => {
+  if (!email || !email.includes('@')) return '';
+  return email.substring(email.indexOf('@') + 1).toLowerCase();
+};
+
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
 const GestionUsers = () => {
   const { language, isArabic } = useLanguage();
   const text = useMemo(() => copy[language] || copy.fr, [language]);
@@ -246,7 +404,28 @@ const GestionUsers = () => {
   const fetchUsers = async () => {
     try {
       const data = await getUsers();
+<<<<<<< HEAD
       setUsers(data);
+=======
+      console.log('📊 Utilisateurs reçus:', data);
+      
+      // ⭐⭐⭐ FILTRAGE STRICT: Exclure l'admin connecté ET les rôles admin/admin_client ⭐⭐⭐
+      const filteredData = data.filter(user => {
+        // 1. Exclure l'utilisateur connecté
+        if (user.id === currentUser?.id) return false;
+        
+        // 2. ⭐ Exclure les utilisateurs avec rôle 'admin' ou 'ADMIN_CLIENT'
+        const userRole = user.role?.toLowerCase();
+        if (userRole === 'admin' || userRole === 'admin_client') return false;
+        
+        // 3. ⭐ Exclure si le rôle backend est ADMIN_CLIENT
+        if (user.role === 'ADMIN_CLIENT') return false;
+        
+        return true;
+      });
+      
+      setUsers(filteredData);
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
       setLocalError(null);
     } catch (error) {
       setLocalError(error.message);
@@ -345,10 +524,25 @@ const GestionUsers = () => {
       toast.error(text.emailRequired);
       return;
     }
+<<<<<<< HEAD
     const isOwnAccount = editingUser.id === currentUser?.id;
     const emailChanged = editingUser.email !== editingUser.originalEmail;
     if (isOwnAccount && emailChanged) {
       toast.error(text.ownEmailBlocked);
+=======
+    
+    // ⭐ Vérifier que l'utilisateur n'est pas un admin (sécurité)
+    if (editingUser.role === 'admin' || editingUser.role === 'ADMIN_CLIENT') {
+      toast.error("Vous ne pouvez pas modifier un compte administrateur.");
+      setEditModalOpen(false);
+      return;
+    }
+    
+    const isOwnAccount = editingUser.id === currentUser?.id;
+    
+    if (isOwnAccount) {
+      toast.error("Vous ne pouvez pas modifier votre propre compte depuis cette interface.");
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
       return;
     }
     if (!validateEditEmail(editingUser.email, editingUser.id)) {
@@ -362,17 +556,54 @@ const GestionUsers = () => {
         role: editingUser.role,
         originalEmail: editingUser.originalEmail,
       });
+<<<<<<< HEAD
+=======
+      
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
       await fetchUsers();
       setEditingUser(null);
       setEditEmailError('');
       setEditModalOpen(false);
+<<<<<<< HEAD
       toast.success(text.userUpdated);
     } catch (error) {
       toast.error(error.response?.data?.error || error.message || text.saveError);
+=======
+      toast.success("Utilisateur modifié avec succès");
+      
+    } catch (err) {
+      console.error('Erreur modification:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      const expectedDomain = err.response?.data?.expectedDomain;
+      
+      if (expectedDomain) {
+        setEditEmailError(`L'email doit utiliser le domaine: @${expectedDomain}`);
+        toast.error(`Email invalide: doit être sur @${expectedDomain}`);
+      } else if (errorMessage?.includes('domaine') || errorMessage?.includes('@')) {
+        setEditEmailError(`L'email doit utiliser le domaine: @${adminDomain}`);
+        toast.error(`Email invalide: doit être sur @${adminDomain}`);
+      } else if (errorMessage?.includes('email') || errorMessage?.includes('duplicate')) {
+        setEditEmailError('Cet email est déjà utilisé par un autre utilisateur');
+        toast.error('Email déjà utilisé');
+      } else {
+        toast.error(errorMessage || "Erreur lors de la modification");
+      }
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
     }
   };
 
   const handleToggleStatus = async (user) => {
+    // ⭐ Ne pas permettre la désactivation d'un admin
+    if (user.role === 'admin' || user.role === 'ADMIN_CLIENT') {
+      toast.error("Vous ne pouvez pas modifier le statut d'un compte administrateur.");
+      return;
+    }
+    
+    if (user.id === currentUser?.id) {
+      toast.error("Vous ne pouvez pas désactiver votre propre compte.");
+      return;
+    }
+    
     try {
       const newActive = !user.active;
       await setUserActiveStatus(user.email, newActive);
@@ -392,6 +623,12 @@ const GestionUsers = () => {
   };
 
   const askDeleteUser = (user) => {
+    // ⭐ Ne pas permettre la suppression d'un admin
+    if (user.role === 'admin' || user.role === 'ADMIN_CLIENT') {
+      toast.error("Vous ne pouvez pas supprimer un compte administrateur.");
+      return;
+    }
+    
     if (user.id === currentUser?.id) {
       toast.error(text.cannotDeleteSelf);
       return;
@@ -414,6 +651,7 @@ const GestionUsers = () => {
     }
   };
 
+<<<<<<< HEAD
   const filteredUsers = users.filter((user) => {
     const search = searchTerm.trim().toLowerCase();
     const matchesSearch =
@@ -425,6 +663,37 @@ const GestionUsers = () => {
     return matchesSearch && matchesRole;
   });
 
+=======
+  // ⭐ Filtrer les utilisateurs affichés (exclure admin et l'utilisateur connecté)
+  const filteredUsers = users.filter(user => {
+    // Exclure l'utilisateur connecté
+    if (user.id === currentUser?.id) return false;
+    
+    // ⭐ Exclure les rôles admin et ADMIN_CLIENT de l'affichage
+    const userRole = user.role?.toLowerCase();
+    if (userRole === 'admin' || userRole === 'admin_client') return false;
+    if (user.role === 'ADMIN_CLIENT') return false;
+    
+    const t = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !t ||
+      (user.name && user.name.toLowerCase().includes(t)) ||
+      (user.email && user.email.toLowerCase().includes(t)) ||
+      (user.role && roleLabel(user.role).toLowerCase().includes(t));
+    
+    // ⭐ Filtrer par rôle (uniquement sales et procurement disponibles)
+    const matchesRole = filterRole === 'all' || 
+      (filterRole === 'sales' && (user.role === 'sales' || user.role === 'COMMERCIAL')) ||
+      (filterRole === 'procurement' && (user.role === 'procurement' || user.role === 'RESPONSABLE_ACHAT'));
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const clearSearch = () => {
+    setSearchTerm('');
+  };
+
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
   if (loading && users.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -514,6 +783,7 @@ const GestionUsers = () => {
             )}
           </div>
 
+<<<<<<< HEAD
           <select
             value={filterRole}
             onChange={(event) => setFilterRole(event.target.value)}
@@ -524,6 +794,19 @@ const GestionUsers = () => {
             <option value="sales">{text.sales}</option>
             <option value="procurement">{text.procurement}</option>
           </select>
+=======
+          <div className="flex items-center gap-2">
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white"
+            >
+              <option value="all">Tous les rôles</option>
+              <option value="sales">Commercial</option>
+              <option value="procurement">Achat</option>
+            </select>
+          </div>
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
 
           <div className="text-sm font-medium text-emerald-600">
             {text.usersCount.replace('{{count}}', String(filteredUsers.length))}
@@ -555,6 +838,7 @@ const GestionUsers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100">
+<<<<<<< HEAD
               {filteredUsers.map((user, index) => {
                 const isOwnAccount = user.id === currentUser?.id;
                 return (
@@ -632,6 +916,71 @@ const GestionUsers = () => {
                   </tr>
                 );
               })}
+=======
+              {filteredUsers.map((user, index) => (
+                <tr
+                  key={user.id}
+                  className={`hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 transition-colors ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                  }`}
+                >
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                        {user.name && user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {user.name || user.email}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <EnvelopeIcon className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm text-gray-600">{user.email}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
+                      {roleLabel(user.role)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <ToggleSwitch
+                      checked={user.active}
+                      onChange={() => handleToggleStatus(user)}
+                      disabled={loading}
+                    />
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { 
+                          setEditingUser({
+                            ...user,
+                            originalEmail: user.email
+                          }); 
+                          setEditModalOpen(true);
+                        }}
+                        className="p-1.5 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-md transition-colors"
+                        disabled={loading || user.role === 'admin' || user.role === 'ADMIN_CLIENT'}
+                        title="Modifier"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => askDeleteUser(user)}
+                        className="p-1.5 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded-md transition-colors"
+                        disabled={loading || user.role === 'admin' || user.role === 'ADMIN_CLIENT'}
+                        title="Supprimer"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
               {filteredUsers.length === 0 && (
                 <tr>
                   <td colSpan="5" className="py-8 text-center text-gray-500">
@@ -704,12 +1053,17 @@ const GestionUsers = () => {
             </select>
           </div>
           <p className="text-xs text-gray-500">
+<<<<<<< HEAD
             {text.createHint}
             {adminDomain && (
               <span className="mt-1 block text-emerald-600">
                 {text.allowedDomain.replace('{{domain}}', adminDomain)}
               </span>
             )}
+=======
+            Créez des comptes Commercial ou Responsable Achat.
+            {adminDomain && <span className="block mt-1 text-emerald-600">📧 Domaine autorisé: @{adminDomain}</span>}
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
           </p>
           <div className="flex gap-3 pt-4">
             <button
@@ -732,6 +1086,7 @@ const GestionUsers = () => {
         </div>
       </Modal>
 
+<<<<<<< HEAD
       <Modal
         open={editModalOpen}
         isArabic={isArabic}
@@ -811,6 +1166,42 @@ const GestionUsers = () => {
               </select>
             </div>
 
+=======
+      {/* Modal Modification */}
+      <Modal open={editModalOpen} onClose={() => { setEditModalOpen(false); setEditEmailError(''); }}>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Modifier l'utilisateur</h2>
+        {editingUser && (
+          <div className="space-y-4">
+            <InputField
+              label="Nom complet"
+              value={editingUser.name || ''}
+              onChange={val => setEditingUser({ ...editingUser, name: val })}
+              disabled={false}
+            />
+            
+            <EmailField
+              label="Email"
+              value={editingUser.email}
+              onChange={(val) => {
+                setEditingUser({ ...editingUser, email: val });
+                if (editEmailError) validateEditEmail(val, editingUser.id);
+              }}
+              onBlur={() => validateEditEmail(editingUser.email, editingUser.id)}
+              placeholder="email@example.com"
+              error={editEmailError}
+              disabled={false}
+              domainHint={adminDomain}
+            />
+            
+            <SelectField
+              label="Rôle"
+              value={editingUser.role}
+              onChange={val => setEditingUser({ ...editingUser, role: val })}
+              options={ASSIGNABLE_ROLE_OPTIONS}
+              disabled={false}
+            />
+            
+>>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}

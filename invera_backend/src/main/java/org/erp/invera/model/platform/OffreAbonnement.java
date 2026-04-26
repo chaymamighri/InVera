@@ -2,10 +2,9 @@ package org.erp.invera.model.platform;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -25,59 +24,38 @@ public class OffreAbonnement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    // Nom libre : Basic, Premium, Trial...
+    @Column(nullable = false, unique = true)
     private String nom;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type_offre", nullable = false)
-    private TypeOffre typeOffre;
-
-    @Column(name = "duree_mois", nullable = false)
+    // Durée en mois (1, 12, etc.)
+    @Min(value = 1, message = "La durée doit être au moins 1 mois")
+    @Max(value = 36, message = "La durée ne peut pas dépasser 36 mois")
     private Integer dureeMois;
 
+    // Prix de l'offre
     @Column(nullable = false)
+    @Min(value = 0, message = "Le prix ne peut pas être négatif")
     private Double prix;
 
     @Column(nullable = false)
     @Builder.Default
     private String devise = "TND";
 
-    @Column(length = 1000)
     private String description;
 
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean deleted = false;
-
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @JsonIgnore
     @OneToMany(mappedBy = "offreAbonnement")
     @Builder.Default
     private List<Abonnement> abonnements = new ArrayList<>();
-
-    public enum TypeOffre {
-        CLIENT("Client"),
-        ENTREPRISE("Entreprise");
-
-        private final String label;
-
-        TypeOffre(String label) {
-            this.label = label;
-        }
-
-        public String getLabel() {
-            return label;
-        }
-    }
 }
