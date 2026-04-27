@@ -199,11 +199,8 @@ const Header = ({ userRole }) => {
       isAdmin: ['ADMIN', 'ADMIN_CLIENT'].includes(normalizedRole),
       isSuperAdmin,
       // Les responsables achats et admins peuvent voir les notifications
-<<<<<<< HEAD
-      canUseNotifications: ['ADMIN', 'ADMIN_CLIENT', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
-=======
+
       canUseNotifications: ['ADMIN_CLIENT', 'RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
->>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
       // Seuls les responsables achats voient les rappels
       canUseProcurementReminders: ['RESPONSABLE_ACHAT', 'PROCUREMENT'].includes(normalizedRole),
     };

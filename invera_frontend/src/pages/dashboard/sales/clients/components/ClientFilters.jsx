@@ -11,10 +11,8 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
 
   const handleSortChange = (type) => {
     if (sortBy === type) {
-  
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      
       setSortBy(type);
       setSortOrder('desc'); 
     }
@@ -23,6 +21,7 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <div className="flex flex-col md:flex-row gap-4">
+        
         {/* Barre de recherche */}
         <div className="flex-1 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -70,8 +69,8 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
               </span>
             )}
           </button>
-      
         </div>
+
       </div>
     </div>
   );
