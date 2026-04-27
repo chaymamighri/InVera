@@ -191,13 +191,8 @@ const WelcomePage = () => {
               <div className="mt-8 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-5">
                 <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
                   <div>
-<<<<<<< HEAD
                     <p className="text-lg font-semibold text-emerald-800">{t('common.registerFree')}</p>
                     <p className="text-sm text-emerald-600">{t('login.trialSoonDescription', { count: 30, suffix: 's' })}</p>
-=======
-                    <p className="text-lg font-semibold text-emerald-800">🚀 Lancez-vous sans risque !</p>
-                    <p className="text-sm text-emerald-600">Profitez de 30 connexions d'essai gratuit,sans engagement.</p>
->>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
                   </div>
                   <Link
                     to="/register"

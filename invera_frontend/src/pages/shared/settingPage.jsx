@@ -139,19 +139,8 @@ const settingsCopy = {
 };
 
 const SettingsPage = () => {
-<<<<<<< HEAD
   const { language, isArabic } = useLanguage();
   const copy = settingsCopy[language] || settingsCopy.fr;
-=======
-  const navigate = useNavigate();
-  // ===== ÉTATS =====
-  const [activeTab, setActiveTab] = useState('profile');     // Onglet actif
-  const [loadingMe, setLoadingMe] = useState(true);          // Chargement du profil
-  const [me, setMe] = useState(null);                        // Données utilisateur
-const [notifications, setNotifications] = useState([]);
-const [notifLoading, setNotifLoading] = useState(false);
-const [notifActionLoading, setNotifActionLoading] = useState(false);
->>>>>>> 4bc667105d982dc6fa608edeb78ac8a97bbefae5
 
   const [activeTab, setActiveTab] = useState('profile');
   const [loadingMe, setLoadingMe] = useState(true);
