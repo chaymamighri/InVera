@@ -11,8 +11,6 @@ const ConnexionInfoToast = () => {
     // Vérifier si c'est une nouvelle connexion
     const justLoggedIn = sessionStorage.getItem('justLoggedIn');
     
-    console.log('🔍 ConnexionInfoToast - justLoggedIn:', justLoggedIn);
-    console.log('🔍 ConnexionInfoToast - pathname:', location.pathname);
     
     if (justLoggedIn === 'true' && !hasShownToast.current) {
       // Marquer comme affiché pour éviter les doublons
@@ -25,7 +23,6 @@ const ConnexionInfoToast = () => {
       const hasActiveSubscription = localStorage.getItem('hasActiveSubscription') === 'true';
       const statut = localStorage.getItem('clientStatut');
       
-      console.log('📊 Données toast:', { typeInscription, connexionsRestantes, connexionsMax, hasActiveSubscription, statut });
       
       // Petit délai pour laisser le temps au dashboard de se charger
       setTimeout(() => {
@@ -53,7 +50,6 @@ const ConnexionInfoToast = () => {
   const showConnexionToast = (data) => {
     const { typeInscription, connexionsRestantes, connexionsMax, hasActiveSubscription, statut } = data;
     
-    console.log('🎯 Affichage toast - type:', typeInscription, 'connexions:', connexionsRestantes);
     
     // Pour TOUS les clients sans abonnement actif
     const hasNoActiveSubscription = !hasActiveSubscription;

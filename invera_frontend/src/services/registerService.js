@@ -1,7 +1,7 @@
 // src/services/registerService.js
 import api from './api';
 
-// ✅ Déclarer les variables en dehors de l'objet
+//  Déclarer les variables en dehors de l'objet
 let pendingOtpCode = null;
 let pendingOtpEmail = null;
 
@@ -12,9 +12,7 @@ export const registerService = {
       
       pendingOtpCode = response.data.debug_otp;
       pendingOtpEmail = email;
-      
-      console.log('📧 OTP envoyé à:', email);
-      console.log('🔑 Code OTP (debug):', pendingOtpCode);
+    
       
       return { 
         success: true, 
@@ -28,39 +26,28 @@ export const registerService = {
   },
 
   async verifyOtp(email, code) {
-    console.log('🔍 Vérification OTP - Email:', email);
-    console.log('🔍 Code saisi:', code);
-    console.log('🔍 Code attendu:', pendingOtpCode);
     
     if (pendingOtpCode && code === pendingOtpCode) {
-      console.log('✅ Code OTP valide');
+      console.log(' Code OTP valide');
       return true;
     }
     
-    console.log('❌ Code OTP invalide');
+    console.log(' Code OTP invalide');
     return false;
   },
 
   async register(formData) {
     try {
-      console.log('=== REGISTER DEBUG ===');
-      console.log('Email:', formData.email);
-      console.log('Type compte:', formData.typeCompte);
-      console.log('Type inscription:', formData.typeInscription);
-      console.log('Code OTP saisi:', formData.code);
-      console.log('Code OTP stocké:', pendingOtpCode);
-      console.log('=====================');
-      
       // Vérification OTP
       if (formData.code !== pendingOtpCode) {
-        console.error('❌ Code OTP incorrect avant envoi!');
+        console.error(' Code OTP incorrect avant envoi!');
         return { 
           success: false, 
           message: 'Code OTP invalide. Veuillez retourner à l\'étape 1.' 
         };
       }
       
-      // ✅ Construire le payload selon le type de compte
+      // Construire le payload selon le type de compte
       const payload = {
         email: formData.email,
         telephone: formData.telephone,
@@ -73,40 +60,33 @@ export const registerService = {
         prenom: formData.prenom || ''
       };
       
-      // ✅ Ajouter les champs spécifiques pour entreprise
+      //  Ajouter les champs spécifiques pour entreprise
       if (formData.typeCompte === 'ENTREPRISE') {
         payload.raisonSociale = formData.raisonSociale;
         payload.matriculeFiscal = formData.matriculeFiscal;
       }
-      
-      console.log('📤 Payload inscription:', payload);
-      
-      // ⭐ ÉTAPE 1: Inscription
+            
+      //  ÉTAPE 1: Inscription
       const response = await api.post('/platform/clients/register', payload);
-      
-      console.log('📥 Réponse inscription:', response.data);
-      
-      // ✅ Nettoyer après succès
+            
+      //  Nettoyer après succès
       pendingOtpCode = null;
       pendingOtpEmail = null;
       
-      // ⭐ Récupérer le clientId APRÈS la réponse
+      //  Récupérer le clientId APRÈS la réponse
       const clientId = response.data.clientId;
-      console.log('✅ Client créé avec ID:', clientId);
       
-      // ⭐ ÉTAPE 2: Upload des documents si DEFINITIF
+      //  ÉTAPE 2: Upload des documents si DEFINITIF
       if (formData.typeInscription === 'DEFINITIF' && formData.documents && formData.documents.length > 0) {
-        console.log('📎 Upload des documents pour le client:', clientId);
-        console.log('📎 Nombre de documents à uploader:', formData.documents.length);
-        console.log('📎 Détails des documents:', formData.documents.map(d => ({ 
+        console.log('Upload des documents pour le client:', clientId);
+        console.log('Nombre de documents à uploader:', formData.documents.length);
+        console.log('Détails des documents:', formData.documents.map(d => ({ 
           type: d.type, 
           name: d.file?.name, 
           size: d.file?.size 
         })));
         
-        for (const doc of formData.documents) {
-          console.log(`📤 Upload de ${doc.type} - Fichier: ${doc.file?.name}`);
-          
+        for (const doc of formData.documents) {          
           const uploadFormData = new FormData();
           uploadFormData.append('file', doc.file);
           uploadFormData.append('typeDocument', doc.type);
@@ -115,20 +95,18 @@ export const registerService = {
             const uploadResponse = await api.post(`/platform/clients/${clientId}/justificatifs`, uploadFormData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
-            console.log(`✅ Document ${doc.type} uploadé avec succès:`, uploadResponse.data);
           } catch (uploadError) {
-            console.error(`❌ Échec upload ${doc.type}:`, uploadError.response?.data || uploadError.message);
-            console.error(`❌ Statut erreur:`, uploadError.response?.status);
+            console.error(`Statut erreur:`, uploadError.response?.status);
             // Continuer avec les autres documents même si un échoue
           }
         }
         
-        console.log('✅ Traitement des documents terminé');
+        console.log(' Traitement des documents terminé');
       } else {
-        console.log('ℹ️ Aucun document à uploader (ESSAI ou aucun document sélectionné)');
+        console.log('Aucun document à uploader (ESSAI ou aucun document sélectionné)');
       }
       
-      // ⭐ Retourner la réponse
+      //  Retourner la réponse
       return { 
         success: true, 
         clientId: clientId,
@@ -139,8 +117,8 @@ export const registerService = {
       };
       
     } catch (error) {
-      console.error('❌ Erreur inscription:', error);
-      console.error('❌ Détails réponse:', error.response?.data);
+      console.error(' Erreur inscription:', error);
+      console.error(' Détails réponse:', error.response?.data);
       
       pendingOtpCode = null;
       pendingOtpEmail = null;
@@ -149,7 +127,8 @@ export const registerService = {
       return { success: false, message };
     }
   },
-  
+
+
   // Upload de justificatifs après inscription
   async uploadJustificatif(clientId, file, typeDocument) {
     try {
@@ -187,20 +166,15 @@ export const registerService = {
 
 export const fetchOffres = async () => {
   try {
-    console.log('📡 Appel API: /api/public/offres');
     const response = await fetch('/api/public/offres');
-    
-    console.log('📡 Statut réponse:', response.status);
-    
+        
     if (!response.ok) {
       throw new Error(`Erreur HTTP: ${response.status}`);
     }
     
     const data = await response.json();
-    console.log('📦 Offres chargées:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('❌ Erreur fetchOffres:', error);
     return { success: false, data: [] };
   }
 };
