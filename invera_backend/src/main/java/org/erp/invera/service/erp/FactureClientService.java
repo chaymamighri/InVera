@@ -1,66 +1,131 @@
 package org.erp.invera.service.erp;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.erp.invera.model.erp.client.Client;
 import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.client.FactureClient;
-import org.erp.invera.repository.erp.ClientRepository;
-import org.erp.invera.repository.erp.CommandeClientRepository;
-import org.erp.invera.repository.erp.FactureClientRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
+import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Random;
 
 /**
- * Service de gestion des factures clients. *
- * Ce fichier gère le cycle de vie des factures pour les clients :
- *
- * 1. GÉNÉRATION D'UNE FACTURE :
- *    - À partir d'une commande confirmée (statut CONFIRMEE)
- *    - Vérifie qu'une facture n'existe pas déjà
- *    - Génère une référence unique (ex: FAC-20250412-1234)
- *    - Statut initial : NON_PAYE
- *
- * 2. CONSULTATION :
- *    - Détail d'une facture par son ID
- *    - Trouver une facture par ID de commande
- *    - Liste de toutes les factures
- *    - Liste des factures d'un client spécifique
- *
- * 3. GESTION DES PAIEMENTS :
- *    - Marquer une facture comme PAYEE
- *
- * Règles métier :
- * - Une facture ne peut être créée que si la commande est CONFIRMEE
- * - Une seule facture par commande
- * - Une facture peut être NON_PAYE ou PAYE
+ * Service de gestion des factures clients - MULTI-TENANT.
+ * Architecture : 1 base = 1 client
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class FactureClientService {
 
-    @Autowired
-    private FactureClientRepository factureRepository;
+    private final TenantAwareRepository tenantRepo;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    @Autowired
-    private CommandeClientRepository commandeRepository;
+    private final Random random = new Random();
 
-    @Autowired
-    private ClientRepository clientRepository;
+    // ==================== MÉTHODES MULTI-TENANT ====================
 
+    private Long getClientIdFromToken(String token) {
+        return jwtTokenProvider.getClientIdFromToken(token);
+    }
 
-    // ===== GÉNÉRATION =====
+    // ==================== ROW MAPPER ====================
+
+    private RowMapper<FactureClient> factureRowMapper() {
+        return (rs, rowNum) -> {
+            FactureClient facture = new FactureClient();
+            facture.setIdFactureClient(rs.getInt("id_facture_client"));
+            facture.setReferenceFactureClient(rs.getString("reference_facture_client"));
+            facture.setDateFacture(rs.getTimestamp("date_facture") != null ? rs.getTimestamp("date_facture").toLocalDateTime() : null);
+            facture.setMontantTotal(rs.getBigDecimal("montant_total"));
+            facture.setStatut(FactureClient.StatutFacture.valueOf(rs.getString("statut")));
+            facture.setCreatedAt(rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null);
+            facture.setCreatedBy(rs.getString("created_by"));
+            return facture;
+        };
+    }
+
+    private RowMapper<CommandeClient> commandeRowMapper() {
+        return (rs, rowNum) -> {
+            CommandeClient commande = new CommandeClient();
+            commande.setIdCommandeClient(rs.getInt("id_commande_client"));
+            commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
+            commande.setDateCommande(rs.getTimestamp("date_commande") != null ? rs.getTimestamp("date_commande").toLocalDateTime() : null);
+            commande.setTotal(rs.getBigDecimal("total"));
+            commande.setSousTotal(rs.getBigDecimal("sous_total"));
+            commande.setTauxRemise(rs.getBigDecimal("taux_remise"));
+            commande.setStatut(CommandeClient.StatutCommande.valueOf(rs.getString("statut")));
+
+            // ✅ Créer un objet Client avec l'ID
+            Client client = new Client();
+            client.setIdClient(rs.getInt("client_id"));
+            commande.setClient(client);
+
+            return commande;
+        };
+    }
+
+    // ==================== MÉTHODES PRIVÉES ====================
+
+    private boolean existsByCommandeId(Integer commandeId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT COUNT(*) FROM facture_client WHERE commande_id = ?";
+        Integer count = tenantRepo.queryForObject(sql, Integer.class, clientId, authClientId, commandeId);
+        return count != null && count > 0;
+    }
+
+    private boolean existsByReference(String reference, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT COUNT(*) FROM facture_client WHERE reference_facture_client = ?";
+        Integer count = tenantRepo.queryForObject(sql, Integer.class, clientId, authClientId, reference);
+        return count != null && count > 0;
+    }
+
+    private CommandeClient getCommandeById(Integer commandeId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT * FROM commande_client WHERE id_commande_client = ?";
+        return tenantRepo.queryForObject(sql, commandeRowMapper(), clientId, authClientId, commandeId);
+    }
+
+    private String genererReferenceFacture(String token) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+        String datePart = LocalDateTime.now().format(formatter);
+
+        int randomPart = 1000 + random.nextInt(9000);
+        String reference = "FAC-" + datePart + "-" + randomPart;
+
+        while (existsByReference(reference, token)) {
+            randomPart = 1000 + random.nextInt(9000);
+            reference = "FAC-" + datePart + "-" + randomPart;
+        }
+
+        return reference;
+    }
+
+    // ==================== MÉTHODES PUBLIQUES ====================
 
     /**
      * Génère une facture à partir d'une commande validée
      */
-    @Transactional
-    public FactureClient genererFactureDepuisCommande(Integer commandeId) {
+    public FactureClient genererFactureDepuisCommande(Integer commandeId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
         // 1. Récupérer la commande
-        CommandeClient commande = commandeRepository.findById(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'ID: " + commandeId));
+        CommandeClient commande = getCommandeById(commandeId, token);
+        if (commande == null) {
+            throw new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
+        }
 
         // 2. Vérifier que la commande est validée
         if (commande.getStatut() != CommandeClient.StatutCommande.CONFIRMEE) {
@@ -68,91 +133,91 @@ public class FactureClientService {
         }
 
         // 3. Vérifier qu'une facture n'existe pas déjà
-        if (factureRepository.existsByCommandeIdCommandeClient(commandeId)) {
+        if (existsByCommandeId(commandeId, token)) {
             throw new RuntimeException("Une facture existe déjà pour cette commande");
         }
 
-        // 4. Créer la facture
-        FactureClient facture = new FactureClient();
-        facture.setCommande(commande);
-        facture.setClient(commande.getClient());
-        facture.setDateFacture(LocalDateTime.now());
-        facture.setReferenceFactureClient(genererReferenceFacture());
-        facture.setMontantTotal(commande.getTotal());
-        facture.setStatut(FactureClient.StatutFacture.NON_PAYE); // Par défaut non payée
+        // 4. Insérer la facture
+        String reference = genererReferenceFacture(token);
+        String currentUser = jwtTokenProvider.getEmailFromToken(token);
+        if (currentUser == null || currentUser.isBlank()) {
+            currentUser = "SYSTEM";
+        }
 
-        // 5. Sauvegarder
-        return factureRepository.save(facture);
+        String insertSql = """
+            INSERT INTO facture_client (reference_facture_client, date_facture, montant_total, 
+                                        statut, client_id, commande_id, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id_facture_client
+            """;
+
+        Integer factureId = tenantRepo.queryForObject(insertSql, Integer.class, clientId, authClientId,
+                reference, LocalDateTime.now(), commande.getTotal(),
+                FactureClient.StatutFacture.NON_PAYE.name(), commande.getClient().getIdClient(), commandeId,
+                currentUser, LocalDateTime.now());
+
+        // 5. Récupérer la facture créée
+        return getFactureById(factureId, token);
     }
-
 
     /**
      * Récupérer une facture par son ID
      */
-    public FactureClient getFactureById(Integer factureId) {
-        return factureRepository.findById(factureId)
-                .orElseThrow(() -> new RuntimeException("Facture non trouvée avec l'ID: " + factureId));
+    public FactureClient getFactureById(Integer factureId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT * FROM facture_client WHERE id_facture_client = ?";
+        FactureClient facture = tenantRepo.queryForObject(sql, factureRowMapper(), clientId, authClientId, factureId);
+
+        if (facture == null) {
+            throw new RuntimeException("Facture non trouvée avec l'ID: " + factureId);
+        }
+        return facture;
     }
-
-
-
-    // ===== RECHERCHE PAR COMMANDE =====
 
     /**
-     * ✅ NOUVEAU - Récupérer une facture par ID de commande
+     * Récupérer une facture par ID de commande
      */
-    public FactureClient getFactureByCommandeId(Integer commandeId) {
-        return factureRepository.findByCommandeIdCommandeClient(commandeId)
-                .orElse(null); // Retourne null si pas trouvée (pas d'exception)
+    public FactureClient getFactureByCommandeId(Integer commandeId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT * FROM facture_client WHERE commande_id = ?";
+        return tenantRepo.queryForObject(sql, factureRowMapper(), clientId, authClientId, commandeId);
     }
 
-    // ===== LISTES =====
     /**
      * Récupérer toutes les factures
      */
-    public List<FactureClient> getAllFactures() {
-        return factureRepository.findAll();
+    public List<FactureClient> getAllFactures(String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT * FROM facture_client ORDER BY date_facture DESC";
+        return tenantRepo.query(sql, factureRowMapper(), clientId, authClientId);
     }
 
     /**
      * Récupérer les factures d'un client
      */
-    public List<FactureClient> getFacturesByClient(Integer clientId) {
-        return factureRepository.findByClientIdClient(clientId);
+    public List<FactureClient> getFacturesByClient(Integer clientId, String token) {
+        Long tenantClientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(tenantClientId);
+        String sql = "SELECT * FROM facture_client WHERE client_id = ? ORDER BY date_facture DESC";
+        return tenantRepo.query(sql, factureRowMapper(), tenantClientId, authClientId, clientId);
     }
-
-    // ===== MISE À JOUR =====
 
     /**
      * Marquer une facture comme payée
      */
-    @Transactional
-    public FactureClient marquerFacturePayee(Integer factureId) {
-        FactureClient facture = getFactureById(factureId);
-        facture.setStatut(FactureClient.StatutFacture.PAYE);
-        return factureRepository.save(facture);
-    }
+    public FactureClient marquerFacturePayee(Integer factureId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
-    // ===== UTILITAIRES =====
-    /**
-     * Génère une référence unique pour la facture
-     * Format: FAC-YYYYMMDD-XXXX
-     */
-    private String genererReferenceFacture() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-        String datePart = LocalDateTime.now().format(formatter);
+        // Vérifier que la facture existe
+        FactureClient facture = getFactureById(factureId, token);
 
-        // Générer un nombre aléatoire entre 1000 et 9999
-        int randomPart = 1000 + new Random().nextInt(9000);
+        String updateSql = "UPDATE facture_client SET statut = ? WHERE id_facture_client = ?";
+        tenantRepo.update(updateSql, clientId, authClientId, FactureClient.StatutFacture.PAYE.name(), factureId);
 
-        String reference = "FAC-" + datePart + "-" + randomPart;
-
-        // Vérifier l'unicité
-        while (factureRepository.existsByReferenceFactureClient(reference)) {
-            randomPart = 1000 + new Random().nextInt(9000);
-            reference = "FAC-" + datePart + "-" + randomPart;
-        }
-
-        return reference;
+        return getFactureById(factureId, token);
     }
 }

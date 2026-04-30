@@ -28,15 +28,16 @@ public class ProduitCommandeDetailDTO {
     private Integer quantiteStock;
     private String statutStock;
 
-    // Catégorie - maintenant c'est un objet avec id et nom
     private Integer categorieId;
     private String categorieNom;
-
     private Produit.UniteMesure uniteMesure;
+
     /**
-     * Convertit une ligne de commande en DTO
+     * Convertit une ligne de commande en DTO (AVEC TOKEN)
      */
-    public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne, ProduitService produitService) {
+    public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne,
+                                                     ProduitService produitService,
+                                                     String token) {  // ← AJOUTER TOKEN
         if (ligne == null) {
             return null;
         }
@@ -49,7 +50,6 @@ public class ProduitCommandeDetailDTO {
             dto.setLibelle(produit.getLibelle());
             dto.setImageUrl(produit.getImageUrl());
 
-            // Gestion de la catégorie
             if (produit.getCategorie() != null) {
                 dto.setCategorieId(produit.getCategorie().getIdCategorie());
                 dto.setCategorieNom(produit.getCategorie().getNomCategorie());
@@ -61,9 +61,9 @@ public class ProduitCommandeDetailDTO {
             dto.setStatutStock(produit.getStatus() != null ?
                     produit.getStatus().name() : "INCONNU");
         } else if (produitService != null && ligne.getProduit() != null) {
-            // Fallback: récupérer via le service si nécessaire
+            // ✅ Passer le token
             Optional<Produit> produitOpt = produitService.getProduitById(
-                    ligne.getProduit().getIdProduit());
+                    ligne.getProduit().getIdProduit(), token);  // ← AJOUTER TOKEN
 
             if (produitOpt.isPresent()) {
                 Produit p = produitOpt.get();
@@ -86,17 +86,29 @@ public class ProduitCommandeDetailDTO {
         dto.setQuantite(ligne.getQuantite());
         dto.setPrixUnitaire(ligne.getPrixUnitaire());
         dto.setSousTotal(ligne.getSousTotal());
-
-        // Calculs supplémentaires
-        dto.setRemiseProduit(BigDecimal.ZERO); // À ajuster si vous avez des remises par produit
-        dto.setTotalLigne(ligne.getSousTotal()); // Par défaut, le total = sous-total
+        dto.setRemiseProduit(BigDecimal.ZERO);
+        dto.setTotalLigne(ligne.getSousTotal());
 
         return dto;
     }
 
+    /**
+     * Convertit une ligne de commande en DTO (sans token - méthode dépréciée)
+     */
+    @Deprecated
+    public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne,
+                                                     ProduitService produitService) {
+        // ⚠️ Méthode dépréciée - utilisez fromLigne(ligne, produitService, token) à la place
+        return fromLigne(ligne, produitService, null);
+    }
+
+    /**
+     * Convertit une map de produits en DTO (AVEC TOKEN)
+     */
     public static List<ProduitCommandeDetailDTO> fromMap(
             Map<Integer, Integer> produitsMap,
-            ProduitService produitService) {
+            ProduitService produitService,
+            String token) {  // ← AJOUTER TOKEN
 
         List<ProduitCommandeDetailDTO> produits = new ArrayList<>();
 
@@ -109,7 +121,8 @@ public class ProduitCommandeDetailDTO {
             Integer quantite = entry.getValue();
 
             try {
-                Optional<Produit> produitOpt = produitService.getProduitById(produitId);
+                // ✅ Passer le token
+                Optional<Produit> produitOpt = produitService.getProduitById(produitId, token);
 
                 if (produitOpt.isPresent()) {
                     Produit produit = produitOpt.get();
@@ -142,20 +155,25 @@ public class ProduitCommandeDetailDTO {
                     dto.setTotalLigne(sousTotal);
 
                     produits.add(dto);
-
-                    System.out.println("✅ Produit ajouté: " + produit.getLibelle() +
-                            " | Catégorie: " + dto.getCategorieNom());
                 } else {
                     System.out.println("⚠️ Produit ID " + produitId + " non trouvé en base - ignoré");
                 }
             } catch (Exception e) {
                 System.out.println("❌ Erreur produit ID " + produitId + ": " + e.getMessage());
-                e.printStackTrace();
             }
         }
 
-        System.out.println("✅ fromMap retourne " + produits.size() + " produits trouvés");
         return produits;
+    }
+
+    /**
+     * Convertit une map de produits en DTO (sans token - méthode dépréciée)
+     */
+    @Deprecated
+    public static List<ProduitCommandeDetailDTO> fromMap(
+            Map<Integer, Integer> produitsMap,
+            ProduitService produitService) {
+        return fromMap(produitsMap, produitService, null);
     }
 
     public String getCategorieDisplay() {

@@ -1,8 +1,8 @@
 package org.erp.invera.controller.erp;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.erp.invera.model.erp.Categorie;
 import org.erp.invera.service.erp.CategorieService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Contrôleur de gestion des catégories de produits.
+ * Contrôleur de gestion des catégories de produits (multi-tenant).
  *
  * Endpoints :
  * - GET    /                    → Liste de toutes les catégories
@@ -31,74 +31,139 @@ import java.util.Map;
 @RequestMapping("/api/categories")
 public class CategorieController {
 
-    @Autowired
-    private CategorieService categorieService;
+    private final CategorieService categorieService;
+
+    public CategorieController(CategorieService categorieService) {
+        this.categorieService = categorieService;
+    }
+
+    // ==================== METHODE UTILITAIRE ====================
+
+    private String extractToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
+
+    // ==================== ENDPOINTS ====================
 
     // GET - Récupérer toutes les catégories
     @GetMapping
-    public ResponseEntity<List<Categorie>> getAllCategories() {
-        List<Categorie> categories = categorieService.findAll();
-        return ResponseEntity.ok(categories);
+    public ResponseEntity<?> getAllCategories(HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Categorie> categories = categorieService.findAll(token);
+            return ResponseEntity.ok(categories);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     // GET - Récupérer une catégorie par ID
     @GetMapping("/{id}")
-    public ResponseEntity<?> getCategorieById(@PathVariable Integer id) {
+    public ResponseEntity<?> getCategorieById(HttpServletRequest request, @PathVariable Integer id) {
         try {
-            Categorie categorie = categorieService.findById(id);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            Categorie categorie = categorieService.findById(id, token);
             return ResponseEntity.ok(categorie);
         } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            return errorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     // POST - Créer une nouvelle catégorie
     @PostMapping
-    public ResponseEntity<?> createCategorie(@RequestBody Categorie categorie) {
+    public ResponseEntity<?> createCategorie(HttpServletRequest request, @RequestBody Categorie categorie) {
         try {
-            Categorie savedCategorie = categorieService.save(categorie);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            Categorie savedCategorie = categorieService.save(categorie, token);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedCategorie);
         } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // PUT - Mettre à jour une catégorie
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCategorie(HttpServletRequest request,
+                                             @PathVariable Integer id,
+                                             @RequestBody Categorie categorie) {
+        try {
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            Categorie updatedCategorie = categorieService.update(id, categorie, token);
+            return ResponseEntity.ok(updatedCategorie);
+        } catch (RuntimeException e) {
+            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     // DELETE - Supprimer une catégorie
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteCategorie(@PathVariable Integer id) {
+    public ResponseEntity<?> deleteCategorie(HttpServletRequest request, @PathVariable Integer id) {
         try {
-            categorieService.deleteById(id);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            categorieService.deleteById(id, token);
+
             Map<String, String> response = new HashMap<>();
             response.put("message", "Catégorie supprimée avec succès");
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-    }
-
-    // PUT - Mettre à jour une catégorie (NOUVEAU)
-    @PutMapping("/{id}")  // ⚠️ Assurez-vous que cette annotation est présente
-    public ResponseEntity<?> updateCategorie(@PathVariable Integer id, @RequestBody Categorie categorie) {
-        try {
-            Categorie updatedCategorie = categorieService.update(id, categorie);
-            return ResponseEntity.ok(updatedCategorie);
-        } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     // GET - Rechercher des catégories
     @GetMapping("/search")
-    public ResponseEntity<List<Categorie>> searchCategories(@RequestParam(required = false) String keyword) {
-        List<Categorie> categories = categorieService.search(keyword);
-        return ResponseEntity.ok(categories);
+    public ResponseEntity<?> searchCategories(HttpServletRequest request,
+                                              @RequestParam(required = false) String keyword) {
+        try {
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Categorie> categories = categorieService.search(keyword, token);
+            return ResponseEntity.ok(categories);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // ==================== METHODE D'ERREUR ====================
+
+    private ResponseEntity<Map<String, String>> errorResponse(String message, HttpStatus status) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", message);
+        return ResponseEntity.status(status).body(errorResponse);
     }
 }

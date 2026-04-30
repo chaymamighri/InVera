@@ -1,8 +1,10 @@
 package org.erp.invera.controller.erp;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.erp.invera.dto.erp.Produitdto.ProduitDTO;
 import org.erp.invera.model.erp.Categorie;
 import org.erp.invera.model.erp.Produit;
+import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.ProduitService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,39 +22,30 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Contrôleur de gestion des produits.
- *
- * Endpoints :
- * - POST   /add                    → Ajouter un produit (avec image et prix par fournisseur)
- * - GET    /all                    → Tous les produits
- * - GET    /actifs                 → Produits actifs uniquement
- * - GET    /{id}                   → Détail d'un produit
- * - PUT    /update/{id}            → Modifier un produit
- * - DELETE /delete/{id}            → Désactiver un produit (soft delete)
- * - PATCH  /{id}/reactiver         → Réactiver un produit
- * - GET    /search                 → Rechercher (mot-clé, statut, catégorie)
- * - GET    /categorie/{id}         → Produits par catégorie
- * - GET    /low-stock              → Produits en stock faible
- * - PATCH  /{id}/stock             → Mettre à jour la quantité
- * - GET    /{id}/verifier-disponibilite → Vérifier disponibilité
- * - GET    /{id}/fournisseurs      → Récupérer les fournisseurs d'un produit avec leurs prix
- * - PUT    /{id}/fournisseurs      → Mettre à jour les fournisseurs d'un produit
- * - PUT    /{id}/fournisseur/{fournisseurId}/prix → Mettre à jour le prix d'un fournisseur
- */
 @RestController
 @RequestMapping("/api/produits")
 @CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
 public class ProduitController {
 
     private final ProduitService produitService;
+    private final JwtTokenProvider jwtTokenProvider;
     private static final String UPLOAD_DIR = "uploads/produits";
 
-    public ProduitController(ProduitService produitService) {
+    public ProduitController(ProduitService produitService, JwtTokenProvider jwtTokenProvider) {
         this.produitService = produitService;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
-    // ==== function to save image
+    // ==================== METHODE UTILITAIRE ====================
+
+    private String extractToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
+
     private String saveImage(MultipartFile image) throws IOException {
         if (image == null || image.isEmpty()) {
             return null;
@@ -83,12 +76,19 @@ public class ProduitController {
         return "/uploads/produits/" + fileName;
     }
 
-    /**
-     * Ajouter un nouveau produit (avec image via FormData)
-     * ✅ CORRIGÉ : Un seul fournisseur et un seul prix d'achat
-     */
+    private ResponseEntity<Map<String, Object>> errorResponse(String message, HttpStatus status) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("message", message);
+        errorResponse.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    // ==================== ENDPOINTS ====================
+
     @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> addProduct(
+            HttpServletRequest request,
             @RequestParam("libelle") String libelle,
             @RequestParam("prixVente") Double prixVente,
             @RequestParam("categorieId") Integer categorieId,
@@ -97,22 +97,22 @@ public class ProduitController {
             @RequestParam(value = "uniteMesure", defaultValue = "PIECE") String uniteMesure,
             @RequestParam(value = "remiseTemporaire", required = false) Double remiseTemporaire,
             @RequestParam(value = "active", defaultValue = "true") Boolean active,
-            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,  // ✅ Un seul fournisseur
-            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,       // ✅ Un seul prix
+            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,
+            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,
             @RequestPart(value = "image", required = false) MultipartFile image) {
 
         try {
-            System.out.println("📦 fournisseurId reçu: " + fournisseurId);
-            System.out.println("💰 prixAchat reçu: " + prixAchat);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
 
             Produit produit = new Produit();
             produit.setLibelle(libelle);
             produit.setPrixVente(prixVente);
-            // ❌ Plus de prixAchat global ici (sera défini par le service)
             produit.setQuantiteStock(quantiteStock);
             produit.setSeuilMinimum(seuilMinimum);
 
-            // Conversion UniteMesure (String -> Enum)
             try {
                 String uniteUpper = uniteMesure.toUpperCase();
                 if (uniteUpper.equals("PIÈCE") || uniteUpper.equals("PIECE")) {
@@ -133,7 +133,6 @@ public class ProduitController {
             if (remiseTemporaire != null) {
                 produit.setRemiseTemporaire(remiseTemporaire);
             }
-
             produit.setActive(active);
 
             Categorie categorie = new Categorie();
@@ -145,8 +144,7 @@ public class ProduitController {
                 produit.setImageUrl(imageUrl);
             }
 
-            // ✅ Appel du service avec un seul fournisseur et un seul prix
-            Produit createdProduit = produitService.createProduit(produit, fournisseurId, prixAchat);
+            Produit createdProduit = produitService.createProduit(produit, fournisseurId, prixAchat, token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -162,13 +160,16 @@ public class ProduitController {
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
-    /**
-     * Récupérer tous les produits
-     */
+
     @GetMapping("/all")
-    public ResponseEntity<Map<String, Object>> getAllProducts() {
+    public ResponseEntity<Map<String, Object>> getAllProducts(HttpServletRequest request) {
         try {
-            List<Produit> produits = produitService.getAllProduits();
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Produit> produits = produitService.getAllProduits(token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -182,13 +183,15 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer les produits actifs
-     */
     @GetMapping("/actifs")
-    public ResponseEntity<Map<String, Object>> getActiveProducts() {
+    public ResponseEntity<Map<String, Object>> getActiveProducts(HttpServletRequest request) {
         try {
-            List<Produit> produits = produitService.getProduitsActifs();
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Produit> produits = produitService.getProduitsActifs(token);
 
             List<ProduitDTO> produitsDTO = produits.stream()
                     .map(ProduitDTO::fromEntity)
@@ -207,9 +210,19 @@ public class ProduitController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getProduitById(@PathVariable Integer id) {
+    public ResponseEntity<?> getProduitById(HttpServletRequest request, @PathVariable Integer id) {
         try {
-            Produit produit = produitService.getProduitByIdWithFournisseur(id);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            Optional<Produit> produitOpt = produitService.getProduitById(id, token);
+            if (produitOpt.isEmpty()) {
+                return errorResponse("Produit non trouvé", HttpStatus.NOT_FOUND);
+            }
+
+            Produit produit = produitOpt.get();
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -227,17 +240,9 @@ public class ProduitController {
             produitMap.put("remiseTemporaire", produit.getRemiseTemporaire());
             produitMap.put("status", produit.getStatus() != null ? produit.getStatus().name() : null);
 
-            // ✅ AJOUTER LE FOURNISSEUR
             if (produit.getCategorie() != null) {
                 produitMap.put("categorieId", produit.getCategorie().getIdCategorie());
                 produitMap.put("categorieNom", produit.getCategorie().getNomCategorie());
-            }
-
-            if (produit.getFournisseur() != null) {
-                produitMap.put("fournisseurId", produit.getFournisseur().getIdFournisseur());
-                produitMap.put("fournisseurNom", produit.getFournisseur().getNomFournisseur());
-                produitMap.put("fournisseurEmail", produit.getFournisseur().getEmail());
-                produitMap.put("fournisseurTelephone", produit.getFournisseur().getTelephone());
             }
 
             response.put("produit", produitMap);
@@ -252,13 +257,15 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer les produits d'un fournisseur spécifique (pour bon de commande)
-     */
     @GetMapping("/fournisseur/{fournisseurId}")
-    public ResponseEntity<?> getProduitsByFournisseur(@PathVariable Integer fournisseurId) {
+    public ResponseEntity<?> getProduitsByFournisseur(HttpServletRequest request, @PathVariable Integer fournisseurId) {
         try {
-            List<Produit> produits = produitService.getProduitsByFournisseur(fournisseurId);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Produit> produits = produitService.getProduitsByFournisseur(fournisseurId, token);
 
             List<Map<String, Object>> produitsDTO = produits.stream()
                     .map(p -> {
@@ -272,7 +279,7 @@ public class ProduitController {
                         map.put("quantiteStock", p.getQuantiteStock());
                         map.put("uniteMesure", p.getUniteMesure());
                         map.put("active", p.getActive());
-                        map.put("tauxTVA", p.getCategorie() != null ? p.getCategorie().getTauxTVA() : 19);
+                        map.put("tauxTVA", p.getCategorie() != null && p.getCategorie().getTauxTVA() != null ? p.getCategorie().getTauxTVA() : 19);
                         map.put("estActif", p.getActive());
                         return map;
                     })
@@ -291,12 +298,9 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Modifier un produit
-     * ✅ CORRIGÉ : Un seul fournisseur et un seul prix d'achat
-     */
     @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> updateProduct(
+            HttpServletRequest request,
             @PathVariable Integer id,
             @RequestParam(required = false) String libelle,
             @RequestParam(required = false) Double prixVente,
@@ -306,15 +310,23 @@ public class ProduitController {
             @RequestParam(required = false) String uniteMesure,
             @RequestParam(required = false) Double remiseTemporaire,
             @RequestParam(required = false) Boolean active,
-            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,  // ✅ Un seul
-            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,       // ✅ Un seul
+            @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,
+            @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,
             @RequestPart(value = "image", required = false) MultipartFile image) {
 
         try {
-            Produit produit = produitService.getProduitById(id)
-                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
 
-            // Mettre à jour les champs
+            Optional<Produit> produitOpt = produitService.getProduitById(id, token);
+            if (produitOpt.isEmpty()) {
+                return errorResponse("Produit non trouvé", HttpStatus.NOT_FOUND);
+            }
+
+            Produit produit = produitOpt.get();
+
             if (libelle != null) produit.setLibelle(libelle);
             if (prixVente != null) produit.setPrixVente(prixVente);
             if (quantiteStock != null) produit.setQuantiteStock(quantiteStock);
@@ -351,8 +363,7 @@ public class ProduitController {
                 produit.setImageUrl(imageUrl);
             }
 
-            // ✅ Appel du service avec un seul fournisseur et un seul prix
-            Produit updatedProduit = produitService.updateProduit(id, produit, fournisseurId, prixAchat);
+            Produit updatedProduit = produitService.updateProduit(id, produit, fournisseurId, prixAchat, token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -371,48 +382,15 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer le fournisseur d'un produit
-     */
-    @GetMapping("/{id}/fournisseur")
-    public ResponseEntity<?> getFournisseurByProduit(@PathVariable Integer id) {
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<Map<String, Object>> deleteProduct(HttpServletRequest request, @PathVariable Integer id) {
         try {
-            Produit produit = produitService.getProduitByIdWithFournisseur(id);
-
-            if (produit.getFournisseur() == null) {
-                return ResponseEntity.ok(Map.of(
-                        "success", true,
-                        "fournisseur", null,
-                        "message", "Ce produit n'a pas de fournisseur associé"
-                ));
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
             }
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("idFournisseur", produit.getFournisseur().getIdFournisseur());
-            result.put("nomFournisseur", produit.getFournisseur().getNomFournisseur());
-            result.put("email", produit.getFournisseur().getEmail());
-            result.put("telephone", produit.getFournisseur().getTelephone());
-            result.put("prixAchat", produit.getPrixAchat());
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "fournisseur", result
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()
-            ));
-        }
-    }
-
-    /**
-     * Supprimer (désactiver) un produit - SOFT DELETE
-     */
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Map<String, Object>> deleteProduct(@PathVariable Integer id) {
-        try {
-            produitService.desactiverProduit(id);
+            produitService.desactiverProduit(id, token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -427,13 +405,15 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Réactiver un produit (soft delete inverse)
-     */
     @PatchMapping("/{id}/reactiver")
-    public ResponseEntity<Map<String, Object>> reactiverProduit(@PathVariable Integer id) {
+    public ResponseEntity<Map<String, Object>> reactiverProduit(HttpServletRequest request, @PathVariable Integer id) {
         try {
-            Produit produit = produitService.reactiverProduit(id);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            Produit produit = produitService.reactiverProduit(id, token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -449,21 +429,49 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Rechercher des produits et récupère les produits avec filtre
-     */
-// Dans ProduitController.java
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> searchProduits(
+            HttpServletRequest request,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Produit.StockStatus status,
             @RequestParam(required = false) Integer categorieId,
             @RequestParam(required = false) Boolean actif) {
 
         try {
-            List<Produit> produits = produitService.searchProduits(keyword, status, categorieId, actif);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
 
-            // ✅ Convertir en DTO simplifié SANS fournisseur
+            // Note: Cette méthode searchProduits doit aussi être adaptée dans le service
+            // Pour l'instant, on fait une recherche simple
+            List<Produit> produits;
+            if (keyword != null && !keyword.isEmpty()) {
+                produits = produitService.getAllProduits(token).stream()
+                        .filter(p -> p.getLibelle().toLowerCase().contains(keyword.toLowerCase()))
+                        .collect(Collectors.toList());
+            } else {
+                produits = produitService.getAllProduits(token);
+            }
+
+            if (status != null) {
+                produits = produits.stream()
+                        .filter(p -> p.getStatus() == status)
+                        .collect(Collectors.toList());
+            }
+
+            if (categorieId != null) {
+                produits = produits.stream()
+                        .filter(p -> p.getCategorie() != null && p.getCategorie().getIdCategorie() == categorieId)
+                        .collect(Collectors.toList());
+            }
+
+            if (actif != null) {
+                produits = produits.stream()
+                        .filter(p -> p.getActive() == actif)
+                        .collect(Collectors.toList());
+            }
+
             List<Map<String, Object>> produitsDTO = produits.stream()
                     .map(p -> {
                         Map<String, Object> map = new HashMap<>();
@@ -479,8 +487,6 @@ public class ProduitController {
                         map.put("remiseTemporaire", p.getRemiseTemporaire());
                         map.put("status", p.getStatus() != null ? p.getStatus().name() : null);
 
-                        // ✅ Ne PAS inclure le fournisseur
-                        // Seulement la catégorie
                         if (p.getCategorie() != null) {
                             map.put("categorieId", p.getCategorie().getIdCategorie());
                             map.put("categorieNom", p.getCategorie().getNomCategorie());
@@ -501,14 +507,15 @@ public class ProduitController {
         }
     }
 
-
-    /**
-     * Récupérer les produits par catégorie
-     */
     @GetMapping("/categorie/{categorieId}")
-    public ResponseEntity<Map<String, Object>> getProductsByCategorie(@PathVariable Integer categorieId) {
+    public ResponseEntity<Map<String, Object>> getProductsByCategorie(HttpServletRequest request, @PathVariable Integer categorieId) {
         try {
-            List<Produit> produits = produitService.getProduitsByCategorie(categorieId);
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
+            List<Produit> produits = produitService.getProduitsByCategorie(categorieId, token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -525,49 +532,37 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Récupérer les produits en stock faible
-     */
-    @GetMapping("/low-stock")
-    public ResponseEntity<Map<String, Object>> getLowStockProducts() {
-        try {
-            List<Produit> produits = produitService.getLowStockProduits();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("count", produits.size());
-            response.put("produits", produits);
-            response.put("message", produits.isEmpty() ?
-                    "Aucun produit en stock faible" :
-                    "Produits avec stock faible récupérés avec succès");
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return errorResponse("Erreur lors de la récupération: " + e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Mettre à jour le stock d'un produit
-     */
     @PatchMapping("/{id}/stock")
     public ResponseEntity<Map<String, Object>> updateStock(
+            HttpServletRequest request,
             @PathVariable Integer id,
             @RequestParam Integer quantite) {
         try {
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
             if (quantite < 0) {
                 return errorResponse("La quantité ne peut pas être négative", HttpStatus.BAD_REQUEST);
             }
 
-            Produit updatedProduit = produitService.updateStock(id, quantite);
+            // Note: Cette méthode doit être adaptée dans le service
+            Optional<Produit> produitOpt = produitService.getProduitById(id, token);
+            if (produitOpt.isEmpty()) {
+                return errorResponse("Produit non trouvé", HttpStatus.NOT_FOUND);
+            }
+
+            Produit produit = produitOpt.get();
+            produit.setQuantiteStock(quantite);
+            produitService.updateStockStatus(produit);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Stock mis à jour avec succès");
-            response.put("produit", updatedProduit);
-            response.put("nouveauStock", updatedProduit.getQuantiteStock());
-            response.put("status", updatedProduit.getStatus());
+            response.put("produit", produit);
+            response.put("nouveauStock", produit.getQuantiteStock());
+            response.put("status", produit.getStatus());
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -578,20 +573,29 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Vérifier la disponibilité d'un produit
-     */
     @GetMapping("/{id}/verifier-disponibilite")
     public ResponseEntity<Map<String, Object>> verifierDisponibilite(
+            HttpServletRequest request,
             @PathVariable Integer id,
             @RequestParam Integer quantite) {
         try {
+            String token = extractToken(request);
+            if (token == null) {
+                return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+            }
+
             if (quantite <= 0) {
                 return errorResponse("La quantité doit être positive", HttpStatus.BAD_REQUEST);
             }
 
-            boolean disponible = produitService.verifierDisponibilite(id, quantite);
-            Produit produit = produitService.getProduitById(id).orElseThrow();
+            boolean disponible = produitService.verifierDisponibilite(id, quantite, token);
+            Optional<Produit> produitOpt = produitService.getProduitById(id, token);
+
+            if (produitOpt.isEmpty()) {
+                return errorResponse("Produit non trouvé", HttpStatus.NOT_FOUND);
+            }
+
+            Produit produit = produitOpt.get();
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -611,16 +615,5 @@ public class ProduitController {
             return errorResponse("Erreur lors de la vérification: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
-    }
-
-    /**
-     * Méthode utilitaire pour les réponses d'erreur
-     */
-    private ResponseEntity<Map<String, Object>> errorResponse(String message, HttpStatus status) {
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false);
-        errorResponse.put("message", message);
-        errorResponse.put("timestamp", System.currentTimeMillis());
-        return ResponseEntity.status(status).body(errorResponse);
     }
 }

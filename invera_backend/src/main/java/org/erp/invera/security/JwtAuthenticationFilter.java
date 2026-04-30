@@ -20,7 +20,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private SessionManagementService sessionManagementService;
 
-    //  LISTE DES ENDPOINTS PUBLICS (sans authentification)
+    // LISTE DES ENDPOINTS PUBLICS (sans authentification)
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -42,7 +41,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/auth/create-password",
             "/api/auth/activation-link",
             "/api/auth/activation-link-info",
-            "/api/auth/activate-account",
             "/api/auth/activate-account",
             "/api/auth/create-admin-temp",
             "/api/super-admin/login",
@@ -57,12 +55,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/public/offres"
     );
 
-    //  CONSTRUCTEUR PAR DÉFAUT (nécessaire pour Spring)
     public JwtAuthenticationFilter() {
         // Constructeur vide pour Spring
     }
 
-    //  VÉRIFICATION QUE LES DÉPENDANCES SONT BIEN INJECTÉES
     @PostConstruct
     public void init() {
         System.out.println("✅ JwtAuthenticationFilter initialisé");
@@ -74,7 +70,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
-        // Vérification des endpoints publics
         for (String endpoint : PUBLIC_ENDPOINTS) {
             if (path.startsWith(endpoint)) {
                 System.out.println("🔓 [PUBLIC] " + path);
@@ -82,13 +77,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // ⭐ Vérification spécifique pour les justificatifs (pattern avec ID)
         if (path.matches("/api/platform/clients/\\d+/justificatifs")) {
             System.out.println("🔓 [UPLOAD] " + path + " - autorisé sans JWT");
             return true;
         }
 
-        // ⭐ Vérification pour les offres publiques (par sécurité supplémentaire)
         if (path.startsWith("/api/public/")) {
             System.out.println("🔓 [PUBLIC API] " + path);
             return true;
@@ -113,7 +106,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // ⭐ Si c'est un endpoint public, passer directement
         if (shouldNotFilter(request)) {
             filterChain.doFilter(request, response);
             return;
@@ -132,7 +124,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String role = (String) claims.get("role");
             String type = (String) claims.get("type");
 
-            // Vérifier si c'est un SUPER_ADMIN
             boolean isSuperAdmin = (adminId != null) ||
                     ("SUPER_ADMIN".equals(type)) ||
                     (role != null && role.equals("ROLE_SUPER_ADMIN"));
@@ -143,16 +134,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     filterChain.doFilter(request, response);
                 }
                 return;
-            }
-            else if ("CLIENT".equals(type)) {
-                boolean authenticated = handleClient(request, response, claims, jwt);
-                if (!authenticated) {
+            } else if ("CLIENT".equals(type)) {
+                if (!handleClient(request, response, claims, jwt)) {
                     return;
                 }
-            }
-            else {
-                boolean authenticated = handleErp(request, response, claims, jwt);
-                if (!authenticated) {
+            } else {
+                if (!handleErp(request, response, claims, jwt)) {
                     return;
                 }
             }
@@ -196,11 +183,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Email: " + email);
         System.out.println("   - Nom: " + nom);
 
-        // Enregistrer la session
-        sessionManagementService.registerSession(email, jwt);
+        // ✅ Enregistrer la session
+        if (email != null) {
+            sessionManagementService.registerSession(email, jwt);
+        }
 
-        // Vérifier la session
-        if (!sessionManagementService.isSessionValid(email, jwt)) {
+        // ✅ Vérifier la session
+        if (email == null || !sessionManagementService.isSessionValid(email, jwt)) {
             System.out.println("🔒 Session invalide pour " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
@@ -249,9 +238,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Role: " + role);
         System.out.println("   - ClientId: " + clientId);
 
-        if (role == null) {
-            System.out.println("❌ Missing role in client token");
+        if (role == null || email == null) {
+            System.out.println("❌ Missing email or role in client token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false;
+        }
+
+        // ✅ AJOUT : Enregistrer la session AVANT de la vérifier
+        sessionManagementService.registerSession(email, jwt);
+
+        // ✅ Vérifier la session
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
+            System.out.println("🔒 Session invalide pour client: " + email);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
@@ -262,17 +263,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // Vérifier si le rôle existe
-        boolean roleExists = false;
         Utilisateur.RoleUtilisateur clientRole = null;
         for (Utilisateur.RoleUtilisateur r : Utilisateur.RoleUtilisateur.values()) {
             if (r.name().equals(roleValue)) {
-                roleExists = true;
                 clientRole = r;
                 break;
             }
         }
 
-        if (!roleExists) {
+        if (clientRole == null) {
             System.out.println("❌ Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return false;
@@ -290,15 +289,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Client client = new Client();
             client.setId(clientId);
             utilisateur.setClient(client);
-        }
-
-        // Vérification session unique
-        if (!sessionManagementService.isSessionValid(utilisateur.getEmail(), jwt)) {
-            System.out.println("🔒 Session invalide pour client: " + utilisateur.getEmail());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
-            return false;
         }
 
         List<GrantedAuthority> authorities = Collections.singletonList(
@@ -330,9 +320,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Email: " + email);
         System.out.println("   - Role: " + role);
 
-        if (role == null) {
-            System.out.println("❌ Missing role in ERP token");
+        if (role == null || email == null) {
+            System.out.println("❌ Missing email or role in ERP token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false;
+        }
+
+        // ✅ AJOUT : Enregistrer la session AVANT de la vérifier
+        sessionManagementService.registerSession(email, jwt);
+
+        // ✅ Vérifier la session
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
+            System.out.println("🔒 Session invalide pour ERP user: " + email);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
@@ -355,15 +357,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (IllegalArgumentException e) {
             System.out.println("❌ Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
-        }
-
-        // Vérification session unique
-        if (!sessionManagementService.isSessionValid(user.getEmail(), jwt)) {
-            System.out.println("🔒 Session invalide pour ERP user: " + user.getEmail());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
