@@ -21,12 +21,15 @@
  */
 
 import React from "react";
+import { useLanguage } from "../context/LanguageContext";
 
 const Footer = ({
   collapsed = false,
   showFooter = true,
   companyName = "InVera ERP",
 }) => {
+  const { t } = useLanguage();
+
   // Conditions de masquage :
   // - showFooter = false : masquage manuel
   // - collapsed = true : menu latéral réduit, on masque le footer pour optimiser l'espace
@@ -35,7 +38,7 @@ const Footer = ({
   return (
     <footer className="p-4 text-center text-gray-500">
       <p className="text-xs text-gray-500 text-center">
-        © {new Date().getFullYear()} {companyName}. Tous droits réservés.
+        © {new Date().getFullYear()} {companyName}. {t('common.allRightsReserved')}
       </p>
     </footer>
   );

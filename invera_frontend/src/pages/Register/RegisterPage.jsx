@@ -23,10 +23,190 @@ import {
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   WalletIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 
-import { CheckBadgeIcon } from '@heroicons/react/24/solid';
+import { useNavigate } from 'react-router-dom';
+import PublicHeader from '../../components/PublicHeader';
+import { useLanguage } from '../../context/LanguageContext';
+
+const registerCopy = {
+  fr: {
+    otpTitle: 'Vérification email',
+    otpDescription: 'Saisissez votre email pour recevoir un code.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'exemple@email.com',
+    sendCode: 'Recevoir le code',
+    sendingCode: 'Envoi en cours...',
+    codeLabel: 'Code de vérification',
+    codePlaceholder: 'Code à 6 chiffres',
+    codeSentTo: 'Un code a été envoyé à {{email}}',
+    verifyCode: 'Vérifier le code',
+    verifyingCode: 'Vérification...',
+    editEmail: 'Modifier mon email',
+    emailRequired: 'Veuillez saisir votre email.',
+    codeRequired: 'Veuillez saisir le code reçu.',
+    invalidCode: 'Code invalide. Veuillez réessayer.',
+    genericOtpError: "Erreur lors de l'envoi du code",
+    pageTitle: 'Créer mon compte',
+    pageDescription: '30 connexions offertes pour découvrir la plateforme',
+    emailVerified: 'Email vérifié',
+    accountType: 'Type de compte',
+    individual: 'Particulier',
+    company: 'Entreprise',
+    registrationType: "Type d'inscription",
+    trial: 'Essai gratuit',
+    trialConnections: '30 connexions',
+    subscription: 'Abonnement',
+    subscriptionPrice: '29€/mois',
+    lastName: 'Nom *',
+    firstName: 'Prénom *',
+    companyName: 'Raison sociale *',
+    siret: 'SIRET (14 chiffres)',
+    phone: 'Téléphone *',
+    password: 'Mot de passe *',
+    mandatoryDocuments: 'Documents justificatifs obligatoires',
+    nationalId: "Carte d'identité nationale",
+    managerId: "Carte d'identité du gérant",
+    patent: 'Patente',
+    rne: 'Extrait RNE',
+    acceptedFormats: 'JPG, PNG ou PDF',
+    uploaded: 'Document chargé',
+    rneWarningTitle: 'Attention',
+    rneWarning:
+      "L'extrait RNE doit dater de moins de 3 mois. L'administrateur vérifiera visuellement la date sur le document.",
+    monthlySubscription: 'Abonnement mensuel - 29€ HT / mois',
+    paymentInfo: 'Paiement à effectuer après validation de votre dossier',
+    submit: "S'inscrire",
+    submitting: 'Inscription en cours...',
+    terms: "En cliquant sur \"S'inscrire\", vous acceptez nos conditions générales d'utilisation.",
+    successTrialTitle: 'Compte essai créé !',
+    successTrialDescription: 'Vous pouvez dès maintenant vous connecter.',
+    successValidatedTitle: 'Inscription enregistrée !',
+    successValidatedDescription: "Votre dossier est en cours de validation par l'administrateur.",
+    successValidatedHint: 'Vous serez notifié par email dès que votre compte sera activé.',
+    loginNow: 'Se connecter',
+    backToHome: "Retour à l'accueil",
+  },
+  en: {
+    otpTitle: 'Email verification',
+    otpDescription: 'Enter your email to receive a code.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'example@email.com',
+    sendCode: 'Receive code',
+    sendingCode: 'Sending...',
+    codeLabel: 'Verification code',
+    codePlaceholder: '6-digit code',
+    codeSentTo: 'A code was sent to {{email}}',
+    verifyCode: 'Verify code',
+    verifyingCode: 'Verifying...',
+    editEmail: 'Edit my email',
+    emailRequired: 'Please enter your email.',
+    codeRequired: 'Please enter the code you received.',
+    invalidCode: 'Invalid code. Please try again.',
+    genericOtpError: 'Failed to send the code',
+    pageTitle: 'Create my account',
+    pageDescription: '30 free logins to discover the platform',
+    emailVerified: 'Email verified',
+    accountType: 'Account type',
+    individual: 'Individual',
+    company: 'Company',
+    registrationType: 'Registration type',
+    trial: 'Free trial',
+    trialConnections: '30 logins',
+    subscription: 'Subscription',
+    subscriptionPrice: '29€/month',
+    lastName: 'Last name *',
+    firstName: 'First name *',
+    companyName: 'Company name *',
+    siret: 'SIRET (14 digits)',
+    phone: 'Phone *',
+    password: 'Password *',
+    mandatoryDocuments: 'Required supporting documents',
+    nationalId: 'National identity card',
+    managerId: "Manager's identity card",
+    patent: 'Patent certificate',
+    rne: 'RNE extract',
+    acceptedFormats: 'JPG, PNG, or PDF',
+    uploaded: 'Document uploaded',
+    rneWarningTitle: 'Warning',
+    rneWarning:
+      'The RNE extract must be less than 3 months old. The administrator will check the date visually on the document.',
+    monthlySubscription: 'Monthly subscription - 29€ excl. tax / month',
+    paymentInfo: 'Payment is required after your file is validated',
+    submit: 'Register',
+    submitting: 'Registering...',
+    terms: 'By clicking "Register", you accept our general terms of use.',
+    successTrialTitle: 'Trial account created!',
+    successTrialDescription: 'You can now log in.',
+    successValidatedTitle: 'Registration recorded!',
+    successValidatedDescription: 'Your file is being reviewed by the administrator.',
+    successValidatedHint: 'You will receive an email once your account is activated.',
+    loginNow: 'Log in',
+    backToHome: 'Back to home',
+  },
+  ar: {
+    otpTitle: 'التحقق من البريد الإلكتروني',
+    otpDescription: 'أدخل بريدك الإلكتروني للحصول على رمز.',
+    emailLabel: 'البريد الإلكتروني',
+    emailPlaceholder: 'example@email.com',
+    sendCode: 'استلام الرمز',
+    sendingCode: 'جاري الإرسال...',
+    codeLabel: 'رمز التحقق',
+    codePlaceholder: 'رمز من 6 أرقام',
+    codeSentTo: 'تم إرسال رمز إلى {{email}}',
+    verifyCode: 'التحقق من الرمز',
+    verifyingCode: 'جاري التحقق...',
+    editEmail: 'تعديل بريدي الإلكتروني',
+    emailRequired: 'يرجى إدخال بريدك الإلكتروني.',
+    codeRequired: 'يرجى إدخال الرمز الذي استلمته.',
+    invalidCode: 'رمز غير صالح. حاول مرة أخرى.',
+    genericOtpError: 'تعذر إرسال الرمز',
+    pageTitle: 'إنشاء حسابي',
+    pageDescription: '30 عملية دخول مجانية لاكتشاف المنصة',
+    emailVerified: 'تم التحقق من البريد',
+    accountType: 'نوع الحساب',
+    individual: 'فردي',
+    company: 'شركة',
+    registrationType: 'نوع التسجيل',
+    trial: 'تجربة مجانية',
+    trialConnections: '30 عملية دخول',
+    subscription: 'اشتراك',
+    subscriptionPrice: '29€/شهريًا',
+    lastName: 'اللقب *',
+    firstName: 'الاسم *',
+    companyName: 'الاسم التجاري *',
+    siret: 'SIRET (14 رقمًا)',
+    phone: 'الهاتف *',
+    password: 'كلمة المرور *',
+    mandatoryDocuments: 'الوثائق الإلزامية',
+    nationalId: 'بطاقة الهوية الوطنية',
+    managerId: 'بطاقة هوية المدير',
+    patent: 'الباتيندة',
+    rne: 'مستخرج السجل الوطني للمؤسسات',
+    acceptedFormats: 'JPG أو PNG أو PDF',
+    uploaded: 'تم رفع الوثيقة',
+    rneWarningTitle: 'تنبيه',
+    rneWarning:
+      'يجب أن يكون مستخرج RNE أقل من 3 أشهر. سيقوم المسؤول بالتحقق من التاريخ بصريًا على الوثيقة.',
+    monthlySubscription: 'اشتراك شهري - 29€ دون ضرائب / شهريًا',
+    paymentInfo: 'يتم الدفع بعد التحقق من الملف',
+    submit: 'تسجيل',
+    submitting: 'جاري التسجيل...',
+    terms: 'بالنقر على "تسجيل"، فإنك توافق على الشروط العامة للاستخدام.',
+    successTrialTitle: 'تم إنشاء الحساب التجريبي!',
+    successTrialDescription: 'يمكنك الآن تسجيل الدخول.',
+    successValidatedTitle: 'تم تسجيل الطلب!',
+    successValidatedDescription: 'ملفك قيد المراجعة من طرف المسؤول.',
+    successValidatedHint: 'ستتلقى إشعارًا عبر البريد الإلكتروني بمجرد تفعيل الحساب.',
+    loginNow: 'تسجيل الدخول',
+    backToHome: 'العودة إلى الرئيسية',
+  },
+};
+
+const cardBaseClass =
+  'border-2 rounded-xl p-4 text-center transition hover:border-[#0b4ea2]';
 
 // Liste des pays avec code, indicatif
 const countryCodes = [
@@ -96,7 +276,10 @@ const getUserFriendlyMessage = (errorCode) => {
 };
 
 const RegisterPage = () => {
-  // Étape 0: Vérification OTP
+  const navigate = useNavigate();
+  const { language, isArabic, t } = useLanguage();
+  const copy = registerCopy[language] || registerCopy.fr;
+
   const [step, setStep] = useState('otp');
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -106,32 +289,31 @@ const RegisterPage = () => {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const countryDropdownRef = useRef(null);
 
-  // Offres depuis l'API
-  const [offres, setOffres] = useState([]);
-  const [offresLoading, setOffresLoading] = useState(false);
-  const [selectedOffre, setSelectedOffre] = useState(null);
-
-  // Formulaire principal
   const [formData, setFormData] = useState({
     typeCompte: 'PARTICULIER',
-    typeAbonnement: 'ESSAI',
+    typeInscription: 'ESSAI',
     nom: '',
     prenom: '',
     raisonSociale: '',
     matriculeFiscal: '',
+    siret: '',
     telephone: '',
     paysCode: '+216',
     selectedCountry: countryCodes.find(c => c.code === 'TN') || countryCodes[0],
     motDePasse: '',
     email: '',
-    documents: []
+    documents: [],
+    typeAbonnement: 'ESSAI', // Ajout pour la fusion
   });
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(null); // Changé pour stocker l'objet d'erreur
+  const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptConditions, setAcceptConditions] = useState(false);
+  const [offres, setOffres] = useState([]);
+  const [offresLoading, setOffresLoading] = useState(false);
+  const [selectedOffre, setSelectedOffre] = useState(null);
 
   // Fermer le dropdown quand on clique dehors
   useEffect(() => {
@@ -144,95 +326,51 @@ const RegisterPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Charger les offres depuis l'API
+  // Charger les offres au montage
   useEffect(() => {
     const loadOffres = async () => {
       setOffresLoading(true);
-      const result = await fetchOffres();
-      if (result.success) {
-        setOffres(result.data);
+      try {
+        const data = await fetchOffres();
+        setOffres(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Erreur chargement offres:', err);
+        setOffres([]);
+      } finally {
+        setOffresLoading(false);
       }
-      setOffresLoading(false);
     };
     loadOffres();
   }, []);
 
-  // === ÉTAPE OTP ===
-  const handleSendOtp = async () => {
-    if (!email) {
-      setOtpError('Veuillez saisir votre email');
-      return;
-    }
-    
-    setOtpLoading(true);
-    setOtpError('');
-    
-    const result = await sendOtp(email);
-    if (result.success) {
-      setOtpSent(true);
-      console.log('📧 Code OTP:', result.otp);
-    } else {
-      setOtpError(result.message || 'Erreur lors de l\'envoi du code');
-    }
-    setOtpLoading(false);
-  };
+  const isEssai = formData.typeInscription === 'ESSAI' || formData.typeAbonnement === 'ESSAI';
+  const isPayant = formData.typeAbonnement === 'PAYANT';
+  const isParticulier = formData.typeCompte === 'PARTICULIER';
 
-  const handleVerifyOtp = async () => {
-    const cleanedCode = otpCode ? otpCode.toString().trim() : '';
-    
-    if (!cleanedCode) {
-      setOtpError('Veuillez saisir le code reçu');
-      return;
-    }
-    
-    setOtpLoading(true);
-    setOtpError('');
-    
-    const isValid = await verifyOtp(email, cleanedCode);
-    
-    if (isValid) {
-      setStep('form');
-      setFormData(prev => ({ ...prev, email }));
-    } else {
-      setOtpError('Code invalide. Veuillez réessayer.');
-    }
-    
-    setOtpLoading(false);
-  };
-
-  // === FORMULAIRE PRINCIPAL ===
   const updateFormData = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleCountrySelect = (country) => {
-    setFormData(prev => ({ ...prev, paysCode: country.dialCode, selectedCountry: country }));
-    setShowCountryDropdown(false);
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleFileUpload = (field, file) => {
     if (!file) return;
-    
     const currentDocs = formData.documents || [];
     const newDocs = [...currentDocs];
-    const existingIndex = newDocs.findIndex(d => d.type === field);
-    
+    const existingIndex = newDocs.findIndex((d) => d.type === field);
+
     if (existingIndex !== -1) {
       newDocs[existingIndex] = { type: field, file };
     } else {
       newDocs.push({ type: field, file });
     }
-    
     updateFormData('documents', newDocs);
   };
 
-  const hasDocument = (field) => {
-    return formData.documents?.some(d => d.type === field);
-  };
+  const hasDocument = (field) => formData.documents?.some((d) => d.type === field);
 
-  const isEssai = formData.typeAbonnement === 'ESSAI';
-  const isPayant = formData.typeAbonnement === 'PAYANT';
-  const isParticulier = formData.typeCompte === 'PARTICULIER';
+  const handleCountrySelect = (country) => {
+    setFormData(prev => ({ ...prev, paysCode: country.dialCode, selectedCountry: country }));
+    setShowCountryDropdown(false);
+  };
 
   const getFullPhoneNumber = () => {
     return `${formData.paysCode}${formData.telephone}`;
@@ -240,11 +378,14 @@ const RegisterPage = () => {
 
   const isValid = () => {
     const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
-    
     if (!hasBasicInfo) return false;
-    if (!formData.nom || !formData.prenom) return false;
-    if (!isParticulier && !formData.raisonSociale) return false;
-    
+
+    if (isParticulier) {
+      if (!formData.nom || !formData.prenom) return false;
+    } else {
+      if (!formData.raisonSociale) return false;
+    }
+
     if (isPayant) {
       if (isParticulier) {
         if (!hasDocument('CIN')) return false;
@@ -257,6 +398,47 @@ const RegisterPage = () => {
     if (!acceptConditions) return false;
     
     return true;
+  };
+
+  const handleSendOtp = async () => {
+    if (!email) {
+      setOtpError(copy.emailRequired);
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+
+    const result = await sendOtp(email);
+    if (result.success) {
+      setOtpSent(true);
+    } else {
+      setOtpError(result.message || copy.genericOtpError);
+    }
+    setOtpLoading(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    const cleanedCode = otpCode ? otpCode.toString().trim() : '';
+
+    if (!cleanedCode) {
+      setOtpError(copy.codeRequired);
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+
+    const isValidCode = await verifyOtp(email, cleanedCode);
+
+    if (isValidCode) {
+      setStep('form');
+      setFormData((prev) => ({ ...prev, email }));
+    } else {
+      setOtpError(copy.invalidCode);
+    }
+
+    setOtpLoading(false);
   };
 
   const handleSubmit = async (e) => {
@@ -276,6 +458,7 @@ const RegisterPage = () => {
       prenom: formData.prenom || '',
       raisonSociale: formData.raisonSociale || '',
       matriculeFiscal: formData.matriculeFiscal || '',
+      siret: formData.siret || '',
       offreId: selectedOffre?.id || null
     };
     
@@ -306,78 +489,85 @@ const RegisterPage = () => {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
-                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
+                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des opérations</h1>
                 </div>
               </Link>
               <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-                <ArrowLeftIcon className="w-4 h-4" /> Retour à l'accueil
+                <ArrowLeftIcon className="w-4 h-4" /> {copy.backToHome}
               </Link>
             </div>
           </header>
           <main className="pt-14">
             <div className="max-w-md mx-auto">
               <div className="bg-white rounded-2xl border border-sky-100 p-8 shadow-sm">
-                <div className="text-center mb-8">
+                <div className={`text-center mb-8 ${isArabic ? 'text-right' : ''}`}>
                   <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <EnvelopeIcon className="w-8 h-8 text-[#0b4ea2]" />
                   </div>
-                  <h1 className="text-2xl font-bold text-slate-900">Vérification email</h1>
-                  <p className="text-slate-500 mt-1">Saisissez votre email pour recevoir un code</p>
+                  <h1 className="text-2xl font-bold text-slate-900">{copy.otpTitle}</h1>
+                  <p className="text-slate-500 mt-1">{copy.otpDescription}</p>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Email *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{copy.emailLabel}</label>
                     <input
                       type="email"
-                      placeholder="exemple@email.com"
+                      placeholder={copy.emailPlaceholder}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={otpSent}
                     />
                   </div>
+
                   {!otpSent ? (
                     <button
-                      type="button"
                       onClick={handleSendOtp}
                       disabled={otpLoading || !email}
-                      className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400 flex items-center justify-center gap-2"
+                      className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400"
                     >
-                      {otpLoading ? <>⏳ Envoi en cours...</> : <><EnvelopeIcon className="w-5 h-5" /> Recevoir le code</>}
+                      {otpLoading ? copy.sendingCode : copy.sendCode}
                     </button>
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Code de vérification *</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">{copy.codeLabel}</label>
                         <input
                           type="text"
-                          placeholder="Code à 6 chiffres"
+                          placeholder={copy.codePlaceholder}
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition"
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value)}
                         />
-                        <p className="text-xs text-gray-500 mt-2">Un code a été envoyé à <span className="font-medium text-slate-700">{email}</span></p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {copy.codeSentTo.replace('{{email}}', email)}
+                        </p>
                       </div>
+
                       <button
-                        type="button"
                         onClick={handleVerifyOtp}
                         disabled={otpLoading || !otpCode}
-                        className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400 flex items-center justify-center gap-2"
+                        className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400"
                       >
-                        {otpLoading ? <>⏳ Vérification...</> : <><KeyIcon className="w-5 h-5" /> Vérifier le code</>}
+                        {otpLoading ? copy.verifyingCode : copy.verifyCode}
                       </button>
+
                       <button
-                        type="button"
-                        onClick={() => { setOtpSent(false); setOtpError(''); setOtpCode(''); }}
-                        className="w-full text-[#0b4ea2] py-2 text-sm hover:underline transition flex items-center justify-center gap-1"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtpError('');
+                          setOtpCode('');
+                        }}
+                        className="w-full text-[#0b4ea2] py-2 text-sm hover:underline transition"
                       >
-                        <ArrowLeftIcon className="w-4 h-4" /> Modifier mon email
+                        ← {copy.editEmail}
                       </button>
                     </>
                   )}
+
                   {otpError && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
-                      <ExclamationTriangleIcon className="w-5 h-5" /> {otpError}
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+                      {otpError}
                     </div>
                   )}
                 </div>
@@ -403,11 +593,11 @@ const RegisterPage = () => {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
-                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
+                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des opérations</h1>
                 </div>
               </Link>
               <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-                <ArrowLeftIcon className="w-4 h-4" /> Retour à l'accueil
+                <ArrowLeftIcon className="w-4 h-4" /> {copy.backToHome}
               </Link>
             </div>
           </header>
@@ -418,16 +608,16 @@ const RegisterPage = () => {
                   <CheckBadgeIcon className="w-10 h-10 text-green-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {isEssai ? 'Compte essai créé !' : 'Inscription enregistrée !'}
+                  {isEssai ? copy.successTrialTitle : copy.successValidatedTitle}
                 </h2>
                 {isEssai ? (
                   <>
-                    <p className="text-gray-600 mb-4">Vous pouvez dès maintenant vous connecter.</p>
+                    <p className="text-gray-600 mb-4">{copy.successTrialDescription}</p>
                     <button 
-                      onClick={() => window.location.href = '/login'} 
+                      onClick={() => navigate('/login')} 
                       className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
                     >
-                      Se connecter
+                      {copy.loginNow}
                     </button>
                   </>
                 ) : (
@@ -443,8 +633,14 @@ const RegisterPage = () => {
                         <p className="text-yellow-700 text-sm">Votre dossier est en cours de vérification par notre équipe administrative. Vous recevrez un email dès que votre compte sera validé pour finaliser votre abonnement.</p>
                       </div>
                     </div>
-                    <button onClick={() => window.location.href = '/login'} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">🔑 Se connecter</button>
-                    <div className="mt-4"><Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">← Retour à l'accueil</Link></div>
+                    <button onClick={() => navigate('/login')} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">
+                      🔑 {copy.loginNow}
+                    </button>
+                    <div className="mt-4">
+                      <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
+                        ← {copy.backToHome}
+                      </Link>
+                    </div>
                   </>
                 )}
               </div>
@@ -457,7 +653,7 @@ const RegisterPage = () => {
 
   // ==================== ÉCRAN PRINCIPAL (FORMULAIRE VERTICAL) ====================
   return (
-    <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
+    <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-24 pt-6">
         
@@ -470,11 +666,11 @@ const RegisterPage = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
-                <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
+                <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des opérations</h1>
               </div>
             </Link>
             <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-              <ArrowLeftIcon className="w-4 h-4" /> Retour à l'accueil
+              <ArrowLeftIcon className="w-4 h-4" /> {copy.backToHome}
             </Link>
           </div>
         </header>
@@ -484,7 +680,7 @@ const RegisterPage = () => {
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-slate-900">Créer un compte</h1>
             <div className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-600 mt-3 items-center gap-1">
-              <CheckCircleIcon className="w-4 h-4" /> Email vérifié
+              <CheckCircleIcon className="w-4 h-4" /> {copy.emailVerified}
             </div>
           </div>
 
@@ -936,24 +1132,23 @@ const RegisterPage = () => {
 
             {/* Checkbox pour les conditions générales */}
             <div className="mt-6 pt-4 border-t border-gray-200">
-  <label className="flex items-start gap-3 cursor-pointer">
-    <input
-      type="checkbox"
-      checked={acceptConditions}
-      onChange={(e) => setAcceptConditions(e.target.checked)}
-      className="mt-1 w-5 h-5 rounded border-gray-300 text-[#0b4ea2] focus:ring-[#0b4ea2] cursor-pointer"
-    />
-    <div className="flex-1">
-    <p className="text-sm text-gray-700">
-  J'accepte les{' '}
-  <a href="/conditions-invera" target="_blank" className="text-[#0b4ea2] underline font-medium">
-    conditions générales et politique de confidentialité d'InVera
-  </a>
-  {' '}
-</p>
-    </div>
-  </label>
-</div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptConditions}
+                  onChange={(e) => setAcceptConditions(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-gray-300 text-[#0b4ea2] focus:ring-[#0b4ea2] cursor-pointer"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-700">
+                    J'accepte les{' '}
+                    <a href="/conditions-invera" target="_blank" className="text-[#0b4ea2] underline font-medium">
+                      conditions générales et politique de confidentialité d'InVera
+                    </a>
+                  </p>
+                </div>
+              </label>
+            </div>
 
             {/* BOUTON CRÉER UN COMPTE */}
             <button 

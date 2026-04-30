@@ -1,6 +1,7 @@
 // src/services/api.js
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES } from '../i18n/translations';
 
 const api = axios.create({
   baseURL: 'http://localhost:8081/api', 
@@ -38,6 +39,11 @@ api.interceptors.request.use(
     } else {
       console.log('❌ AUCUN TOKEN TROUVÉ !');
     }
+
+    const currentLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    config.headers['Accept-Language'] = SUPPORTED_LANGUAGES.includes(currentLanguage)
+      ? currentLanguage
+      : DEFAULT_LANGUAGE;
     
     console.log('=====================================');
     return config;

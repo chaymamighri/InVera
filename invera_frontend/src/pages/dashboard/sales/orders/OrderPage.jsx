@@ -41,8 +41,10 @@ import {
 import useOrders from '../../../../hooks/useOrders';
 import clientService from '../../../../services/clientService';
 import { commandeService } from '../../../../services/commandeService';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const OrdersPage = () => {
+  const { t } = useLanguage();
   // Utiliser le hook personnalisé
   const {
     commandes,
@@ -415,8 +417,8 @@ const OrdersPage = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Gestion des Commandes Clients</h1>
-            <p className="text-gray-600 mt-2">Consultez et gérez toutes les commandes clients</p>
+            <h1 className="text-2xl font-bold text-gray-800">{t('salesPages.orderManagementTitle')}</h1>
+            <p className="text-gray-600 mt-2">{t('salesPages.orderManagementDescription')}</p>
           </div>
           
           <div className="mt-4 md:mt-0 flex space-x-3">
@@ -426,12 +428,12 @@ const OrdersPage = () => {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Chargement...
+                  {t('salesPages.loading')}
                 </>
               ) : (
                 <>
                   <PlusIcon className="h-5 w-5 mr-2" />
-                  Nouvelle Commande
+                  {t('salesPages.newOrder')}
                 </>
               )}
             </button>
@@ -451,6 +453,7 @@ const OrdersPage = () => {
           clients={clients}
           clientTypes={clientTypes}
           onReset={handleResetFilters}
+          t={t}
         />
       </div>
 
@@ -459,7 +462,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 font-medium">Total commandes</p>
+              <p className="text-sm text-blue-600 font-medium">{t('salesPages.totalOrders')}</p>
               <p className="text-2xl font-bold text-blue-800 mt-1">{commandes.length}</p>
             </div>
             <ShoppingBagIcon className="h-8 w-8 text-blue-400" />
@@ -469,7 +472,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-yellow-600 font-medium">En attente</p>
+              <p className="text-sm text-yellow-600 font-medium">{t('salesPages.pendingOrders')}</p>
               <p className="text-2xl font-bold text-yellow-800 mt-1">
                 {commandes.filter(c => c.statut === 'EN_ATTENTE' || c.statut === 'En attente').length}
               </p>
@@ -481,7 +484,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">Confirmées</p>
+              <p className="text-sm text-green-600 font-medium">{t('salesPages.confirmedOrders')}</p>
               <p className="text-2xl font-bold text-green-800 mt-1">
                 {commandes.filter(c => c.statut === 'CONFIRMEE' || c.statut === 'Confirmé').length}
               </p>
@@ -493,7 +496,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-600 font-medium">Refusées</p>
+              <p className="text-sm text-red-600 font-medium">{t('salesPages.rejectedOrders')}</p>
               <p className="text-2xl font-bold text-red-800 mt-1">
                 {commandes.filter(c => c.statut === 'ANNULEE' || c.statut === 'Refusé').length}
               </p>

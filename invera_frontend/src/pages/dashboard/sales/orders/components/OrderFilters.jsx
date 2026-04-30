@@ -16,7 +16,8 @@ const OrderFilters = ({
   selectedClientType,
   setSelectedClientType,
   clientTypes,
-  onReset
+  onReset,
+  t
 }) => {
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -24,7 +25,7 @@ const OrderFilters = ({
         <div className="relative">
           <input
             type="text"
-            placeholder="Rechercher par numéro de commande ou client..."
+            placeholder={t('salesPages.searchOrders')}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -43,10 +44,10 @@ const OrderFilters = ({
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
-            <option value="Tous">Tous les statuts</option>
-            <option value="En attente">En attente</option>
-            <option value="Confirmé">Confirmé</option>
-            <option value="Refusé">Refusé</option>
+            <option value="Tous">{t('salesPages.allStatuses')}</option>
+            <option value="En attente">{t('salesPages.pending')}</option>
+            <option value="Confirmé">{t('salesPages.confirmed')}</option>
+            <option value="Refusé">{t('salesPages.rejected')}</option>
           </select>
         </div>
       

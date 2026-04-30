@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setSortOrder }) => {
+const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setSortOrder, t }) => {
   const handleSearchChange = (e) => {
     setFilters({ search: e.target.value });
   };
@@ -11,10 +11,8 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
 
   const handleSortChange = (type) => {
     if (sortBy === type) {
-  
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      
       setSortBy(type);
       setSortOrder('desc'); 
     }
@@ -23,6 +21,7 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <div className="flex flex-col md:flex-row gap-4">
+        
         {/* Barre de recherche */}
         <div className="flex-1 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -33,7 +32,7 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
           <input
             type="text"
             className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Rechercher par nom, prénom, email, téléphone..."
+            placeholder={t('salesPages.searchClients')}
             value={filters.search}
             onChange={handleSearchChange}
           />
@@ -51,7 +50,7 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
 
         {/* Filtre de tri par date */}
         <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
-          <span className="text-sm text-gray-500 px-2">Trier par :</span>
+          <span className="text-sm text-gray-500 px-2">{t('salesPages.sortBy')}:</span>
           <button
             onClick={() => handleSortChange('date')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -63,15 +62,15 @@ const ClientFilters = ({ filters, setFilters, sortBy, setSortBy, sortOrder, setS
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            Date
+            {t('salesPages.date')}
             {sortBy === 'date' && (
               <span className="ml-1">
                 {sortOrder === 'desc' ? '↓' : '↑'}
               </span>
             )}
           </button>
-      
         </div>
+
       </div>
     </div>
   );

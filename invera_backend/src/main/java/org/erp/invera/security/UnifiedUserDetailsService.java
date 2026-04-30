@@ -1,6 +1,5 @@
 package org.erp.invera.security;
 
-import lombok.RequiredArgsConstructor;
 import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.model.platform.SuperAdmin;
 import org.erp.invera.repository.platform.utilisateurRepository;
@@ -11,11 +10,16 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class UnifiedUserDetailsService implements UserDetailsService {
 
     private final utilisateurRepository utilisateurRepository;
     private final SuperAdminRepository superAdminRepository;
+
+    public UnifiedUserDetailsService(utilisateurRepository utilisateurRepository,
+                                     SuperAdminRepository superAdminRepository) {
+        this.utilisateurRepository = utilisateurRepository;
+        this.superAdminRepository = superAdminRepository;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
