@@ -8,8 +8,9 @@ import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.client.Client;
 import org.erp.invera.model.erp.client.LigneCommandeClient;
 import org.erp.invera.model.erp.Produit;
-import org.erp.invera.model.erp.stock.StockMovement;
-import org.erp.invera.repository.erp.*;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
+import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,73 +23,98 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-
-/**
- * Service de gestion des commandes clients (ventes).
- *
- * Ce fichier gère tout le cycle de vie d'une commande client :
- *
- * 1. CRÉATION D'UNE COMMANDE (statut EN_ATTENTE) :
- *    - Vérifie la disponibilité des produits
- *    - Calcule les totaux (sous-total, remise, total)
- *    - Génère une référence unique (ex: CMD-20250412-143052-123)
- *
- * 2. MODIFICATION D'UNE COMMANDE (uniquement en EN_ATTENTE) :
- *    - Ajouter/supprimer/modifier des produits
- *    - Recalcule automatiquement les totaux
- *    - Met à jour l'adresse de livraison si besoin
- *
- * 3. CONFIRMATION DE COMMANDE (EN_ATTENTE → CONFIRMEE) :
- *    - Vérifie le stock une dernière fois
- *    - Déduit les quantités du stock
- *    - Crée des mouvements de stock (SORTIE)
- *    - La commande est maintenant validée pour expédition
- *
- * 4. REJET/ANNULATION :
- *    - Si commande confirmée : restitue le stock
- *    - Passe le statut à ANNULEE
- *
- * Règles métier importantes :
- * - Une commande en attente peut être modifiée
- * - La confirmation est irréversible (sauf annulation)
- * - La confirmation déclenche automatiquement la sortie de stock
- * - Une commande annulée après confirmation remet le stock
- */
 @Service
 public class CommandeClientService {
 
-    private final CommandeClientRepository commandeClientRepository;
-    private final ClientRepository clientRepository;
-    private final ProduitRepository produitRepository;
-    private final LigneCommandeClientRepository ligneCommandeClientRepository;
+    private final TenantAwareRepository tenantRepo;
+    private final JwtTokenProvider jwtTokenProvider;
     private final ProduitService produitService;
-    private final StockMovementRepository stockMovementRepository;
 
-    public CommandeClientService(CommandeClientRepository commandeClientRepository,
-                                 ClientRepository clientRepository,
-                                 ProduitRepository produitRepository,
-                                 LigneCommandeClientRepository ligneCommandeClientRepository,
-                                 ProduitService produitService,
-                                 StockMovementRepository stockMovementRepository) {
-        this.commandeClientRepository = commandeClientRepository;
-        this.clientRepository = clientRepository;
-        this.produitRepository = produitRepository;
-        this.ligneCommandeClientRepository = ligneCommandeClientRepository;
+    public CommandeClientService(TenantAwareRepository tenantRepo,
+                                 JwtTokenProvider jwtTokenProvider,
+                                 ProduitService produitService) {
+        this.tenantRepo = tenantRepo;
+        this.jwtTokenProvider = jwtTokenProvider;
         this.produitService = produitService;
-        this.stockMovementRepository = stockMovementRepository;
     }
 
-    // Méthode pour vérifier la disponibilité (format Map)
-    public boolean verifierDisponibilite(Map<Integer, Integer> produits) {
+    // ✅ RowMapper pour CommandeClient (MÉTHODE)
+    public RowMapper<CommandeClient> commandeRowMapper() {
+        return (rs, rowNum) -> {
+            CommandeClient commande = new CommandeClient();
+            commande.setIdCommandeClient(rs.getInt("id_commande_client"));
+            commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
+            commande.setStatut(CommandeClient.StatutCommande.valueOf(rs.getString("statut")));
+            commande.setDateCommande(rs.getTimestamp("date_commande") != null ?
+                    rs.getTimestamp("date_commande").toLocalDateTime() : null);
+            commande.setSousTotal(rs.getBigDecimal("sous_total") != null ?
+                    rs.getBigDecimal("sous_total") : BigDecimal.ZERO);
+            commande.setTauxRemise(rs.getBigDecimal("taux_remise") != null ?
+                    rs.getBigDecimal("taux_remise") : BigDecimal.ZERO);
+            commande.setTotal(rs.getBigDecimal("total") != null ?
+                    rs.getBigDecimal("total") : BigDecimal.ZERO);
+            return commande;
+        };
+    }
+
+    // ✅ RowMapper pour Client (privé)
+    private RowMapper<Client> clientRowMapper() {
+        return (rs, rowNum) -> {
+            Client client = new Client();
+            client.setIdClient(rs.getInt("id_client"));
+            client.setNom(rs.getString("nom"));
+            client.setPrenom(rs.getString("prenom"));
+            client.setEmail(rs.getString("email"));
+            client.setTelephone(rs.getString("telephone"));
+            client.setAdresse(rs.getString("adresse"));
+            return client;
+        };
+    }
+
+    // ✅ RowMapper pour Produit (MÉTHODE)
+    public RowMapper<Produit> produitRowMapper() {
+        return (rs, rowNum) -> {
+            Produit produit = new Produit();
+            produit.setIdProduit(rs.getInt("id_produit"));
+            produit.setLibelle(rs.getString("libelle"));
+            produit.setPrixVente(rs.getDouble("prix_vente"));
+            produit.setQuantiteStock(rs.getInt("quantite_stock"));
+            return produit;
+        };
+    }
+
+    // ✅ RowMapper pour LigneCommandeClient (MÉTHODE)
+    public RowMapper<LigneCommandeClient> ligneCommandeRowMapper() {
+        return (rs, rowNum) -> {
+            LigneCommandeClient ligne = new LigneCommandeClient();
+            ligne.setIdLigneCommandeClient(rs.getInt("id_ligne_commande_client"));
+            ligne.setQuantite(rs.getInt("quantite"));
+            ligne.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
+            ligne.setSousTotal(rs.getBigDecimal("sous_total"));
+            return ligne;
+        };
+    }
+
+    private Long getClientIdFromToken(String token) {
+        return jwtTokenProvider.getClientIdFromToken(token);
+    }
+
+    public boolean verifierDisponibilite(Map<Integer, Integer> produits, String token) {
         if (produits == null || produits.isEmpty()) {
             return false;
         }
+
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
         for (Map.Entry<Integer, Integer> entry : produits.entrySet()) {
             Integer produitId = entry.getKey();
             Integer quantiteDemandee = entry.getValue();
 
-            if (!produitService.verifierDisponibilite(produitId, quantiteDemandee)) {
+            String sql = "SELECT quantite_stock FROM produit WHERE id_produit = ?";
+            Integer stockDispo = tenantRepo.queryForObject(sql, Integer.class, clientId, authClientId, produitId);
+
+            if (stockDispo == null || stockDispo < quantiteDemandee) {
                 return false;
             }
         }
@@ -96,13 +122,19 @@ public class CommandeClientService {
     }
 
     @Transactional
-    public CommandeClient createCommande(CommandeRequestDTO commandeRequest) {
+    public CommandeClient createCommande(CommandeRequestDTO commandeRequest, String token) {
         System.out.println("🛠️ Création de commande en cours...");
 
-        // 1. Vérifier et récupérer le client
-        Client client = clientRepository.findById(commandeRequest.getClientId())
-                .orElseThrow(() -> new RuntimeException("Client non trouvé avec l'ID: " + commandeRequest.getClientId()));
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
+        // 1. Vérifier et récupérer le client
+        String sqlClient = "SELECT * FROM client WHERE id = ?";
+        Client client = tenantRepo.queryForObject(sqlClient, clientRowMapper(), clientId, authClientId, clientId);
+
+        if (client == null) {
+            throw new RuntimeException("Client non trouvé avec l'ID: " + clientId);
+        }
         System.out.println("✅ Client trouvé: " + client.getNom());
 
         // 2. Générer la référence de commande
@@ -114,19 +146,21 @@ public class CommandeClientService {
             produitsMap.put(produitDTO.getProduitId(), produitDTO.getQuantite());
         }
 
-        boolean disponible = verifierDisponibilite(produitsMap);
+        boolean disponible = verifierDisponibilite(produitsMap, token);
         if (!disponible) {
             throw new RuntimeException("Stock insuffisant pour certains produits");
         }
-
         System.out.println("✅ Disponibilité vérifiée");
 
-        // 4. Créer la commande
-        CommandeClient commande = new CommandeClient();
-        commande.setReferenceCommandeClient(reference);
-        commande.setClient(client);
-        commande.setStatut(CommandeClient.StatutCommande.EN_ATTENTE);
-        commande.setDateCommande(LocalDateTime.now());
+        // 4. Insérer la commande
+        String insertCommande = """
+            INSERT INTO commande_client (reference_commande_client, client_id, statut, date_commande, sous_total, taux_remise, total)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id_commande_client
+            """;
+
+        Integer commandeId = tenantRepo.queryForObject(insertCommande, Integer.class, clientId, authClientId,
+                reference, clientId, "EN_ATTENTE", LocalDateTime.now(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 
         // 5. Calculer les totaux et créer les lignes de commande
         BigDecimal sousTotal = BigDecimal.ZERO;
@@ -134,28 +168,30 @@ public class CommandeClientService {
 
         for (ProduitCommandeRequestDTO produitDTO : commandeRequest.getProduits()) {
             // Récupérer le produit
-            Produit produit = produitRepository.findById(produitDTO.getProduitId())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'ID: " + produitDTO.getProduitId()));
+            String sqlProduit = "SELECT * FROM produit WHERE id_produit = ?";
+            Produit produit = tenantRepo.queryForObject(sqlProduit, produitRowMapper(), clientId, authClientId, produitDTO.getProduitId());
+
+            if (produit == null) {
+                throw new RuntimeException("Produit non trouvé avec l'ID: " + produitDTO.getProduitId());
+            }
 
             // Déterminer le prix unitaire
             BigDecimal prixUnitaire = produitDTO.getPrixUnitaire() != null ?
                     produitDTO.getPrixUnitaire() : safeToBigDecimal(produit.getPrixVente());
 
-            // Calculer le sous-total pour cette ligne
             BigDecimal quantite = BigDecimal.valueOf(produitDTO.getQuantite());
             BigDecimal sousTotalLigne = prixUnitaire.multiply(quantite);
-
-            // Créer la ligne de commande
-            LigneCommandeClient ligne = new LigneCommandeClient();
-            ligne.setCommandeClient(commande);
-            ligne.setProduit(produit);
-            ligne.setQuantite(produitDTO.getQuantite());
-            ligne.setPrixUnitaire(prixUnitaire);
-            ligne.setSousTotal(sousTotalLigne);
-
-            lignesCommande.add(ligne);
             sousTotal = sousTotal.add(sousTotalLigne);
-            // Stock is moved only when the order is confirmed.
+
+            // Insérer la ligne de commande
+            String insertLigne = """
+                INSERT INTO ligne_commande_client (commande_client_id, produit_id, quantite, prix_unitaire, sous_total)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING id_ligne_commande_client
+                """;
+
+            tenantRepo.queryForObject(insertLigne, Integer.class, clientId, authClientId,
+                    commandeId, produitDTO.getProduitId(), produitDTO.getQuantite(), prixUnitaire, sousTotalLigne);
 
             System.out.println("📦 Produit ajouté: " + produit.getLibelle() +
                     ", Quantité: " + produitDTO.getQuantite() +
@@ -167,32 +203,25 @@ public class CommandeClientService {
         BigDecimal tauxRemise = commandeRequest.getRemiseTotale() != null ?
                 commandeRequest.getRemiseTotale() : BigDecimal.ZERO;
 
-        BigDecimal montantRemise = sousTotal.multiply(
-                tauxRemise.divide(BigDecimal.valueOf(100)));
-
+        BigDecimal montantRemise = sousTotal.multiply(tauxRemise.divide(BigDecimal.valueOf(100)));
         BigDecimal total = sousTotal.subtract(montantRemise);
 
-        // 7. Définir les totaux sur la commande
-        commande.setSousTotal(sousTotal);
-        commande.setTauxRemise(tauxRemise);
-        commande.setTotal(total);
+        // 7. Mettre à jour les totaux de la commande
+        String updateTotaux = """
+            UPDATE commande_client 
+            SET sous_total = ?, taux_remise = ?, total = ? 
+            WHERE id_commande_client = ?
+            """;
+        tenantRepo.update(updateTotaux, clientId, authClientId, sousTotal, tauxRemise, total, commandeId);
 
         System.out.println("💰 Totaux calculés:");
         System.out.println("  Sous-total: " + sousTotal);
         System.out.println("  Remise: " + montantRemise + " (" + tauxRemise + "%)");
         System.out.println("  Total: " + total);
 
-        // 8. Sauvegarder la commande d'abord
-        CommandeClient savedCommande = commandeClientRepository.save(commande);
-
-        // 9. Associer les lignes à la commande et les sauvegarder
-        for (LigneCommandeClient ligne : lignesCommande) {
-            ligne.setCommandeClient(savedCommande);
-            ligneCommandeClientRepository.save(ligne);
-        }
-
-        // 10. Mettre à jour la commande avec ses lignes
-        savedCommande.setLignesCommande(lignesCommande);
+        // 8. Retourner la commande créée
+        String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
+        CommandeClient savedCommande = tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
 
         System.out.println("✅ Commande créée avec ID: " + savedCommande.getIdCommandeClient() +
                 " et référence: " + savedCommande.getReferenceCommandeClient());
@@ -200,14 +229,19 @@ public class CommandeClientService {
         return savedCommande;
     }
 
-
-
     @Transactional
-    public CommandeClient updateCommande(Integer commandeId, CommandeUpdateRequestDTO request) {
+    public CommandeClient updateCommande(Integer commandeId, CommandeUpdateRequestDTO request, String token) {
+
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
         // Récupérer la commande existante
-        CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
+        String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
+        CommandeClient commande = tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
+
+        if (commande == null) {
+            throw new RuntimeException("Commande non trouvée");
+        }
 
         // Vérifier que la commande est en attente
         if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
@@ -216,284 +250,209 @@ public class CommandeClientService {
 
         // Mettre à jour le statut si fourni
         if (request.getStatut() != null) {
-            commande.setStatut(CommandeClient.StatutCommande.valueOf(request.getStatut()));
+            String updateStatut = "UPDATE commande_client SET statut = ? WHERE id_commande_client = ?";
+            tenantRepo.update(updateStatut, clientId, authClientId, request.getStatut(), commandeId);
         }
 
         // Mettre à jour l'adresse du client si fournie
-        if (request.getClientAdresse() != null && commande.getClient() != null) {
-            Client client = commande.getClient();
-            client.setAdresse(request.getClientAdresse());
-            if (request.getClientTelephone() != null) {
-                client.setTelephone(request.getClientTelephone());
-            }
-            if (request.getClientEmail() != null) {
-                client.setEmail(request.getClientEmail());
-            }
-            clientRepository.save(client);
+        if (request.getClientAdresse() != null) {
+            String updateClient = "UPDATE client SET adresse = ?, telephone = ?, email = ? WHERE id = ?";
+            tenantRepo.update(updateClient, clientId, authClientId,
+                    request.getClientAdresse(), request.getClientTelephone(), request.getClientEmail(), clientId);
         }
 
         // Mettre à jour les lignes de commande
-        updateLignesCommande(commande, request.getProduits());
+        updateLignesCommande(commandeId, request.getProduits(), token);
 
-        // Calculer les nouveaux totaux
-        BigDecimal sousTotal = calculerSousTotal(commande.getLignesCommande());
-        commande.setSousTotal(sousTotal);
+        // Recalculer les totaux
+        String sqlLignes = "SELECT * FROM ligne_commande_client WHERE commande_client_id = ?";
+        List<LigneCommandeClient> lignes = tenantRepo.query(sqlLignes, ligneCommandeRowMapper(), clientId, authClientId, commandeId);
 
-        // Recalculer le total avec la remise existante
-        BigDecimal montantRemise = sousTotal.multiply(
-                commande.getTauxRemise().divide(BigDecimal.valueOf(100)));
-        BigDecimal total = sousTotal.subtract(montantRemise);
-        commande.setTotal(total);
+        BigDecimal sousTotal = calculerSousTotal(lignes);
+        BigDecimal tauxRemise = commande.getTauxRemise();
+        BigDecimal total = sousTotal.subtract(sousTotal.multiply(tauxRemise.divide(BigDecimal.valueOf(100))));
 
-        // Sauvegarder
-        return commandeClientRepository.save(commande);
+        // Mettre à jour les totaux
+        String updateTotaux = "UPDATE commande_client SET sous_total = ?, total = ? WHERE id_commande_client = ?";
+        tenantRepo.update(updateTotaux, clientId, authClientId, sousTotal, total, commandeId);
+
+        // Retourner la commande mise à jour
+        return tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
     }
 
+    private void updateLignesCommande(Integer commandeId, List<ProduitCommandeUpdateDTO> produitsDTO, String token) {
 
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
-    private void updateLignesCommande(CommandeClient commande, List<ProduitCommandeUpdateDTO> produitsDTO) {
+        // Récupérer les IDs des lignes existantes
+        String sqlLignesExistantes = "SELECT id_ligne_commande_client FROM ligne_commande_client WHERE commande_client_id = ?";
+        List<Integer> idsExistants = tenantRepo.query(sqlLignesExistantes,
+                (rs, rowNum) -> rs.getInt("id_ligne_commande_client"), clientId, authClientId, commandeId);
 
-        System.out.println("🔄 Mise à jour des lignes de commande:");
-        System.out.println("   Produits reçus: " + produitsDTO.size());
-
-        // Créer une liste des IDs des lignes à conserver
+        // IDs à conserver
         List<Integer> idsAConserver = produitsDTO.stream()
                 .filter(p -> p.getId() != null)
                 .map(ProduitCommandeUpdateDTO::getId)
                 .collect(Collectors.toList());
 
         // Supprimer les lignes qui ne sont plus dans la nouvelle liste
-        List<LigneCommandeClient> lignesASupprimer = new ArrayList<>();
-        for (LigneCommandeClient ligneExistante : commande.getLignesCommande()) {
-            if (!idsAConserver.contains(ligneExistante.getIdLigneCommandeClient())) {
-                lignesASupprimer.add(ligneExistante);
+        for (Integer id : idsExistants) {
+            if (!idsAConserver.contains(id)) {
+                String deleteLigne = "DELETE FROM ligne_commande_client WHERE id_ligne_commande_client = ?";
+                tenantRepo.update(deleteLigne, clientId, authClientId, id);
             }
-        }
-
-        for (LigneCommandeClient ligne : lignesASupprimer) {
-            commande.removeLigneCommande(ligne);
-            ligneCommandeClientRepository.delete(ligne);
         }
 
         // Mettre à jour ou ajouter les lignes
         for (ProduitCommandeUpdateDTO produitDTO : produitsDTO) {
-            try {
-                if (produitDTO.getId() != null) {
-                    // Mise à jour d'une ligne existante
-                    updateExistingLigne(commande, produitDTO);
-                } else {
-                    // Ajout d'une nouvelle ligne
-                    addNewLigne(commande, produitDTO);
-                }
-            } catch (Exception e) {
-                System.err.println("❌ Erreur lors du traitement du produit: " + e.getMessage());
-                throw new RuntimeException("Erreur lors de la mise à jour des produits: " + e.getMessage());
+            if (produitDTO.getId() != null) {
+                // Mise à jour d'une ligne existante
+                String updateLigne = """
+                    UPDATE ligne_commande_client 
+                    SET quantite = ?, prix_unitaire = ?, sous_total = ? 
+                    WHERE id_ligne_commande_client = ?
+                    """;
+
+                tenantRepo.update(updateLigne, clientId, authClientId,
+                        produitDTO.getQuantite(), produitDTO.getPrixUnitaire(),
+                        produitDTO.getPrixUnitaire().multiply(produitDTO.getQuantite()),
+                        produitDTO.getId());
+            } else {
+                // Ajout d'une nouvelle ligne
+                String insertLigne = """
+                    INSERT INTO ligne_commande_client (commande_client_id, produit_id, quantite, prix_unitaire, sous_total)
+                    VALUES (?, ?, ?, ?, ?)
+                    """;
+
+                tenantRepo.update(insertLigne, clientId, authClientId,
+                        commandeId, produitDTO.getProduitId(), produitDTO.getQuantite(),
+                        produitDTO.getPrixUnitaire(),
+                        produitDTO.getPrixUnitaire().multiply(produitDTO.getQuantite()));
             }
         }
-    }
-
-
-    private void updateExistingLigne(CommandeClient commande, ProduitCommandeUpdateDTO produitDTO) {
-        LigneCommandeClient ligne = commande.getLignesCommande().stream()
-                .filter(l -> l.getIdLigneCommandeClient().equals(produitDTO.getId()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Ligne de commande non trouvée: " + produitDTO.getId()));
-
-        // Récupérer l'ancienne quantité pour ajuster le stock
-        int ancienneQuantite = ligne.getQuantite();
-        int nouvelleQuantite = produitDTO.getQuantite().intValue();
-
-        // Mise à jour de la quantité
-        ligne.setQuantite(nouvelleQuantite);
-
-        // Mise à jour du prix unitaire si fourni
-        if (produitDTO.getPrixUnitaire() != null) {
-            ligne.setPrixUnitaire(produitDTO.getPrixUnitaire());
-        }
-
-        // Recalculer le sous-total (sera fait automatiquement par @PreUpdate)
-        // Mais on peut le forcer pour être sûr
-        ligne.calculerSousTotal();
-
-        // Ajuster le stock
-        Produit produit = ligne.getProduit();
-        int differenceStock = ancienneQuantite - nouvelleQuantite; // Positif si on retire moins, négatif si on ajoute plus
-
-        System.out.println("✅ Ligne mise à jour: " + ligne.getIdLigneCommandeClient() +
-                " | Ancienne qté: " + ancienneQuantite +
-                " | Nouvelle qté: " + nouvelleQuantite +
-                " | Ajustement stock: " + differenceStock);
-    }
-
-    private void addNewLigne(CommandeClient commande, ProduitCommandeUpdateDTO produitDTO) {
-        // Récupérer le produit
-        Produit produit = produitRepository.findById(produitDTO.getProduitId())
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé: " + produitDTO.getProduitId()));
-
-        // Vérifier le stock
-        int quantiteDemandee = produitDTO.getQuantite().intValue();
-        if (produit.getQuantiteStock() < quantiteDemandee) {
-            throw new RuntimeException("Stock insuffisant pour le produit: " + produit.getLibelle() +
-                    " (Disponible: " + produit.getQuantiteStock() + ", Demandé: " + quantiteDemandee + ")");
-        }
-
-        // Créer la nouvelle ligne
-        LigneCommandeClient nouvelleLigne = new LigneCommandeClient();
-        nouvelleLigne.setProduit(produit);
-        nouvelleLigne.setQuantite(quantiteDemandee);
-
-        // Gestion sécurisée du prix unitaire
-        BigDecimal prixUnitaire;
-        if (produitDTO.getPrixUnitaire() != null) {
-            prixUnitaire = produitDTO.getPrixUnitaire();
-        } else {
-            prixUnitaire = safeToBigDecimal(produit.getPrixVente());
-        }
-        nouvelleLigne.setPrixUnitaire(prixUnitaire);
-
-        // Calculer le sous-total
-        nouvelleLigne.calculerSousTotal();
-
-        // Ajouter à la commande
-        commande.addLigneCommande(nouvelleLigne);
-
-        // Mettre à jour le stock
-        int nouveauStock = produit.getQuantiteStock() - quantiteDemandee;
-
-        System.out.println("➕ Nouvelle ligne ajoutée: " + produit.getLibelle() +
-                " | Quantité: " + quantiteDemandee +
-                " | Prix: " + prixUnitaire +
-                " | Stock restant: " + nouveauStock);
     }
 
     @Transactional
-    public CommandeClient confirmerCommande(Integer commandeId) {
+    public CommandeClient confirmerCommande(Integer commandeId, String token) {
         System.out.println("🔍 === DÉBUT confirmerCommande ===");
-        System.out.println("🔍 commandeId reçu: " + commandeId);
+
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
         try {
-            CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
-                    .orElseThrow(() -> {
-                        System.err.println("❌ Commande non trouvée avec l'ID: " + commandeId);
-                        return new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
-                    });
+            // Récupérer la commande
+            String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
+            CommandeClient commande = tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
+
+            if (commande == null) {
+                throw new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
+            }
 
             System.out.println("✅ Commande trouvée: " + commande.getIdCommandeClient());
             System.out.println("📊 Statut actuel: " + commande.getStatut());
-            System.out.println("📊 Nombre de lignes: " + (commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0));
 
             // Vérifier le statut
             if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
-                System.err.println("❌ Statut invalide: " + commande.getStatut() + " - Attendu: EN_ATTENTE");
                 throw new RuntimeException("Seules les commandes en attente peuvent être confirmées. Statut actuel: " + commande.getStatut());
             }
 
-            System.out.println("✅ Statut OK (EN_ATTENTE)");
+            // Récupérer les lignes de commande
+            String sqlLignes = "SELECT * FROM ligne_commande_client WHERE commande_client_id = ?";
+            List<LigneCommandeClient> lignes = tenantRepo.query(sqlLignes, ligneCommandeRowMapper(), clientId, authClientId, commandeId);
 
-            // Vérifier les lignes de commande
-            if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
-                System.err.println("❌ La commande ne contient aucun produit");
+            if (lignes == null || lignes.isEmpty()) {
                 throw new RuntimeException("La commande ne contient aucun produit");
             }
 
-            System.out.println("✅ " + commande.getLignesCommande().size() + " ligne(s) de commande trouvée(s)");
-
             // Vérifier le stock
-            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
-                Produit produit = ligne.getProduit();
+            for (LigneCommandeClient ligne : lignes) {
+                String sqlProduit = "SELECT * FROM produit WHERE id_produit = ?";
+                Produit produit = tenantRepo.queryForObject(sqlProduit, produitRowMapper(), clientId, authClientId, ligne.getProduit().getIdProduit());
+
                 if (produit == null) {
-                    System.err.println("❌ Produit null pour une ligne");
-                    throw new RuntimeException("Produit non trouvé pour une ligne de commande");
+                    throw new RuntimeException("Produit non trouvé");
                 }
 
-                System.out.println("📦 Produit: " + produit.getLibelle() +
-                        " | Stock: " + produit.getQuantiteStock() +
-                        " | Demandé: " + ligne.getQuantite());
-
                 if (produit.getQuantiteStock() < ligne.getQuantite()) {
-                    System.err.println("❌ Stock insuffisant pour: " + produit.getLibelle());
                     throw new RuntimeException("Stock insuffisant pour le produit: " + produit.getLibelle());
                 }
             }
 
-            System.out.println("✅ Vérification stock OK");
+            // Traitement de chaque ligne (déduire le stock)
+            for (LigneCommandeClient ligne : lignes) {
+                String sqlProduit = "SELECT * FROM produit WHERE id_produit = ?";
+                Produit produit = tenantRepo.queryForObject(sqlProduit, produitRowMapper(), clientId, authClientId, ligne.getProduit().getIdProduit());
 
-            // Liste des mouvements
-            List<StockMovement> mouvements = new ArrayList<>();
+                int nouveauStock = produit.getQuantiteStock() - ligne.getQuantite();
 
-            // Traitement de chaque ligne
-            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
-                Produit produit = ligne.getProduit();
+                // Mettre à jour le stock
+                String updateStock = "UPDATE produit SET quantite_stock = ? WHERE id_produit = ?";
+                tenantRepo.update(updateStock, clientId, authClientId, nouveauStock, produit.getIdProduit());
 
-                int stockAvant = produit.getQuantiteStock();
-                int nouvelleQuantite = stockAvant - ligne.getQuantite();
-
-                System.out.println("🔄 Mise à jour stock: " + produit.getLibelle() +
-                        " " + stockAvant + " → " + nouvelleQuantite);
-
-                // Mise à jour du stock
-                produit.setQuantiteStock(nouvelleQuantite);
-                produitRepository.save(produit);
-
-                // Création du mouvement
-                StockMovement mouvement = new StockMovement();
-                mouvement.setProduit(produit);
-                mouvement.setTypeMouvement(StockMovement.MovementType.SORTIE);
-                mouvement.setQuantite(ligne.getQuantite());
-                mouvement.setStockAvant(stockAvant);
-                mouvement.setStockApres(nouvelleQuantite);
-                mouvement.setTypeDocument("COMMANDE_CLIENT");
-                mouvement.setCommentaire("Vente - Commande client " + commande.getReferenceCommandeClient());
-                mouvement.setDateMouvement(LocalDateTime.now());
-
-                mouvements.add(mouvement);
+                // Créer le mouvement de stock
+                String insertMouvement = """
+                    INSERT INTO stock_movement (produit_id, type_mouvement, quantite, stock_avant, stock_apres, type_document, commentaire, date_mouvement)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """;
+                tenantRepo.update(insertMouvement, clientId, authClientId,
+                        produit.getIdProduit(), "SORTIE", ligne.getQuantite(),
+                        produit.getQuantiteStock(), nouveauStock,
+                        "COMMANDE_CLIENT", "Vente - Commande client " + commande.getReferenceCommandeClient(), LocalDateTime.now());
             }
 
-            // Sauvegarde des mouvements
-            if (!mouvements.isEmpty()) {
-                stockMovementRepository.saveAll(mouvements);
-                System.out.println("📊 " + mouvements.size() + " mouvement(s) de stock SORTIE créé(s)");
-            }
+            // Mettre à jour le statut de la commande
+            String updateStatut = "UPDATE commande_client SET statut = 'CONFIRMEE' WHERE id_commande_client = ?";
+            tenantRepo.update(updateStatut, clientId, authClientId, commandeId);
 
-            // Mise à jour du statut
-            commande.setStatut(CommandeClient.StatutCommande.CONFIRMEE);
+            // Retourner la commande mise à jour
+            CommandeClient updated = tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
+            System.out.println("✅ Commande " + updated.getIdCommandeClient() + " confirmée avec succès");
 
-            CommandeClient saved = commandeClientRepository.save(commande);
-            System.out.println("✅ Commande " + saved.getIdCommandeClient() + " confirmée avec succès");
-            System.out.println("🔍 === FIN confirmerCommande ===");
-
-            return saved;
+            return updated;
 
         } catch (Exception e) {
             System.err.println("❌ EXCEPTION dans confirmerCommande: " + e.getMessage());
-            e.printStackTrace();
             throw e;
         }
     }
 
-
     @Transactional
-    public CommandeClient rejeterCommande(Integer commandeId) {
-        CommandeClient commande = commandeClientRepository.findByIdWithDetails(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvee"));
+    public CommandeClient rejeterCommande(Integer commandeId, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
+        CommandeClient commande = tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
+
+        if (commande == null) {
+            throw new RuntimeException("Commande non trouvée");
+        }
 
         if (commande.getStatut() == CommandeClient.StatutCommande.ANNULEE) {
-            throw new RuntimeException("La commande est deja annulee");
+            throw new RuntimeException("La commande est déjà annulée");
         }
 
         if (commande.getStatut() == CommandeClient.StatutCommande.CONFIRMEE) {
-            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
-                Integer produitId = ligne.getProduit().getIdProduit();
-                Produit produit = produitRepository.findById(produitId)
-                        .orElseThrow(() -> new RuntimeException("Produit non trouve: " + produitId));
+            // Restituer le stock
+            String sqlLignes = "SELECT * FROM ligne_commande_client WHERE commande_client_id = ?";
+            List<LigneCommandeClient> lignes = tenantRepo.query(sqlLignes, ligneCommandeRowMapper(), clientId, authClientId, commandeId);
 
-                int restoredQuantity = produit.getQuantiteStock() + ligne.getQuantite();
-                produitService.updateStock(produit.getIdProduit(), restoredQuantity);
+            for (LigneCommandeClient ligne : lignes) {
+                String sqlProduit = "SELECT * FROM produit WHERE id_produit = ?";
+                Produit produit = tenantRepo.queryForObject(sqlProduit, produitRowMapper(), clientId, authClientId, ligne.getProduit().getIdProduit());
+
+                int nouveauStock = produit.getQuantiteStock() + ligne.getQuantite();
+                String updateStock = "UPDATE produit SET quantite_stock = ? WHERE id_produit = ?";
+                tenantRepo.update(updateStock, clientId, authClientId, nouveauStock, produit.getIdProduit());
             }
         }
 
-        commande.setStatut(CommandeClient.StatutCommande.ANNULEE);
-        return commandeClientRepository.save(commande);
+        // Annuler la commande
+        String updateStatut = "UPDATE commande_client SET statut = 'ANNULEE' WHERE id_commande_client = ?";
+        tenantRepo.update(updateStatut, clientId, authClientId, commandeId);
+
+        return tenantRepo.queryForObject(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
     }
 
     private BigDecimal safeToBigDecimal(Double value) {
@@ -503,31 +462,19 @@ public class CommandeClientService {
         try {
             return BigDecimal.valueOf(value);
         } catch (Exception e) {
-            System.err.println("⚠️ Erreur conversion Double -> BigDecimal: " + e.getMessage());
             return BigDecimal.ZERO;
         }
     }
 
-
-
-    // Méthode pour calculer le sous-total
     private BigDecimal calculerSousTotal(List<LigneCommandeClient> lignes) {
         return lignes.stream()
                 .map(LigneCommandeClient::getSousTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Méthode pour calculer le total des remises (si jamais vous ajoutez ce champ)
-    private BigDecimal calculerTotalRemises(List<LigneCommandeClient> lignes) {
-        // Pour l'instant, retourne ZERO car pas de champ remise dans LigneCommandeClient
-        return BigDecimal.ZERO;
-    }
-
-    // Méthode pour générer une référence de commande unique
     private String genererReferenceCommande() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
         String timestamp = LocalDateTime.now().format(formatter);
         return "CMD-" + timestamp + "-" + (int)(Math.random() * 1000);
     }
-
 }

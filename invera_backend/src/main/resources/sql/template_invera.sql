@@ -4,7 +4,6 @@
 -- =====================================================
 
 -- 1. Création de la base template
-DROP DATABASE IF EXISTS template_invera;
 CREATE DATABASE template_invera OWNER postgres;
 
 -- Connexion à la base template
@@ -39,12 +38,27 @@ CREATE TABLE public.client (
     CONSTRAINT client_type_client_check CHECK (((type_client)::text = ANY ((ARRAY['PARTICULIER'::character varying, 'VIP'::character varying, 'PROFESSIONNEL'::character varying, 'ENTREPRISE'::character varying, 'FIDELE'::character varying])::text[])))
 );
 
--- Table client_type_discount
+-- Table client_type_discount (MULTI-TENANT - Structure uniquement)
 CREATE TABLE public.client_type_discount (
-    type_client character varying(50) NOT NULL,
-    remise double precision NOT NULL,
-    CONSTRAINT client_type_discount_type_client_check CHECK (((type_client)::text = ANY ((ARRAY['PARTICULIER'::character varying, 'VIP'::character varying, 'PROFESSIONNEL'::character varying, 'ENTREPRISE'::character varying, 'FIDELE'::character varying])::text[])))
+    id SERIAL PRIMARY KEY,
+    tenant_id VARCHAR(50) NOT NULL,
+    type_client VARCHAR(50) NOT NULL,
+    remise DECIMAL(5,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, type_client),
+    CONSTRAINT client_type_discount_type_client_check CHECK (
+        (type_client)::text = ANY (
+            ARRAY['PARTICULIER'::character varying,
+                  'VIP'::character varying,
+                  'ENTREPRISE'::character varying,
+                  'FIDELE'::character varying]::text[]
+        )
+    )
 );
+
+-- Index pour performance
+CREATE INDEX idx_client_type_discount_tenant ON public.client_type_discount(tenant_id);
 
 -- Table commande_client
 CREATE TABLE public.commande_client (
@@ -221,19 +235,26 @@ CREATE TABLE public.user_sessions (
     user_id bigint NOT NULL
 );
 
--- Table users (Version mise à jour avec last_login)
+-- =====================================================
+-- TABLE users (AJOUTÉE POUR MULTI-TENANT - Audit)
+-- =====================================================
 CREATE TABLE public.users (
-    id bigint NOT NULL,
-    active boolean NOT NULL,
-    created_at timestamp(6) without time zone,
-    email character varying(255) NOT NULL,
-    nom character varying(255),
-    password character varying(255),
-    prenom character varying(255),
-    role character varying(255) NOT NULL,
-    last_login timestamp(6) without time zone,
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['ADMIN'::character varying, 'COMMERCIAL'::character varying, 'RESPONSABLE_ACHAT'::character varying])::text[])))
+    id SERIAL PRIMARY KEY,
+    tenant_id VARCHAR(50) NOT NULL,
+    central_user_id INTEGER NOT NULL,
+    nom VARCHAR(100),
+    prenom VARCHAR(100),
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    est_actif BOOLEAN DEFAULT TRUE,
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_users_tenant ON public.users(tenant_id);
+CREATE INDEX idx_users_central_user_id ON public.users(central_user_id);
+CREATE INDEX idx_users_email ON public.users(email);
 
 -- =====================================================
 -- 3. CRÉATION DES SÉQUENCES
@@ -304,18 +325,12 @@ CREATE SEQUENCE public.user_sessions_id_seq START WITH 1 INCREMENT BY 1 NO MINVA
 ALTER SEQUENCE public.user_sessions_id_seq OWNED BY public.user_sessions.id;
 ALTER TABLE public.user_sessions ALTER COLUMN id SET DEFAULT nextval('public.user_sessions_id_seq');
 
--- Séquence pour users
-CREATE SEQUENCE public.users_id_seq START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
-ALTER TABLE public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq');
-
 -- =====================================================
 -- 4. CRÉATION DES CONTRAINTES (Primary Keys)
 -- =====================================================
 
 ALTER TABLE ONLY public.categorie ADD CONSTRAINT categorie_pkey PRIMARY KEY (id_categorie);
 ALTER TABLE ONLY public.client ADD CONSTRAINT client_pkey PRIMARY KEY (id_client);
-ALTER TABLE ONLY public.client_type_discount ADD CONSTRAINT client_type_discount_pkey PRIMARY KEY (type_client);
 ALTER TABLE ONLY public.commande_client ADD CONSTRAINT commande_client_pkey PRIMARY KEY (id_commande_client);
 ALTER TABLE ONLY public.commandes_fournisseurs ADD CONSTRAINT commandes_fournisseurs_pkey PRIMARY KEY (id_commande_fournisseur);
 ALTER TABLE ONLY public.facture_client ADD CONSTRAINT facture_client_pkey PRIMARY KEY (id_facture_client);
@@ -327,7 +342,6 @@ ALTER TABLE ONLY public.password_reset_tokens ADD CONSTRAINT password_reset_toke
 ALTER TABLE ONLY public.produit ADD CONSTRAINT produit_pkey PRIMARY KEY (id_produit);
 ALTER TABLE ONLY public.stock_movement ADD CONSTRAINT stock_movement_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.user_sessions ADD CONSTRAINT user_sessions_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 -- =====================================================
 -- 5. CRÉATION DES CONTRAINTES UNIQUES

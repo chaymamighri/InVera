@@ -25,27 +25,22 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Utilisateur user) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getId());
-        claims.put("email", user.getEmail());
-        claims.put("nom", user.getNom());
-        claims.put("prenom", user.getPrenom());
-        claims.put("role", "ROLE_" + user.getRole().name());
-
+    public String generateToken(String email, String role, Long clientId, String databaseName) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(user.getEmail())
+                .setSubject(email)
+                .claim("email", email)
+                .claim("role", role)
+                .claim("clientId", clientId)
+                .claim("database", databaseName)
+                .claim("type", "CLIENT")
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
-
-    // Dans JwtTokenProvider.java - Ajouter cette méthode
 
     /**
      * Génère un token d'activation (valable 24h)

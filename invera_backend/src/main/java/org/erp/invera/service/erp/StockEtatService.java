@@ -1,134 +1,125 @@
 package org.erp.invera.service.erp;
 
 import lombok.RequiredArgsConstructor;
-
 import org.erp.invera.dto.erp.stockmouvement.StockEtatDTO;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.model.erp.Produit.StockStatus;
-import org.erp.invera.model.erp.stock.StockMovement;
-import org.erp.invera.model.erp.stock.StockMovement.MovementType;
-import org.erp.invera.repository.erp.ProduitRepository;
-import org.erp.invera.repository.erp.StockMovementRepository;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
+import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Service d'état des stocks.
- *
- * Ce fichier calcule et fournit la situation actuelle des stocks :
- * - Quantité disponible pour chaque produit
- * - Statut du stock (EN_STOCK, FAIBLE, CRITIQUE, RUPTURE)
- * - Valeur totale du stock (quantité x prix unitaire)
- * - Filtrage par catégorie, seuil d'alerte ou rupture
- *
- * Il met également à jour automatiquement le statut des produits
- * dans la base de données quand leur niveau de stock change.
+ * Service d'état des stocks - MULTI-TENANT.
+ * Architecture : 1 base = 1 client → Pas besoin de tenant_id dans les requêtes
  */
 @Service
 @RequiredArgsConstructor
 public class StockEtatService {
 
-    private final ProduitRepository produitRepository;
-    private final StockMovementRepository stockMovementRepository;
+    private final TenantAwareRepository tenantRepo;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    // ==================== ROW MAPPER ====================
+
+    private RowMapper<Produit> produitRowMapper() {
+        return (rs, rowNum) -> {
+            Produit produit = new Produit();
+            produit.setIdProduit(rs.getInt("id_produit"));
+            produit.setLibelle(rs.getString("libelle"));
+            produit.setPrixVente(rs.getDouble("prix_vente"));
+            produit.setQuantiteStock(rs.getInt("quantite_stock"));
+            produit.setSeuilMinimum(rs.getInt("seuil_minimum"));
+            produit.setActive(rs.getBoolean("is_active"));
+
+            String status = rs.getString("status");
+            if (status != null) {
+                produit.setStatus(StockStatus.valueOf(status));
+            }
+
+            String uniteMesure = rs.getString("unite_mesure");
+            if (uniteMesure != null) {
+                produit.setUniteMesure(Produit.UniteMesure.valueOf(uniteMesure));
+            }
+
+            // Catégorie
+            if (rs.getObject("categorie_id") != null) {
+                org.erp.invera.model.erp.Categorie categorie = new org.erp.invera.model.erp.Categorie();
+                categorie.setIdCategorie(rs.getInt("categorie_id"));
+                categorie.setNomCategorie(rs.getString("categorie_nom"));
+                produit.setCategorie(categorie);
+            }
+
+            return produit;
+        };
+    }
+
+    private Long getClientIdFromToken(String token) {
+        return jwtTokenProvider.getClientIdFromToken(token);
+    }
+
+    // ==================== MÉTHODES ====================
 
     /**
      * Obtenir l'état de stock complet avec filtres
      */
-    public List<StockEtatDTO> getEtatStock(
-            Integer categorieId,
-            Boolean seuilAlerte,
-            Boolean rupture) {
+    public List<StockEtatDTO> getEtatStock(Integer categorieId, Boolean seuilAlerte, Boolean rupture, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
 
-        // Prendre les produits actifs
-        List<Produit> produits = produitRepository.findByActiveTrue();
+        // ✅ PAS de tenant_id dans la requête (1 base = 1 client)
+        StringBuilder sql = new StringBuilder("""
+            SELECT p.*, 
+                   c.id_categorie as categorie_id, 
+                   c.nom_categorie as categorie_nom
+            FROM produit p
+            LEFT JOIN categorie c ON p.categorie_id = c.id_categorie
+            WHERE p.is_active = true
+            """);
 
-        // 🔍 LOG pour voir les statuts en base
-        System.out.println("========== STATUTS PRODUITS EN BASE ==========");
-        for (Produit p : produits) {
-            System.out.println("Produit: " + p.getLibelle() + " | Stock: " + p.getQuantiteStock() + " | Seuil: " + p.getSeuilMinimum() + " | Statut BD: " + p.getStatus());
+        if (categorieId != null) {
+            sql.append(" AND p.categorie_id = ").append(categorieId);
         }
+        sql.append(" ORDER BY p.libelle");
 
-        List<StockEtatDTO> result = produits.stream()
+        List<Produit> produits = tenantRepo.query(sql.toString(), produitRowMapper(), clientId, authClientId);
+
+        return produits.stream()
                 .map(produit -> {
-                    // ✅ Utilisez directement la quantité du produit
-                    Integer quantiteActuelle = produit.getQuantiteStock();
-
-                    // Mettre à jour le statut du produit dans la base de données
-                    mettreAJourStatutProduit(produit, quantiteActuelle);
-
-                    // Utiliser le statut du produit
-                    String statutStock = produit.getStatus().name();
-
+                    Integer quantiteActuelle = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
+                    String statutStock = determinerStatut(produit, quantiteActuelle).name();
                     return convertToDTO(produit, quantiteActuelle, statutStock);
                 })
                 .filter(dto -> appliquerFiltres(dto, categorieId, seuilAlerte, rupture))
                 .sorted(Comparator.comparing(StockEtatDTO::getLibelle))
                 .collect(Collectors.toList());
-
-        return result;
     }
 
     /**
-     *  Mettre à jour le statut du produit en fonction de la quantité actuelle
-     */
-    @Transactional
-    public void mettreAJourStatutProduit(Produit produit, Integer quantiteActuelle) {
-        StockStatus nouveauStatut = determinerStatut(produit, quantiteActuelle);
-
-        if (produit.getStatus() != nouveauStatut) {
-            produit.setStatus(nouveauStatut);
-            produitRepository.save(produit);
-        }
-    }
-
-    /**
-     *  Définir et Déterminer le statut en fonction de la === quantité et du seuil ====
+     * Déterminer le statut en fonction de la quantité et du seuil
      */
     private StockStatus determinerStatut(Produit produit, Integer quantiteActuelle) {
         Integer seuilMinimum = produit.getSeuilMinimum();
 
-        if (quantiteActuelle == 0) {
+        if (quantiteActuelle == null || quantiteActuelle == 0) {
             return StockStatus.RUPTURE;
         }
 
-        if (seuilMinimum != null) {
-            // Critique : moins de 20% du seuil minimum
+        if (seuilMinimum != null && seuilMinimum > 0) {
             int seuilCritique = Math.max(1, seuilMinimum / 5);
             if (quantiteActuelle <= seuilCritique) {
                 return StockStatus.CRITIQUE;
             }
-
-            // Faible : inférieur ou égal au seuil minimum
             if (quantiteActuelle <= seuilMinimum) {
                 return StockStatus.FAIBLE;
             }
         }
 
         return StockStatus.EN_STOCK;
-    }
-
-    /**
-     * Calculer le stock actuel pour tous les produits
-     */
-    private Map<Integer, Integer> calculerStockActuel(List<StockMovement> mouvements) {
-        Map<Integer, Integer> stockMap = new HashMap<>();
-
-        for (StockMovement mouvement : mouvements) {
-            Integer produitId = mouvement.getProduit().getIdProduit();
-            Integer quantite = mouvement.getQuantite();
-
-            if (mouvement.getTypeMouvement() == MovementType.ENTREE) {
-                stockMap.put(produitId, stockMap.getOrDefault(produitId, 0) + quantite);
-            } else if (mouvement.getTypeMouvement() == MovementType.SORTIE) {
-                stockMap.put(produitId, stockMap.getOrDefault(produitId, 0) - quantite);
-            }
-        }
-
-        return stockMap;
     }
 
     /**
@@ -142,10 +133,8 @@ public class StockEtatService {
         dto.setQuantiteActuelle(quantiteActuelle);
         dto.setUnite(produit.getUniteMesure() != null ? produit.getUniteMesure().name() : "PIECE");
 
-        BigDecimal prixUnitaire = produit.getPrixVente() != null ?
-                BigDecimal.valueOf(produit.getPrixVente()) : BigDecimal.ZERO;
+        BigDecimal prixUnitaire = BigDecimal.valueOf(produit.getPrixVente());
         dto.setPrixUnitaire(prixUnitaire);
-
         dto.setSeuilAlerte(produit.getSeuilMinimum());
         dto.setStatutStock(statutStock);
 
@@ -164,25 +153,18 @@ public class StockEtatService {
     /**
      * Appliquer les filtres
      */
-    private boolean appliquerFiltres(StockEtatDTO dto,
-                                     Integer categorieId,
-                                     Boolean seuilAlerte,
-                                     Boolean rupture) {
-        // Filtre par catégorie
+    private boolean appliquerFiltres(StockEtatDTO dto, Integer categorieId, Boolean seuilAlerte, Boolean rupture) {
         if (categorieId != null && !categorieId.equals(dto.getCategorieId())) {
             return false;
         }
 
-        // Filtre par seuil d'alerte (produits FAIBLE ou CRITIQUE)
         if (seuilAlerte != null && seuilAlerte &&
                 !"FAIBLE".equals(dto.getStatutStock()) &&
                 !"CRITIQUE".equals(dto.getStatutStock())) {
             return false;
         }
 
-        // Filtre par rupture
-        if (rupture != null && rupture &&
-                !"RUPTURE".equals(dto.getStatutStock())) {
+        if (rupture != null && rupture && !"RUPTURE".equals(dto.getStatutStock())) {
             return false;
         }
 
@@ -190,9 +172,9 @@ public class StockEtatService {
     }
 
     /**
-     * ✅ Obtenir les produits en rupture de stock
+     * Obtenir les produits en rupture de stock
      */
-    public List<StockEtatDTO> getProduitsEnRupture() {
-        return getEtatStock(null, null, true);
+    public List<StockEtatDTO> getProduitsEnRupture(String token) {
+        return getEtatStock(null, null, true, token);
     }
 }

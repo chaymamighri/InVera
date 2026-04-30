@@ -16,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +24,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/api/platform/clients")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class PlatformClientController {
 
@@ -150,9 +148,8 @@ public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request
     }
 
     // ========== 2. UPLOAD JUSTIFICATIFS ==========
-
     /**
-     * Upload des justificatifs avec chiffrement automatique
+     * Upload des justificatifs
      * POST /api/platform/clients/{id}/justificatifs
      */
     @PostMapping(value = "/{id}/justificatifs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -188,12 +185,12 @@ public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request
             // Convertir le type document
             DocumentUploadService.DocumentType docType = mapToDocumentType(typeDocument);
 
-            // Upload et chiffrement
-            String encryptedPath = documentUploadService.uploadJustificatif(id, file, docType);
-            log.info("✅ Fichier chiffré sauvegardé: {}", encryptedPath);
+            // Upload (sans chiffrement maintenant)
+            String filePath = documentUploadService.uploadJustificatif(id, file, docType);
+            log.info("✅ Fichier sauvegardé: {}", filePath);  // Changé: "chiffré" → "sauvegardé"
 
             // Mettre à jour l'URL dans l'entité
-            updateDocumentUrl(client, docType, encryptedPath);
+            updateDocumentUrl(client, docType, filePath);
 
             // Sauvegarder
             Client savedClient = clientRepository.save(client);
@@ -204,10 +201,9 @@ public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request
             response.put("message", "Justificatif soumis avec succès");
             response.put("statut", savedClient.getStatut().getLabel());
             response.put("typeDocument", typeDocument);
-            response.put("fileUrl", encryptedPath);
+            response.put("fileUrl", filePath);
 
-            log.info("✅ Justificatif {} uploadé pour client {} (toujours en attente de validation)",
-                    typeDocument, client.getEmail());
+            log.info("✅ Justificatif {} uploadé pour client {}", typeDocument, client.getEmail());
 
             return ResponseEntity.ok(response);
 
@@ -220,6 +216,70 @@ public ResponseEntity<?> register(@RequestBody ClientRegistrationRequest request
         }
     }
 
+
+    // Dans PlatformClientController.java
+    @GetMapping("/{id}/document/{type}")
+    public ResponseEntity<?> getDocument(@PathVariable Long id, @PathVariable String type) {
+        try {
+            Client client = clientPlatformService.getClientById(id);
+            String filePath = null;
+
+            switch (type.toLowerCase()) {
+                case "cin":
+                    filePath = client.getCinUrl();
+                    break;
+                case "gerantcin":
+                    filePath = client.getGerantCinUrl();
+                    break;
+                case "patente":
+                    filePath = client.getPatenteUrl();
+                    break;
+                case "rne":
+                    filePath = client.getRneUrl();
+                    break;
+                default:
+                    return ResponseEntity.badRequest().body(Map.of("error", "Type de document inconnu"));
+            }
+
+            if (filePath == null || filePath.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Lecture directe du fichier
+            byte[] content = documentUploadService.getDocument(filePath);
+
+            // Déterminer le type MIME
+            String contentType = "application/pdf";
+            if (filePath.toLowerCase().endsWith(".jpg") || filePath.toLowerCase().endsWith(".jpeg")) {
+                contentType = "image/jpeg";
+            } else if (filePath.toLowerCase().endsWith(".png")) {
+                contentType = "image/png";
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(content);
+
+        } catch (Exception e) {
+            log.error("Erreur chargement document: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+    /**
+     * Récupérer TOUS les clients (pour le super admin)
+     * GET /api/platform/clients/all
+     */
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllClients() {
+        try {
+            log.info("GET /api/platform/clients/all - Récupération de tous les clients");
+            List<Client> allClients = clientPlatformService.getAllClients();
+            return ResponseEntity.ok(allClients);
+        } catch (Exception e) {
+            log.error("Erreur getAllClients: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
     private boolean hasAllRequiredDocuments(Client client) {
         if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {

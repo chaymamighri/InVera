@@ -1,15 +1,16 @@
 package org.erp.invera.service.erp;
 
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.client.Client;
 import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.client.FactureClient;
-import org.erp.invera.repository.erp.CommandeClientRepository;
-import org.erp.invera.repository.erp.FactureClientRepository;
-import org.erp.invera.repository.erp.ClientRepository;
-import lombok.RequiredArgsConstructor;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
+import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -19,190 +20,203 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
 /**
- * Service de génération de rapports (ventes, factures, clients).
- *
- * Ce fichier génère des rapports pour l'analyse commerciale :
- *
- * 1. RAPPORT DES VENTES :
- *    - Chiffre d'affaires total
- *    - Nombre de commandes et panier moyen
- *    - Taux de transformation
- *    - Détail des commandes (avec responsable)
- *    - Statistiques par statut (confirmée, livrée, annulée...)
- *
- * 2. RAPPORT DES FACTURES :
- *    - Montant total facturé
- *    - Factures payées vs impayées
- *    - Taux de recouvrement
- *    - Factures en retard (+30 jours)
- *
- * 3. RAPPORT DES CLIENTS :
- *    - Clients actifs vs inactifs
- *    - Top 10 clients (par chiffre d'affaires)
- *    - Répartition par type (particulier, professionnel...)
- *
- * Tous les rapports peuvent être filtrés par période (aujourd'hui,
- * semaine, mois, trimestre, année) ou par dates personnalisées.
+ * Service de génération de rapports - MULTI-TENANT.
+ * Architecture : 1 base = 1 client
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReportService {
 
-    private final CommandeClientRepository commandeRepository;
-    private final FactureClientRepository factureRepository;
-    private final ClientRepository clientRepository;
+    private final TenantAwareRepository tenantRepo;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    // ============== RAPPORT DES COMMANDES (VENTES) ==============
+    // ==================== MÉTHODES MULTI-TENANT ====================
 
-    @Transactional
+    private Long getClientIdFromToken(HttpServletRequest request) {
+        String token = extractToken(request);
+        return jwtTokenProvider.getClientIdFromToken(token);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        throw new RuntimeException("Token JWT manquant ou invalide");
+    }
+
+    // ==================== RAPPORT DES VENTES ====================
+
     public Map<String, Object> generateSalesReport(
             String period,
             LocalDate startDate,
             LocalDate endDate,
             String clientType,
-            String status) {
+            String status,
+            HttpServletRequest request) {
 
-        System.out.println("========== generateSalesReport ==========");
-        System.out.println("period: " + period);
-        System.out.println("startDate: " + startDate);
-        System.out.println("endDate: " + endDate);
-        System.out.println("clientType: " + clientType);
-        System.out.println("status: " + status);
+        Long clientId = getClientIdFromToken(request);
+        String authClientId = String.valueOf(clientId);
 
-        // Déterminer les dates selon la période
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
-        System.out.println("DateRange start: " + dateRange.getStartDateTime());
-        System.out.println("DateRange end: " + dateRange.getEndDateTime());
+        StringBuilder sql = new StringBuilder("""
+            SELECT 
+                c.id_commande_client,
+                c.reference_commande_client,
+                c.date_commande,
+                c.total,
+                c.statut,
+                c.created_by,
+                cl.id_client,
+                cl.nom as client_nom,
+                cl.prenom as client_prenom,
+                cl.type_client
+            FROM commande_client c
+            JOIN client cl ON c.client_id = cl.id_client
+            WHERE c.date_commande BETWEEN ? AND ?
+            """);
 
-        // ✅ Récupérer TOUTES les commandes SANS LIMITE
-        List<CommandeClient> commandes;
+        List<Object> params = new ArrayList<>();
+        params.add(dateRange.getStartDateTime());
+        params.add(dateRange.getEndDateTime());
 
-        if (startDate != null && endDate != null) {
-            commandes = commandeRepository.findByDateCommandeBetween(
-                    dateRange.getStartDateTime(),
-                    dateRange.getEndDateTime()
-            );
-        } else {
-            commandes = commandeRepository.findAll();
+        if (clientType != null && !"all".equalsIgnoreCase(clientType)) {
+            sql.append(" AND cl.type_client = ?");
+            params.add(clientType);
         }
 
-        System.out.println("Total commandes avant filtres: " + commandes.size());
-
-        // Appliquer les filtres supplémentaires
-        commandes = applyCommandeFilters(commandes, clientType, status);
-
-        System.out.println("Total commandes après filtres: " + commandes.size());
-
-        // Afficher les 5 premières commandes pour déboguer
-        if (!commandes.isEmpty()) {
-            System.out.println("Exemples de commandes:");
-            commandes.stream().limit(5).forEach(cmd -> {
-                System.out.println("  - " + cmd.getReferenceCommandeClient() +
-                        " | " + cmd.getDateCommande() +
-                        " | " + cmd.getTotal() +
-                        " | " + cmd.getStatut() +
-                        " | créé par: " + cmd.getCreatedBy());
-            });
+        if (status != null && !"all".equalsIgnoreCase(status)) {
+            sql.append(" AND c.statut = ?");
+            params.add(status);
         }
 
-        // Générer le rapport
+        sql.append(" ORDER BY c.date_commande DESC");
+
+        List<CommandeClient> commandes = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+            CommandeClient cmd = new CommandeClient();
+            cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
+            cmd.setReferenceCommandeClient(rs.getString("reference_commande_client"));
+            cmd.setDateCommande(rs.getTimestamp("date_commande").toLocalDateTime());
+            cmd.setTotal(rs.getBigDecimal("total"));
+            cmd.setStatut(CommandeClient.StatutCommande.valueOf(rs.getString("statut")));
+            cmd.setCreatedBy(rs.getString("created_by"));
+
+            Client client = new Client();
+            client.setIdClient(rs.getInt("id_client"));
+            client.setNom(rs.getString("client_nom"));
+            client.setPrenom(rs.getString("client_prenom"));
+            client.setTypeClient(Client.TypeClient.valueOf(rs.getString("type_client")));
+            cmd.setClient(client);
+
+            return cmd;
+        }, clientId, authClientId, params.toArray());
+
         Map<String, Object> report = new HashMap<>();
 
-        // Résumé
         Map<String, Object> summary = new HashMap<>();
-        summary.put("totalCA", calculateTotalCA(commandes));
+        BigDecimal totalCA = calculateTotalCA(commandes);
+        summary.put("totalCA", totalCA);
         summary.put("totalCommandes", commandes.size());
         summary.put("panierMoyen", calculateAverageBasket(commandes));
         summary.put("tauxTransformation", calculateTransformationRate(commandes));
-
         report.put("summary", summary);
 
-        // Détail des commandes (INCLUT MAINTENANT created_by)
         List<Map<String, Object>> ventesList = commandes.stream()
                 .map(this::mapCommandeToDTO)
                 .collect(Collectors.toList());
         report.put("ventes", ventesList);
 
-        // Statistiques par statut
         Map<String, Object> statsByStatus = new HashMap<>();
-        Map<CommandeClient.StatutCommande, List<CommandeClient>> byStatus = commandes.stream()
+        commandes.stream()
                 .filter(cmd -> cmd.getStatut() != null)
-                .collect(Collectors.groupingBy(CommandeClient::getStatut));
-
-        byStatus.forEach((statut, list) -> {
-            Map<String, Object> statutStats = new HashMap<>();
-            statutStats.put("nombre", list.size());
-            statutStats.put("montant", list.stream()
-                    .map(CommandeClient::getTotal)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-            statsByStatus.put(statut.name(), statutStats);
-        });
+                .collect(Collectors.groupingBy(CommandeClient::getStatut))
+                .forEach((statut, list) -> {
+                    Map<String, Object> statutStats = new HashMap<>();
+                    statutStats.put("nombre", list.size());
+                    statutStats.put("montant", list.stream()
+                            .map(CommandeClient::getTotal)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+                    statsByStatus.put(statut.name(), statutStats);
+                });
         report.put("statsParStatut", statsByStatus);
 
-        // Informations sur la période
         report.put("period", period);
         if (startDate != null && endDate != null) {
             report.put("startDate", startDate.toString());
             report.put("endDate", endDate.toString());
         }
 
-        System.out.println("Rapport final - Commandes: " + ventesList.size());
-        System.out.println("=========================================");
-
         return report;
     }
 
-    // ============== RAPPORT DES FACTURES ==============
+    // ==================== RAPPORT DES FACTURES ====================
 
     public Map<String, Object> generateInvoicesReport(
             String period,
             LocalDate startDate,
             LocalDate endDate,
             String clientType,
-            String status) {
+            String status,
+            HttpServletRequest request) {
 
-        System.out.println("========== generateInvoicesReport ==========");
-        System.out.println("period: " + period);
-        System.out.println("startDate: " + startDate);
-        System.out.println("endDate: " + endDate);
-        System.out.println("clientType: " + clientType);
-        System.out.println("status: " + status);
+        Long clientId = getClientIdFromToken(request);
+        String authClientId = String.valueOf(clientId);
 
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
-        System.out.println("DateRange start: " + dateRange.getStartDateTime());
-        System.out.println("DateRange end: " + dateRange.getEndDateTime());
+        StringBuilder sql = new StringBuilder("""
+            SELECT 
+                f.id_facture_client,
+                f.reference_facture_client,
+                f.date_facture,
+                f.montant_total,
+                f.statut,
+                cl.id_client,
+                cl.nom as client_nom,
+                cl.prenom as client_prenom,
+                cl.type_client
+            FROM facture_client f
+            JOIN client cl ON f.client_id = cl.id_client
+            WHERE f.date_facture BETWEEN ? AND ?
+            """);
 
-        List<FactureClient> factures;
+        List<Object> params = new ArrayList<>();
+        params.add(dateRange.getStartDateTime());
+        params.add(dateRange.getEndDateTime());
 
-        if (startDate != null && endDate != null) {
-            factures = factureRepository.findByDateFactureBetween(
-                    dateRange.getStartDateTime(),
-                    dateRange.getEndDateTime()
-            );
-        } else {
-            factures = factureRepository.findAll();
+        if (clientType != null && !"all".equalsIgnoreCase(clientType)) {
+            sql.append(" AND cl.type_client = ?");
+            params.add(clientType);
         }
 
-        System.out.println("Total factures avant filtres: " + factures.size());
-
-        if (!factures.isEmpty()) {
-            System.out.println("Exemples de factures:");
-            factures.stream().limit(5).forEach(f -> {
-                System.out.println("  - " + f.getReferenceFactureClient() +
-                        " | " + f.getDateFacture() +
-                        " | " + f.getMontantTotal() +
-                        " | " + f.getStatut());
-            });
+        if (status != null && !"all".equalsIgnoreCase(status)) {
+            sql.append(" AND f.statut = ?");
+            params.add(status);
         }
 
-        factures = applyFactureFilters(factures, clientType, status);
+        sql.append(" ORDER BY f.date_facture DESC");
 
-        System.out.println("Total factures après filtres: " + factures.size());
+        List<FactureClient> factures = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+            FactureClient facture = new FactureClient();
+            facture.setIdFactureClient(rs.getInt("id_facture_client"));
+            facture.setReferenceFactureClient(rs.getString("reference_facture_client"));
+            facture.setDateFacture(rs.getTimestamp("date_facture").toLocalDateTime());
+            facture.setMontantTotal(rs.getBigDecimal("montant_total"));
+            facture.setStatut(FactureClient.StatutFacture.valueOf(rs.getString("statut")));
+
+            Client client = new Client();
+            client.setIdClient(rs.getInt("id_client"));
+            client.setNom(rs.getString("client_nom"));
+            client.setPrenom(rs.getString("client_prenom"));
+            client.setTypeClient(Client.TypeClient.valueOf(rs.getString("type_client")));
+            facture.setClient(client);
+
+            return facture;
+        }, clientId, authClientId, params.toArray());
 
         Map<String, Object> report = new HashMap<>();
 
@@ -256,13 +270,116 @@ public class ReportService {
             report.put("endDate", endDate.toString());
         }
 
-        System.out.println("Rapport final - Factures: " + facturesList.size());
-        System.out.println("=========================================");
+        return report;
+    }
+
+    // ==================== RAPPORT DES CLIENTS (CORRIGÉ) ====================
+
+    public Map<String, Object> generateClientsReport(
+            String period,
+            LocalDate startDate,
+            LocalDate endDate,
+            String clientType,
+            HttpServletRequest request) {
+
+        Long clientId = getClientIdFromToken(request);
+        String authClientId = String.valueOf(clientId);
+
+        DateRange dateRange = calculateDateRange(period, startDate, endDate);
+
+        // ✅ Version SANS est_actif (colonne inexistante)
+        StringBuilder sql = new StringBuilder("""
+        SELECT 
+            cl.id_client,
+            cl.nom,
+            cl.prenom,
+            cl.email,
+            cl.type_client,
+            COUNT(c.id_commande_client) as commandes,
+            COALESCE(SUM(c.total), 0) as ca
+        FROM client cl
+        LEFT JOIN commande_client c ON cl.id_client = c.client_id 
+            AND c.date_commande BETWEEN ? AND ?
+        WHERE 1=1
+        """);
+
+        List<Object> params = new ArrayList<>();
+        params.add(dateRange.getStartDateTime());
+        params.add(dateRange.getEndDateTime());
+
+        if (clientType != null && !"all".equalsIgnoreCase(clientType)) {
+            sql.append(" AND cl.type_client = ?");
+            params.add(clientType);
+        }
+
+        sql.append(" GROUP BY cl.id_client ORDER BY ca DESC LIMIT 50");
+
+        List<Map<String, Object>> topClients = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("id_client", rs.getInt("id_client"));
+            row.put("nom", rs.getString("nom"));
+            row.put("prenom", rs.getString("prenom"));
+            row.put("email", rs.getString("email"));
+            row.put("type_client", rs.getString("type_client"));
+            row.put("commandes", rs.getLong("commandes"));
+            row.put("ca", rs.getBigDecimal("ca"));
+            return row;
+        }, clientId, authClientId, params.toArray());
+
+        // Répartition par type de client
+        String repartitionSql = """
+        SELECT 
+            cl.type_client,
+            COUNT(cl.id_client) as nombre,
+            COALESCE(SUM(c.total), 0) as ca
+        FROM client cl
+        LEFT JOIN commande_client c ON cl.id_client = c.client_id 
+            AND c.date_commande BETWEEN ? AND ?
+        GROUP BY cl.type_client
+        """;
+
+        List<Map<String, Object>> repartition = tenantRepo.query(repartitionSql, (rs, rowNum) -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("type_client", rs.getString("type_client"));
+            row.put("nombre", rs.getLong("nombre"));
+            row.put("ca", rs.getBigDecimal("ca"));
+            return row;
+        }, clientId, authClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
+
+        // ✅ Résumé sans est_actif (calcul basé sur les commandes)
+        String summarySql = """
+        SELECT 
+            COUNT(*) as total,
+            COUNT(DISTINCT CASE WHEN c.id_commande_client IS NOT NULL THEN cl.id_client END) as actifs,
+            COUNT(DISTINCT CASE WHEN c.id_commande_client IS NULL THEN cl.id_client END) as inactifs
+        FROM client cl
+        LEFT JOIN commande_client c ON cl.id_client = c.client_id 
+            AND c.date_commande BETWEEN ? AND ?
+        """;
+
+        Map<String, Object> summary = tenantRepo.queryForObject(summarySql, (rs, rowNum) -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("totalClients", rs.getLong("total"));
+            row.put("clientsActifs", rs.getLong("actifs"));
+            row.put("clientsInactifs", rs.getLong("inactifs"));
+            return row;
+        }, clientId, authClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
+
+        Map<String, Object> report = new HashMap<>();
+        report.put("topClients", topClients);
+        report.put("repartitionParType", repartition);
+        report.put("summary", summary);
+        report.put("period", period);
+
+        if (startDate != null && endDate != null) {
+            report.put("startDate", startDate.toString());
+            report.put("endDate", endDate.toString());
+        }
 
         return report;
     }
 
-    // ============== MÉTHODES PRIVÉES CORRIGÉES ==============
+    // ==================== MÉTHODES PRIVÉES ====================
 
     private DateRange calculateDateRange(String period, LocalDate startDate, LocalDate endDate) {
         if (startDate != null && endDate != null) {
@@ -271,7 +388,6 @@ public class ReportService {
 
         LocalDate now = LocalDate.now();
         LocalDate start;
-        LocalDate end = now;
 
         if (period != null) {
             switch (period) {
@@ -297,47 +413,7 @@ public class ReportService {
             start = now.minusMonths(1);
         }
 
-        return new DateRange(start, end);
-    }
-
-    private List<CommandeClient> applyCommandeFilters(
-            List<CommandeClient> commandes,
-            String clientType,
-            String status) {
-
-        return commandes.stream()
-                .filter(cmd -> {
-                    if (clientType == null || "all".equals(clientType)) return true;
-                    if (cmd.getClient() == null) return false;
-                    if (cmd.getClient().getTypeClient() == null) return false;
-                    return clientType.equals(cmd.getClient().getTypeClient().name());
-                })
-                .filter(cmd -> {
-                    if (status == null || "all".equals(status)) return true;
-                    if (cmd.getStatut() == null) return false;
-                    return status.equals(cmd.getStatut().name());
-                })
-                .collect(Collectors.toList());
-    }
-
-    private List<FactureClient> applyFactureFilters(
-            List<FactureClient> factures,
-            String clientType,
-            String status) {
-
-        return factures.stream()
-                .filter(f -> {
-                    if (clientType == null || "all".equals(clientType)) return true;
-                    if (f.getClient() == null) return false;
-                    if (f.getClient().getTypeClient() == null) return false;
-                    return clientType.equals(f.getClient().getTypeClient().name());
-                })
-                .filter(f -> {
-                    if (status == null || "all".equals(status)) return true;
-                    if (f.getStatut() == null) return false;
-                    return status.equals(f.getStatut().name());
-                })
-                .collect(Collectors.toList());
+        return new DateRange(start, now);
     }
 
     private BigDecimal calculateTotalCA(List<CommandeClient> commandes) {
@@ -386,10 +462,6 @@ public class ReportService {
                 .divide(total, 2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Convertit une commande en Map pour l'API.
-     * Inclut maintenant le champ "created_by" (responsable).
-     */
     private Map<String, Object> mapCommandeToDTO(CommandeClient commande) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", commande.getIdCommandeClient());
@@ -401,12 +473,7 @@ public class ReportService {
                         (commande.getClient().getPrenom() != null ? commande.getClient().getPrenom() : "").trim() : "Client inconnu");
         map.put("montant", commande.getTotal() != null ? commande.getTotal() : BigDecimal.ZERO);
         map.put("statut", commande.getStatut() != null ? commande.getStatut().name() : "INCONNU");
-        map.put("nbProduits", commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0);
-
-        // ✅ AJOUT DU RESPONSABLE (créateur de la commande)
-        // Le champ "created_by" est automatiquement renseigné par Spring Data Auditing
         map.put("created_by", commande.getCreatedBy() != null ? commande.getCreatedBy() : "");
-
         return map;
     }
 
@@ -424,150 +491,7 @@ public class ReportService {
         return map;
     }
 
-    // ============== RAPPORT DES CLIENTS ==============
-    public Map<String, Object> generateClientsReport(
-            String period,
-            LocalDate startDate,
-            LocalDate endDate,
-            String clientType) {
-
-        System.out.println("========== generateClientsReport ==========");
-        System.out.println("period: " + period);
-        System.out.println("startDate: " + startDate);
-        System.out.println("endDate: " + endDate);
-        System.out.println("clientType: " + clientType);
-
-        List<Client> allClients = clientRepository.findAll();
-        System.out.println("Total clients en base: " + allClients.size());
-
-        List<Client> filteredClients;
-        if (clientType != null && !"all".equals(clientType) && !clientType.isEmpty()) {
-            filteredClients = allClients.stream()
-                    .filter(c -> c.getTypeClient() != null)
-                    .filter(c -> clientType.equals(c.getTypeClient().name()))
-                    .collect(Collectors.toList());
-            System.out.println("Après filtre type: " + filteredClients.size());
-        } else {
-            filteredClients = allClients;
-        }
-
-        List<CommandeClient> allCommandes = commandeRepository.findAll();
-        System.out.println("Total commandes en base: " + allCommandes.size());
-
-        Map<String, Object> report = new HashMap<>();
-
-        Map<String, Object> summary = new HashMap<>();
-        summary.put("totalClients", filteredClients.size());
-
-        Set<Integer> clientsAyantCommande = allCommandes.stream()
-                .map(c -> c.getClient().getIdClient())
-                .collect(Collectors.toSet());
-        long clientsActifs = filteredClients.stream()
-                .filter(c -> clientsAyantCommande.contains(c.getIdClient()))
-                .count();
-        long clientsInactifs = filteredClients.size() - clientsActifs;
-
-        summary.put("clientsActifs", clientsActifs);
-        summary.put("clientsInactifs", clientsInactifs);
-        report.put("summary", summary);
-
-        // Top clients
-        Map<Integer, ClientStats> statsByClient = new HashMap<>();
-        for (CommandeClient commande : allCommandes) {
-            Client client = commande.getClient();
-            if (client != null && filteredClients.contains(client)) {
-                String nomClient = (client.getNom() != null ? client.getNom() : "") + " " +
-                        (client.getPrenom() != null ? client.getPrenom() : "");
-                String type = client.getTypeClient() != null ? client.getTypeClient().name() : "NON_DEFINI";
-
-                ClientStats stats = statsByClient.getOrDefault(client.getIdClient(),
-                        new ClientStats(nomClient.trim(), type));
-                stats.addCommande(commande.getTotal());
-                statsByClient.put(client.getIdClient(), stats);
-            }
-        }
-
-        List<Map<String, Object>> topClients = statsByClient.values().stream()
-                .sorted((s1, s2) -> s2.getCa().compareTo(s1.getCa()))
-                .limit(10)
-                .map(ClientStats::toMap)
-                .collect(Collectors.toList());
-        report.put("topClients", topClients);
-
-        // Répartition par type
-        Map<String, Object> repartitionParType = new HashMap<>();
-        Map<String, List<Client>> byType = new HashMap<>();
-
-        for (Client client : filteredClients) {
-            String type = client.getTypeClient() != null ? client.getTypeClient().name() : "NON_DEFINI";
-            byType.computeIfAbsent(type, k -> new ArrayList<>()).add(client);
-        }
-
-        for (Map.Entry<String, List<Client>> entry : byType.entrySet()) {
-            String type = entry.getKey();
-            List<Client> clientList = entry.getValue();
-
-            Map<String, Object> typeStats = new HashMap<>();
-            typeStats.put("nombre", clientList.size());
-
-            BigDecimal ca = allCommandes.stream()
-                    .filter(c -> c.getClient() != null && c.getClient().getTypeClient() != null)
-                    .filter(c -> type.equals(c.getClient().getTypeClient().name()))
-                    .filter(c -> filteredClients.contains(c.getClient()))
-                    .map(CommandeClient::getTotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            typeStats.put("ca", ca);
-
-            repartitionParType.put(type, typeStats);
-        }
-        report.put("repartitionParType", repartitionParType);
-
-        report.put("period", period);
-        if (startDate != null && endDate != null) {
-            report.put("startDate", startDate.toString());
-            report.put("endDate", endDate.toString());
-        }
-
-        System.out.println("Rapport final - Clients: " + filteredClients.size());
-        System.out.println("=========================================");
-
-        return report;
-    }
-
-    // ========== CLASSES INTERNES ==============
-
-    private static class ClientStats {
-        private String nom;
-        private String type;
-        private BigDecimal ca = BigDecimal.ZERO;
-        private int commandes = 0;
-
-        public ClientStats(String nom, String type) {
-            this.nom = nom;
-            this.type = type;
-        }
-
-        public void addCommande(BigDecimal montant) {
-            this.ca = this.ca.add(montant);
-            this.commandes++;
-        }
-
-        public BigDecimal getCa() {
-            return ca;
-        }
-
-        public Map<String, Object> toMap() {
-            Map<String, Object> map = new HashMap<>();
-            map.put("nom", nom);
-            map.put("type", type);
-            map.put("ca", ca);
-            map.put("commandes", commandes);
-            map.put("panierMoyen", commandes > 0 ?
-                    ca.divide(BigDecimal.valueOf(commandes), 2, RoundingMode.HALF_UP) :
-                    BigDecimal.ZERO);
-            return map;
-        }
-    }
+    // ==================== CLASSE INTERNE ====================
 
     private static class DateRange {
         private final LocalDate startDate;
