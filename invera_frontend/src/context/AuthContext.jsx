@@ -20,6 +20,7 @@ import React, {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import { getStoredLanguage, updateLanguagePreference } from '../services/languagePreferenceService';
 
 // ===== CONSTANTES =====
 /** Intervalle de polling pour rafraîchir les données utilisateur (20 secondes) */
@@ -149,6 +150,12 @@ export const AuthProvider = ({ children }) => {
       
       applyUser(userData);
       setAuthenticated(true);
+
+      try {
+        await updateLanguagePreference(getStoredLanguage());
+      } catch (languageError) {
+        console.error('Language preference sync failed after login', languageError);
+      }
 
       // ✅ Redirection selon le rôle backend
       let dashboardPath = '/dashboard';

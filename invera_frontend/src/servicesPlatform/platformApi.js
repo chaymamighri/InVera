@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES } from '../i18n/translations';
 
 const platformApi = axios.create({
   baseURL: 'http://localhost:8081/api',
@@ -17,6 +18,10 @@ platformApi.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const currentLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    config.headers['Accept-Language'] = SUPPORTED_LANGUAGES.includes(currentLanguage)
+      ? currentLanguage
+      : DEFAULT_LANGUAGE;
     return config;
   },
   (error) => Promise.reject(error)

@@ -1,48 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import logo from '../../assets/images/logo.png';
+import PublicHeader from '../../components/PublicHeader';
+import { useLanguage } from '../../context/LanguageContext';
 import commercialStatsCapture from '../../assets/images/welcome/photo5.png';
 import achatsStatsCapture from '../../assets/images/welcome/photo1.png';
 import adminStatsCapture from '../../assets/images/welcome/photo3.png';
-
-const dashboardPreviews = [
-  {
-    title: 'Dashboard Commercial',
-    eyebrow: 'Performance commerciale',
-    description: 'Vue des statistiques commerciales, des clients et de l activite des ventes.',
-    accent: 'from-cyan-500 to-blue-500',
-    metrics: ['Ventes', 'Clients', 'Commandes'],
-    imageSrc: commercialStatsCapture,
-  },
-  {
-    title: 'Dashboard Achats',
-    eyebrow: 'Pilotage des achats',
-    description: 'Vue des approvisionnements, du stock et du suivi des operations achat.',
-    accent: 'from-emerald-500 to-teal-500',
-    metrics: ['Stock', 'Commandes', 'Fournisseurs'],
-    imageSrc: achatsStatsCapture,
-  },
-  {
-    title: 'Dashboard Admin',
-    eyebrow: 'Vue administrative',
-    description: 'Vue d ensemble des statistiques, du pilotage et du suivi global de la plateforme.',
-    accent: 'from-violet-500 to-indigo-500',
-    metrics: ['Utilisateurs', 'Suivi', 'Rapports'],
-    imageSrc: adminStatsCapture,
-  },
-];
-
-const featurePoints = [
-  'Une plateforme unique pour les ventes, les achats, le stock et la facturation.',
-  'Une gestion claire des roles pour l administration, le commercial et l approvisionnement.',
-  'Une base SaaS moderne concue pour evoluer avec les besoins du client.',
-];
-
-const companyStats = [
-  { label: 'Modules', value: '04' },
-  { label: 'Modele', value: 'SaaS' },
-  { label: 'Univers', value: 'ERP' },
-];
+import { WELCOME_PREVIEW_ACCENTS } from '../../utils/publicPageContent';
 
 const PreviewMock = ({ accent, metrics }) => (
   <div className="h-full rounded-[30px] border border-[#d9e1ef] bg-[#f8fafc] p-4 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
@@ -84,7 +47,7 @@ const PreviewMock = ({ accent, metrics }) => (
   </div>
 );
 
-const PreviewCard = ({ preview }) => (
+const PreviewCard = ({ preview, liveLabel }) => (
   <article className="w-[560px] flex-none">
     <div className="mb-4 flex items-center justify-between gap-4 px-2">
       <div>
@@ -94,7 +57,7 @@ const PreviewCard = ({ preview }) => (
         <h3 className="mt-2 text-2xl font-semibold text-slate-900">{preview.title}</h3>
       </div>
       <span className={`rounded-full bg-gradient-to-r ${preview.accent} px-3 py-1 text-xs font-semibold text-white`}>
-        Apercu live
+        {liveLabel}
       </span>
     </div>
 
@@ -118,6 +81,42 @@ const PreviewCard = ({ preview }) => (
 );
 
 const WelcomePage = () => {
+  const { t } = useLanguage();
+
+  const dashboardPreviews = [
+    {
+      title: t('welcome.dashboardCommercial'),
+      eyebrow: t('welcome.commercialEyebrow'),
+      description: t('welcome.commercialDescription'),
+      accent: WELCOME_PREVIEW_ACCENTS[0],
+      metrics: [t('welcome.metricsSales'), t('welcome.metricsClients'), t('welcome.metricsOrders')],
+      imageSrc: commercialStatsCapture,
+    },
+    {
+      title: t('welcome.dashboardProcurement'),
+      eyebrow: t('welcome.procurementEyebrow'),
+      description: t('welcome.procurementDescription'),
+      accent: WELCOME_PREVIEW_ACCENTS[1],
+      metrics: [t('welcome.metricsStock'), t('welcome.metricsOrders'), t('welcome.metricsSuppliers')],
+      imageSrc: achatsStatsCapture,
+    },
+    {
+      title: t('welcome.dashboardAdmin'),
+      eyebrow: t('welcome.adminEyebrow'),
+      description: t('welcome.adminDescription'),
+      accent: WELCOME_PREVIEW_ACCENTS[2],
+      metrics: [t('welcome.metricsUsers'), t('welcome.metricsTracking'), t('welcome.metricsReports')],
+      imageSrc: adminStatsCapture,
+    },
+  ];
+
+  const featurePoints = [t('welcome.featureOne'), t('welcome.featureTwo'), t('welcome.featureThree')];
+  const companyStats = [
+    { label: t('welcome.companyModules'), value: '04' },
+    { label: t('welcome.companyModel'), value: t('welcome.modelValue') },
+    { label: t('welcome.companyUniverse'), value: t('welcome.universeValue') },
+  ];
+
   const carouselItems = [...dashboardPreviews, ...dashboardPreviews];
 
   return (
@@ -142,78 +141,64 @@ const WelcomePage = () => {
       <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
 
       <div className="mx-auto max-w-7xl px-6 pb-24 pt-6 lg:px-8">
-        <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2">
-                <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">
-                  InVera ERP
-                </p>
-                <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des operations</h1>
-              </div>
-            </div>
-
-            <nav className="flex flex-col gap-3 sm:flex-row">
-              {/* ✅ NOUVEAU BOUTON INSCRIPTION - MIS EN AVANT */}
+        <PublicHeader
+          title={t('welcome.heroTitle')}
+          actions={
+            <>
               <Link
                 to="/register"
                 className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-emerald-600 hover:to-teal-600 hover:shadow-xl"
               >
-                🚀 S'inscrire gratuitement
+                {t('common.registerFree')}
               </Link>
               <Link
                 to="/login"
                 className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
               >
-                Se connecter
+                {t('common.login')}
               </Link>
               <Link
                 to="/more-information"
                 className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
               >
-                Plus d&apos;informations
+                {t('common.moreInformation')}
               </Link>
               <Link
                 to="/subscriptions"
                 className="rounded-full bg-[#0b2f6b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0b4ea2]"
               >
-                Abonnements
+                {t('common.subscriptions')}
               </Link>
-            </nav>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <main className="pt-14">
           <section className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
               <span className="inline-flex rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-[#0b4ea2] shadow-sm">
-                Une plateforme ERP moderne
+                {t('welcome.heroBadge')}
               </span>
 
               <h2 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.05] text-slate-950 md:text-[4.6rem]">
-                Centralisez vos ventes, vos achats, votre stock et votre pilotage dans une interface claire et professionnelle.
+                {t('welcome.heroHeading')}
               </h2>
 
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                InVera propose une experience SaaS ERP coherente, inspiree des besoins metier reels,
-                avec une presentation sobre, lisible et adaptee a l univers visuel du produit.
+                {t('welcome.heroDescription')}
               </p>
 
-              {/* ✅ BANNIÈRE PROMOTIONNELLE POUR L'INSCRIPTION */}
-              <div className="mt-8 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-200">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="mt-8 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-5">
+                <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
                   <div>
-                    <p className="text-lg font-semibold text-emerald-800">🚀 Lancez-vous sans risque !</p>
-                    <p className="text-sm text-emerald-600">Profitez de 30 connexions d'essai gratuit,sans engagement.</p>
+                    <p className="text-lg font-semibold text-emerald-800">{t('common.registerFree')}</p>
+                    <p className="text-sm text-emerald-600">{t('login.trialSoonDescription', { count: 30, suffix: 's' })}</p>
                   </div>
                   <Link
                     to="/register"
                     className="whitespace-nowrap rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-emerald-600 hover:to-teal-600"
                   >
-                    Commencer l'essai gratuit →
+                    {t('common.registerFree')} →
                   </Link>
                 </div>
               </div>
@@ -232,10 +217,10 @@ const WelcomePage = () => {
               <div className="mb-8 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-200">
-                    Pourquoi choisir InVera
+                    {t('common.moreInformation')}
                   </p>
                   <h3 className="mt-3 text-2xl font-semibold leading-tight text-white">
-                    Une presentation simple, lisible et alignee avec les besoins de gestion.
+                    {t('publicInfo.title')}
                   </h3>
                 </div>
                 <div className="hidden h-14 w-14 rounded-full border border-white/10 bg-white/10 lg:block" />
@@ -249,14 +234,6 @@ const WelcomePage = () => {
                   </div>
                 ))}
               </div>
-
-              <div className="mt-8 rounded-[28px] border border-white/10 bg-white/8 p-5">
-                <p className="text-sm font-medium text-slate-100">Offre spéciale</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  🎁Profitez de 30 connexions gratuites pour découvrir notre solution.
-                  Toutes les fonctionnalités sont disponibles pendant l'essai.
-                </p>
-              </div>
             </div>
           </section>
 
@@ -264,24 +241,22 @@ const WelcomePage = () => {
             <div className="mb-10 flex items-end justify-between gap-6">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#0b4ea2]">
-                  Vues produit
+                  {t('welcome.livePreview')}
                 </p>
                 <h3 className="mt-3 text-3xl font-semibold leading-tight text-slate-950 md:text-5xl">
-                  Captures reelles des dashboards
+                  {t('welcome.heroTitle')}
                 </h3>
                 <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
-                  Les apercus ci-dessous affichent directement vos vraies captures. Elles ont ete
-                  agrandies pour privilegier la lisibilite et une presentation plus propre.
+                  {t('publicInfo.description')}
                 </p>
               </div>
-              
-              {/* ✅ BOUTON CTA SUPPLEMENTAIRE */}
+
               <Link
                 to="/register"
-                className="hidden sm:flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-emerald-600 hover:to-teal-600"
+                className="hidden items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-emerald-600 hover:to-teal-600 sm:flex"
               >
                 <span>✨</span>
-                Essai gratuit
+                {t('common.registerFree')}
               </Link>
             </div>
 
@@ -289,7 +264,11 @@ const WelcomePage = () => {
               <div className="overflow-hidden">
                 <div className="dashboard-marquee flex w-max gap-10 px-6 pt-4 lg:px-12">
                   {carouselItems.map((preview, index) => (
-                    <PreviewCard key={`${preview.title}-${index}`} preview={preview} />
+                    <PreviewCard
+                      key={`${preview.title}-${index}`}
+                      preview={preview}
+                      liveLabel={t('welcome.livePreview')}
+                    />
                   ))}
                 </div>
               </div>

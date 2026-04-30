@@ -1,8 +1,5 @@
-// pages/superAdmin/AdminLogin.jsx - Version complète corrigée
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { superAdminService } from '../../servicesPlatform/superAdminService';
 import toast from 'react-hot-toast';
 import {
   Mail,
@@ -11,12 +8,16 @@ import {
   EyeOff,
   LogIn,
   AlertCircle,
-  Shield
+  Shield,
 } from 'lucide-react';
-
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { useLanguage } from '../../context/LanguageContext';
+import { superAdminService } from '../../servicesPlatform/superAdminService';
+import { getStoredLanguage, updateLanguagePreference } from '../../services/languagePreferenceService';
 import logoInvera from '../../assets/images/logo.png';
 
 const AdminLogin = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,14 +29,14 @@ const AdminLogin = () => {
 
   const validateEmail = (value) => {
     const trimmed = (value || '').trim();
-    if (!trimmed) return 'Email requis';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'Email invalide';
+    if (!trimmed) return t('adminLogin.emailRequired');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return t('adminLogin.invalidEmail');
     return null;
   };
 
   const validatePassword = (value) => {
-    if (!value) return 'Mot de passe requis';
-    if (value.length < 6) return 'Minimum 6 caractères';
+    if (!value) return t('adminLogin.passwordRequired');
+    if (value.length < 6) return t('adminLogin.passwordMin');
     return null;
   };
 
@@ -49,86 +50,80 @@ const AdminLogin = () => {
     if (field === 'email') setEmail(value);
     if (field === 'password') setPassword(value);
     if (touched[field]) {
-      setErrors(prev => ({ ...prev, [field]: validateField(field, value) }));
+      setErrors((prev) => ({ ...prev, [field]: validateField(field, value) }));
     }
     if (errorMessage) setErrorMessage('');
   };
 
   const handleBlur = (field) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
     const val = field === 'email' ? email : password;
-    setErrors(prev => ({ ...prev, [field]: validateField(field, val) }));
+    setErrors((prev) => ({ ...prev, [field]: validateField(field, val) }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
     setErrors({ email: emailError, password: passwordError });
     setTouched({ email: true, password: true });
-    
+
     if (emailError || passwordError) return;
 
     setLoading(true);
     setErrorMessage('');
-    
+
     try {
       const response = await superAdminService.login(email, password);
-      
-      console.log('📊 Réponse reçue:', response);
-      
-      // ✅ Vérification du token
+
       if (!response || !response.token) {
-        throw new Error('Token manquant dans la réponse');
+        throw new Error(t('adminLogin.sessionExpired'));
       }
-      
-      // ✅ Stockage aligne pour tous les ecrans super admin
-      localStorage.clear(); // Nettoyer les anciennes données
-      
+
+      localStorage.clear();
       localStorage.setItem('token', response.token);
       localStorage.setItem('adminToken', response.token);
       localStorage.setItem('userRole', 'SUPER_ADMIN');
       localStorage.setItem('userName', response.nom);
       localStorage.setItem('userEmail', response.email);
-      
-      // Stockage spécifique pour Super Admin
-      localStorage.setItem('adminInfo', JSON.stringify({
-        id: response.id,
-        nom: response.nom,
-        email: response.email,
-        role: 'SUPER_ADMIN'
-      }));
-      localStorage.setItem('superAdminInfo', JSON.stringify({
-        id: response.id,
-        nom: response.nom,
-        email: response.email,
-        role: 'SUPER_ADMIN'
-      }));
-      
-      // ✅ Vérification du stockage
-      console.log('✅ Stockage effectué:');
-      console.log('  - token:', localStorage.getItem('token') ? 'Présent' : 'ABSENT');
-      console.log('  - adminToken:', localStorage.getItem('adminToken') ? 'Présent' : 'ABSENT');
-      console.log('  - userRole:', localStorage.getItem('userRole'));
-      console.log('  - userName:', localStorage.getItem('userName'));
-      console.log('  - userEmail:', localStorage.getItem('userEmail'));
-      
-      toast.success(`Bienvenue ${response.nom} !`);
-      
-      // ✅ Redirection vers /dashboard
+      localStorage.setItem(
+        'adminInfo',
+        JSON.stringify({
+          id: response.id,
+          nom: response.nom,
+          email: response.email,
+          role: 'SUPER_ADMIN',
+        })
+      );
+      localStorage.setItem(
+        'superAdminInfo',
+        JSON.stringify({
+          id: response.id,
+          nom: response.nom,
+          email: response.email,
+          role: 'SUPER_ADMIN',
+        })
+      );
+
+      toast.success(t('adminLogin.welcome', { name: response.nom }));
+
+      try {
+        await updateLanguagePreference(getStoredLanguage());
+      } catch (languageError) {
+        console.error('Language sync failed after super admin login', languageError);
+      }
+
       navigate('/super-admin/dashboard', { replace: true });
-      
     } catch (error) {
-      console.error('❌ Erreur login super admin:', error);
-      
-      const errorMsg = error.response?.data?.error || 
-                       error.response?.data?.message || 
-                       error.message ||
-                       'Email ou mot de passe incorrect';
-      
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        t('adminLogin.incorrectCredentials');
+
       setErrorMessage(errorMsg);
-      toast.error('Échec de la connexion');
+      toast.error(t('adminLogin.loginImpossible'));
     } finally {
       setLoading(false);
     }
@@ -137,75 +132,64 @@ const AdminLogin = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="w-full max-w-[500px]">
-
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-blue-100/50 overflow-hidden shadow-xl">
-          
-          {/* Header */}
-          <div className="bg-white px-8 pt-8 pb-4 border-b border-gray-100">
+        <div className="overflow-hidden rounded-2xl border border-blue-100/50 bg-white shadow-xl">
+          <div className="border-b border-gray-100 bg-white px-8 pb-4 pt-8">
             <div className="flex items-center justify-between">
-              
-              {/* Logo */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-blue-400/50 shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-blue-400/50 bg-blue-500/20 shadow-sm backdrop-blur-sm">
                   <img
                     src={logoInvera}
                     alt="InVera Logo"
-                    className="w-7 h-7 object-contain"
+                    className="h-7 w-7 object-contain"
                   />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-gray-800">InVera ERP</h1>
-                  <p className="text-[10px] text-gray-400">Plateforme de gestion</p>
+                  <h1 className="text-lg font-bold text-gray-800">{t('common.appName')}</h1>
+                  <p className="text-[10px] text-gray-400">{t('adminLogin.platformLabel')}</p>
                 </div>
               </div>
 
-              {/* Badge Super Admin */}
-              <div className="flex items-center gap-2 bg-purple-500/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-purple-400/50 shadow-sm">
-                <Shield className="w-3.5 h-3.5 text-purple-600" />
-                <span className="text-[10px] font-medium text-purple-700 tracking-wide">SUPER ADMIN</span>
+              <div className="flex items-center gap-2 rounded-full border border-purple-400/50 bg-purple-500/20 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+                <Shield className="h-3.5 w-3.5 text-purple-600" />
+                <span className="text-[10px] font-medium tracking-wide text-purple-700">
+                  {t('adminLogin.superAdmin')}
+                </span>
               </div>
-
+            </div>
+            <div className="mt-4 flex justify-end">
+              <LanguageSwitcher menuClassName="z-[100]" variant="light" />
             </div>
           </div>
 
-          {/* Form body */}
           <div className="px-8 py-8">
-
-            {/* Titre */}
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">Connexion Super Admin</h1>
-              <p className="text-[13px] text-gray-500 mt-1">
-                Accès à la plateforme d'administration
-              </p>
+            <div className="mb-6 text-center">
+              <h1 className="text-2xl font-bold text-gray-800">{t('adminLogin.title')}</h1>
+              <p className="mt-1 text-[13px] text-gray-500">{t('adminLogin.subtitle')}</p>
             </div>
 
-            {/* Error banner */}
             {errorMessage && (
-              <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6">
-                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
                 <div className="flex-1">
-                  <p className="text-[13px] font-semibold text-red-700">Connexion impossible</p>
-                  <p className="text-[12px] text-red-600 mt-0.5">{errorMessage}</p>
+                  <p className="text-[13px] font-semibold text-red-700">{t('adminLogin.loginImpossible')}</p>
+                  <p className="mt-0.5 text-[12px] text-red-600">{errorMessage}</p>
                 </div>
                 <button
                   onClick={() => setErrorMessage('')}
-                  className="text-red-400 hover:text-red-600 transition-colors"
+                  className="text-red-400 transition-colors hover:text-red-600"
                 >
-                  ✕
+                  ×
                 </button>
               </div>
             )}
 
             <form onSubmit={handleSubmit} noValidate>
-
-              {/* Email */}
               <div className="mb-5">
-                <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Email
+                <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wide text-gray-500">
+                  {t('adminLogin.email')}
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="email"
                     value={email}
@@ -213,28 +197,27 @@ const AdminLogin = () => {
                     onBlur={() => handleBlur('email')}
                     placeholder="admin@invera.com"
                     disabled={loading}
-                    className={`w-full pl-9 pr-3 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-purple-400 transition-all placeholder:text-gray-300 disabled:opacity-50
-                      ${touched.email && errors.email
-                        ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-                        : 'border-gray-200 focus:border-purple-400'
-                      }`}
+                    className={`w-full rounded-lg border bg-gray-50 py-3 pl-9 pr-3 text-[15px] placeholder:text-gray-300 transition-all focus:border-purple-400 focus:bg-white focus:outline-none disabled:opacity-50 ${
+                      touched.email && errors.email
+                        ? 'border-red-300 bg-red-50/30 focus:border-red-400'
+                        : 'border-gray-200'
+                    }`}
                   />
                 </div>
                 {touched.email && errors.email && (
-                  <p className="flex items-center gap-1 mt-2 text-[12px] text-red-500 ml-0.5">
-                    <AlertCircle className="w-3 h-3" />
+                  <p className="ml-0.5 mt-2 flex items-center gap-1 text-[12px] text-red-500">
+                    <AlertCircle className="h-3 w-3" />
                     {errors.email}
                   </p>
                 )}
               </div>
 
-              {/* Password */}
               <div className="mb-7">
-                <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Mot de passe
+                <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wide text-gray-500">
+                  {t('adminLogin.password')}
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type={obscurePassword ? 'password' : 'text'}
                     value={password}
@@ -242,63 +225,56 @@ const AdminLogin = () => {
                     onBlur={() => handleBlur('password')}
                     placeholder="••••••••"
                     disabled={loading}
-                    className={`w-full pl-9 pr-10 py-3 text-[15px] rounded-lg border bg-gray-50 focus:outline-none focus:bg-white focus:border-purple-400 transition-all placeholder:text-gray-300 disabled:opacity-50
-                      ${touched.password && errors.password
-                        ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-                        : 'border-gray-200 focus:border-purple-400'
-                      }`}
+                    className={`w-full rounded-lg border bg-gray-50 py-3 pl-9 pr-10 text-[15px] placeholder:text-gray-300 transition-all focus:border-purple-400 focus:bg-white focus:outline-none disabled:opacity-50 ${
+                      touched.password && errors.password
+                        ? 'border-red-300 bg-red-50/30 focus:border-red-400'
+                        : 'border-gray-200'
+                    }`}
                   />
                   <button
                     type="button"
                     onClick={() => setObscurePassword(!obscurePassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                     tabIndex={-1}
                   >
-                    {obscurePassword
-                      ? <EyeOff className="w-4 h-4" />
-                      : <Eye className="w-4 h-4" />
-                    }
+                    {obscurePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {touched.password && errors.password && (
-                  <p className="flex items-center gap-1 mt-2 text-[12px] text-red-500 ml-0.5">
-                    <AlertCircle className="w-3 h-3" />
+                  <p className="ml-0.5 mt-2 flex items-center gap-1 text-[12px] text-red-500">
+                    <AlertCircle className="h-3 w-3" />
                     {errors.password}
                   </p>
                 )}
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-[0.98] text-white text-[15px] font-medium py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 py-3 text-[15px] font-medium text-white shadow-md transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
                   <>
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
                       <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                    Connexion en cours…
+                    {t('adminLogin.connecting')}
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
-                    Se connecter
+                    <LogIn className="h-4 w-4" />
+                    {t('adminLogin.connect')}
                   </>
                 )}
               </button>
-
             </form>
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-[11px] text-gray-400 mt-5">
-          © {new Date().getFullYear()} InVera ERP — Tous droits réservés
+        <p className="mt-5 text-center text-[11px] text-gray-400">
+          © {new Date().getFullYear()} {t('common.appName')} — {t('common.allRightsReserved')}
         </p>
-
       </div>
     </div>
   );

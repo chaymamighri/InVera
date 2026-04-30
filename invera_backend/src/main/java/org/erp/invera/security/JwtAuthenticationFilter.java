@@ -34,6 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private SessionManagementService sessionManagementService;
 
     // LISTE DES ENDPOINTS PUBLICS (sans authentification)
+
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -56,7 +57,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     );
 
     public JwtAuthenticationFilter() {
-        // Constructeur vide pour Spring
     }
 
     @PostConstruct
@@ -106,6 +106,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
+        if (path.startsWith("/api/public/")) {
+            System.out.println("🔓 FORCE PUBLIC BYPASS: " + path);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (shouldNotFilter(request)) {
             filterChain.doFilter(request, response);
             return;
@@ -135,11 +141,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 return;
             } else if ("CLIENT".equals(type)) {
-                if (!handleClient(request, response, claims, jwt)) {
+                boolean authenticated = handleClient(request, response, claims, jwt);
+                if (!authenticated) {
                     return;
                 }
             } else {
-                if (!handleErp(request, response, claims, jwt)) {
+                boolean authenticated = handleErp(request, response, claims, jwt);
+                if (!authenticated) {
                     return;
                 }
             }
@@ -161,8 +169,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    // ==================== TRAITEMENT SUPER ADMIN ====================
-
     private void handleSuperAdmin(HttpServletRequest request,
                                   HttpServletResponse response,
                                   Map<String, Object> claims,
@@ -183,13 +189,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Email: " + email);
         System.out.println("   - Nom: " + nom);
 
-        // ✅ Enregistrer la session
-        if (email != null) {
-            sessionManagementService.registerSession(email, jwt);
-        }
+        sessionManagementService.registerSession(email, jwt);
 
-        // ✅ Vérifier la session
-        if (email == null || !sessionManagementService.isSessionValid(email, jwt)) {
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
             System.out.println("🔒 Session invalide pour " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
@@ -213,8 +215,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         System.out.println("✅ Super admin authenticated");
     }
-
-    // ==================== TRAITEMENT CLIENT ====================
 
     private boolean handleClient(HttpServletRequest request,
                                  HttpServletResponse response,
@@ -244,10 +244,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // ✅ AJOUT : Enregistrer la session AVANT de la vérifier
         sessionManagementService.registerSession(email, jwt);
 
-        // ✅ Vérifier la session
         if (!sessionManagementService.isSessionValid(email, jwt)) {
             System.out.println("🔒 Session invalide pour client: " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -256,13 +254,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // Extraire le nom du rôle sans préfixe ROLE_
         String roleValue = role;
         if (roleValue.startsWith("ROLE_")) {
             roleValue = roleValue.substring(5);
         }
 
-        // Vérifier si le rôle existe
         Utilisateur.RoleUtilisateur clientRole = null;
         for (Utilisateur.RoleUtilisateur r : Utilisateur.RoleUtilisateur.values()) {
             if (r.name().equals(roleValue)) {
@@ -277,7 +273,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // Créer l'utilisateur
         Utilisateur utilisateur = new Utilisateur();
         utilisateur.setEmail(email);
         utilisateur.setNom(nom);
@@ -304,8 +299,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return true;
     }
 
-    // ==================== TRAITEMENT ERP ====================
-
     private boolean handleErp(HttpServletRequest request,
                               HttpServletResponse response,
                               Map<String, Object> claims,
@@ -326,10 +319,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // ✅ AJOUT : Enregistrer la session AVANT de la vérifier
         sessionManagementService.registerSession(email, jwt);
 
-        // ✅ Vérifier la session
         if (!sessionManagementService.isSessionValid(email, jwt)) {
             System.out.println("🔒 Session invalide pour ERP user: " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -346,7 +337,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         user.setNom(nom);
         user.setPrenom(prenom);
 
-        // Vérifier le rôle
         String roleValue = role;
         if (roleValue.startsWith("ROLE_")) {
             roleValue = roleValue.substring(5);

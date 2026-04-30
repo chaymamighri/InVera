@@ -77,6 +77,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // ========== PUBLIC API ==========
+                        .requestMatchers("/api/public/**").permitAll()
+
                         // ========== AUTH PUBLICS ==========
                         .requestMatchers(
                                 "/api/auth/login",
@@ -85,7 +88,6 @@ public class SecurityConfig {
                                 "/api/auth/reset-password",
                                 "/api/auth/activation-link",
                                 "/api/auth/activation-link-info",
-                                "/api/auth/activate-account",
                                 "/api/auth/create-password",
                                 "/api/platform/clients/register",
                                 "/api/platform/clients/login",
@@ -94,9 +96,18 @@ public class SecurityConfig {
                                 "/api/platform/clients/*/document/*"
                         ).permitAll()
 
-                        // ENDPOINTS POUR ABONNEMENTS (CLIENT)
+                        // ========== SUPER ADMIN AUTH PUBLIC ==========
+                        .requestMatchers(
+                                "/api/super-admin/login",
+                                "/api/super-admin/register"
+                        ).permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/api/public/offres").permitAll()
+                        // ========== PLATFORM CLIENTS PUBLIC ==========
+                        .requestMatchers(
+                                "/api/platform/clients/register",
+                                "/api/platform/clients/login",
+                                "/api/platform/clients/request-otp"
+                        ).permitAll()
 
                         // ========== GESTION DES OFFRES (SUPER ADMIN) ==========
                         .requestMatchers(HttpMethod.GET, "/api/super-admin/offres").hasRole("SUPER_ADMIN")
@@ -118,15 +129,10 @@ public class SecurityConfig {
                                 "/api/auth/activate/**"
                         ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN")
 
+                        .requestMatchers("/api/users/me/preferences/**")
+                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+
                         // ========== SUPER ADMIN ==========
-                        .requestMatchers(
-                                "/api/super-admin/login",
-                                "/api/super-admin/register"
-                        ).permitAll()
-
-                        .requestMatchers("/api/super-admin/**")
-                        .hasRole("SUPER_ADMIN")
-
                         .requestMatchers(
                                 "/api/super-admin/me",
                                 "/api/super-admin/dashboard/**",
@@ -135,6 +141,7 @@ public class SecurityConfig {
                                 "/api/super-admin/paiements/**"
                         ).hasRole("SUPER_ADMIN")
 
+
                         // ========== PLATFORM CLIENTS ==========
                         .requestMatchers(
                                 "/api/super-admin/clients/register",
@@ -142,6 +149,11 @@ public class SecurityConfig {
                                 "/api/super-admin/clients/request-otp"
                         ).permitAll()
 
+                        .requestMatchers("/api/super-admin/**")
+                        .hasRole("SUPER_ADMIN")
+
+
+                        // ========== PLATFORM CLIENTS ==========
                         .requestMatchers("/api/platform/clients/**")
                         .hasAnyRole("SUPER_ADMIN")
 
@@ -180,15 +192,10 @@ public class SecurityConfig {
                         // ========== UPLOADS ==========
                         .requestMatchers("/uploads/**").permitAll()
 
-                        .requestMatchers("/api/commandes/**").hasRole("COMMERCIAL")
-                        .requestMatchers("/api/clients/**").hasAnyRole("COMMERCIAL", "ADMIN")
+                        // ========== OTHER MODULE RULES ==========
                         .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/factures/**").hasAnyRole("ADMIN", "COMMERCIAL")
-                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "COMMERCIAL", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
                         .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter").hasRole("ADMIN")
-                        .requestMatchers("/api/commandes-fournisseurs/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")

@@ -55,6 +55,20 @@ public class Utilisateur implements UserDetails {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_language",nullable = false, length = 5)
+    @Builder.Default
+    // Defaulting to French keeps new users aligned with the backend's current French-first flows.
+    private PreferredLanguage preferredLanguage = PreferredLanguage.FR;
+
+    @PrePersist
+    @PreUpdate
+    void applyDefaultPreferredLanguage() {
+        if (preferredLanguage == null) {
+            preferredLanguage = PreferredLanguage.FR;
+        }
+    }
+
     // ===== IMPLÉMENTATION UserDetails =====
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

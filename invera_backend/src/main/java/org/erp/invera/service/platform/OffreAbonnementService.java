@@ -39,7 +39,6 @@ public class OffreAbonnementService {
     public OffreAbonnementResponse createOffer(OffreAbonnementRequest request) {
         validateRequest(request, null);
 
-        // Vérifier doublon sur le nom
         if (offreAbonnementRepository.existsByNomIgnoreCase(request.getNom().trim())) {
             throw new RuntimeException("Une offre avec ce nom existe déjà");
         }
@@ -61,7 +60,6 @@ public class OffreAbonnementService {
         OffreAbonnement offre = getEntityById(id);
         validateRequest(request, id);
 
-        // Vérifier doublon sur le nom (exclure l'offre courante)
         if (offreAbonnementRepository.existsByNomIgnoreCaseAndIdNot(request.getNom().trim(), id)) {
             throw new RuntimeException("Une autre offre avec ce nom existe déjà");
         }
@@ -89,7 +87,6 @@ public class OffreAbonnementService {
     public OffreAbonnementResponse deactivateOffer(Long id) {
         OffreAbonnement offre = getEntityById(id);
 
-        // Vérifier qu'il n'y a pas d'abonnements actifs liés
         boolean hasActiveSubscriptions = abonnementRepository.existsByOffreAbonnementIdAndStatut(
                 id, Abonnement.StatutAbonnement.ACTIF
         );
@@ -116,8 +113,6 @@ public class OffreAbonnementService {
         }
         return offre;
     }
-
-    // ==================== MÉTHODES PRIVÉES ====================
 
     private void validateRequest(OffreAbonnementRequest request, Long currentId) {
         if (request.getNom() == null || request.getNom().trim().length() < 2) {
@@ -149,11 +144,14 @@ public class OffreAbonnementService {
     }
 
     private OffreAbonnementResponse toResponse(OffreAbonnement offre) {
+        Integer dureeMois = offre.getDureeMois() != null ? offre.getDureeMois() : 0;
+        String duree = dureeMois == 1 ? "1 mois" : dureeMois + " mois";
+
         return OffreAbonnementResponse.builder()
                 .id(offre.getId())
                 .nom(offre.getNom())
-                .dureeMois(offre.getDureeMois())
-                .duree(offre.getDureeMois() == 1 ? "1 mois" : offre.getDureeMois() + " mois")  // ← duree au lieu de dureeLabel
+                .dureeMois(dureeMois)
+                .duree(duree)
                 .prix(offre.getPrix())
                 .devise(offre.getDevise())
                 .description(offre.getDescription())

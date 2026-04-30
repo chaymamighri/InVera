@@ -32,4 +32,72 @@ public class SuperAdmin {
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_language",nullable = false, length = 5)
+    private PreferredLanguage preferredLanguage = PreferredLanguage.FR;
+
+    @PrePersist
+    @PreUpdate
+    void applyDefaultPreferredLanguage() {
+        if (preferredLanguage == null) {
+            preferredLanguage = PreferredLanguage.FR;
+        }
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getNom() {
+        return nom;
+    }
+
+    public void setNom(String nom) {
+        this.nom = nom;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getMotDePasse() {
+        return motDePasse;
+    }
+
+    public void setMotDePasse(String motDePasse) {
+        this.motDePasse = motDePasse;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getLastLogin() {
+        return lastLogin;
+    }
+
+    public void setLastLogin(LocalDateTime lastLogin) {
+        this.lastLogin = lastLogin;
+    }
+
+    public PreferredLanguage getPreferredLanguage() {
+        return preferredLanguage;
+    }
+
+    public void setPreferredLanguage(PreferredLanguage preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
+    }
 }

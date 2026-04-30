@@ -31,7 +31,8 @@ const OrderTable = ({
   onVoirDetails,
   toNumber,
   validationError,
-  setValidationError
+  setValidationError,
+  t
 }) => {
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -238,7 +239,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <ShoppingBagIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  N° COMMANDE
+                  {t('salesPages.orderNumber')}
                   {sortField === 'numero' && (
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -253,7 +254,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  CLIENT
+                  {t('salesPages.client')}
                   {sortField === 'clientNom' && (  
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -268,7 +269,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  DATE CRÉATION
+                  {t('salesPages.creationDate')}
                   {sortField === 'dateCommande' && ( 
                     sortDirection === 'desc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -278,13 +279,13 @@ const OrderTable = ({
               </th>
               
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                PRODUITS
+                {t('salesPages.products')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                MONTANT FINAL
+                {t('salesPages.finalAmount')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                STATUT
+                {t('salesPages.status')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 ACTIONS
