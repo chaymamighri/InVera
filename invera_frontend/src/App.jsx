@@ -53,6 +53,10 @@ import SubscriptionsManagementPage from './pages/superAdmin/abonnements/Subscrip
 // === IMPORT DU COMPOSANT TOAST DE CONNEXION ===
 import ConnexionInfoToast from './components/ConnexionInfoToast';
 
+import ConditionsInvera from './pages/public/ConditionsInvera';
+
+
+
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
   ROLE_SUPER_ADMIN: 'super_admin',
@@ -280,6 +284,16 @@ function App() {
                 </PublicLayout>
               }
             />
+             {/* Routes de condition general de confidentialité de notre systeme */}
+
+                    <Route
+  path="/conditions-invera"
+  element={
+    <PublicLayout>
+      <ConditionsInvera />
+    </PublicLayout>
+  }
+/>
             <Route
               path="/super-admin/login"
               element={
@@ -288,6 +302,8 @@ function App() {
                 </PublicLayout>
               }
             />
+
+    
 
             {/* Routes Super Admin */}
             <Route

@@ -1,5 +1,6 @@
 package org.erp.invera.controller.platform;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
@@ -10,8 +11,10 @@ import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.platform.InvitationService;
 import org.erp.invera.service.platform.SessionManagementService;
+import org.erp.invera.service.tenant.TenantDatabaseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,12 +43,151 @@ public class AuthController {
     private final InvitationService invitationService;
     private final SessionManagementService sessionManagementService;
     private final EmailService emailService;
+    private final TenantDatabaseService tenantDatabaseService;
 
+    // ==================== MÉTHODES UTILITAIRES ====================
+
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
+
+    private String extractEmailFromAuthentication(Authentication authentication) {
+        return authentication != null ? authentication.getName() : null;
+    }
+
+    private String extractTokenFromAuthentication(Authentication authentication) {
+        if (authentication != null && authentication.getCredentials() instanceof String) {
+            return (String) authentication.getCredentials();
+        }
+        return null;
+    }
+
+    private String mapRoleToFrontend(Utilisateur.RoleUtilisateur role) {
+        switch (role) {
+            case ADMIN_CLIENT: return "admin";
+            case COMMERCIAL: return "sales";
+            case RESPONSABLE_ACHAT: return "procurement";
+            default: return "sales";
+        }
+    }
+
+    private Utilisateur.RoleUtilisateur mapRoleFromFrontend(String role) {
+        switch (role.toLowerCase()) {
+            case "admin": return Utilisateur.RoleUtilisateur.ADMIN_CLIENT;
+            case "sales": return Utilisateur.RoleUtilisateur.COMMERCIAL;
+            case "procurement": return Utilisateur.RoleUtilisateur.RESPONSABLE_ACHAT;
+            default: return Utilisateur.RoleUtilisateur.COMMERCIAL;
+        }
+    }
+
+    private String extractEmailDomain(String email) {
+        if (email == null || !email.contains("@")) return "";
+        return email.substring(email.indexOf("@") + 1).toLowerCase();
+    }
 
     /**
-     * Login UNIQUEMENT pour les clients (ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT)
-     *
+     * Crée la table utilisateur dans la base client si elle n'existe pas
      */
+    private void createUserTableIfNotExists(Client client) {
+        try {
+            JdbcTemplate clientDb = tenantDatabaseService.getClientJdbcTemplate(
+                    client.getId(), String.valueOf(client.getId())
+            );
+
+            String createTableSql = """
+                CREATE TABLE IF NOT EXISTS utilisateur (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    nom VARCHAR(100),
+                    prenom VARCHAR(100),
+                    role VARCHAR(50) NOT NULL,
+                    est_actif BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+                """;
+            clientDb.execute(createTableSql);
+
+            clientDb.execute("CREATE INDEX IF NOT EXISTS idx_utilisateur_email ON utilisateur(email)");
+            clientDb.execute("CREATE INDEX IF NOT EXISTS idx_utilisateur_role ON utilisateur(role)");
+
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur création table utilisateur: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Synchronise un utilisateur vers la base client
+     */
+    private void syncUserToClientDatabase(Client client, Utilisateur utilisateur, String role) {
+        try {
+            createUserTableIfNotExists(client);
+
+            JdbcTemplate clientDb = tenantDatabaseService.getClientJdbcTemplate(
+                    client.getId(), String.valueOf(client.getId())
+            );
+
+            String sql = """
+                INSERT INTO utilisateur (email, nom, prenom, role, est_actif, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+                ON CONFLICT (email) DO UPDATE SET
+                    nom = EXCLUDED.nom,
+                    prenom = EXCLUDED.prenom,
+                    role = EXCLUDED.role,
+                    est_actif = EXCLUDED.est_actif,
+                    updated_at = NOW()
+                """;
+
+            clientDb.update(sql,
+                    utilisateur.getEmail(),
+                    utilisateur.getNom(),
+                    utilisateur.getPrenom() != null ? utilisateur.getPrenom() : "",
+                    role.toUpperCase(),
+                    utilisateur.getEstActif()
+            );
+            log.info("✅ Utilisateur {} synchronisé dans base client {}", utilisateur.getEmail(), client.getNomBaseDonnees());
+
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur synchronisation base client: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Supprime un utilisateur de la base client
+     */
+    private void deleteUserFromClientDatabase(Client client, String email) {
+        try {
+            JdbcTemplate clientDb = tenantDatabaseService.getClientJdbcTemplate(
+                    client.getId(), String.valueOf(client.getId())
+            );
+            clientDb.update("DELETE FROM utilisateur WHERE email = ?", email);
+            log.info("🗑️ Utilisateur {} supprimé de la base client", email);
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur suppression base client: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Met à jour le statut d'un utilisateur dans la base client
+     */
+    private void updateUserStatusInClientDatabase(Client client, String email, boolean active) {
+        try {
+            JdbcTemplate clientDb = tenantDatabaseService.getClientJdbcTemplate(
+                    client.getId(), String.valueOf(client.getId())
+            );
+            clientDb.update("UPDATE utilisateur SET est_actif = ?, updated_at = NOW() WHERE email = ?", active, email);
+            log.info("🔄 Statut utilisateur {} mis à jour (actif={}) dans base client", email, active);
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur mise à jour statut base client: {}", e.getMessage());
+        }
+    }
+
+    // ==================== LOGIN ====================
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -65,14 +207,30 @@ public class AuthController {
             }
 
             Client client = utilisateur.getClient();
+            Long clientId = client.getId();
+            String authenticatedClientId = String.valueOf(clientId);
 
-            //====== PÉRIODE D'ESSAI : TOUS les clients sans abonnement actif =====
-            // Que ce soit ESSAI ou DEFINITIF, tant qu'ils n'ont pas payé d'abonnement,
-            // ils bénéficient de 30 connexions gratuites.
+            // Vérification de l'accès à la base du client
+            try {
+                JdbcTemplate clientJdbcTemplate = tenantDatabaseService.getClientJdbcTemplate(
+                        clientId, authenticatedClientId
+                );
+                clientJdbcTemplate.queryForObject("SELECT 1", Integer.class);
+                log.info("✅ Base du client accessible: {}", client.getNomBaseDonnees());
+            } catch (SecurityException e) {
+                log.error("❌ Erreur sécurité: {}", e.getMessage());
+                return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
+            } catch (Exception e) {
+                log.error("❌ Erreur accès base client {}: {}", client.getNomBaseDonnees(), e.getMessage());
+                return ResponseEntity.status(500).body(Map.of(
+                        "error", "Erreur d'accès à la base de données du client"
+                ));
+            }
+
+            // Gestion des connexions (période d'essai)
             boolean hasActiveSubscription = client.getAbonnementActif() != null;
 
             if (!hasActiveSubscription) {
-                // Période d'essai active
                 if (client.getConnexionsRestantes() <= 0) {
                     return ResponseEntity.status(403).body(Map.of(
                             "error", "❌ Période d'essai expirée. Veuillez souscrire un abonnement.",
@@ -80,15 +238,12 @@ public class AuthController {
                     ));
                 }
 
-                // Décrémenter le compteur
                 int anciennesConnexions = client.getConnexionsRestantes();
                 client.setConnexionsRestantes(anciennesConnexions - 1);
                 clientRepository.save(client);
 
                 log.info("🔐 Période d'essai - Client: {} - Connexions restantes: {}/{}",
-                        client.getEmail(),
-                        client.getConnexionsRestantes(),
-                        client.getConnexionsMax());
+                        client.getEmail(), client.getConnexionsRestantes(), client.getConnexionsMax());
             } else {
                 log.info("🔐 Abonnement actif - Client: {} - Connexions illimitées", client.getEmail());
             }
@@ -97,10 +252,10 @@ public class AuthController {
             String token = jwtTokenProvider.generateToken(
                     utilisateur.getEmail(),
                     utilisateur.getRole().name(),
-                    client.getId()
+                    client.getId(),
+                    client.getNomBaseDonnees()
             );
 
-            // Enregistrement session unique
             boolean wasOtherSessionActive = sessionManagementService.registerSession(email, token);
 
             // Construction de la réponse
@@ -113,31 +268,28 @@ public class AuthController {
             response.put("clientName", client.getNom());
             response.put("nom", utilisateur.getNom());
             response.put("prenom", utilisateur.getPrenom());
-
-            // === AJOUT DES INFORMATIONS D'ESSAI POUR LE FRONTEND =====
+            response.put("database", client.getNomBaseDonnees());
+            response.put("tenantId", client.getId());
             response.put("connexionsRestantes", client.getConnexionsRestantes());
             response.put("connexionsMax", client.getConnexionsMax());
             response.put("typeInscription", client.getTypeInscription().name());
             response.put("statut", client.getStatut().getLabel());
             response.put("hasActiveSubscription", hasActiveSubscription);
 
-            // Message d'avertissement si plus que 5 connexions
             if (!hasActiveSubscription && client.getConnexionsRestantes() <= 5 && client.getConnexionsRestantes() > 0) {
                 response.put("warning", "⚠️ Attention : Il vous reste " + client.getConnexionsRestantes() +
                         " connexion(s) avant la fin de votre période d'essai.");
             }
 
-            // Message si une autre session a été fermée
             if (!wasOtherSessionActive) {
                 response.put("sessionWarning", "Une autre session a été fermée suite à cette connexion");
             }
 
-            // Mettre à jour last_login
             utilisateur.setLastLogin(LocalDateTime.now());
             utilisateurRepository.save(utilisateur);
 
-            log.info("✅ Login réussi - Client: {} - Rôle: {} - Connexions restantes: {}",
-                    client.getEmail(), utilisateur.getRole(), client.getConnexionsRestantes());
+            log.info("✅ Login réussi - Client: {} - Base: {} - Rôle: {} - Connexions restantes: {}",
+                    client.getEmail(), client.getNomBaseDonnees(), utilisateur.getRole(), client.getConnexionsRestantes());
 
             return ResponseEntity.ok(response);
 
@@ -147,10 +299,7 @@ public class AuthController {
         }
     }
 
-    /**
-     * Login UNIQUEMENT pour les utilisateurs ( COMMERCIAL, RESPONSABLE_ACHAT) crée par admin_client(entreprise)
-     *
-     */
+    // ==================== INSCRIPTION UTILISATEUR ====================
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody Map<String, String> request, Authentication authentication) {
@@ -160,13 +309,24 @@ public class AuthController {
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             Client client = currentUser.getClient();
+            Long clientId = client.getId();
+
+            // Vérifier que la base du client est accessible
+            try {
+                JdbcTemplate clientDb = tenantDatabaseService.getClientJdbcTemplate(
+                        clientId, String.valueOf(clientId)
+                );
+                clientDb.queryForObject("SELECT 1", Integer.class);
+                log.info("✅ Base client accessible pour création utilisateur");
+            } catch (Exception e) {
+                return ResponseEntity.status(500).body(Map.of("error", "Base de données client inaccessible"));
+            }
 
             String nom = request.get("nom");
             String prenom = request.get("prenom");
             String email = request.get("email");
             String role = request.get("role");
 
-            // Validations
             if (nom == null || nom.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Le nom est requis"));
             }
@@ -174,12 +334,10 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "L'email est requis"));
             }
 
-            // Vérifier si l'email existe déjà
             if (utilisateurRepository.findByEmail(email).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Cet email est déjà utilisé"));
             }
 
-            // Vérifier le domaine email
             String adminDomain = extractEmailDomain(currentUserEmail);
             String newEmailDomain = extractEmailDomain(email);
             if (!newEmailDomain.equalsIgnoreCase(adminDomain)) {
@@ -189,7 +347,6 @@ public class AuthController {
                 ));
             }
 
-            // Vérifier création d'admin en double
             if ("admin".equalsIgnoreCase(role)) {
                 boolean adminExists = utilisateurRepository.findByClientId(client.getId())
                         .stream()
@@ -201,24 +358,23 @@ public class AuthController {
                 }
             }
 
-            // ✅ Générer un token JWT temporaire (valable 24h)
             String activationToken = jwtTokenProvider.generateActivationToken(email, 24);
 
-            // Créer l'utilisateur (sans token en base)
             Utilisateur newUser = Utilisateur.builder()
                     .nom(nom.trim())
                     .prenom(prenom != null ? prenom.trim() : "")
                     .email(email.toLowerCase().trim())
-                    .motDePasse(null)  // Pas de mot de passe
+                    .motDePasse(null)
                     .role(mapRoleFromFrontend(role))
                     .client(client)
-                    .estActif(false)  // Désactivé jusqu'à activation
+                    .estActif(false)
                     .build();
 
             utilisateurRepository.save(newUser);
 
-            // ✅ Envoyer l'email avec le token JWT comme lien d'activation
-            String activationLink = "https://app.invera.com/activate?token=" + activationToken;
+            // ✅ SYNC : Créer dans la base client
+            syncUserToClientDatabase(client, newUser, role);
+
             emailService.sendActivationLinkEmail(email, activationToken);
 
             log.info("📧 Email d'activation envoyé à {}", email);
@@ -238,9 +394,8 @@ public class AuthController {
         }
     }
 
-    /**
-     * Récupérer l'utilisateur courant (UNIQUEMENT pour les clients)
-     */
+    // ==================== UTILISATEUR COURANT ====================
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         String email = authentication.getName();
@@ -267,9 +422,8 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Déconnexion - Supprime la session active
-     */
+    // ==================== DÉCONNEXION ====================
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout(Authentication authentication) {
         if (authentication != null) {
@@ -280,42 +434,27 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Déconnecté avec succès"));
     }
 
-    // ==================== activé account ====================
+    // ==================== ACTIVATION COMPTE ====================
 
-    // ==================== ACTIVATION COMPTE AVEC CRÉATION MOT DE PASSE ====================
-
-    /**
-     * Endpoint pour récupérer les informations du token SANS activer le compte
-     */
     @GetMapping("/activation-link-info")
     public ResponseEntity<?> getActivationLinkInfo(@RequestParam String token) {
         try {
             log.info("🔐 Vérification du token d'activation: {}", token);
 
-            // Valider le token JWT
             if (!jwtTokenProvider.validateToken(token)) {
-                log.error("Token invalide ou expiré");
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Lien d'activation invalide ou expiré."
-                ));
+                return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
             }
 
-            // Extraire l'email du token
             String email = jwtTokenProvider.getEmailFromToken(token);
             log.info("📧 Token valide pour: {}", email);
 
-            // Vérifier si l'utilisateur existe
             Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            // Vérifier si déjà activé
             if (utilisateur.getEstActif()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Ce compte est déjà activé. Vous pouvez vous connecter."
-                ));
+                return ResponseEntity.badRequest().body(Map.of("error", "Ce compte est déjà activé. Vous pouvez vous connecter."));
             }
 
-            // Retourner les informations sans activer le compte
             Map<String, Object> response = new HashMap<>();
             response.put("email", utilisateur.getEmail());
             response.put("nom", utilisateur.getNom());
@@ -325,15 +464,12 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de la vérification: {}", e.getMessage(), e);
+            log.error("❌ Erreur lors de la vérification: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de la vérification: " + e.getMessage()));
         }
     }
 
-    /**
-     * Endpoint pour activer le compte et définir le mot de passe
-     */
     @PostMapping("/activate-account")
     public ResponseEntity<?> activateAccountWithPassword(@RequestBody Map<String, String> request) {
         try {
@@ -342,41 +478,31 @@ public class AuthController {
 
             log.info("🔐 Activation du compte avec création de mot de passe");
 
-            // Valider le token JWT
             if (!jwtTokenProvider.validateToken(token)) {
-                log.error("Token invalide ou expiré");
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Lien d'activation invalide ou expiré."
-                ));
+                return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
             }
 
-            // Valider le mot de passe
             if (newPassword == null || newPassword.length() < 8) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Le mot de passe doit contenir au moins 8 caractères."
-                ));
+                return ResponseEntity.badRequest().body(Map.of("error", "Le mot de passe doit contenir au moins 8 caractères."));
             }
 
-            // Extraire l'email du token
             String email = jwtTokenProvider.getEmailFromToken(token);
             log.info("📧 Activation du compte pour: {}", email);
 
-            // Vérifier si l'utilisateur existe
             Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            // Vérifier si déjà activé
             if (utilisateur.getEstActif()) {
-                log.warn("⚠️ Compte déjà activé: {}", email);
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Ce compte est déjà activé. Vous pouvez vous connecter."
-                ));
+                return ResponseEntity.badRequest().body(Map.of("error", "Ce compte est déjà activé. Vous pouvez vous connecter."));
             }
 
-            // Activer le compte et définir le mot de passe
             utilisateur.setEstActif(true);
             utilisateur.setMotDePasse(passwordEncoder.encode(newPassword));
             utilisateurRepository.save(utilisateur);
+
+            // ✅ SYNC : Mettre à jour le statut dans la base client
+            Client client = utilisateur.getClient();
+            updateUserStatusInClientDatabase(client, email, true);
 
             log.info("✅ Compte activé avec succès: {}", email);
 
@@ -388,7 +514,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de l'activation: {}", e.getMessage(), e);
+            log.error("❌ Erreur lors de l'activation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de l'activation: " + e.getMessage()));
         }
@@ -396,10 +522,6 @@ public class AuthController {
 
     // ==================== RÉINITIALISATION MOT DE PASSE ====================
 
-    /**
-     * Demande de réinitialisation de mot de passe
-     * Envoie un code OTP par email
-     */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         try {
@@ -409,18 +531,11 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email requis"));
             }
 
-            // Vérifier si l'utilisateur existe
             Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Aucun compte associé à cet email"));
 
-            // Générer un code OTP
             String otpCode = String.format("%06d", new Random().nextInt(999999));
 
-            // Stocker le code (dans un cache ou en base)
-            // Pour simplifier, on peut utiliser un service dédié (OtpService)
-            // otpService.storeResetCode(email, otpCode);
-
-            // Envoyer l'email
             emailService.sendResetPasswordEmail(email, otpCode);
 
             log.info("📧 Code de réinitialisation envoyé à {}", email);
@@ -436,9 +551,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Réinitialisation du mot de passe avec code
-     */
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
         try {
@@ -446,31 +558,23 @@ public class AuthController {
             String code = request.get("code");
             String newPassword = request.get("newPassword");
 
-            // Vérifier le code OTP
-            // boolean isValid = otpService.verifyResetCode(email, code);
-            boolean isValid = true; // À remplacer par la vraie vérification
+            boolean isValid = true; // À remplacer par la vraie vérification OTP
 
             if (!isValid) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Code invalide ou expiré"));
             }
 
-            // Vérifier la longueur du mot de passe
             if (newPassword == null || newPassword.length() < 8) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "error", "Le mot de passe doit contenir au moins 8 caractères"
                 ));
             }
 
-            // Récupérer l'utilisateur
             Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            // Mettre à jour le mot de passe
             utilisateur.setMotDePasse(passwordEncoder.encode(newPassword));
             utilisateurRepository.save(utilisateur);
-
-            // Invalider le code
-            // otpService.invalidateResetCode(email);
 
             log.info("🔑 Mot de passe réinitialisé pour {}", email);
 
@@ -484,6 +588,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
     // ==================== GESTION DES UTILISATEURS ====================
 
     @GetMapping("/all")
@@ -586,7 +691,6 @@ public class AuthController {
 
             boolean isOwnAccount = userToUpdate.getId().equals(currentUser.getId());
 
-            // Mettre à jour le nom
             String name = (String) userData.get("name");
             if (name != null && !name.isEmpty()) {
                 String[] nameParts = name.split(" ", 2);
@@ -594,7 +698,6 @@ public class AuthController {
                 userToUpdate.setPrenom(nameParts.length > 1 ? nameParts[1] : "");
             }
 
-            // Mettre à jour l'email
             String newEmail = (String) userData.get("email");
             if (newEmail != null && !newEmail.isEmpty()) {
                 String oldEmail = userToUpdate.getEmail();
@@ -630,6 +733,9 @@ public class AuthController {
             }
 
             utilisateurRepository.save(userToUpdate);
+
+            // ✅ SYNC : Mettre à jour dans la base client
+            syncUserToClientDatabase(currentUser.getClient(), userToUpdate, role);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -667,6 +773,10 @@ public class AuthController {
             }
 
             utilisateurRepository.delete(userToDelete);
+
+            // ✅ SYNC : Supprimer de la base client
+            deleteUserFromClientDatabase(currentUser.getClient(), email);
+
             return ResponseEntity.ok(Map.of("message", "Utilisateur supprimé avec succès"));
 
         } catch (Exception e) {
@@ -693,6 +803,9 @@ public class AuthController {
 
             userToUpdate.setEstActif(active);
             utilisateurRepository.save(userToUpdate);
+
+            // ✅ SYNC : Mettre à jour le statut dans la base client
+            updateUserStatusInClientDatabase(currentUser.getClient(), email, active);
 
             return ResponseEntity.ok(Map.of(
                     "message", active ? "Utilisateur activé" : "Utilisateur désactivé",
@@ -776,39 +889,5 @@ public class AuthController {
         utilisateurRepository.save(utilisateur);
 
         return ResponseEntity.ok(Map.of("message", "Mot de passe créé avec succès. Vous pouvez maintenant vous connecter."));
-    }
-
-    // ==================== MÉTHODES UTILITAIRES ====================
-
-    private String mapRoleToFrontend(Utilisateur.RoleUtilisateur role) {
-        switch (role) {
-            case ADMIN_CLIENT: return "admin";
-            case COMMERCIAL: return "sales";
-            case RESPONSABLE_ACHAT: return "procurement";
-            default: return "sales";
-        }
-    }
-
-    private Utilisateur.RoleUtilisateur mapRoleFromFrontend(String role) {
-        switch (role.toLowerCase()) {
-            case "admin": return Utilisateur.RoleUtilisateur.ADMIN_CLIENT;
-            case "sales": return Utilisateur.RoleUtilisateur.COMMERCIAL;
-            case "procurement": return Utilisateur.RoleUtilisateur.RESPONSABLE_ACHAT;
-            default: return Utilisateur.RoleUtilisateur.COMMERCIAL;
-        }
-    }
-
-    private String extractEmailDomain(String email) {
-        if (email == null || !email.contains("@")) return "";
-        return email.substring(email.indexOf("@") + 1).toLowerCase();
-    }
-
-    private String generateTempPassword() {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 10; i++) {
-            sb.append(chars.charAt((int) (Math.random() * chars.length())));
-        }
-        return sb.toString() + "@Temp2024";
     }
 }

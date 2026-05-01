@@ -89,8 +89,11 @@ public class SecurityConfig {
                                 "/api/auth/activation-link",
                                 "/api/auth/activation-link-info",
                                 "/api/auth/create-password",
+                                "/api/platform/clients/register",
+                                "/api/platform/clients/login",
                                 "/api/platform/clients/request-otp",
-                                "/api/platform/clients/*/justificatifs"
+                                "/api/platform/clients/*/justificatifs",
+                                "/api/platform/clients/*/document/*"
                         ).permitAll()
 
                         // ========== SUPER ADMIN AUTH PUBLIC ==========
@@ -138,12 +141,21 @@ public class SecurityConfig {
                                 "/api/super-admin/paiements/**"
                         ).hasRole("SUPER_ADMIN")
 
+
+                        // ========== PLATFORM CLIENTS ==========
+                        .requestMatchers(
+                                "/api/super-admin/clients/register",
+                                "/api/super-admin/clients/login",
+                                "/api/super-admin/clients/request-otp"
+                        ).permitAll()
+
                         .requestMatchers("/api/super-admin/**")
                         .hasRole("SUPER_ADMIN")
 
+
                         // ========== PLATFORM CLIENTS ==========
                         .requestMatchers("/api/platform/clients/**")
-                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT")
+                        .hasAnyRole("SUPER_ADMIN")
 
                         // ========== COMMANDES ==========
                         .requestMatchers("/api/commandes/**")

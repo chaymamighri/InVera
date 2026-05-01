@@ -90,6 +90,10 @@ public class DatabaseCreationService {
                 log.warn("⚠️ Base {} existe déjà", dbName);
                 return new DatabaseInfo(dbName, userName, password, getConnectionUrl(dbName));
             }
+            terminateConnections(TEMPLATE_DB);
+
+            // Attendre un peu
+            Thread.sleep(200);
 
             // 2. Créer la base à partir du template
             String createDbSql = String.format(

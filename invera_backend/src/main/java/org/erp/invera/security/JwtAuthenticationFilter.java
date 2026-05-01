@@ -33,6 +33,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private SessionManagementService sessionManagementService;
 
+    // LISTE DES ENDPOINTS PUBLICS (sans authentification)
+
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/forgot-password",
@@ -236,9 +238,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Role: " + role);
         System.out.println("   - ClientId: " + clientId);
 
-        if (role == null) {
-            System.out.println("❌ Missing role in client token");
+        if (role == null || email == null) {
+            System.out.println("❌ Missing email or role in client token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false;
+        }
+
+        sessionManagementService.registerSession(email, jwt);
+
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
+            System.out.println("🔒 Session invalide pour client: " + email);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
@@ -274,14 +286,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             utilisateur.setClient(client);
         }
 
-        if (!sessionManagementService.isSessionValid(utilisateur.getEmail(), jwt)) {
-            System.out.println("🔒 Session invalide pour client: " + utilisateur.getEmail());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
-            return false;
-        }
-
         List<GrantedAuthority> authorities = Collections.singletonList(
                 new SimpleGrantedAuthority("ROLE_" + utilisateur.getRole().name())
         );
@@ -309,9 +313,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Email: " + email);
         System.out.println("   - Role: " + role);
 
-        if (role == null) {
-            System.out.println("❌ Missing role in ERP token");
+        if (role == null || email == null) {
+            System.out.println("❌ Missing email or role in ERP token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false;
+        }
+
+        sessionManagementService.registerSession(email, jwt);
+
+        if (!sessionManagementService.isSessionValid(email, jwt)) {
+            System.out.println("🔒 Session invalide pour ERP user: " + email);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
@@ -333,14 +347,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (IllegalArgumentException e) {
             System.out.println("❌ Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
-        }
-
-        if (!sessionManagementService.isSessionValid(user.getEmail(), jwt)) {
-            System.out.println("🔒 Session invalide pour ERP user: " + user.getEmail());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"SESSION_EXPIRED\",\"message\":\"Session expirée\"}");
             return false;
         }
 
