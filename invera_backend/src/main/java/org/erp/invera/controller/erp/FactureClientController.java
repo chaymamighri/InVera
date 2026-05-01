@@ -1,49 +1,43 @@
 package org.erp.invera.controller.erp;
 
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.erp.FactureDTO;
 import org.erp.invera.model.erp.client.FactureClient;
 import org.erp.invera.service.erp.FactureClientService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Contrôleur des factures clients.
- *
- * Endpoints :
- * - GET    /all                     → Toutes les factures (rôle COMMERCIAL)
- * - GET    /{factureId}             → Détail d'une facture
- * - GET    /client/{clientId}       → Factures d'un client spécifique
- * - GET    /commande/{commandeId}   → Facture associée à une commande
- * - POST   /generer/{commandeId}    → Générer une facture depuis une commande confirmée
- * - PUT    /{factureId}/payer       → Marquer une facture comme payée
- */
+@Slf4j
 @RestController
 @RequestMapping("/api/factures")
-@Transactional
+@RequiredArgsConstructor
 @CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
 public class FactureClientController {
 
-    @Autowired
-    private FactureClientService factureService;
+    private final FactureClientService factureService;
 
-    /**
-     * ✅ Récupérer toutes les factures
-     */
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        throw new RuntimeException("Token JWT manquant ou invalide");
+    }
+
     @PreAuthorize("hasRole('COMMERCIAL')")
     @GetMapping("/all")
-    @Transactional
-    public ResponseEntity<List<FactureDTO>> getAllFactures() {
-
-        List<FactureClient> factures = factureService.getAllFactures();
+    public ResponseEntity<List<FactureDTO>> getAllFactures(HttpServletRequest request) {
+        String token = extractToken(request);
+        List<FactureClient> factures = factureService.getAllFactures(token);
 
         List<FactureDTO> factureDTOs = factures.stream()
                 .map(FactureDTO::fromEntity)
@@ -52,21 +46,15 @@ public class FactureClientController {
         return ResponseEntity.ok(factureDTOs);
     }
 
-
-    /**
-     *  Récupérer une facture par son ID
-     */
     @GetMapping("/{factureId}")
-    public ResponseEntity<?> getFactureById(@PathVariable Integer factureId) {
+    public ResponseEntity<?> getFactureById(@PathVariable Integer factureId, HttpServletRequest request) {
         try {
-            FactureClient facture = factureService.getFactureById(factureId);
-
+            String token = extractToken(request);
+            FactureClient facture = factureService.getFactureById(factureId, token);
             FactureDTO factureDTO = FactureDTO.fromEntity(facture);
             return ResponseEntity.ok(factureDTO);
-
         } catch (Exception e) {
-            System.err.println("Erreur récupération facture " + factureId + ": " + e.getMessage());
-
+            log.error("Erreur récupération facture {}: {}", factureId, e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());
@@ -74,23 +62,18 @@ public class FactureClientController {
         }
     }
 
-    /**
-     * ✅ Récupérer les factures d'un client
-     */
     @GetMapping("/client/{clientId}")
-    public ResponseEntity<?> getFacturesByClient(@PathVariable Integer clientId) {
+    public ResponseEntity<?> getFacturesByClient(@PathVariable Integer clientId, HttpServletRequest request) {
         try {
-            List<FactureClient> factures = factureService.getFacturesByClient(clientId);
-
+            String token = extractToken(request);
+            List<FactureClient> factures = factureService.getFacturesByClient(clientId, token);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("data", factures);
             response.put("count", factures.size());
-
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("❌ Erreur récupération factures client " + clientId + ": " + e.getMessage());
-
+            log.error("Erreur récupération factures client {}: {}", clientId, e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());
@@ -98,44 +81,35 @@ public class FactureClientController {
         }
     }
 
-    /**
-     *  Récupérer une facture par référence de commande
-     */
     @GetMapping("/commande/{commandeId}")
-    public ResponseEntity<?> getFactureByCommandeId(@PathVariable Integer commandeId) {
-
+    public ResponseEntity<?> getFactureByCommandeId(@PathVariable Integer commandeId, HttpServletRequest request) {
         try {
-            FactureClient facture = factureService.getFactureByCommandeId(commandeId);
-
+            String token = extractToken(request);
+            FactureClient facture = factureService.getFactureByCommandeId(commandeId, token);
             if (facture != null) {
-                //  Utilisez FactureDTO
                 FactureDTO factureDTO = FactureDTO.fromEntity(facture);
                 return ResponseEntity.ok(factureDTO);
             } else {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("message", "Aucune facture trouvée pour cette commande");
-                return ResponseEntity.notFound().build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
         } catch (Exception e) {
-            System.err.println("Erreur récupération facture pour commande " + commandeId + ": " + e.getMessage());
-
+            log.error("Erreur récupération facture pour commande {}: {}", commandeId, e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
-    /**
-     *  Générer une facture à partir d'une commande
-     */
+
     @PostMapping("/generer/{commandeId}")
-    public ResponseEntity<?> genererFacture(@PathVariable Integer commandeId) {
+    public ResponseEntity<?> genererFacture(@PathVariable Integer commandeId, HttpServletRequest request) {
         try {
-            System.out.println(" Génération facture pour commande: " + commandeId);
-
-            FactureClient facture = factureService.genererFactureDepuisCommande(commandeId);
-
+            String token = extractToken(request);
+            log.info("Génération facture pour commande: {}", commandeId);
+            FactureClient facture = factureService.genererFactureDepuisCommande(commandeId, token);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Facture générée avec succès");
@@ -145,16 +119,9 @@ public class FactureClientController {
                     "montantTotal", facture.getMontantTotal(),
                     "statut", facture.getStatut()
             ));
-
-            return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "http://localhost:5173")
-                    .header("Access-Control-Allow-Credentials", "true")
-                    .body(response);
-
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println(" Erreur: " + e.getMessage());
-            e.printStackTrace();
-
+            log.error("Erreur génération facture: {}", e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());
@@ -162,29 +129,19 @@ public class FactureClientController {
         }
     }
 
-    /**
-     *  Marquer une facture comme payée
-     */
     @PutMapping("/{factureId}/payer")
-    @Transactional
-    public ResponseEntity<?> marquerFacturePayee(@PathVariable Integer factureId) {
+    public ResponseEntity<?> marquerFacturePayee(@PathVariable Integer factureId, HttpServletRequest request) {
         try {
-            FactureClient facture = factureService.marquerFacturePayee(factureId);
-
-            // Utilisez FactureDTO pour la sérialisation
+            String token = extractToken(request);
+            FactureClient facture = factureService.marquerFacturePayee(factureId, token);
             FactureDTO factureDTO = FactureDTO.fromEntity(facture);
-
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Facture marquée comme payée");
             response.put("data", factureDTO);
-
             return ResponseEntity.ok(response);
-
         } catch (Exception e) {
-            System.err.println(" Erreur paiement facture " + factureId + ": " + e.getMessage());
-            e.printStackTrace();
-
+            log.error("Erreur paiement facture {}: {}", factureId, e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());

@@ -7,39 +7,21 @@ import org.erp.invera.service.erp.CommandeFournisseurService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-
 /**
- * Contrôleur des commandes fournisseurs (achats).
+ * Contrôleur des commandes fournisseurs (achats) - MULTI-TENANT.
  *
  * Cycle de vie d'une commande :
- * BROUILLON → VALIDEE → ENVOYEE → RECUE → FACTUREE
+ * BROUILLON → VALIDEE → ENVOYEE → RECUE
  *
- * Endpoints :
- * - GET    /All                 → Toutes les commandes
- * - GET    /{id}                → Détail d'une commande
- * - POST   /add                 → Créer une commande (BROUILLON)
- * - PUT    /update/{id}         → Modifier (uniquement BROUILLON)
- * - DELETE /delete/{id}         → Supprimer (soft delete)
- *
- * - PUT    /{id}/valider        → BROUILLON → VALIDEE
- * - PUT    /{id}/envoyer        → VALIDEE → ENVOYEE
- * - PUT    /{id}/recevoir       → ENVOYEE → RECUE (mouvements stock + réactivation)
- * - PUT    /{id}/facturer       → RECUE → FACTUREE
- * - PUT    /{id}/annuler        → Annulation (raison optionnelle)
- *
- * - GET    /recherche/periode   → Commandes sur une période
- * - GET    /recherche/numero    → Commande par numéro
- * - GET    /archived            → Commandes archivées
- * - PUT    /{id}/restore        → Restaurer une commande archivée
+ * Tous les endpoints extraient le tenant depuis le token JWT.
  */
 @RestController
 @RequestMapping("/api/commandes-fournisseurs")
@@ -48,78 +30,112 @@ public class CommandeFournisseurController {
 
     private final CommandeFournisseurService commandeService;
 
-    // ========= GET ALL =========
+    // ==================== MÉTHODE UTILITAIRE ====================
+
+    /**
+     * Extrait le token JWT de la requête HTTP
+     */
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        throw new RuntimeException("Token JWT manquant ou invalide");
+    }
+
+    // ==================== GET ALL ====================
+
     @GetMapping("/All")
-    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes() {
-        return ResponseEntity.ok(commandeService.getAll());
+    public ResponseEntity<List<CommandeFournisseurDTO>> getAllCommandes(HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.getAll(token));
     }
 
-    // ========= GET BY ID =========
+    // ==================== GET BY ID ====================
+
     @GetMapping("/{id}")
-    public ResponseEntity<CommandeFournisseurDTO> getCommandeById(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.getCommandeById(id));
+    public ResponseEntity<CommandeFournisseurDTO> getCommandeById(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.getCommandeById(id, token));
     }
 
-    // ========= CREATE =========
+    // ==================== CREATE ====================
+
     @PostMapping("/add")
     public ResponseEntity<CommandeFournisseurDTO> createCommande(
-            @Valid @RequestBody CommandeFournisseurDTO commandeDTO) {
+            @Valid @RequestBody CommandeFournisseurDTO commandeDTO,
+            HttpServletRequest request) {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String utilisateur = auth.getName();
-        System.out.println("Commande créée par: " + utilisateur);
-
-        CommandeFournisseurDTO commande = commandeService.creerCommande(commandeDTO);
-
-        System.out.println("Commande créée avec succès");
+        String token = extractToken(request);
+        CommandeFournisseurDTO commande = commandeService.creerCommande(commandeDTO, token);
 
         return new ResponseEntity<>(commande, HttpStatus.CREATED);
     }
 
-    // ========= UPDATE =========
+    // ==================== UPDATE ====================
+
     @PutMapping("/update/{id}")
     public ResponseEntity<CommandeFournisseurDTO> updateCommande(
             @PathVariable Integer id,
-            @Valid @RequestBody CommandeFournisseurDTO commandeDTO) {
+            @Valid @RequestBody CommandeFournisseurDTO commandeDTO,
+            HttpServletRequest request) {
 
-        CommandeFournisseurDTO commande = commandeService.modifierCommande(id, commandeDTO);
+        String token = extractToken(request);
+        CommandeFournisseurDTO commande = commandeService.modifierCommande(id, commandeDTO, token);
         return ResponseEntity.ok(commande);
     }
 
-    // ========= DELETE =========
+    // ==================== DELETE ====================
+
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteCommande(@PathVariable Integer id) {
-        commandeService.supprimerCommande(id);
+    public ResponseEntity<Void> deleteCommande(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        commandeService.supprimerCommande(id, token);
         return ResponseEntity.noContent().build();
     }
 
-    // ========= STATUTS =========
+    // ==================== STATUTS ====================
+
     @PutMapping("/{id}/valider")
-    public ResponseEntity<CommandeFournisseurDTO> validerCommande(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.validerCommande(id));
+    public ResponseEntity<CommandeFournisseurDTO> validerCommande(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.validerCommande(id, token));
     }
 
     @PutMapping("/{id}/envoyer")
-    public ResponseEntity<CommandeFournisseurDTO> envoyerCommande(@PathVariable Integer id) {
-        return ResponseEntity.ok(commandeService.envoyerCommande(id));
+    public ResponseEntity<CommandeFournisseurDTO> envoyerCommande(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.envoyerCommande(id, token));
     }
 
     @PutMapping("/{id}/recevoir")
     public ResponseEntity<CommandeFournisseurDTO> recevoirCommande(
             @PathVariable Integer id,
-            @RequestBody ReceptionDTO receptionData) {
-        return ResponseEntity.ok(commandeService.recevoirCommande(id, receptionData));
+            @RequestBody ReceptionDTO receptionData,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.recevoirCommande(id, receptionData, token));
     }
 
     /**
-     * Rejeter une commande (Admin uniquement)
+     * Rejeter une commande
      */
     @PutMapping("/{id}/rejeter")
     public ResponseEntity<?> rejeterCommande(
             @PathVariable Integer id,
-            @RequestParam String motifRejet) {
+            @RequestParam String motifRejet,
+            HttpServletRequest request) {
         try {
-            CommandeFournisseurDTO commande = commandeService.rejeterCommande(id, motifRejet);
+            String token = extractToken(request);
+            CommandeFournisseurDTO commande = commandeService.rejeterCommande(id, motifRejet, token);
             return ResponseEntity.ok(commande);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -129,12 +145,15 @@ public class CommandeFournisseurController {
     }
 
     /**
-     * Renvoyer une commande rejetée en attente (Responsable ou Admin)
+     * Renvoyer une commande rejetée en attente
      */
     @PutMapping("/{id}/renvoyer-attente")
-    public ResponseEntity<?> renvoyerAttente(@PathVariable Integer id) {
+    public ResponseEntity<?> renvoyerAttente(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
         try {
-            CommandeFournisseurDTO commande = commandeService.renvoyerAttente(id);
+            String token = extractToken(request);
+            CommandeFournisseurDTO commande = commandeService.renvoyerAttente(id, token);
             return ResponseEntity.ok(commande);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -143,29 +162,34 @@ public class CommandeFournisseurController {
         }
     }
 
-    // ========= RECHERCHE PAR PERIODE =========
+    // ==================== RECHERCHE PAR PERIODE ====================
+
     @GetMapping("/recherche/periode")
     public ResponseEntity<List<CommandeFournisseurDTO>> getCommandesByPeriode(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime debut,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin,
+            HttpServletRequest request) {
 
-        List<CommandeFournisseurDTO> commandes = commandeService.getCommandesByPeriode(debut, fin)
-                .stream()
-                .map(cmd -> commandeService.getCommandeById(cmd.getIdCommandeFournisseur()))
-                .toList();
+        String token = extractToken(request);
+        List<CommandeFournisseurDTO> commandes = commandeService.getCommandesByPeriode(debut, fin, token);
         return ResponseEntity.ok(commandes);
     }
 
-    // ========= RECHERCHE PAR NUMERO =========
+    // ==================== RECHERCHE PAR NUMERO ====================
+
     @GetMapping("/recherche/numero")
-    public ResponseEntity<CommandeFournisseurDTO> getCommandeByNumero(@RequestParam String numero) {
-        return ResponseEntity.ok(commandeService.getCommandeByNumero(numero));
+    public ResponseEntity<CommandeFournisseurDTO> getCommandeByNumero(
+            @RequestParam String numero,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.getCommandeByNumero(numero, token));
     }
-    // ========= GESTION DES ARCHIVES =========
+
+    // ==================== GESTION DES ARCHIVES ====================
 
     @GetMapping("/archived")
-    public ResponseEntity<List<CommandeFournisseurDTO>> getArchivedCommandes() {
-        return ResponseEntity.ok(commandeService.getArchivedCommandes());
+    public ResponseEntity<List<CommandeFournisseurDTO>> getArchivedCommandes(HttpServletRequest request) {
+        String token = extractToken(request);
+        return ResponseEntity.ok(commandeService.getArchivedCommandes(token));
     }
-
 }

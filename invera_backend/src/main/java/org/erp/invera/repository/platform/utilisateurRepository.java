@@ -16,10 +16,6 @@ public interface utilisateurRepository extends JpaRepository<Utilisateur, Long> 
 
     List<Utilisateur> findByClientId(Long clientId);  // ← U majuscule
 
-    List<Utilisateur> findByRole(Utilisateur.RoleUtilisateur role);  // ← U majuscule
-
     boolean existsByEmail(String email);
 
-    @Query("SELECT u FROM Utilisateur u WHERE u.role = 'ADMIN_CLIENT'")  // ← U majuscule
-    List<Utilisateur> findSuperAdmins();  // ← U majuscule
 }

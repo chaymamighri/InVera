@@ -23,7 +23,6 @@ import java.util.Map;
 public class DatabaseConfig {
 
     // ========== BASE ERP ==========
-    @Primary
     @Bean(name = {"erpDataSource", "dataSource"})
     public DataSource erpDataSource(
             @Value("${DB_URL}") String url,
@@ -34,10 +33,10 @@ public class DatabaseConfig {
         config.setUsername(username);
         config.setPassword(password);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setPoolName("ErpHikariPool");
         return new HikariDataSource(config);
     }
 
-    @Primary
     @Bean(name = {"erpEntityManagerFactory", "entityManagerFactory"})
     public LocalContainerEntityManagerFactoryBean erpEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
@@ -61,13 +60,13 @@ public class DatabaseConfig {
         return new JpaTransactionManager(erpEntityManagerFactory.getObject());
     }
 
-    @Primary
     @Bean(name = "erpJdbcTemplate")
     public JdbcTemplate erpJdbcTemplate(@Qualifier("erpDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 
     // ========== BASE PLATFORM ==========
+    @Primary
     @Bean(name = "platformDataSource")
     public DataSource platformDataSource(
             @Value("${PLATFORM_DB_URL}") String url,
@@ -78,6 +77,7 @@ public class DatabaseConfig {
         config.setUsername(username);
         config.setPassword(password);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setPoolName("PlatformHikariPool");
         return new HikariDataSource(config);
     }
 

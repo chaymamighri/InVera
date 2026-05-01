@@ -6,29 +6,12 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.Map;
 
-
 /**
- * Contrôleur des rapports d'analyse commerciale.
- *
- * Endpoints (accès ADMIN, ADMIN_CLIENT ou COMMERCIAL) :
- * - GET /sales      → Rapport des ventes (CA, commandes, panier moyen...)
- * - GET /invoices   → Rapport des factures (payées/impayées, recouvrement...)
- * - GET /clients    → Rapport des clients (top clients, répartition par type)
- * - GET /dashboard  → Aperçu rapide pour le tableau de bord
- * - GET /types      → Liste des types de rapports disponibles (utile pour le front-end)
- *
- * Paramètres communs :
- * - period     : today, week, month, quarter, year
- * - startDate  : début période personnalisée (format ISO)
- * - endDate    : fin période personnalisée
- * - clientType : VIP, ENTREPRISE, FIDELE, PARTICULIER
- * - status     : statut commande ou facture
- *
- * NOTE: La sécurité est gérée dans SecurityConfig, pas ici avec @PreAuthorize
+ * Contrôleur des rapports d'analyse commerciale - MULTI-TENANT.
  */
 @RestController
 @RequestMapping("/api/reports")
@@ -38,16 +21,26 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    /**
-     * RAPPORT DES VENTES (Commandes clients)
-     */
+    // ==================== MÉTHODE UTILITAIRE ====================
+
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        throw new RuntimeException("Token JWT manquant ou invalide");
+    }
+
+    // ==================== RAPPORT DES VENTES ====================
+
     @GetMapping("/sales")
     public ResponseEntity<?> getSalesReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false, defaultValue = "all") String clientType,
-            @RequestParam(required = false, defaultValue = "all") String status) {
+            @RequestParam(required = false, defaultValue = "all") String status,
+            HttpServletRequest request) {  // ✅ AJOUTER HttpServletRequest
 
         try {
             Map<String, Object> report = reportService.generateSalesReport(
@@ -55,7 +48,8 @@ public class ReportController {
                     startDate,
                     endDate,
                     clientType,
-                    status
+                    status,
+                    request  // ✅ PASSER request
             );
             return ResponseEntity.ok(report);
         } catch (Exception e) {
@@ -68,16 +62,16 @@ public class ReportController {
         }
     }
 
-    /**
-     * RAPPORT DES FACTURES
-     */
+    // ==================== RAPPORT DES FACTURES ====================
+
     @GetMapping("/invoices")
     public ResponseEntity<?> getInvoicesReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false, defaultValue = "all") String clientType,
-            @RequestParam(required = false, defaultValue = "all") String status) {
+            @RequestParam(required = false, defaultValue = "all") String status,
+            HttpServletRequest request) {  // ✅ AJOUTER HttpServletRequest
 
         try {
             Map<String, Object> report = reportService.generateInvoicesReport(
@@ -85,7 +79,8 @@ public class ReportController {
                     startDate,
                     endDate,
                     clientType,
-                    status
+                    status,
+                    request  // ✅ PASSER request
             );
             return ResponseEntity.ok(report);
         } catch (Exception e) {
@@ -98,22 +93,23 @@ public class ReportController {
         }
     }
 
-    /**
-     * RAPPORT DES CLIENTS
-     */
+    // ==================== RAPPORT DES CLIENTS ====================
+
     @GetMapping("/clients")
     public ResponseEntity<?> getClientsReport(
             @RequestParam(required = false, defaultValue = "month") String period,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false, defaultValue = "all") String clientType) {
+            @RequestParam(required = false, defaultValue = "all") String clientType,
+            HttpServletRequest request) {  // ✅ AJOUTER HttpServletRequest
 
         try {
             Map<String, Object> report = reportService.generateClientsReport(
                     period,
                     startDate,
                     endDate,
-                    clientType
+                    clientType,
+                    request  // ✅ PASSER request
             );
             return ResponseEntity.ok(report);
         } catch (Exception e) {
@@ -126,33 +122,8 @@ public class ReportController {
         }
     }
 
-    /**
-     * APERÇU RAPIDE POUR LE DASHBOARD
-     */
-    @GetMapping("/dashboard")
-    public ResponseEntity<?> getDashboardPreview(
-            @RequestParam(required = false, defaultValue = "month") String period) {
+    // ==================== TYPES DE RAPPORTS ====================
 
-        try {
-            Map<String, Object> preview = new HashMap<>();
-
-            // Vous pouvez déplacer cette logique dans le service si nécessaire
-            preview.put("message", "Dashboard preview - À implémenter");
-            preview.put("period", period);
-
-            return ResponseEntity.ok(preview);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage(),
-                    "success", false
-            ));
-        }
-    }
-
-    /**
-     * LISTE DES TYPES DE RAPPORTS DISPONIBLES
-     */
     @GetMapping("/types")
     public ResponseEntity<?> getReportTypes() {
         return ResponseEntity.ok(Map.of(

@@ -1,29 +1,42 @@
 package org.erp.invera.service.erp;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Notification;
 import org.erp.invera.model.erp.Produit;
-import org.erp.invera.repository.erp.NotificationRepository;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
+import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 /**
- * Service de surveillance des stocks.
+ * Service de surveillance des stocks - MULTI-TENANT.
  *
  * Ce fichier surveille les variations de stock des produits.
  * Quand un produit passe sous un certain seuil (stock faible, critique ou rupture),
  * il crée automatiquement une notification pour alerter le responsable des achats.
- *
- * Exemple : un produit passe de 50 à 10 unités (seuil = 20)
- * -> Notification envoyée au rôle "RESPONSABLE_ACHAT"
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class StockNotificationService {
 
     private static final String PROCUREMENT_ROLE = "RESPONSABLE_ACHAT";
 
-    private final NotificationRepository notificationRepository;
+    private final TenantAwareRepository tenantRepo;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    public StockNotificationService(NotificationRepository notificationRepository) {
-        this.notificationRepository = notificationRepository;
+    // ==================== METHODES MULTI-TENANT ====================
+
+    private Long getClientIdFromToken(String token) {
+        return jwtTokenProvider.getClientIdFromToken(token);
+    }
+
+    private JdbcTemplate getTenantJdbcTemplate(String token) {
+        Long clientId = getClientIdFromToken(token);
+        return tenantRepo.getClientJdbcTemplate(clientId, String.valueOf(clientId));
     }
 
     /**
@@ -32,8 +45,9 @@ public class StockNotificationService {
      * @param produit le produit concerné
      * @param previousQuantity quantité avant modification
      * @param newQuantity quantité après modification
+     * @param token token JWT du client
      */
-    public void notifyIfStockNeedsReorder(Produit produit, Integer previousQuantity, Integer newQuantity) {
+    public void notifyIfStockNeedsReorder(Produit produit, Integer previousQuantity, Integer newQuantity, String token) {
         // Ignorer si les données sont incomplètes
         if (produit == null || previousQuantity == null || newQuantity == null) {
             return;
@@ -77,16 +91,38 @@ public class StockNotificationService {
                 safeThreshold(produit.getSeuilMinimum())
         );
 
-        // Sauvegarder la notification en base de données
-        notificationRepository.save(
-                new Notification(
-                        "STOCK_ALERT",
-                        message,
-                        null,
-                        produit.getLibelle(),
-                        PROCUREMENT_ROLE
-                )
-        );
+        // Sauvegarder la notification dans la base tenant
+        saveNotification(message, produit.getLibelle(), token);
+    }
+
+    /**
+     * Sauvegarde une notification dans la base tenant
+     */
+    private void saveNotification(String message, String produitLibelle, String token) {
+        try {
+            JdbcTemplate jdbc = getTenantJdbcTemplate(token);
+            Long clientId = getClientIdFromToken(token);
+
+            String sql = """
+                INSERT INTO notifications (tenant_id, created_at, message, read, type, user_name, target_role)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
+
+            jdbc.update(sql,
+                    String.valueOf(clientId),
+                    LocalDateTime.now(),
+                    message,
+                    false,
+                    "STOCK_ALERT",
+                    produitLibelle,
+                    PROCUREMENT_ROLE
+            );
+
+            log.info("✅ Notification stock créée: {}", message);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur création notification stock: {}", e.getMessage());
+        }
     }
 
     /**
@@ -102,10 +138,10 @@ public class StockNotificationService {
      */
     private int severity(Produit.StockStatus status) {
         return switch (status) {
-            case EN_STOCK -> 0;      // OK
-            case FAIBLE -> 1;        // Attention
-            case CRITIQUE -> 2;      // Urgent
-            case RUPTURE -> 3;       // Plus de stock
+            case EN_STOCK -> 0;
+            case FAIBLE -> 1;
+            case CRITIQUE -> 2;
+            case RUPTURE -> 3;
         };
     }
 
@@ -113,23 +149,23 @@ public class StockNotificationService {
      * Calcule le statut du stock selon la quantité et le seuil
      */
     private Produit.StockStatus calculateStatus(Integer quantity, Integer threshold) {
-        if (quantity == null || threshold == null) {
-            return Produit.StockStatus.RUPTURE;
+        if (quantity == null || threshold == null || threshold == 0) {
+            return quantity == null || quantity <= 0 ? Produit.StockStatus.RUPTURE : Produit.StockStatus.EN_STOCK;
         }
 
         if (quantity <= 0) {
-            return Produit.StockStatus.RUPTURE;      // Rupture
+            return Produit.StockStatus.RUPTURE;
         }
 
         if (quantity <= threshold * 0.25) {
-            return Produit.StockStatus.CRITIQUE;     // Critique (< 25% du seuil)
+            return Produit.StockStatus.CRITIQUE;
         }
 
         if (quantity <= threshold) {
-            return Produit.StockStatus.FAIBLE;       // Faible (< seuil)
+            return Produit.StockStatus.FAIBLE;
         }
 
-        return Produit.StockStatus.EN_STOCK;         // Suffisant
+        return Produit.StockStatus.EN_STOCK;
     }
 
     private int safeThreshold(Integer threshold) {

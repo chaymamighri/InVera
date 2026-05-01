@@ -1,28 +1,27 @@
-// ClientsManagementPage.jsx - Version corrigée
+// ClientsManagementPage.jsx - Version corrigée avec ouverture dans nouvel onglet
 
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
-  ClockIcon,
   EyeIcon,
   MagnifyingGlassIcon,
-  NoSymbolIcon,
-  PlayCircleIcon,
-  ServerStackIcon,
   UserGroupIcon,
   XCircleIcon,
-  CreditCardIcon,
+  DocumentTextIcon,
+  BuildingOfficeIcon,
+  UserIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 
 import { clientPlatformService } from '../../../servicesPlatform/clientPlatformService';
 
-// ⭐ STATUTS pour clients DEFINITIF uniquement
+// ⭐ STATUTS pour clients DEFINITIF
 const STATUS_OPTIONS = [
   { label: 'Tous', value: 'ALL' },
   { label: 'En attente', value: 'EN_ATTENTE' },
-  { label: 'Validé - En attente paiement', value: 'VALIDE_EN_ATTENTE_PAIEMENT' },
+  { label: 'Validé', value: 'VALIDE' },
   { label: 'Actifs', value: 'ACTIF' },
   { label: 'Refusés', value: 'REFUSE' },
 ];
@@ -51,7 +50,7 @@ const getStatusPillClass = (status) => {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     case 'EN_ATTENTE':
       return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'VALIDE_EN_ATTENTE_PAIEMENT':
+    case 'VALIDE':
       return 'bg-blue-50 text-blue-700 border-blue-200';
     case 'REFUSE':
       return 'bg-rose-50 text-rose-700 border-rose-200';
@@ -66,8 +65,8 @@ const getStatusLabel = (status) => {
       return 'Actif';
     case 'EN_ATTENTE':
       return 'En attente de validation';
-    case 'VALIDE_EN_ATTENTE_PAIEMENT':
-      return 'Validé - En attente paiement';
+    case 'VALIDE':
+      return 'Validé (en attente paiement)';
     case 'REFUSE':
       return 'Refusé';
     default:
@@ -76,6 +75,11 @@ const getStatusLabel = (status) => {
 };
 
 const summaryCardClass = 'rounded-2xl border border-gray-200 bg-white p-5 shadow-sm';
+const tabButtonClass = (active) => `px-4 py-2 text-sm font-medium rounded-lg transition ${
+  active 
+    ? 'bg-purple-600 text-white' 
+    : 'text-gray-600 hover:bg-gray-100'
+}`;
 
 const ClientsManagementPage = () => {
   const [clients, setClients] = useState([]);
@@ -85,48 +89,49 @@ const ClientsManagementPage = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState('');
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentOffreId, setPaymentOffreId] = useState('');
-  const [paymentTransactionId, setPaymentTransactionId] = useState('');
+  const [activeTab, setActiveTab] = useState('info');
+  const [documentLoading, setDocumentLoading] = useState(false);
 
-  // ⭐ Charger UNIQUEMENT les clients DEFINITIF
- const loadClients = async (filter = statusFilter, { silent = false } = {}) => {
-  if (silent) {
-    setRefreshing(true);
-  } else {
-    setLoading(true);
-  }
-
-  try {
-    console.log('🔍 Chargement des clients DEFINITIF...');
-    const allDefinitifClients = await clientPlatformService.getDefinitifClients();
-    console.log('📊 Clients reçus:', allDefinitifClients);
-    
-    let filteredData = [...allDefinitifClients];
-    
-    // Appliquer le filtre de statut
-    if (filter !== 'ALL') {
-      filteredData = filteredData.filter(client => client.statut === filter);
-      console.log('📊 Après filtre statut:', filteredData.length);
+  // Charger les clients DEFINITIF
+  const loadClients = async (filter = statusFilter, { silent = false } = {}) => {
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-    
-    setClients(filteredData);
 
-    if (selectedClient?.id) {
-      const freshSelected = filteredData.find(
-        (client) => String(client.id) === String(selectedClient.id)
-      ) || null;
-      setSelectedClient(freshSelected);
+    try {
+      console.log('🔍 Chargement des clients DEFINITIF...');
+      const allClients = await clientPlatformService.getAllClients();
+      const allDefinitifClients = allClients.filter(client => client.typeInscription === 'DEFINITIF');
+      
+      console.log('📊 Clients DEFINITIF reçus:', allDefinitifClients.length);
+      
+      let filteredData = [...allDefinitifClients];
+      
+      if (filter !== 'ALL') {
+        filteredData = filteredData.filter(client => client.statut === filter);
+        console.log('📊 Après filtre statut:', filteredData.length);
+      }
+      
+      setClients(filteredData);
+
+      if (selectedClient?.id) {
+        const freshSelected = filteredData.find(
+          (client) => String(client.id) === String(selectedClient.id)
+        ) || null;
+        setSelectedClient(freshSelected);
+        setActiveTab('info');
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement:', error);
+      const message = error?.response?.data?.error || error?.message || 'Impossible de charger les clients.';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  } catch (error) {
-    console.error('❌ Erreur chargement:', error);
-    const message = error?.response?.data?.error || error?.message || 'Impossible de charger les clients.';
-    toast.error(message);
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-};
+  };
 
   useEffect(() => {
     loadClients('ALL');
@@ -161,14 +166,13 @@ const ClientsManagementPage = () => {
     });
   }, [clients, search]);
 
-  // ⭐ Statistiques UNIQUEMENT sur DEFINITIF
   const stats = useMemo(() => {
     const total = clients.length;
     const pending = clients.filter((client) => client?.statut === 'EN_ATTENTE').length;
-    const waitingPayment = clients.filter((client) => client?.statut === 'VALIDE_EN_ATTENTE_PAIEMENT').length;
+    const validated = clients.filter((client) => client?.statut === 'VALIDE').length;
     const active = clients.filter((client) => client?.statut === 'ACTIF').length;
     const refused = clients.filter((client) => client?.statut === 'REFUSE').length;
-    return { total, pending, waitingPayment, active, refused };
+    return { total, pending, validated, active, refused };
   }, [clients]);
 
   const runAction = async (actionKey, callback, successMessage) => {
@@ -185,16 +189,14 @@ const ClientsManagementPage = () => {
     }
   };
 
-  // ⭐ Validation du client (EN_ATTENTE → VALIDE_EN_ATTENTE_PAIEMENT)
   const handleValidate = async (client) => {
     await runAction(
       `validate-${client.id}`,
       () => clientPlatformService.validateClient(client.id),
-      '✅ Client validé. Email de paiement envoyé.'
+      '✅ Client validé avec succès'
     );
   };
 
-  // ⭐ Refus du client
   const handleRefuse = async (client) => {
     const motif = window.prompt('Motif du refus :', client?.motifRefus || '');
     if (motif === null) return;
@@ -205,20 +207,78 @@ const ClientsManagementPage = () => {
     );
   };
 
-  // ⭐ Confirmation paiement (VALIDE_EN_ATTENTE_PAIEMENT → ACTIF)
-  const handleConfirmPayment = async (client) => {
-    if (!paymentOffreId) {
-      toast.error('Veuillez sélectionner une offre');
-      return;
+  const getDocumentList = (client) => {
+    const documents = [];
+    if (client.typeCompte === 'ENTREPRISE') {
+      if (client.gerantCinUrl) documents.push({ 
+        name: 'CIN du gérant', 
+        type: 'gerantcin',
+        url: client.gerantCinUrl
+      });
+      if (client.patenteUrl) documents.push({ 
+        name: 'Patente', 
+        type: 'patente',
+        url: client.patenteUrl
+      });
+      if (client.rneUrl) documents.push({ 
+        name: 'Registre National des Entreprises', 
+        type: 'rne',
+        url: client.rneUrl
+      });
+    } else {
+      if (client.cinUrl) documents.push({ 
+        name: 'CIN', 
+        type: 'cin',
+        url: client.cinUrl
+      });
     }
-    await runAction(
-      `payment-${client.id}`,
-      () => clientPlatformService.activateAfterPayment(client.id, paymentOffreId, paymentTransactionId),
-      '💰 Paiement confirmé - Compte activé'
-    );
-    setShowPaymentModal(false);
-    setPaymentOffreId('');
-    setPaymentTransactionId('');
+    return documents;
+  };
+
+  // ✅ MODIFICATION: Ouvrir le document dans un nouvel onglet
+  const handleViewDocument = async (clientId, doc) => {
+    setDocumentLoading(true);
+    
+    try {
+      // Récupérer le document sous forme de blob
+      const blob = await clientPlatformService.getDocument(clientId, doc.type);
+      
+      // Créer une URL objet
+      const url = URL.createObjectURL(blob);
+      
+      // Déterminer le type de fichier pour l'extension
+      let extension = '.pdf';
+      if (doc.url) {
+        const parts = doc.url.split('.');
+        extension = '.' + parts[parts.length - 1];
+      }
+      
+      // Créer un lien temporaire pour le téléchargement/visualisation
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Pour les PDF et images, ouvrir dans un nouvel onglet
+      if (extension === '.pdf' || extension === '.jpg' || extension === '.jpeg' || extension === '.png' || extension === '.gif') {
+        window.open(url, '_blank');
+        toast.success('Document ouvert dans un nouvel onglet');
+      } else {
+        // Pour les autres formats, forcer le téléchargement
+        link.download = `${doc.name}${extension}`;
+        link.click();
+        toast.success('Téléchargement du document démarré');
+      }
+      
+      // Nettoyer l'URL objet après un délai
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Erreur chargement document:', error);
+      toast.error("Impossible de charger le document");
+    } finally {
+      setDocumentLoading(false);
+    }
   };
 
   if (loading) {
@@ -239,11 +299,11 @@ const ClientsManagementPage = () => {
               Gestion clients DEFINITIF
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-gray-900">
-              Validez les inscriptions DEFINITIF
+              Validation des inscriptions DEFINITIF
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-500">
-              Gérez uniquement les clients en formule DEFINITIF qui nécessitent une validation
-              administrative et un paiement. Les comptes ESSAI sont automatiques.
+              Consultez les documents justificatifs, validez ou refusez les demandes d'inscription DEFINITIF.
+              Les clients validés recevront automatiquement les instructions de paiement.
             </p>
           </div>
 
@@ -280,8 +340,8 @@ const ClientsManagementPage = () => {
           <p className="mt-2 text-3xl font-semibold text-amber-600">{stats.pending}</p>
         </div>
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">En attente paiement</p>
-          <p className="mt-2 text-3xl font-semibold text-blue-600">{stats.waitingPayment}</p>
+          <p className="text-sm font-medium text-gray-500">Validés</p>
+          <p className="mt-2 text-3xl font-semibold text-blue-600">{stats.validated}</p>
         </div>
         <div className={summaryCardClass}>
           <p className="text-sm font-medium text-gray-500">Actifs</p>
@@ -293,8 +353,8 @@ const ClientsManagementPage = () => {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        {/* Tableau des clients DEFINITIF */}
+      <section className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
+        {/* Tableau des clients */}
         <div className="rounded-3xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-6 py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -319,15 +379,14 @@ const ClientsManagementPage = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[600px] overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-6 py-4">Client</th>
                   <th className="px-6 py-4">Statut</th>
                   <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4">Inscription</th>
-                  <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Actions</th>
                 </tr>
               </thead>
@@ -335,11 +394,13 @@ const ClientsManagementPage = () => {
                 {filteredClients.map((client) => {
                   const fullName = getFullName(client);
                   const isSelected = String(selectedClient?.id) === String(client.id);
+                  const hasDocuments = getDocumentList(client).length > 0;
 
                   return (
                     <tr
                       key={client.id}
-                      className={`transition hover:bg-purple-50/40 ${isSelected ? 'bg-purple-50/60' : ''}`}
+                      className={`cursor-pointer transition hover:bg-purple-50/40 ${isSelected ? 'bg-purple-50/60' : ''}`}
+                      onClick={() => setSelectedClient(client)}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -351,35 +412,21 @@ const ClientsManagementPage = () => {
                             <p className="text-sm text-gray-500">{client.email || 'Email non renseigné'}</p>
                           </div>
                         </div>
-                      </td>
+                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStatusPillClass(client?.statut)}`}>
                           {getStatusLabel(client?.statut)}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{client?.typeCompte || 'N/A'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                          DEFINITIF
-                        </span>
-                      </td>
+                        </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{client.typeCompte || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(client?.dateInscription || client?.createdAt)}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => setSelectedClient(client)}
-                            className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                            Voir
-                          </button>
-
-                          {/* ⭐ Bouton Valider - uniquement pour EN_ATTENTE */}
                           {client?.statut === 'EN_ATTENTE' && (
                             <button
-                              onClick={() => handleValidate(client)}
+                              onClick={(e) => { e.stopPropagation(); handleValidate(client); }}
                               disabled={actionLoading === `validate-${client.id}`}
                               className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                             >
@@ -387,18 +434,14 @@ const ClientsManagementPage = () => {
                               Valider
                             </button>
                           )}
-
-                          {/* ⭐ Bouton Confirmer paiement - uniquement pour VALIDE_EN_ATTENTE_PAIEMENT */}
-                          {client?.statut === 'VALIDE_EN_ATTENTE_PAIEMENT' && (
+                          {client?.statut === 'EN_ATTENTE' && (
                             <button
-                              onClick={() => {
-                                setSelectedClient(client);
-                                setShowPaymentModal(true);
-                              }}
-                              className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                              onClick={(e) => { e.stopPropagation(); handleRefuse(client); }}
+                              disabled={actionLoading === `refuse-${client.id}`}
+                              className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
                             >
-                              <CreditCardIcon className="h-4 w-4" />
-                              Paiement
+                              <XCircleIcon className="h-4 w-4" />
+                              Refuser
                             </button>
                           )}
                         </div>
@@ -417,114 +460,190 @@ const ClientsManagementPage = () => {
           </div>
         </div>
 
-        {/* Panneau latéral - Détails client */}
+        {/* Panneau latéral - Détails client avec Tabs */}
         <aside className="rounded-3xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-6 py-5">
-            <h2 className="text-xl font-semibold text-gray-900">Détail client DEFINITIF</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Détail client</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Sélectionnez un client DEFINITIF pour consulter ses informations.
+              Sélectionnez un client pour consulter ses informations.
             </p>
           </div>
 
           {selectedClient ? (
-            <div className="space-y-6 px-6 py-6">
-              {/* ... reste du contenu du panneau latéral ... */}
-              
-              <div className="space-y-3">
+            <div className="flex flex-col h-full">
+              {/* Tabs */}
+              <div className="flex border-b border-gray-200 px-6 pt-4 gap-2">
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={tabButtonClass(activeTab === 'info')}
+                >
+                  <InformationCircleIcon className="h-4 w-4 inline mr-2" />
+                  Informations
+                </button>
+                <button
+                  onClick={() => setActiveTab('documents')}
+                  className={tabButtonClass(activeTab === 'documents')}
+                >
+                  <DocumentTextIcon className="h-4 w-4 inline mr-2" />
+                  Documents
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Onglet Informations */}
+                {activeTab === 'info' && (
+                  <>
+                    <div className="text-center border-b pb-4">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-purple-100 text-2xl font-semibold text-purple-700 mx-auto mb-3">
+                        {getFullName(selectedClient).substring(0, 2).toUpperCase()}
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900">{getFullName(selectedClient)}</h3>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold mt-2 ${getStatusPillClass(selectedClient?.statut)}`}>
+                        {getStatusLabel(selectedClient?.statut)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Coordonnées</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Email:</span>
+                          <span className="text-gray-900 font-medium">{selectedClient.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Téléphone:</span>
+                          <span className="text-gray-900">{selectedClient.telephone || 'Non renseigné'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Type compte:</span>
+                          <span className="text-gray-900">{selectedClient.typeCompte}</span>
+                        </div>
+                        {selectedClient.matriculeFiscal && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Matricule fiscal:</span>
+                            <span className="text-gray-900">{selectedClient.matriculeFiscal}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Date inscription:</span>
+                          <span className="text-gray-900">{formatDate(selectedClient.dateInscription)}</span>
+                        </div>
+                        {selectedClient.motifRefus && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Motif refus:</span>
+                            <span className="text-rose-600">{selectedClient.motifRefus}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Onglet Documents - Version avec ouverture dans nouvel onglet */}
+                {activeTab === 'documents' && (
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold text-gray-900 border-b pb-2">Documents justificatifs</h4>
+                    
+                    {getDocumentList(selectedClient).map((doc, index) => (
+                      <div key={index} className="border rounded-lg p-3 hover:bg-gray-50 transition">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <DocumentTextIcon className="h-8 w-8 text-blue-500" />
+                            <div>
+                              <p className="font-medium text-gray-900">{doc.name}</p>
+                              <p className="text-xs text-gray-500">Cliquez pour ouvrir dans un nouvel onglet</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleViewDocument(selectedClient.id, doc)}
+                            className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+                            disabled={documentLoading}
+                          >
+                            {documentLoading ? (
+                              <>
+                                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                <span>Chargement...</span>
+                              </>
+                            ) : (
+                              <>
+                                <EyeIcon className="h-4 w-4" />
+                                <span>Ouvrir</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {getDocumentList(selectedClient).length === 0 && (
+                      <div className="text-center py-8 text-gray-400">
+                        <DocumentTextIcon className="h-12 w-12 mx-auto mb-2" />
+                        <p>Aucun document disponible</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="border-t p-6 space-y-3 bg-gray-50 rounded-b-3xl">
                 {selectedClient?.statut === 'EN_ATTENTE' && (
                   <>
                     <button
                       onClick={() => handleValidate(selectedClient)}
                       disabled={actionLoading === `validate-${selectedClient.id}`}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                     >
                       <CheckCircleIcon className="h-5 w-5" />
-                      Valider et envoyer email de paiement
+                      Valider la demande
                     </button>
                     <button
                       onClick={() => handleRefuse(selectedClient)}
                       disabled={actionLoading === `refuse-${selectedClient.id}`}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
                     >
                       <XCircleIcon className="h-5 w-5" />
                       Refuser la demande
                     </button>
                   </>
                 )}
-
-                {selectedClient?.statut === 'VALIDE_EN_ATTENTE_PAIEMENT' && (
-                  <button
-                    onClick={() => setShowPaymentModal(true)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-                  >
-                    <CreditCardIcon className="h-5 w-5" />
-                    Confirmer le paiement
-                  </button>
+                
+                {selectedClient?.statut === 'VALIDE' && (
+                  <div className="rounded-xl bg-blue-50 p-4 text-center">
+                    <CheckCircleIcon className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                    <p className="text-sm text-blue-800 font-medium">Client validé</p>
+                    <p className="text-xs text-blue-600 mt-1">En attente de paiement pour activation</p>
+                  </div>
+                )}
+                
+                {selectedClient?.statut === 'ACTIF' && (
+                  <div className="rounded-xl bg-emerald-50 p-4 text-center">
+                    <CheckCircleIcon className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
+                    <p className="text-sm text-emerald-800 font-medium">Compte actif</p>
+                  </div>
+                )}
+                
+                {selectedClient?.statut === 'REFUSE' && (
+                  <div className="rounded-xl bg-rose-50 p-4 text-center">
+                    <XCircleIcon className="h-6 w-6 text-rose-600 mx-auto mb-2" />
+                    <p className="text-sm text-rose-800 font-medium">Demande refusée</p>
+                  </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="flex min-h-[500px] flex-col items-center justify-center px-6 py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
                 <UserGroupIcon className="h-8 w-8" />
               </div>
-              <h3 className="mt-5 text-lg font-semibold text-gray-900">Aucun client DEFINITIF sélectionné</h3>
+              <h3 className="mt-5 text-lg font-semibold text-gray-900">Aucun client sélectionné</h3>
               <p className="mt-2 max-w-xs text-sm leading-6 text-gray-500">
-                Cliquez sur `Voir` dans le tableau pour afficher les informations d&apos;un client DEFINITIF.
+                Cliquez sur un client dans le tableau pour afficher ses informations.
               </p>
             </div>
           )}
         </aside>
       </section>
-
-      {/* Modal confirmation paiement */}
-      {showPaymentModal && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirmer le paiement</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Client: <strong>{getFullName(selectedClient)}</strong>
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID de l'offre</label>
-                <input
-                  type="text"
-                  value={paymentOffreId}
-                  onChange={(e) => setPaymentOffreId(e.target.value)}
-                  placeholder="ex: 1 (standard), 2 (premium)"
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID Transaction (optionnel)</label>
-                <input
-                  type="text"
-                  value={paymentTransactionId}
-                  onChange={(e) => setPaymentTransactionId(e.target.value)}
-                  placeholder="Référence de paiement"
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => handleConfirmPayment(selectedClient)}
-                disabled={!paymentOffreId}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                Confirmer
-              </button>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="flex-1 border border-gray-300 py-2 rounded-lg hover:bg-gray-50"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
