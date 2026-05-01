@@ -8,57 +8,57 @@ const copy = {
     emailRequired: 'Email requis',
     emailInvalid: "Format d'email invalide",
     passwordRequired: 'Mot de passe requis',
-    passwordMinLogin: 'Minimum 6 caracteres',
-    passwordMinReset: 'Minimum 8 caracteres',
+    passwordMinLogin: 'Minimum 8 caractères',
+    passwordMinReset: 'Minimum 8 caractères',
     passwordUppercase: 'Au moins une majuscule',
     passwordDigit: 'Au moins un chiffre',
-    passwordSpecial: 'Au moins un caractere special',
+    passwordSpecial: 'Au moins un caractère spécial',
     loginIncorrect: 'Email ou mot de passe incorrect',
     passwordIncorrect: 'Mot de passe incorrect',
-    accountNotFound: 'Aucun compte trouve avec cet email',
+    accountNotFound: 'Aucun compte trouvé avec cet email',
     emailUnknown: 'Email non reconnu',
-    loginServerError: 'Impossible de se connecter au serveur. Verifiez votre connexion.',
+    loginServerError: 'Impossible de se connecter au serveur. Vérifiez votre connexion.',
     loginActionError: 'Une erreur est survenue lors de la connexion',
-    resetSent: 'Un code de reinitialisation a ete envoye a {{email}}',
+    resetSent: 'Un code de réinitialisation a été envoyé à {{email}}',
     resetSendError: "Impossible d'envoyer le code",
     codeRequired: 'Code requis',
     codeLength: 'Le code doit contenir 6 chiffres',
-    codeVerified: 'Code verifie avec succes',
+    codeVerified: 'Code vérifié avec succès',
     passwordsMismatch: 'Les mots de passe ne correspondent pas',
-    passwordResetSuccess: 'Mot de passe reinitialise avec succes. Redirection...',
-    invalidCode: 'Code invalide ou expire',
-    newCodeSent: 'Un nouveau code a ete envoye',
+    passwordResetSuccess: 'Mot de passe réinitialisé avec succès. Redirection...',
+    invalidCode: 'Code invalide ou expiré',
+    newCodeSent: 'Un nouveau code a été envoyé',
     resendFailed: 'Impossible de renvoyer le code',
     emailLabel: 'Adresse email',
     emailPlaceholder: 'vous@entreprise.com',
     passwordLabel: 'Mot de passe',
-    forgotPassword: 'Mot de passe oublie ?',
+    forgotPassword: 'Mot de passe oublié ?',
     rememberMe: 'Se souvenir de moi',
     loggingIn: 'Connexion...',
     login: 'Se connecter',
-    backToLogin: 'Retour a la connexion',
-    forgotTitle: 'Reinitialisation du mot de passe',
-    verifyCodeTitle: 'Verification du code',
+    backToLogin: 'Retour à la connexion',
+    forgotTitle: 'Réinitialisation du mot de passe',
+    verifyCodeTitle: 'Vérification du code',
     newPasswordTitle: 'Nouveau mot de passe',
     forgotDescription: 'Entrez votre email pour recevoir un code',
-    verifyCodeDescription: 'Code envoye a {{email}}',
-    newPasswordDescription: 'Choisissez un mot de passe securise',
+    verifyCodeDescription: 'Code envoyé à {{email}}',
+    newPasswordDescription: 'Choisissez un mot de passe sécurisé',
     sendCode: 'Envoyer le code',
     sending: 'Envoi...',
-    verificationCode: 'Code de verification',
-    verifyCode: 'Verifier le code',
-    verifying: 'Verification...',
+    verificationCode: 'Code de vérification',
+    verifyCode: 'Vérifier le code',
+    verifying: 'Vérification...',
     resendCode: 'Renvoyer le code',
     resendCountdown: 'Renvoyer ({{count}}s)',
     editEmail: "Modifier l'email",
     newPasswordLabel: 'Nouveau mot de passe',
     confirmPasswordLabel: 'Confirmer le mot de passe',
-    resetting: 'Reinitialisation...',
-    reset: 'Reinitialiser',
-    loginTitle: 'Connectez-vous a votre compte',
-    loginDescription: 'Entrez vos identifiants pour acceder a la plateforme',
-    forgotFlowTitle: 'Reinitialisation',
-    forgotFlowDescription: 'Suivez les etapes pour reinitialiser votre mot de passe',
+    resetting: 'Réinitialisation...',
+    reset: 'Réinitialiser',
+    loginTitle: 'Connectez-vous à votre compte',
+    loginDescription: 'Entrez vos identifiants pour accéder à la plateforme',
+    forgotFlowTitle: 'Réinitialisation',
+    forgotFlowDescription: 'Suivez les étapes pour réinitialiser votre mot de passe',
     hiddenPassword: 'Masquer',
     visiblePassword: 'Afficher',
   },
@@ -66,7 +66,7 @@ const copy = {
     emailRequired: 'Email is required',
     emailInvalid: 'Invalid email format',
     passwordRequired: 'Password is required',
-    passwordMinLogin: 'Minimum 6 characters',
+    passwordMinLogin: 'Minimum 8 characters',
     passwordMinReset: 'Minimum 8 characters',
     passwordUppercase: 'At least one uppercase letter',
     passwordDigit: 'At least one number',
@@ -124,7 +124,7 @@ const copy = {
     emailRequired: 'البريد الإلكتروني مطلوب',
     emailInvalid: 'صيغة البريد الإلكتروني غير صحيحة',
     passwordRequired: 'كلمة المرور مطلوبة',
-    passwordMinLogin: 'الحد الأدنى 6 أحرف',
+    passwordMinLogin: 'الحد الأدنى 8 أحرف',
     passwordMinReset: 'الحد الأدنى 8 أحرف',
     passwordUppercase: 'أضف حرفًا كبيرًا واحدًا على الأقل',
     passwordDigit: 'أضف رقمًا واحدًا على الأقل',
@@ -202,7 +202,7 @@ const FieldIcon = ({ children, isArabic }) => (
   </div>
 );
 
-const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) => {
+const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, serverError, onError }) => {
   const { language, isArabic } = useLanguage();
   const text = useMemo(() => copy[language] || copy.fr, [language]);
   const { forgotPassword, resetPassword, loading: authLoading } = useAuth();
@@ -218,7 +218,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   });
   const [step, setStep] = useState(1);
   const [internalLoading, setInternalLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showPassword, setShowPassword] = useState({
     password: false,
@@ -226,6 +226,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     confirmPassword: false,
   });
   const [countdown, setCountdown] = useState(0);
+
+
+  useEffect(() => {
+  console.log('🔍 LoginForm - serverError changed:', serverError);
+}, [serverError]);
+
 
   useEffect(() => {
     const rememberMe = localStorage.getItem('rememberMe');
@@ -257,16 +263,16 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   const isLoading = externalLoading || internalLoading || authLoading;
 
-  const validateEmail = (email) => {
+  const validateEmailUI = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email?.trim()) return text.emailRequired;
     if (!emailRegex.test(email)) return text.emailInvalid;
     return '';
   };
 
-  const validatePassword = (password) => {
+  const validatePasswordUI = (password) => {
     if (!password?.trim()) return text.passwordRequired;
-    if (password.length < 6) return text.passwordMinLogin;
+    if (password.length < 8) return text.passwordMinLogin;
     return '';
   };
 
@@ -286,8 +292,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
       [name]: type === 'checkbox' ? checked : value,
     }));
 
-    if (errors[name]) setErrors((previous) => ({ ...previous, [name]: '' }));
+    if (fieldErrors[name]) {
+      setFieldErrors((previous) => ({ ...previous, [name]: '' }));
+    }
     if (message.text) setMessage({ type: '', text: '' });
+    // Effacer l'erreur serveur quand l'utilisateur modifie un champ
+    if (onError) onError('');
   };
 
   const togglePasswordVisibility = (field) => {
@@ -300,7 +310,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   const resetForgotFlow = () => {
     setMode('login');
     setStep(1);
-    setErrors({});
+    setFieldErrors({});
     setMessage({ type: '', text: '' });
     setFormData((previous) => ({
       ...previous,
@@ -310,66 +320,87 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
     }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setErrors({});
+  const validateLoginForm = () => {
+    const errors = {};
+    const emailError = validateEmailUI(formData.email);
+    if (emailError) errors.email = emailError;
 
-    const nextErrors = {};
-    const emailError = validateEmail(formData.email);
-    if (emailError) nextErrors.email = emailError;
+    const passwordError = validatePasswordUI(formData.password);
+    if (passwordError) errors.password = passwordError;
 
-    const passwordError = validatePassword(formData.password);
-    if (passwordError) nextErrors.password = passwordError;
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    setInternalLoading(true);
-
-    try {
-      await onSubmit(formData);
-
-      if (formData.rememberMe) {
-        const expiry = new Date();
-        expiry.setDate(expiry.getDate() + 30);
-        localStorage.setItem('rememberMe', 'true');
-        localStorage.setItem('savedEmail', formData.email);
-        localStorage.setItem('tokenExpiry', expiry.toISOString());
-      } else {
-        localStorage.removeItem('rememberMe');
-        localStorage.removeItem('savedEmail');
-        localStorage.removeItem('tokenExpiry');
-      }
-    } catch (error) {
-      if (error.message) {
-        if (error.message.includes('Email ou mot de passe incorrect') || error.message.includes('401')) {
-          setErrors({ submit: text.loginIncorrect, password: text.passwordIncorrect });
-        } else if (
-          error.message.includes('non trouvé') ||
-          error.message.includes('not found') ||
-          error.message.includes('404')
-        ) {
-          setErrors({ submit: text.accountNotFound, email: text.emailUnknown });
-        } else {
-          setErrors({ submit: error.message || text.loginActionError });
-        }
-      } else {
-        setErrors({ submit: text.loginServerError });
-      }
-    } finally {
-      setInternalLoading(false);
-    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
+
+ const handleSubmit = async (event) => {
+  event.preventDefault();
+   
+  console.log('🚀 handleSubmit - début');
+  
+  if (!validateLoginForm()) {
+    console.log('❌ Validation échouée');
+    return;
+  }
+  
+  if (!validateLoginForm()) {
+    return;
+  }
+
+  setInternalLoading(true);
+  setFieldErrors({});
+  setMessage({ type: '', text: '' });
+  
+  // ⭐ IMPORTANT: Effacer l'erreur serveur au début
+  if (onError) onError('');
+
+  try {
+    const result = await onSubmit(formData);
+    
+    if (formData.rememberMe) {
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + 30);
+      localStorage.setItem('rememberMe', 'true');
+      localStorage.setItem('savedEmail', formData.email);
+      localStorage.setItem('tokenExpiry', expiry.toISOString());
+    } else {
+      localStorage.removeItem('rememberMe');
+      localStorage.removeItem('savedEmail');
+      localStorage.removeItem('tokenExpiry');
+    }
+  } catch (error) {
+    console.log('🔴 Erreur capturée dans handleSubmit:', error);
+    
+    let errorMessage = text.loginIncorrect;
+    
+    if (error?.userMessage) {
+      errorMessage = error.userMessage;
+    } else if (error?.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    
+    console.log('📢 Message d\'erreur à afficher:', errorMessage);
+    
+    // ⭐ Mettre à jour le message local
+    setMessage({ type: 'error', text: errorMessage });
+    
+    // ⭐ Mettre à jour l'erreur serveur via onError
+    if (onError) {
+      onError(errorMessage);
+    }
+  } finally {
+    setInternalLoading(false);
+  }
+};
 
   const handleForgotPassword = async (event) => {
     event.preventDefault();
-    setErrors({});
+    setFieldErrors({});
 
-    const emailError = validateEmail(formData.email);
+    const emailError = validateEmailUI(formData.email);
     if (emailError) {
-      setErrors({ email: emailError });
+      setFieldErrors({ email: emailError });
       return;
     }
 
@@ -394,14 +425,14 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   const handleVerifyCode = async (event) => {
     event.preventDefault();
-    setErrors({});
+    setFieldErrors({});
 
     if (!formData.resetCode?.trim()) {
-      setErrors({ resetCode: text.codeRequired });
+      setFieldErrors({ resetCode: text.codeRequired });
       return;
     }
     if (formData.resetCode.length !== 6) {
-      setErrors({ resetCode: text.codeLength });
+      setFieldErrors({ resetCode: text.codeLength });
       return;
     }
 
@@ -411,16 +442,16 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
 
   const handleResetPassword = async (event) => {
     event.preventDefault();
-    setErrors({});
+    setFieldErrors({});
 
     const passwordError = validateNewPassword(formData.newPassword);
     if (passwordError) {
-      setErrors({ newPassword: passwordError });
+      setFieldErrors({ newPassword: passwordError });
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setErrors({ confirmPassword: text.passwordsMismatch });
+      setFieldErrors({ confirmPassword: text.passwordsMismatch });
       return;
     }
 
@@ -492,128 +523,162 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
   );
 
   const renderLoginForm = () => (
-    <form className="space-y-5" onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
-          {text.emailLabel}
-        </label>
-        <div className="relative">
-          <FieldIcon isArabic={isArabic}>
-            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </FieldIcon>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={formData.email}
-            onChange={handleChange}
-            className={renderInputBaseClasses(Boolean(errors.email))}
-            placeholder={text.emailPlaceholder}
-            disabled={isLoading}
-          />
+  <form className="space-y-5" onSubmit={handleSubmit}>
+    {/* ✅ AFFICHAGE DES ERREURS SERVEUR (via prop serverError) - EN PRIORITÉ */}
+    {serverError && (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="flex items-start gap-2">
+          <svg className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="leading-relaxed">{serverError}</span>
         </div>
-        {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
       </div>
+    )}
 
-      <div>
-        <div className={`mb-2 flex items-center justify-between ${isArabic ? 'flex-row-reverse' : ''}`}>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            {text.passwordLabel}
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('forgot');
-              setStep(1);
-              setErrors({});
-              setMessage({ type: '', text: '' });
-            }}
-            className="text-sm font-medium text-blue-600 hover:text-blue-500"
-          >
-            {text.forgotPassword}
-          </button>
+    {/* AFFICHAGE DES ERREURS LOCALES (uniquement si pas d'erreur serveur) */}
+    {message.text && message.type === 'error' && !serverError && (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="flex items-start gap-2">
+          <svg className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="leading-relaxed">{message.text}</span>
         </div>
-        <div className="relative">
-          <FieldIcon isArabic={isArabic}>
-            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
-          </FieldIcon>
-          <input
-            id="password"
-            name="password"
-            type={showPassword.password ? 'text' : 'password'}
-            autoComplete="current-password"
-            value={formData.password}
-            onChange={handleChange}
-            className={renderInputBaseClasses(Boolean(errors.password), true)}
-            placeholder="••••••••"
-            disabled={isLoading}
-          />
-          <PasswordVisibilityButton
-            visible={showPassword.password}
-            onClick={() => togglePasswordVisibility('password')}
-            isArabic={isArabic}
-            text={text}
-          />
-        </div>
-        {errors.password && <p className="mt-2 text-sm text-red-600">{errors.password}</p>}
       </div>
+    )}
 
-      <div className={`flex items-center ${isArabic ? 'flex-row-reverse justify-end' : ''}`}>
+    {/* AFFICHAGE DES MESSAGES DE SUCCÈS */}
+    {message.text && message.type === 'success' && (
+      <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="flex items-start gap-2">
+          <svg className="h-4 w-4 flex-shrink-0 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="leading-relaxed">{message.text}</span>
+        </div>
+      </div>
+    )}
+
+    <div>
+      <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
+        {text.emailLabel}
+      </label>
+      <div className="relative">
+        <FieldIcon isArabic={isArabic}>
+          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+        </FieldIcon>
         <input
-          id="remember-me"
-          name="rememberMe"
-          type="checkbox"
-          checked={formData.rememberMe}
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          value={formData.email}
           onChange={handleChange}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className={renderInputBaseClasses(Boolean(fieldErrors.email))}
+          placeholder={text.emailPlaceholder}
           disabled={isLoading}
         />
-        <label htmlFor="remember-me" className={`${isArabic ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>
-          {text.rememberMe}
-        </label>
       </div>
+      {fieldErrors.email && <p className="mt-2 text-sm text-red-600">{fieldErrors.email}</p>}
+    </div>
 
-      <Button
-        type="submit"
-        loading={isLoading}
-        fullWidth
-        size="lg"
-        className="bg-gradient-to-r from-blue-800 to-blue-600 text-white font-medium shadow-lg transition-all duration-200 hover:from-blue-900 hover:to-blue-900 hover:shadow-xl hover:scale-[1.02]"
-      >
-        {isLoading ? text.loggingIn : text.login}
-      </Button>
+    <div>
+      <div className={`mb-2 flex items-center justify-between ${isArabic ? 'flex-row-reverse' : ''}`}>
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          {text.passwordLabel}
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('forgot');
+            setStep(1);
+            setFieldErrors({});
+            setMessage({ type: '', text: '' });
+            // Nettoyer l'erreur serveur aussi
+            if (onError) onError('');
+          }}
+          className="text-sm font-medium text-blue-600 hover:text-blue-500"
+        >
+          {text.forgotPassword}
+        </button>
+      </div>
+      <div className="relative">
+        <FieldIcon isArabic={isArabic}>
+          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+        </FieldIcon>
+        <input
+          id="password"
+          name="password"
+          type={showPassword.password ? 'text' : 'password'}
+          autoComplete="current-password"
+          value={formData.password}
+          onChange={handleChange}
+          className={renderInputBaseClasses(Boolean(fieldErrors.password), true)}
+          placeholder="••••••••"
+          disabled={isLoading}
+        />
+        <PasswordVisibilityButton
+          visible={showPassword.password}
+          onClick={() => togglePasswordVisibility('password')}
+          isArabic={isArabic}
+          text={text}
+        />
+      </div>
+      {fieldErrors.password && <p className="mt-2 text-sm text-red-600">{fieldErrors.password}</p>}
+    </div>
 
-      {errors.submit && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <div className={`flex items-center ${isArabic ? 'flex-row-reverse' : ''}`}>
-            <svg className={`${isArabic ? 'ml-2' : 'mr-2'} h-5 w-5`} fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {errors.submit}
-          </div>
-        </div>
-      )}
-    </form>
-  );
+    <div className={`flex items-center ${isArabic ? 'flex-row-reverse justify-end' : ''}`}>
+      <input
+        id="remember-me"
+        name="rememberMe"
+        type="checkbox"
+        checked={formData.rememberMe}
+        onChange={handleChange}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        disabled={isLoading}
+      />
+      <label htmlFor="remember-me" className={`${isArabic ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>
+        {text.rememberMe}
+      </label>
+    </div>
+
+   <Button
+  type="submit"
+  fullWidth
+  size="lg"
+  className="bg-gradient-to-r from-blue-800 to-blue-600 text-white font-medium shadow-lg transition-all duration-200 hover:from-blue-900 hover:to-blue-900 hover:shadow-xl hover:scale-[1.02]"
+>
+  {text.login}
+</Button>
+  </form>
+);
 
   const renderForgotForm = () => (
     <div className="space-y-5">
@@ -706,12 +771,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={renderInputBaseClasses(Boolean(errors.email))}
+                className={renderInputBaseClasses(Boolean(fieldErrors.email))}
                 placeholder={text.emailPlaceholder}
                 disabled={isLoading}
               />
             </div>
-            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+            {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
           </div>
           <Button
             type="submit"
@@ -749,12 +814,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 maxLength="6"
                 value={formData.resetCode}
                 onChange={handleChange}
-                className={renderInputBaseClasses(Boolean(errors.resetCode))}
+                className={renderInputBaseClasses(Boolean(fieldErrors.resetCode))}
                 placeholder="123456"
                 disabled={isLoading}
               />
             </div>
-            {errors.resetCode && <p className="mt-1 text-xs text-red-600">{errors.resetCode}</p>}
+            {fieldErrors.resetCode && <p className="mt-1 text-xs text-red-600">{fieldErrors.resetCode}</p>}
           </div>
 
           <div className={`mb-4 flex items-center justify-between ${isArabic ? 'flex-row-reverse' : ''}`}>
@@ -813,7 +878,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 type={showPassword.newPassword ? 'text' : 'password'}
                 value={formData.newPassword}
                 onChange={handleChange}
-                className={renderInputBaseClasses(Boolean(errors.newPassword), true)}
+                className={renderInputBaseClasses(Boolean(fieldErrors.newPassword), true)}
                 placeholder="••••••••"
                 disabled={isLoading}
               />
@@ -824,7 +889,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 text={text}
               />
             </div>
-            {errors.newPassword && <p className="mt-1 text-xs text-red-600">{errors.newPassword}</p>}
+            {fieldErrors.newPassword && <p className="mt-1 text-xs text-red-600">{fieldErrors.newPassword}</p>}
           </div>
 
           <div className="mb-4">
@@ -848,7 +913,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 type={showPassword.confirmPassword ? 'text' : 'password'}
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={renderInputBaseClasses(Boolean(errors.confirmPassword), true)}
+                className={renderInputBaseClasses(Boolean(fieldErrors.confirmPassword), true)}
                 placeholder="••••••••"
                 disabled={isLoading}
               />
@@ -859,8 +924,8 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail }) =
                 text={text}
               />
             </div>
-            {errors.confirmPassword && (
-              <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>
+            {fieldErrors.confirmPassword && (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.confirmPassword}</p>
             )}
           </div>
           <Button

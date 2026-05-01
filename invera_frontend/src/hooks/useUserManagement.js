@@ -146,37 +146,29 @@ const updateUser = useCallback(async (id, updatedData) => {
   setError(null);
 
   try {
-    const newEmail = String(updatedData?.email || '').trim().toLowerCase();
-    const name = String(updatedData?.name || '').trim();
-
-    if (!name) {
-      throw new Error("Le nom de l'utilisateur est requis.");
-    }
-
-    if (!EMAIL_REGEX.test(newEmail)) {
-      throw new Error("L'adresse email n'est pas valide.");
-    }
-
-    const { nom, prenom } = splitFullName(name);
+    // ✅ Extraire nom et prénom du name complet si nécessaire
+    let nom = updatedData.nom;
+    let prenom = updatedData.prenom;
     
-    const payload = {
-      name: name,           // Nom complet
-      email: newEmail,      // Nouvel email
-      role: updatedData?.role,
-    };
-
-    console.log('📤 Mise à jour utilisateur:', {
-      id: id,
-      payload: payload
+    // Si pas de nom/prenom séparés, extraire du name complet
+    if (!nom && updatedData.name) {
+      const nameParts = updatedData.name.trim().split(/\s+/);
+      prenom = nameParts.pop() || '';
+      nom = nameParts.join(' ') || prenom;
+    }
+    
+    const result = await userService.updateUserById(id, {
+      nom: nom,
+      prenom: prenom,
+      email: updatedData.email,
+      role: updatedData.role,
+      active: updatedData.active
     });
-
-    // ✅ Utiliser la nouvelle méthode avec l'ID
-    const result = await userService.updateUserById(id, payload);
-    return result;
     
+    toast.success('Utilisateur modifié avec succès');
+    return result;
   } catch (err) {
-    const message = extractErrorMessage(err, 'Erreur lors de la mise a jour');
-    console.error('❌ updateUser error:', err);
+    const message = extractErrorMessage(err, 'Erreur lors de la mise à jour');
     toast.error(message);
     setError(message);
     throw new Error(message);

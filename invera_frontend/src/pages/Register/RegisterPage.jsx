@@ -63,9 +63,14 @@ const registerCopy = {
     lastName: 'Nom *',
     firstName: 'Prénom *',
     companyName: 'Raison sociale *',
-    siret: 'SIRET (14 chiffres)',
+    matriculeFiscal: 'Matricule fiscal',
     phone: 'Téléphone *',
     password: 'Mot de passe *',
+    passwordMinLength: 'Le mot de passe doit contenir au moins 8 caractères',
+    invalidEmail: 'Veuillez saisir un email valide (exemple@domaine.com)',
+    invalidPhone: 'Le numéro de téléphone doit contenir entre 8 et 15 chiffres',
+    invalidRaisonSociale: 'La raison sociale doit contenir au moins 2 caractères',
+   invalidMatriculeFiscal: 'Le matricule fiscal doit contenir des lettres ET des chiffres (5-15 caractères)',
     mandatoryDocuments: 'Documents justificatifs obligatoires',
     nationalId: "Carte d'identité nationale",
     managerId: "Carte d'identité du gérant",
@@ -120,9 +125,14 @@ const registerCopy = {
     lastName: 'Last name *',
     firstName: 'First name *',
     companyName: 'Company name *',
-    siret: 'SIRET (14 digits)',
+    matriculeFiscal: 'Tax registration number',
     phone: 'Phone *',
     password: 'Password *',
+    passwordMinLength: 'Password must be at least 8 characters',
+    invalidEmail: 'Please enter a valid email (example@domain.com)',
+    invalidPhone: 'Phone number must contain between 8 and 15 digits',
+    invalidRaisonSociale: 'Company name must contain at least 2 characters',
+invalidMatriculeFiscal: 'Tax registration number must contain both letters AND digits (5-15 characters)',
     mandatoryDocuments: 'Required supporting documents',
     nationalId: 'National identity card',
     managerId: "Manager's identity card",
@@ -177,9 +187,14 @@ const registerCopy = {
     lastName: 'اللقب *',
     firstName: 'الاسم *',
     companyName: 'الاسم التجاري *',
-    siret: 'SIRET (14 رقمًا)',
+    matriculeFiscal: 'الرقم الضريبي',
     phone: 'الهاتف *',
     password: 'كلمة المرور *',
+    passwordMinLength: 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل',
+    invalidEmail: 'يرجى إدخال بريد إلكتروني صالح (example@domain.com)',
+    invalidPhone: 'يجب أن يحتوي رقم الهاتف على ما بين 8 و 15 رقمًا',
+    invalidRaisonSociale: 'يجب أن يحتوي الاسم التجاري على حرفين على الأقل',
+    invalidMatriculeFiscal: 'يجب أن يحتوي الرقم الضريبي على أحرف وأرقام (5-15 حرفًا)',
     mandatoryDocuments: 'الوثائق الإلزامية',
     nationalId: 'بطاقة الهوية الوطنية',
     managerId: 'بطاقة هوية المدير',
@@ -210,70 +225,166 @@ const cardBaseClass =
 
 // Liste des pays avec code, indicatif
 const countryCodes = [
+  // Afrique du Nord
   { code: 'TN', name: 'Tunisie', dialCode: '+216' },
-  { code: 'FR', name: 'France', dialCode: '+33' },
   { code: 'MA', name: 'Maroc', dialCode: '+212' },
   { code: 'DZ', name: 'Algérie', dialCode: '+213' },
+  { code: 'LY', name: 'Libye', dialCode: '+218' },
+  { code: 'EG', name: 'Égypte', dialCode: '+20' },
+  { code: 'MR', name: 'Mauritanie', dialCode: '+222' },
+  
+  // Afrique de l'Ouest
   { code: 'SN', name: 'Sénégal', dialCode: '+221' },
-  { code: 'CI', name: 'Côte d\'Ivoire', dialCode: '+225' },
+  { code: 'CI', name: "Côte d'Ivoire", dialCode: '+225' },
   { code: 'CM', name: 'Cameroun', dialCode: '+237' },
+  { code: 'ML', name: 'Mali', dialCode: '+223' },
+  { code: 'BF', name: 'Burkina Faso', dialCode: '+226' },
+  { code: 'NE', name: 'Niger', dialCode: '+227' },
+  { code: 'TG', name: 'Togo', dialCode: '+228' },
+  { code: 'BJ', name: 'Bénin', dialCode: '+229' },
+  { code: 'GN', name: 'Guinée', dialCode: '+224' },
+  { code: 'GH', name: 'Ghana', dialCode: '+233' },
+  { code: 'NG', name: 'Nigéria', dialCode: '+234' },
+  
+  // Afrique centrale et australe
+  { code: 'GA', name: 'Gabon', dialCode: '+241' },
+  { code: 'CG', name: 'Congo', dialCode: '+242' },
+  { code: 'CD', name: 'RDC', dialCode: '+243' },
+  { code: 'ZA', name: 'Afrique du Sud', dialCode: '+27' },
+  { code: 'AO', name: 'Angola', dialCode: '+244' },
+  { code: 'MG', name: 'Madagascar', dialCode: '+261' },
+  { code: 'MU', name: 'Maurice', dialCode: '+230' },
+  
+  // Europe
+  { code: 'FR', name: 'France', dialCode: '+33' },
   { code: 'BE', name: 'Belgique', dialCode: '+32' },
   { code: 'CH', name: 'Suisse', dialCode: '+41' },
+  { code: 'DE', name: 'Allemagne', dialCode: '+49' },
+  { code: 'IT', name: 'Italie', dialCode: '+39' },
+  { code: 'ES', name: 'Espagne', dialCode: '+34' },
+  { code: 'PT', name: 'Portugal', dialCode: '+351' },
+  { code: 'GB', name: 'Royaume-Uni', dialCode: '+44' },
+  { code: 'NL', name: 'Pays-Bas', dialCode: '+31' },
+  { code: 'LU', name: 'Luxembourg', dialCode: '+352' },
+  { code: 'AT', name: 'Autriche', dialCode: '+43' },
+  { code: 'SE', name: 'Suède', dialCode: '+46' },
+  { code: 'NO', name: 'Norvège', dialCode: '+47' },
+  { code: 'DK', name: 'Danemark', dialCode: '+45' },
+  { code: 'FI', name: 'Finlande', dialCode: '+358' },
+  { code: 'IE', name: 'Irlande', dialCode: '+353' },
+  { code: 'GR', name: 'Grèce', dialCode: '+30' },
+  { code: 'TR', name: 'Turquie', dialCode: '+90' },
+  { code: 'PL', name: 'Pologne', dialCode: '+48' },
+  { code: 'CZ', name: 'République Tchèque', dialCode: '+420' },
+  { code: 'HU', name: 'Hongrie', dialCode: '+36' },
+  { code: 'RO', name: 'Roumanie', dialCode: '+40' },
+  { code: 'RU', name: 'Russie', dialCode: '+7' },
+  
+  // Amérique du Nord
   { code: 'CA', name: 'Canada', dialCode: '+1' },
   { code: 'US', name: 'États-Unis', dialCode: '+1' },
+  { code: 'MX', name: 'Mexique', dialCode: '+52' },
+  
+  // Amérique du Sud
+  { code: 'BR', name: 'Brésil', dialCode: '+55' },
+  { code: 'AR', name: 'Argentine', dialCode: '+54' },
+  { code: 'CL', name: 'Chili', dialCode: '+56' },
+  { code: 'PE', name: 'Pérou', dialCode: '+51' },
+  { code: 'CO', name: 'Colombie', dialCode: '+57' },
+  { code: 'VE', name: 'Venezuela', dialCode: '+58' },
+  { code: 'EC', name: 'Équateur', dialCode: '+593' },
+  { code: 'BO', name: 'Bolivie', dialCode: '+591' },
+  { code: 'PY', name: 'Paraguay', dialCode: '+595' },
+  { code: 'UY', name: 'Uruguay', dialCode: '+598' },
+  
+  // Asie
+  { code: 'CN', name: 'Chine', dialCode: '+86' },
+  { code: 'JP', name: 'Japon', dialCode: '+81' },
+  { code: 'KR', name: 'Corée du Sud', dialCode: '+82' },
+  { code: 'IN', name: 'Inde', dialCode: '+91' },
+  { code: 'ID', name: 'Indonésie', dialCode: '+62' },
+  { code: 'MY', name: 'Malaisie', dialCode: '+60' },
+  { code: 'SG', name: 'Singapour', dialCode: '+65' },
+  { code: 'TH', name: 'Thaïlande', dialCode: '+66' },
+  { code: 'VN', name: 'Vietnam', dialCode: '+84' },
+  { code: 'PH', name: 'Philippines', dialCode: '+63' },
+  { code: 'PK', name: 'Pakistan', dialCode: '+92' },
+  { code: 'BD', name: 'Bangladesh', dialCode: '+880' },
+  { code: 'LK', name: 'Sri Lanka', dialCode: '+94' },
+  
+  // Moyen-Orient
+  { code: 'SA', name: 'Arabie Saoudite', dialCode: '+966' },
+  { code: 'AE', name: 'Émirats Arabes Unis', dialCode: '+971' },
+  { code: 'QA', name: 'Qatar', dialCode: '+974' },
+  { code: 'KW', name: 'Koweït', dialCode: '+965' },
+  { code: 'BH', name: 'Bahreïn', dialCode: '+973' },
+  { code: 'OM', name: 'Oman', dialCode: '+968' },
+  { code: 'JO', name: 'Jordanie', dialCode: '+962' },
+  { code: 'LB', name: 'Liban', dialCode: '+961' },
+  { code: 'SY', name: 'Syrie', dialCode: '+963' },
+  { code: 'IQ', name: 'Irak', dialCode: '+964' },
+  { code: 'YE', name: 'Yémen', dialCode: '+967' },
+  { code: 'PS', name: 'Palestine', dialCode: '+970' },
+  
+  // Océanie
+  { code: 'AU', name: 'Australie', dialCode: '+61' },
+  { code: 'NZ', name: 'Nouvelle-Zélande', dialCode: '+64' },
 ];
+// ==================== FONCTIONS DE VALIDATION ====================
 
-// Fonction pour parser les erreurs et afficher des messages clairs
-const parseErrorMessage = (errorMessage) => {
-  if (!errorMessage) return "Une erreur est survenue lors de l'inscription";
-  
-  const msg = errorMessage.toLowerCase();
-  
-  // Erreur de doublon email
-  if ((msg.includes("email") || msg.includes("e-mail")) && 
-      (msg.includes("already") || msg.includes("existe") || msg.includes("duplicate") || msg.includes("utilisé"))) {
-    return "email_exists";
-  }
-  
-  // Erreur de doublon téléphone
-  if ((msg.includes("telephone") || msg.includes("phone") || msg.includes("téléphone")) && 
-      (msg.includes("already") || msg.includes("existe") || msg.includes("duplicate") || msg.includes("utilisé"))) {
-    return "phone_exists";
-  }
-  
-  // Erreur générique de contrainte unique
-  if (msg.includes("duplicate") || msg.includes("unique constraint")) {
-    if (msg.includes("email")) return "email_exists";
-    if (msg.includes("telephone") || msg.includes("phone")) return "phone_exists";
-    return "duplicate_error";
-  }
-  
-  return errorMessage;
+const validateEmail = (email) => {
+  if (!email) return false;
+  const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+  return emailRegex.test(email);
 };
 
-// Fonction pour obtenir le message utilisateur
-const getUserFriendlyMessage = (errorCode) => {
-  switch (errorCode) {
-    case "email_exists":
-      return {
-        title: "Email déjà utilisé",
-        message: "Cet email est déjà associé à un compte existant.",
-        action: "Connectez-vous à votre compte existant ou utilisez un autre email."
-      };
-    case "phone_exists":
-      return {
-        title: "Téléphone déjà utilisé",
-        message: "Ce numéro de téléphone est déjà associé à un compte existant.",
-        action: "Utilisez un autre numéro de téléphone ou connectez-vous à votre compte."
-      };
-    default:
-      return {
-        title: "Inscription impossible",
-        message: errorCode,
-        action: "Vérifiez vos informations et réessayez."
-      };
-  }
+const validatePhone = (phone) => {
+  if (!phone) return false;
+  const cleanPhone = phone.replace(/\s/g, '');
+  const phoneRegex = /^\d{8,15}$/;
+  return phoneRegex.test(cleanPhone);
 };
+
+const validatePassword = (password) => {
+  return password && password.length >= 8;
+};
+
+const validateRaisonSociale = (raisonSociale) => {
+  if (!raisonSociale) return false;
+  // Au moins 2 caractères : lettres, chiffres, espaces, tirets, points, apostrophes
+  const regex = /^[a-zA-Z0-9\s\-\.\']{2,}$/;
+  return regex.test(raisonSociale.trim());
+};
+
+const validateMatriculeFiscal = (matriculeFiscal) => {
+  if (!matriculeFiscal) return true; // Optionnel
+  
+  // Vérifier la longueur (5 à 15 caractères)
+  if (matriculeFiscal.length < 5 || matriculeFiscal.length > 15) {
+    return false;
+  }
+  
+  // Vérifier que seuls les caractères alphanumériques sont utilisés
+  const isValidChars = /^[a-zA-Z0-9]+$/.test(matriculeFiscal);
+  if (!isValidChars) {
+    return false;
+  }
+  
+  // Vérifier la présence d'au moins une lettre ET d'au moins un chiffre
+  const hasLetter = /[a-zA-Z]/.test(matriculeFiscal);
+  const hasDigit = /[0-9]/.test(matriculeFiscal);
+  
+  return hasLetter && hasDigit;
+};
+
+const validateNomPrenom = (value) => {
+  if (!value) return false;
+  // Lettres, espaces, tirets, apostrophes, au moins 2 caractères
+  const regex = /^[a-zA-Z\s\-']{2,}$/;
+  return regex.test(value.trim());
+};
+
+// ==================== COMPOSANT PRINCIPAL ====================
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -289,6 +400,9 @@ const RegisterPage = () => {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const countryDropdownRef = useRef(null);
 
+  // États pour les erreurs de validation en temps réel
+  const [fieldErrors, setFieldErrors] = useState({});
+
   const [formData, setFormData] = useState({
     typeCompte: 'PARTICULIER',
     typeInscription: 'ESSAI',
@@ -296,14 +410,13 @@ const RegisterPage = () => {
     prenom: '',
     raisonSociale: '',
     matriculeFiscal: '',
-    siret: '',
     telephone: '',
     paysCode: '+216',
     selectedCountry: countryCodes.find(c => c.code === 'TN') || countryCodes[0],
     motDePasse: '',
     email: '',
     documents: [],
-    typeAbonnement: 'ESSAI', // Ajout pour la fusion
+    typeAbonnement: 'ESSAI',
   });
 
   const [loading, setLoading] = useState(false);
@@ -316,36 +429,109 @@ const RegisterPage = () => {
   const [selectedOffre, setSelectedOffre] = useState(null);
 
   // Fermer le dropdown quand on clique dehors
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target)) {
-        setShowCountryDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+// ==================== CHARGEMENT DES OFFRES ====================
+useEffect(() => {
+  const loadOffres = async () => {
+    setOffresLoading(true);
+    try {
+      const offresArray = await fetchOffres();
+      console.log('📦 Offres reçues:', offresArray);
+      console.log('📦 Nombre d\'offres:', offresArray.length);
+      setOffres(offresArray);
+    } catch (err) {
+      console.error('Erreur chargement offres:', err);
+      setOffres([]);
+    } finally {
+      setOffresLoading(false);
+    }
+  };
 
-  // Charger les offres au montage
-  useEffect(() => {
-    const loadOffres = async () => {
-      setOffresLoading(true);
-      try {
-        const data = await fetchOffres();
-        setOffres(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Erreur chargement offres:', err);
-        setOffres([]);
-      } finally {
-        setOffresLoading(false);
-      }
-    };
-    loadOffres();
-  }, []);
+  loadOffres();
+}, []); 
+
+// ==================== FERMER LE DROPDOWN ====================
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target)) {
+      setShowCountryDropdown(false);
+    }
+  };
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, []);
+
+
+  const loadOffres = async () => {
+  setOffresLoading(true);
+  try {
+    const offresArray = await fetchOffres();
+    console.log('📦 Offres reçues:', offresArray);
+    console.log('📦 Nombre d\'offres:', offresArray.length);
+    
+    setOffres(offresArray);
+  } catch (err) {
+    console.error('Erreur chargement offres:', err);
+    setOffres([]);
+  } finally {
+    setOffresLoading(false);
+  }
+};
 
   const isEssai = formData.typeInscription === 'ESSAI' || formData.typeAbonnement === 'ESSAI';
   const isPayant = formData.typeAbonnement === 'PAYANT';
   const isParticulier = formData.typeCompte === 'PARTICULIER';
+
+  // ==================== VALIDATION EN TEMPS RÉEL ====================
+  
+  const validateField = (field, value) => {
+    let error = null;
+    
+    switch (field) {
+      case 'email':
+        if (!value) {
+          error = copy.emailRequired;
+        } else if (!validateEmail(value)) {
+          error = copy.invalidEmail;
+        }
+        break;
+      case 'telephone':
+        if (!value) {
+          error = copy.phone + ' est requis';
+        } else if (!validatePhone(value)) {
+          error = copy.invalidPhone;
+        }
+        break;
+      case 'motDePasse':
+        if (!value) {
+          error = copy.password + ' est requis';
+        } else if (!validatePassword(value)) {
+          error = copy.passwordMinLength;
+        }
+        break;
+      case 'raisonSociale':
+        if (!isParticulier && !value) {
+          error = copy.companyName + ' est requis';
+        } else if (!isParticulier && value && !validateRaisonSociale(value)) {
+          error = copy.invalidRaisonSociale;
+        }
+        break;
+      case 'matriculeFiscal':
+        if (!isParticulier && value && !validateMatriculeFiscal(value)) {
+          error = copy.invalidMatriculeFiscal;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+    return !error;
+  };
+
+  const handleFieldChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    validateField(field, value);
+  };
 
   const updateFormData = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -376,7 +562,59 @@ const RegisterPage = () => {
     return `${formData.paysCode}${formData.telephone}`;
   };
 
+  // Validation complète avant soumission
+  const validateForm = () => {
+    const errors = {};
+    
+    // Email
+    if (!formData.email) errors.email = copy.emailRequired;
+    else if (!validateEmail(formData.email)) errors.email = copy.invalidEmail;
+    
+    // Téléphone
+    if (!formData.telephone) errors.telephone = copy.phone + ' est requis';
+    else if (!validatePhone(formData.telephone)) errors.telephone = copy.invalidPhone;
+    
+    // Mot de passe
+    if (!formData.motDePasse) errors.motDePasse = copy.password + ' est requis';
+    else if (!validatePassword(formData.motDePasse)) errors.motDePasse = copy.passwordMinLength;
+    
+    // Nom/Prénom
+    if (!formData.nom) errors.nom = copy.lastName + ' est requis';
+    else if (!validateNomPrenom(formData.nom)) errors.nom = 'Le nom doit contenir au moins 2 caractères';
+    
+    if (!formData.prenom) errors.prenom = copy.firstName + ' est requis';
+    else if (!validateNomPrenom(formData.prenom)) errors.prenom = 'Le prénom doit contenir au moins 2 caractères';
+    
+    // Entreprise
+    if (!isParticulier) {
+      if (!formData.raisonSociale) errors.raisonSociale = copy.companyName + ' est requis';
+      else if (!validateRaisonSociale(formData.raisonSociale)) errors.raisonSociale = copy.invalidRaisonSociale;
+      
+      if (formData.matriculeFiscal && !validateMatriculeFiscal(formData.matriculeFiscal)) {
+        errors.matriculeFiscal = copy.invalidMatriculeFiscal;
+      }
+    }
+    
+    // Documents pour abonnement payant
+    if (isPayant) {
+      if (isParticulier) {
+        if (!hasDocument('CIN')) errors.documents = 'La carte d\'identité est obligatoire';
+      } else {
+        if (!hasDocument('GERANT_CIN')) errors.documents = 'La carte d\'identité du gérant est obligatoire';
+        else if (!hasDocument('PATENTE')) errors.documents = 'La patente est obligatoire';
+        else if (!hasDocument('RNE')) errors.documents = 'L\'extrait RNE est obligatoire';
+      }
+      if (!selectedOffre) errors.offre = 'Veuillez sélectionner une offre d\'abonnement';
+    }
+    
+    if (!acceptConditions) errors.conditions = 'Vous devez accepter les conditions générales';
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const isValid = () => {
+    // Validation basique pour l'affichage du bouton
     const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
     if (!hasBasicInfo) return false;
 
@@ -403,6 +641,11 @@ const RegisterPage = () => {
   const handleSendOtp = async () => {
     if (!email) {
       setOtpError(copy.emailRequired);
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setOtpError(copy.invalidEmail);
       return;
     }
 
@@ -441,8 +684,53 @@ const RegisterPage = () => {
     setOtpLoading(false);
   };
 
+
+  // Ajouter ces fonctions avant handleSubmit (vers ligne 700)
+const parseErrorMessage = (message) => {
+  if (!message) return 'unknown';
+  if (message.includes('email existe déjà')) return 'email_exists';
+  if (message.includes('phone existe déjà')) return 'phone_exists';
+  if (message.includes('matricule fiscal existe déjà')) return 'matricule_exists';
+  if (message.includes('Email already exists')) return 'email_exists';
+  return 'unknown';
+};
+
+const getUserFriendlyMessage = (errorCode) => {
+  switch(errorCode) {
+    case 'email_exists':
+      return {
+        title: '❌ Email déjà utilisé',
+        message: 'Un compte existe déjà avec cette adresse email.',
+        action: 'Si vous avez déjà un compte, veuillez vous connecter. Si vous avez oublié votre mot de passe, utilisez la fonction "Mot de passe oublié".'
+      };
+    case 'phone_exists':
+      return {
+        title: '❌ Téléphone déjà utilisé',
+        message: 'Un compte existe déjà avec ce numéro de téléphone.',
+        action: 'Vérifiez le numéro saisi ou connectez-vous avec votre compte existant.'
+      };
+    case 'matricule_exists':
+      return {
+        title: '❌ Matricule fiscal déjà utilisé',
+        message: 'Ce matricule fiscal est déjà associé à un compte.',
+        action: 'Vérifiez que vous avez saisi le bon matricule fiscal.'
+      };
+    default:
+      return {
+        title: '❌ Erreur lors de l\'inscription',
+        message: message || 'Une erreur inattendue est survenue. Veuillez réessayer.',
+        action: 'Si le problème persiste, contactez notre support.'
+      };
+  }
+};
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -458,7 +746,6 @@ const RegisterPage = () => {
       prenom: formData.prenom || '',
       raisonSociale: formData.raisonSociale || '',
       matriculeFiscal: formData.matriculeFiscal || '',
-      siret: formData.siret || '',
       offreId: selectedOffre?.id || null
     };
     
@@ -651,7 +938,7 @@ const RegisterPage = () => {
     );
   }
 
-  // ==================== ÉCRAN PRINCIPAL (FORMULAIRE VERTICAL) ====================
+  // ==================== ÉCRAN PRINCIPAL (FORMULAIRE AVEC VALIDATIONS EN TEMPS RÉEL) ====================
   return (
     <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
@@ -738,7 +1025,12 @@ const RegisterPage = () => {
                 <div className="relative">
                   <select
                     value={formData.typeCompte}
-                    onChange={(e) => updateFormData('typeCompte', e.target.value)}
+                    onChange={(e) => {
+                      updateFormData('typeCompte', e.target.value);
+                      if (e.target.value === 'PARTICULIER') {
+                        setFieldErrors(prev => ({ ...prev, raisonSociale: null, matriculeFiscal: null }));
+                      }
+                    }}
                     className="w-full appearance-none px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] bg-white cursor-pointer"
                   >
                     <option value="PARTICULIER">👤 Particulier</option>
@@ -768,20 +1060,30 @@ const RegisterPage = () => {
                     <input 
                       type="text" 
                       placeholder="Nom" 
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                        fieldErrors.nom ? 'border-red-500' : 'border-gray-200'
+                      }`}
                       value={formData.nom} 
-                      onChange={(e) => updateFormData('nom', e.target.value)} 
+                      onChange={(e) => handleFieldChange('nom', e.target.value)} 
                     />
+                    {fieldErrors.nom && (
+                      <p className="text-xs text-red-500 mt-1">{fieldErrors.nom}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Prénom *</label>
                     <input 
                       type="text" 
                       placeholder="Prénom" 
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                        fieldErrors.prenom ? 'border-red-500' : 'border-gray-200'
+                      }`}
                       value={formData.prenom} 
-                      onChange={(e) => updateFormData('prenom', e.target.value)} 
+                      onChange={(e) => handleFieldChange('prenom', e.target.value)} 
                     />
+                    {fieldErrors.prenom && (
+                      <p className="text-xs text-red-500 mt-1">{fieldErrors.prenom}</p>
+                    )}
                   </div>
                 </div>
 
@@ -794,11 +1096,16 @@ const RegisterPage = () => {
                       name="email"
                       autoComplete="email"
                       placeholder="exemple@email.com" 
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                        fieldErrors.email ? 'border-red-500' : 'border-gray-200'
+                      }`}
                       value={formData.email} 
-                      onChange={(e) => updateFormData('email', e.target.value)} 
+                      onChange={(e) => handleFieldChange('email', e.target.value)} 
                     />
                   </div>
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>
+                  )}
                 </div>
 
                 <div>
@@ -850,15 +1157,21 @@ const RegisterPage = () => {
                         name="telephone"
                         autoComplete="tel"
                         placeholder="Numéro de téléphone" 
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
-                        value={formData.telephone}  
-                        onChange={(e) => updateFormData('telephone', e.target.value)} 
+                        className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                          fieldErrors.telephone ? 'border-red-500' : 'border-gray-200'
+                        }`}
+                        value={formData.telephone} 
+                         autoComplete="off" 
+                        onChange={(e) => handleFieldChange('telephone', e.target.value)} 
                       />
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
                     Exemple: {formData.paysCode} XX XXX XXX
                   </p>
+                  {fieldErrors.telephone && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.telephone}</p>
+                  )}
                 </div>
 
                 {!isParticulier && (
@@ -868,20 +1181,30 @@ const RegisterPage = () => {
                       <input 
                         type="text" 
                         placeholder="Raison sociale" 
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                          fieldErrors.raisonSociale ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         value={formData.raisonSociale} 
-                        onChange={(e) => updateFormData('raisonSociale', e.target.value)} 
+                        onChange={(e) => handleFieldChange('raisonSociale', e.target.value)} 
                       />
+                      {fieldErrors.raisonSociale && (
+                        <p className="text-xs text-red-500 mt-1">{fieldErrors.raisonSociale}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Matricule fiscal *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Matricule fiscal (optionnel)</label>
                       <input 
                         type="text" 
                         placeholder="Matricule fiscal" 
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                          fieldErrors.matriculeFiscal ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         value={formData.matriculeFiscal} 
-                        onChange={(e) => updateFormData('matriculeFiscal', e.target.value)} 
+                        onChange={(e) => handleFieldChange('matriculeFiscal', e.target.value)} 
                       />
+                      {fieldErrors.matriculeFiscal && (
+                        <p className="text-xs text-red-500 mt-1">{fieldErrors.matriculeFiscal}</p>
+                      )}
                     </div>
                   </>
                 )}
@@ -894,19 +1217,25 @@ const RegisterPage = () => {
                       type={showPassword ? "text" : "password"} 
                       name="password"
                       autoComplete="new-password"
-                      placeholder="Mot de passe" 
-                      className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2]" 
+                      placeholder="Mot de passe (min. 8 caractères)" 
+                      className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
+                        fieldErrors.motDePasse ? 'border-red-500' : 'border-gray-200'
+                      }`}
                       value={formData.motDePasse} 
-                      onChange={(e) => updateFormData('motDePasse', e.target.value)} 
+                      onChange={(e) => handleFieldChange('motDePasse', e.target.value)} 
                     />
                     <button 
                       type="button" 
+                      autoComplete="off"
                       onClick={() => setShowPassword(!showPassword)} 
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                     >
                       {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                     </button>
                   </div>
+                  {fieldErrors.motDePasse && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.motDePasse}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -928,7 +1257,11 @@ const RegisterPage = () => {
                 <div className="relative mb-4">
                   <select
                     value={formData.typeAbonnement}
-                    onChange={(e) => { updateFormData('typeAbonnement', e.target.value); setSelectedOffre(null); }}
+                    onChange={(e) => { 
+                      updateFormData('typeAbonnement', e.target.value); 
+                      setSelectedOffre(null);
+                      setFieldErrors(prev => ({ ...prev, offre: null }));
+                    }}
                     className="w-full appearance-none px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] bg-white cursor-pointer"
                   >
                     <option value="ESSAI">🎁 Essai gratuit 30 connexions</option>
@@ -957,7 +1290,10 @@ const RegisterPage = () => {
                               ? 'border-green-500 bg-green-50 shadow-md' 
                               : 'border-gray-200 hover:border-green-400 hover:bg-green-50/30'
                           }`}
-                          onClick={() => setSelectedOffre(offre)}
+                          onClick={() => {
+                            setSelectedOffre(offre);
+                            setFieldErrors(prev => ({ ...prev, offre: null }));
+                          }}
                         >
                           <p className="font-bold text-slate-800 text-base">{offre.duree}</p>
                           <p className="text-green-600 font-semibold text-xl mt-1">{offre.prix} TND</p>
@@ -979,6 +1315,10 @@ const RegisterPage = () => {
                     <div className="text-center py-4 text-gray-500">
                       Aucune offre disponible pour le moment
                     </div>
+                  )}
+                  
+                  {fieldErrors.offre && (
+                    <p className="text-xs text-red-500 mt-2">{fieldErrors.offre}</p>
                   )}
                 </div>
               )}
@@ -1127,6 +1467,10 @@ const RegisterPage = () => {
                     )}
                   </div>
                 )}
+                
+                {fieldErrors.documents && (
+                  <p className="text-xs text-red-500 mt-3">{fieldErrors.documents}</p>
+                )}
               </div>
             )}
 
@@ -1136,9 +1480,15 @@ const RegisterPage = () => {
                 <input
                   type="checkbox"
                   checked={acceptConditions}
-                  onChange={(e) => setAcceptConditions(e.target.checked)}
+                  onChange={(e) => {
+                    setAcceptConditions(e.target.checked);
+                    if (e.target.checked) {
+                      setFieldErrors(prev => ({ ...prev, conditions: null }));
+                    }
+                  }}
                   className="mt-1 w-5 h-5 rounded border-gray-300 text-[#0b4ea2] focus:ring-[#0b4ea2] cursor-pointer"
                 />
+
                 <div className="flex-1">
                   <p className="text-sm text-gray-700">
                     J'accepte les{' '}
@@ -1148,6 +1498,9 @@ const RegisterPage = () => {
                   </p>
                 </div>
               </label>
+              {fieldErrors.conditions && (
+                <p className="text-xs text-red-500 mt-2">{fieldErrors.conditions}</p>
+              )}
             </div>
 
             {/* BOUTON CRÉER UN COMPTE */}

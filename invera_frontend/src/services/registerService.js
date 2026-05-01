@@ -164,18 +164,34 @@ export const registerService = {
   }
 };
 
+// registerService.js
 export const fetchOffres = async () => {
   try {
     const response = await fetch('/api/public/offres');
-        
+    
     if (!response.ok) {
       throw new Error(`Erreur HTTP: ${response.status}`);
     }
     
     const data = await response.json();
-    return { success: true, data };
+    console.log('🔍 fetchOffres - data brute:', data);
+    console.log('🔍 fetchOffres - est un tableau?', Array.isArray(data));
+    
+    // ✅ SIMPLIFICATION : Comme l'API retourne DIRECTEMENT un tableau
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    // Fallback si c'est un objet avec une propriété data
+    if (data?.data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    
+    console.warn('Format inattendu, retour d\'un tableau vide');
+    return [];
   } catch (error) {
-    return { success: false, data: [] };
+    console.error('Erreur fetchOffres:', error);
+    return [];
   }
 };
 
