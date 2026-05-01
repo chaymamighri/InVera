@@ -162,28 +162,43 @@ const SettingsPage = () => {
 
   useEffect(() => {
     const load = async () => {
-      setLoadingMe(true);
-      try {
-        const res = await authService.getCurrentUser();
-        const data = res?.data;
-        setMe(data);
-        setProfileForm({
-          username: data?.username || '',
-          nom: data?.lastName || data?.nom || '',
-          prenom: data?.firstName || data?.prenom || '',
-          email: data?.email || '',
-        });
+  setLoadingMe(true);
+  try {
+    const res = await authService.getCurrentUser();
+    console.log('📦 SettingsPage - getCurrentUser response:', res);
+    
+    const data = res?.data;
+    console.log('📦 SettingsPage - data:', data);
+    
+    setMe(data);
+    setProfileForm({
+      username: data?.username || '',
+      nom: data?.nom || data?.lastName || '',
+      prenom: data?.prenom || data?.firstName || '',
+      email: data?.email || '',
+    });
 
-        const fullName = `${data?.nom || data?.lastName || ''} ${data?.prenom || data?.firstName || ''}`.trim();
-        if (data?.role) localStorage.setItem('userRole', data.role);
-        if (fullName) localStorage.setItem('userName', fullName);
-        if (data?.email) localStorage.setItem('userEmail', data.email);
-      } catch {
-        toast.error(copy.loadError);
-      } finally {
-        setLoadingMe(false);
-      }
-    };
+    // ✅ Stocker dans localStorage
+    if (data?.nom) localStorage.setItem('userNom', data.nom);
+    if (data?.prenom) localStorage.setItem('userPrenom', data.prenom);
+    if (data?.email) localStorage.setItem('userEmail', data.email);
+    if (data?.role) localStorage.setItem('userRole', data.role);
+    
+  } catch (error) {
+    console.error('❌ SettingsPage error:', error);
+    toast.error(copy.loadError);
+    
+    // ✅ Fallback localStorage
+    setProfileForm({
+      username: '',
+      nom: localStorage.getItem('userNom') || '',
+      prenom: localStorage.getItem('userPrenom') || '',
+      email: localStorage.getItem('userEmail') || '',
+    });
+  } finally {
+    setLoadingMe(false);
+  }
+};
 
     load();
   }, [copy.loadError]);

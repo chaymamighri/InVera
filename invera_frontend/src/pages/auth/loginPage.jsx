@@ -34,18 +34,14 @@ const pageCopy = {
     accessBadge: 'Acces securise',
     welcomeTitle: 'Bienvenue',
     welcomeDescription: 'Identifiez-vous pour acceder a votre espace de travail',
-    trialExpiredTitle: 'Periode d essai terminee',
-    trialExpiredDescription:
-      'Votre periode d essai gratuite est expiree. Veuillez souscrire un abonnement pour continuer a utiliser InVera ERP.',
-    trialSoonTitle: 'Periode d essai bientot terminee',
-    trialSoonDescription:
-      'Il vous reste {{count}} connexion{{suffix}} avant la fin de votre periode d essai.',
     noAccount: 'Pas encore de compte ?',
     registerFree: "S'inscrire gratuitement",
     loginErrorFallback: 'Impossible de se connecter. Verifiez votre email et mot de passe.',
-    trialExpiredError:
-      'Votre periode d essai a expire. Veuillez souscrire un abonnement pour continuer a utiliser la plateforme.',
     footerCopyright: 'Tous droits reserves',
+    emailRequired: 'L\'email est requis',
+    invalidEmail: 'Veuillez saisir un email valide (exemple@domaine.com)',
+    passwordRequired: 'Le mot de passe est requis',
+    invalidPassword: 'Le mot de passe doit contenir au moins 8 caractères',
   },
   en: {
     featureBadge: 'Next-generation experience',
@@ -75,17 +71,14 @@ const pageCopy = {
     accessBadge: 'Secure access',
     welcomeTitle: 'Welcome',
     welcomeDescription: 'Sign in to access your workspace',
-    trialExpiredTitle: 'Trial period ended',
-    trialExpiredDescription:
-      'Your free trial has expired. Please subscribe to continue using InVera ERP.',
-    trialSoonTitle: 'Trial ending soon',
-    trialSoonDescription: 'You have {{count}} login{{suffix}} remaining before your trial ends.',
     noAccount: 'No account yet?',
     registerFree: 'Register for free',
     loginErrorFallback: 'Unable to sign in. Check your email and password.',
-    trialExpiredError:
-      'Your trial period has expired. Please subscribe to continue using the platform.',
     footerCopyright: 'All rights reserved',
+    emailRequired: 'Email is required',
+    invalidEmail: 'Please enter a valid email (example@domain.com)',
+    passwordRequired: 'Password is required',
+    invalidPassword: 'Password must be at least 8 characters',
   },
   ar: {
     featureBadge: 'تجربة من الجيل الجديد',
@@ -115,17 +108,14 @@ const pageCopy = {
     accessBadge: 'وصول آمن',
     welcomeTitle: 'مرحبًا',
     welcomeDescription: 'سجل الدخول للوصول إلى مساحة العمل الخاصة بك',
-    trialExpiredTitle: 'انتهت فترة التجربة',
-    trialExpiredDescription:
-      'انتهت فترة التجربة المجانية. يرجى الاشتراك لمواصلة استخدام InVera ERP.',
-    trialSoonTitle: 'التجربة ستنتهي قريبًا',
-    trialSoonDescription: 'لديك {{count}} عملية دخول{{suffix}} متبقية قبل نهاية فترة التجربة.',
     noAccount: 'ليس لديك حساب بعد؟',
     registerFree: 'إنشاء حساب مجانًا',
     loginErrorFallback: 'تعذر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.',
-    trialExpiredError:
-      'انتهت فترة التجربة. يرجى الاشتراك لمواصلة استخدام المنصة.',
     footerCopyright: 'جميع الحقوق محفوظة',
+    emailRequired: 'البريد الإلكتروني مطلوب',
+    invalidEmail: 'يرجى إدخال بريد إلكتروني صالح (example@domain.com)',
+    passwordRequired: 'كلمة المرور مطلوبة',
+    invalidPassword: 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل',
   },
 };
 
@@ -147,14 +137,25 @@ const signalIcons = [
   ),
 ];
 
+// ==================== FONCTIONS DE VALIDATION ====================
+
+const validateEmail = (email) => {
+  if (!email) return false;
+  const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePassword = (password) => {
+  return password && password.length >= 8;
+};
+
 const LoginPage = () => {
   const { t, language, isArabic } = useLanguage();
   const text = useMemo(() => pageCopy[language] || pageCopy.fr, [language]);
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
-  const [trialExpired, setTrialExpired] = useState(false);
-  const [remainingLogins, setRemainingLogins] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   useEffect(() => {
     const message = sessionStorage.getItem('authError');
@@ -162,76 +163,95 @@ const LoginPage = () => {
       setLoginError(message);
       sessionStorage.removeItem('authError');
     }
-
-    const expired = sessionStorage.getItem('essaiExpire');
-    if (expired) {
-      setTrialExpired(true);
-      sessionStorage.removeItem('essaiExpire');
-    }
-
-    const remaining = sessionStorage.getItem('connexionsRestantes');
-    if (remaining !== null) {
-      setRemainingLogins(parseInt(remaining, 10));
-      sessionStorage.removeItem('connexionsRestantes');
-    }
   }, []);
 
-  const handleSubmit = async (credentials) => {
-    setLoginError(null);
-    setTrialExpired(false);
-
-    try {
-      const result = await login(credentials);
-
-      if (result?.success) {
-        const { data } = result;
-
-        if (data) {
-          if (data.connexionsRestantes !== undefined) {
-            localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
-          }
-          if (data.connexionsMax !== undefined) {
-            localStorage.setItem('connexionsMax', data.connexionsMax);
-          }
-          if (data.typeInscription) {
-            localStorage.setItem('typeInscription', data.typeInscription);
-          }
-          if (data.hasActiveSubscription !== undefined) {
-            localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
-          }
-          if (data.statut) {
-            localStorage.setItem('clientStatut', data.statut);
-          }
-          if (data.clientId) {
-            localStorage.setItem('clientId', data.clientId);
-          }
-
-          sessionStorage.setItem('justLoggedIn', 'true');
-        }
-
-        const userRole = localStorage.getItem('userRole');
-
-        let dashboardPath = '/dashboard';
-        if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
-        else if (userRole === 'ADMIN' || userRole === 'ADMIN_CLIENT') dashboardPath = '/dashboard/admin';
-        else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
-        else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
-
-        navigate(dashboardPath, { replace: true });
-      }
-    } catch (error) {
-      const backendMessage = error?.response?.data?.message;
-      const errorCode = error?.response?.data?.error;
-
-      if (errorCode === 'ESSAI_EXPIRE' || backendMessage?.includes("periode d'essai")) {
-        setTrialExpired(true);
-        setLoginError(text.trialExpiredError);
-      } else {
-        setLoginError(backendMessage || error.message || text.loginErrorFallback);
-      }
+  // ==================== VALIDATION UI ====================
+  
+  const validateForm = (email, password) => {
+    const errors = {};
+    
+    if (!email) {
+      errors.email = text.emailRequired;
+    } else if (!validateEmail(email)) {
+      errors.email = text.invalidEmail;
     }
+    
+    if (!password) {
+      errors.password = text.passwordRequired;
+    } else if (!validatePassword(password)) {
+      errors.password = text.invalidPassword;
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
+const handleSubmit = async (credentials) => {
+  // Validation UI
+  if (!validateForm(credentials.email, credentials.password)) {
+    const validationError = new Error('Validation failed');
+    validationError.userMessage = 'Veuillez vérifier vos identifiants';
+    throw validationError;
+  }
+  
+  // ⭐ Important: Effacer l'erreur avant la requête
+  setLoginError(null);
+  setValidationErrors({});
+
+  try {
+    const result = await login(credentials);
+
+    if (result?.success) {
+      const { data } = result;
+
+      if (data) {
+        if (data.connexionsRestantes !== undefined) localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+        if (data.connexionsMax !== undefined) localStorage.setItem('connexionsMax', data.connexionsMax);
+        if (data.typeInscription) localStorage.setItem('typeInscription', data.typeInscription);
+        if (data.hasActiveSubscription !== undefined) localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+        if (data.statut) localStorage.setItem('clientStatut', data.statut);
+        if (data.clientId) localStorage.setItem('clientId', data.clientId);
+        if (data.token) localStorage.setItem('token', data.token);
+        sessionStorage.setItem('justLoggedIn', 'true');
+      }
+
+      const userRole = localStorage.getItem('userRole');
+      let dashboardPath = '/dashboard';
+      if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
+      else if (userRole === 'ADMIN' || userRole === 'ADMIN_CLIENT') dashboardPath = '/dashboard/admin';
+      else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
+      else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
+
+      navigate(dashboardPath, { replace: true });
+      return;
+    } else {
+      throw new Error(result?.message || text.loginErrorFallback);
+    }
+  } catch (error) {
+    console.error('🔴 LoginPage error:', error);
+    
+    // ⭐ Récupérer le message d'erreur
+    let errorMessage = text.loginErrorFallback;
+    
+    if (error.userMessage) {
+      errorMessage = error.userMessage;
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    } else if (error.message && error.message !== 'Validation failed') {
+      errorMessage = error.message;
+    }
+    
+    console.log('📢 LoginPage - Setting error message:', errorMessage);
+    
+    // ⭐ Mettre à jour l'état (ceci déclenchera le re-render de LoginForm avec serverError)
+    setLoginError(errorMessage);
+    
+    // ⭐ Propager l'erreur pour LoginForm
+    throw new Error(errorMessage);
+  }
+};
   const getSavedEmail = () => localStorage.getItem('savedEmail') || '';
 
   return (
@@ -252,6 +272,7 @@ const LoginPage = () => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+          {/* Section gauche - Marketing */}
           <div
             className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b2f6b] via-[#0b4ea2] to-[#1a5fc4] p-8 text-white shadow-2xl md:p-10 ${
               isArabic ? 'text-right' : ''
@@ -320,6 +341,7 @@ const LoginPage = () => {
             </div>
           </div>
 
+          {/* Section droite - Formulaire de connexion */}
           <div className="flex items-center">
             <div className="w-full rounded-2xl border border-white/60 bg-white/90 p-6 shadow-xl backdrop-blur-md transition-all md:p-8">
               <div className={`mb-6 ${isArabic ? 'text-right' : 'text-center sm:text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -330,48 +352,34 @@ const LoginPage = () => {
                 <p className="mt-2 text-slate-500">{text.welcomeDescription}</p>
               </div>
 
-              {trialExpired && !loading && (
-                <div className="mb-5 rounded-xl border border-orange-200 bg-orange-50 px-5 py-4 text-sm text-orange-800">
-                  <div className={`flex items-start gap-3 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
-                    <span className="mt-0.5 text-base">!</span>
-                    <div>
-                      <p className="font-semibold">{text.trialExpiredTitle}</p>
-                      <p className="mt-1 leading-6">{text.trialExpiredDescription}</p>
-                    </div>
+              {/* Affichage des erreurs de validation UI */}
+              {(validationErrors.email || validationErrors.password) && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  <div className="space-y-1">
+                    {validationErrors.email && <p className="flex items-center gap-2">• {validationErrors.email}</p>}
+                    {validationErrors.password && <p className="flex items-center gap-2">• {validationErrors.password}</p>}
                   </div>
                 </div>
               )}
 
-              {remainingLogins !== null && remainingLogins <= 5 && remainingLogins > 0 && !loading && (
-                <div className="mb-5 rounded-xl border border-yellow-200 bg-yellow-50 px-5 py-4 text-sm text-yellow-800">
-                  <div className={`flex items-start gap-3 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
-                    <span className="mt-0.5 text-base">!</span>
-                    <div>
-                      <p className="font-semibold">{text.trialSoonTitle}</p>
-                      <p className="mt-1 leading-6">
-                        {text.trialSoonDescription
-                          .replace('{{count}}', String(remainingLogins))
-                          .replace('{{suffix}}', remainingLogins > 1 ? 's' : '')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+             <div className="rounded-xl bg-white p-1 md:p-2">
+  
+  {/* 🔴 ERREUR LOGIN (comme image 1) */}
+  {loginError && (
+    <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-700 text-sm">
+      {loginError}
+    </div>
+  )}
 
-              <div className="rounded-xl bg-white p-1 md:p-2">
-                <LoginForm onSubmit={handleSubmit} loading={loading} savedEmail={getSavedEmail()} />
-
-                {loginError && !loading && !trialExpired && (
-                  <div className="mt-5 rounded-xl border border-red-200 bg-red-50/80 px-5 py-4 text-sm text-red-700 backdrop-blur-sm">
-                    <div className={`flex items-start gap-3 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
-                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                        <span className="text-xs font-bold">!</span>
-                      </div>
-                      <span className="leading-relaxed">{loginError}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+  <LoginForm 
+    onSubmit={handleSubmit} 
+    loading={loading} 
+    savedEmail={getSavedEmail()}
+    serverError={null}   // ✅ IMPORTANT (évite doublon)
+    onError={setLoginError}
+  />
+  
+</div>
 
               <div className={`mt-6 text-center ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
                 <p className="text-sm text-slate-500">

@@ -239,7 +239,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <ShoppingBagIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {t('salesPages.orderNumber')}
+                  {('salesPages.orderNumber')}
                   {sortField === 'numero' && (
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -254,7 +254,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {t('salesPages.client')}
+                  {('salesPages.client')}
                   {sortField === 'clientNom' && (  
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -269,7 +269,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {t('salesPages.creationDate')}
+                  {('salesPages.creationDate')}
                   {sortField === 'dateCommande' && ( 
                     sortDirection === 'desc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -279,13 +279,13 @@ const OrderTable = ({
               </th>
               
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {t('salesPages.products')}
+                {('salesPages.products')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {t('salesPages.finalAmount')}
+                {('salesPages.finalAmount')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {t('salesPages.status')}
+                {('salesPages.status')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 ACTIONS
