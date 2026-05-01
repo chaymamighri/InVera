@@ -168,6 +168,7 @@ public class CommandeFournisseurService {
         }
 
         commande.setLignesCommande(lignes);
+        commande.setFournisseur(fournisseurUnique);
 
         // 4. Calcul des totaux
         BigDecimal totalHT = lignes.stream()
