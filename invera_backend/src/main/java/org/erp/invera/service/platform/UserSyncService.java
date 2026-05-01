@@ -3,7 +3,7 @@ package org.erp.invera.service.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.Utilisateur;
+import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.service.tenant.TenantDatabaseService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -92,7 +92,7 @@ public class UserSyncService {
                     utilisateur.getNom(),
                     utilisateur.getPrenom(),
                     role,
-                    utilisateur.getEstActif()
+                    utilisateur.getActive()
             );
 
             log.info("✅ Utilisateur {} synchronisé vers client {} ({} lignes affectées)",

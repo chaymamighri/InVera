@@ -41,10 +41,6 @@ public class Client {
     @Column(name = "matricule_fiscal", unique = true, nullable = true)
     private String matriculeFiscal;    //  (composé de chiffres et des caractères)
 
-    // ========== DOMAINE POUR IDENTIFICATION ==========
-    @Column(name = "domaine", unique = true)
-    private String domaine;  // ← AJOUTÉ : ex: "abc.com" pour l'entreprise
-
     // ========== TYPES ==========
     @Enumerated(EnumType.STRING)
     @Column(name = "type_compte", nullable = false)

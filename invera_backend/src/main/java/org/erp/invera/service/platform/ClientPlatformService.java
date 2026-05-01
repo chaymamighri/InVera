@@ -5,11 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.model.platform.OffreAbonnement;
-import org.erp.invera.model.platform.Utilisateur;
 import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.OffreAbonnementRepository;
-import org.erp.invera.repository.platform.utilisateurRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +24,6 @@ import java.util.List;
 public class ClientPlatformService {
 
     private final ClientPlatformRepository clientRepository;
-    private final utilisateurRepository utilisateurRepository;
     private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
     private final AsyncDatabaseService asyncDatabaseService;
@@ -34,8 +31,10 @@ public class ClientPlatformService {
     private final AbonnementRepository abonnementRepository;
 
     // ========== CRÉATION ==========
+
     /**
-     * Créer un nouveau client (ESSAI ou DEFINITIF)
+     * Créer un nouveau client (TOUS les clients commencent avec 30 connexions gratuites)
+     * ⚠️ Ne crée PAS l'utilisateur - la base et l'utilisateur seront créés par DatabaseCreationService
      */
     @Transactional
     public Client createClient(Client client, String otpCode, String plainPassword) {
@@ -49,18 +48,14 @@ public class ClientPlatformService {
             throw new RuntimeException("Email déjà utilisé: " + client.getEmail());
         }
 
-        // Définir le domaine
-        String domaine = client.getEmail().substring(client.getEmail().indexOf('@') + 1);
-        client.setDomaine(domaine);
         client.setDateInscription(LocalDateTime.now());
 
-        // TOUS les clients commencent avec 30 connexions gratuites
+        // ✅ TOUS les clients commencent avec 30 connexions gratuites
         client.setConnexionsMax(30);
         client.setConnexionsRestantes(30);
         client.setIsActive(true);
 
-
-        // Différence selon le type d'inscription (seulement pour justificatifs)
+        // Différence selon le type d'inscription
         if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
             client.setStatut(Client.StatutClient.EN_ATTENTE);
             client.setJustificatifsValides(false);
@@ -68,32 +63,20 @@ public class ClientPlatformService {
         } else {
             client.setStatut(Client.StatutClient.ACTIF);
             client.setJustificatifsValides(true);
-            log.info("🔍 Client ESSAI - Statut ACTIF, documents non requis");
+            log.info("🔍 Client ESSAI - Statut ACTIF - 30 connexions gratuites");
         }
 
         client.setAbonnementActif(null);
-        // Sauvegarder le client
+
+        // Sauvegarder le client dans la base centrale
         Client savedClient = clientRepository.save(client);
 
-        // Créer l'utilisateur associé
-        Utilisateur utilisateur = Utilisateur.builder()
-                .email(client.getEmail())
-                .motDePasse(passwordEncoder.encode(plainPassword))
-                .role(Utilisateur.RoleUtilisateur.ADMIN_CLIENT)
-                .client(savedClient)
-                .estActif(true)
-                .nom(client.getNom())
-                .prenom(client.getPrenom())
-                .build();
-        utilisateurRepository.save(utilisateur);
-
-        // Créer la base de données pour TOUS les clients
-        asyncDatabaseService.createClientDatabaseAsync(savedClient.getId());
-
-        log.info("✅ Client créé: {} - Type: {} - Statut: {} - Justificatifs: {} - Connexions: {}/{}",
-                savedClient.getEmail(), savedClient.getTypeInscription(),
-                savedClient.getStatut(), savedClient.getJustificatifsValides(),
-                savedClient.getConnexionsRestantes(), savedClient.getConnexionsMax());
+        log.info("✅ Client créé dans base centrale: {} - Type: {} - Statut: {} - Connexions gratuites: {}/{}",
+                savedClient.getEmail(),
+                savedClient.getTypeInscription(),
+                savedClient.getStatut(),
+                savedClient.getConnexionsRestantes(),
+                savedClient.getConnexionsMax());
 
         return savedClient;
     }
@@ -105,6 +88,7 @@ public class ClientPlatformService {
     public Client saveClient(Client client) {
         return clientRepository.save(client);
     }
+
     // ========== VALIDATION ADMIN (POUR DEFINITIF) ==========
 
     /**
@@ -129,7 +113,7 @@ public class ClientPlatformService {
         } else {
             // ESSAI : validation directe
             client.setStatut(Client.StatutClient.ACTIF);
-            log.info("✅ Client ESSAI validé - Compte actif");
+            log.info("✅ Client ESSAI validé - Compte actif avec 30 connexions");
         }
 
         client.setDateValidation(LocalDateTime.now());
@@ -174,7 +158,6 @@ public class ClientPlatformService {
             throw new RuntimeException("Client non encore validé par l'administrateur");
         }
 
-        // Pas besoin de conversion
         OffreAbonnement offre = offreAbonnementRepository.findById(offreId)
                 .orElseThrow(() -> new RuntimeException("Offre non trouvée"));
 
@@ -188,17 +171,18 @@ public class ClientPlatformService {
                 .build();
         abonnementRepository.save(abonnement);
 
-        // Mettre à jour le client
+        // Mettre à jour le client avec connexions illimitées
         client.setStatut(Client.StatutClient.ACTIF);
-        client.setConnexionsMax(999999);
-        client.setConnexionsRestantes(999999);
+        client.setConnexionsMax(999999);  // Illimité
+        client.setConnexionsRestantes(999999);  // Illimité
         client.setAbonnementActif(abonnement);
         client.setJustificatifsValides(true);
         client.setDateActivation(LocalDateTime.now());
 
         clientRepository.save(client);
 
-        log.info("💰 Client activé après paiement: {} - Offre: {}", client.getEmail(), offre.getNom());
+        log.info("💰 Client activé après paiement: {} - Offre: {} - Connexions illimitées",
+                client.getEmail(), offre.getNom());
 
         return client;
     }
@@ -206,20 +190,18 @@ public class ClientPlatformService {
     // ========== GESTION DES CONNEXIONS ==========
 
     /**
-     * Enregistrer une connexion et décrémenter le compteur pour TOUS les clients en EN_ATTENTE
+     * Enregistrer une connexion et décrémenter le compteur
+     * TOUS les clients commencent avec 30 connexions gratuites
      */
     @Transactional
     public Client recordLogin(String email) {
         log.info("========== RECORD LOGIN ==========");
         log.info("Email reçu: {}", email);
 
-        String domaine = email.substring(email.indexOf('@') + 1);
-        log.info("Domaine extrait: {}", domaine);
-
         Client client = clientRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Client non trouvé pour cet email: " + email));
 
-        log.info("Client trouvé: ID={}, Email={}, Type={}, Statut={}, Connexions={}/{}",
+        log.info("Client trouvé: ID={}, Email={}, Type={}, Statut={}, Connexions restantes={}/{}",
                 client.getId(),
                 client.getEmail(),
                 client.getTypeInscription(),
@@ -238,35 +220,72 @@ public class ClientPlatformService {
             throw new RuntimeException("Compte non actif. Statut: " + client.getStatut().getLabel());
         }
 
-        // Décrémentation
-        boolean isEssai = client.getTypeInscription() == Client.TypeInscription.ESSAI;
+        // ✅ Vérifier les connexions restantes pour TOUS les clients non abonnés
+        boolean isAbonne = client.getAbonnementActif() != null;
         boolean isEnAttente = client.getStatut() == Client.StatutClient.EN_ATTENTE;
+        boolean isEssai = client.getTypeInscription() == Client.TypeInscription.ESSAI;
 
-        log.info("Conditions: isEssai={}, isEnAttente={}", isEssai, isEnAttente);
+        log.info("Conditions: isAbonne={}, isEnAttente={}, isEssai={}", isAbonne, isEnAttente, isEssai);
 
-        if (isEnAttente || isEssai) {
-            log.info("✅ Client éligible à la décrémentation");
+        // Décrémenter seulement si non abonné
+        if (!isAbonne && (isEnAttente || isEssai)) {
             if (client.getConnexionsRestantes() <= 0) {
                 client.setStatut(Client.StatutClient.INACTIF);
                 client.setIsActive(false);
                 clientRepository.save(client);
-                throw new RuntimeException("❌ Période d'essai expirée.");
+                throw new RuntimeException("❌ Période d'essai expirée. Plus de connexions disponibles.");
             }
+
             int anciennesConnexions = client.getConnexionsRestantes();
             client.setConnexionsRestantes(anciennesConnexions - 1);
             clientRepository.save(client);
 
-            log.info("🔐 Connexion: {} → {} restantes", anciennesConnexions, client.getConnexionsRestantes());
+            log.info("🔐 Connexion consommée: {} → {} restantes sur {}",
+                    anciennesConnexions, client.getConnexionsRestantes(), client.getConnexionsMax());
+        } else if (isAbonne) {
+            log.info("🔐 Client abonné - Connexions illimitées (aucune consommation)");
         } else {
             log.info("⚠️ Client non éligible à la décrémentation - Pas de changement");
         }
 
         client.setLastLoginDate(LocalDateTime.now());
         Client saved = clientRepository.save(client);
+
         log.info("========== FIN RECORD LOGIN ==========");
 
         return saved;
     }
+
+    /**
+     * Vérifie si le client peut se connecter
+     */
+    public boolean peutSeConnecter(String email) {
+        Client client = clientRepository.findByEmail(email)
+                .orElse(null);
+
+        if (client == null) return false;
+
+        // Abonné = toujours possible
+        if (client.getAbonnementActif() != null) return true;
+
+        // Non abonné = vérifier les connexions restantes
+        return client.getConnexionsRestantes() > 0;
+    }
+
+    /**
+     * Récupère les connexions restantes
+     */
+    public int getConnexionsRestantes(String email) {
+        Client client = clientRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Client non trouvé"));
+
+        if (client.getAbonnementActif() != null) {
+            return Integer.MAX_VALUE; // Illimité
+        }
+
+        return client.getConnexionsRestantes();
+    }
+
     // ========== MÉTHODES UTILITAIRES ==========
 
     public Client getClientById(Long id) {
@@ -289,6 +308,8 @@ public class ClientPlatformService {
     // ========== MÉTHODES PRIVÉES ==========
 
     private boolean hasAllRequiredDocuments(Client client) {
+        if (client.getTypeCompte() == null) return true;
+
         if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
             return client.getGerantCinUrl() != null &&
                     client.getPatenteUrl() != null &&
@@ -307,9 +328,8 @@ public class ClientPlatformService {
             if (client.getAbonnementActif().getDateFin().isBefore(LocalDateTime.now())) {
                 client.setStatut(Client.StatutClient.INACTIF);
                 clientRepository.save(client);
-                log.warn("Abonnement expiré pour client {}", client.getEmail());
+                log.warn("⏰ Abonnement expiré pour client {}", client.getEmail());
             }
         }
     }
-
 }

@@ -1,9 +1,7 @@
-package org.erp.invera.repository.platform;
+package org.erp.invera.repository.erp;
 
-import org.erp.invera.model.platform.Utilisateur;  // ← U majuscule
+import org.erp.invera.model.erp.Utilisateur;  // ← U majuscule
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,6 +13,8 @@ public interface utilisateurRepository extends JpaRepository<Utilisateur, Long> 
     Optional<Utilisateur> findByEmail(String email);
 
     List<Utilisateur> findByClientId(Long clientId);  // ← U majuscule
+
+    List<Utilisateur> findByClientIdAndRole(Long clientId, String role);
 
     boolean existsByEmail(String email);
 

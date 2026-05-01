@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.Utilisateur;
+import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -278,12 +278,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         utilisateur.setNom(nom);
         utilisateur.setPrenom(prenom);
         utilisateur.setRole(clientRole);
-        utilisateur.setEstActif(true);
+        utilisateur.setActive(true);
 
         if (clientId != null) {
             Client client = new Client();
             client.setId(clientId);
-            utilisateur.setClient(client);
+            utilisateur.setClientId(client.getId());
         }
 
         List<GrantedAuthority> authorities = Collections.singletonList(

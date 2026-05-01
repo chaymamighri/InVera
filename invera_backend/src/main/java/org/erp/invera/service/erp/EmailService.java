@@ -2,8 +2,8 @@ package org.erp.invera.service.erp;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.erp.invera.model.platform.Utilisateur;  // ← Changer l'import
-import org.erp.invera.repository.platform.utilisateurRepository;  // ← Changer l'import
+import org.erp.invera.model.erp.Utilisateur;  // ← Changer l'import
+import org.erp.invera.repository.erp.utilisateurRepository;  // ← Changer l'import
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -38,9 +38,6 @@ public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
-
-    @Autowired
-    private utilisateurRepository utilisateurRepository;  // ← Changer le type
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -97,7 +94,7 @@ public class EmailService {
         }
     }
 
-    public void sendActivationLinkEmail(String email, String token) {
+    public void sendActivationLinkEmail(String email, String token, String nom, String prenom) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -105,18 +102,13 @@ public class EmailService {
             helper.setTo(email);
             helper.setSubject("Lien d'activation - Invera ERP");
 
-            // ✅ Remplacer User par Utilisateur
-            Utilisateur nouvelUtilisateur = utilisateurRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-
             LocalDateTime expiryTime = LocalDateTime.now().plusHours(24);
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm");
             String expiryTimeFormatted = expiryTime.format(formatter);
 
-            // ✅ Utiliser les bons getters
-            String prenom = nouvelUtilisateur.getPrenom() == null ? "" : nouvelUtilisateur.getPrenom();
-            String nom = nouvelUtilisateur.getNom() == null ? "" : nouvelUtilisateur.getNom();
-            String fullName = (prenom + " " + nom).trim();
+            String prenomClean = prenom == null ? "" : prenom;
+            String nomClean = nom == null ? "" : nom;
+            String fullName = (prenomClean + " " + nomClean).trim();
 
             if (fullName.isBlank()) {
                 fullName = email;
@@ -124,59 +116,45 @@ public class EmailService {
 
             String activationLink = activationUrl + "?token=" + token;
 
-            String htmlContent = """
-                <!DOCTYPE html>
-                <html>
-                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <div style="max-width: 600px; margin: 0 auto;">
-                        <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
-                            <h1>Invera ERP</h1>
-                        </div>
-
-                        <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
-                            <h2 style="color: #1976d2;">Bonjour %s,</h2>
-
-                            <p>L'administrateur de la plateforme Invera a créé votre compte.</p>
-
-                            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                <p style="margin: 5px 0;"><strong>Email :</strong> %s</p>
-                                <p style="margin: 5px 0;"><strong>Nom :</strong> %s</p>
-                                <p style="margin: 5px 0;"><strong>Prénom :</strong> %s</p>
-                            </div>
-
-                            <p>Pour activer votre compte et créer votre mot de passe, cliquez sur le lien ci-dessous :</p>
-
-                            <div style="margin: 24px 0; text-align: center;">
-                                <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #1976d2; color: #ffffff; text-decoration: none; font-weight: bold;">
-                                    Activer mon compte
-                                </a>
-                            </div>
-
-                            <p style="color: #666; font-size: 14px;">
-                                <strong>Validité :</strong> Ce lien expirera le %s.
-                            </p>
-
-                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                            <p style="color: #999; font-size: 12px; text-align: center;">
-                                © 2026 Invera ERP. Tous droits réservés.
-                            </p>
-                        </div>
+            String htmlContent = String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1>Invera ERP</h1>
                     </div>
-                </body>
-                </html>
-                """.formatted(
-                    fullName,
-                    email,
-                    nom,
-                    prenom,
-                    activationLink,
-                    activationLink,
-                    expiryTimeFormatted
-            );
+                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
+                        <h2 style="color: #1976d2;">Bonjour %s,</h2>
+                        <p>L'administrateur de la plateforme Invera a créé votre compte.</p>
+                        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Email :</strong> %s</p>
+                            <p style="margin: 5px 0;"><strong>Nom :</strong> %s</p>
+                            <p style="margin: 5px 0;"><strong>Prénom :</strong> %s</p>
+                        </div>
+                        <p>Pour activer votre compte et créer votre mot de passe, cliquez sur le lien ci-dessous :</p>
+                        <div style="margin: 24px 0; text-align: center;">
+                            <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #1976d2; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                Activer mon compte
+                            </a>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">
+                            <strong>Validité :</strong> Ce lien expirera le %s.
+                        </p>
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                        <p style="color: #999; font-size: 12px; text-align: center;">
+                            © 2026 Invera ERP. Tous droits réservés.
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, fullName, email, nomClean, prenomClean, activationLink, expiryTimeFormatted);
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
+
+            System.out.println("✅ Email d'activation envoyé à " + email);
 
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
