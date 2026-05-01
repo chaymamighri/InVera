@@ -19,18 +19,8 @@ public interface ClientPlatformRepository extends JpaRepository<Client, Long> {
 
     boolean existsByEmail(String email);
 
-    boolean existsByTelephone(String telephone);
 
     // ========== RECHERCHES PAR STATUT (avec ENUM) ==========
     List<Client> findByStatut(Client.StatutClient statut);
-
-    @Query("SELECT c FROM Client c WHERE c.statut = :statut AND c.justificatifsValides = false")
-    List<Client> findPendingValidationClients(@Param("statut") Client.StatutClient statut);
-
-    @Query("SELECT c FROM Client c WHERE c.nomBaseDonnees IS NOT NULL")
-    List<Client> findClientsWithDatabase();
-
-    // Recherche par domaine
-    Optional<Client> findByDomaine(String domaine);
 
 }

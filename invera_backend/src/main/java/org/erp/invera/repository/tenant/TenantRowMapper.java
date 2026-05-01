@@ -1,6 +1,7 @@
 package org.erp.invera.repository.tenant;
 
 import org.erp.invera.model.erp.Produit;
+import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.model.erp.client.Client;
 import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.client.LigneCommandeClient;
@@ -8,11 +9,94 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class TenantRowMapper {
+
+    // ==================== ROW MAPPER POUR UTILISATEURS ====================
+
+    /**
+     * RowMapper pour la liste des utilisateurs (sans mot de passe)
+     * Utilisé pour getAllUsers()
+     */
+    public RowMapper<Map<String, Object>> userListRowMapper() {
+        return (rs, rowNum) -> {
+            Map<String, Object> user = new HashMap<>();
+            user.put("id", rs.getLong("id"));
+            user.put("email", rs.getString("email"));
+            user.put("nom", rs.getString("nom") != null ? rs.getString("nom") : "");
+            user.put("prenom", rs.getString("prenom") != null ? rs.getString("prenom") : "");
+            user.put("role", rs.getString("role"));
+            user.put("active", rs.getBoolean("active"));
+            user.put("clientId", rs.getLong("client_id"));
+            user.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null);
+            user.put("lastLogin", rs.getTimestamp("last_login") != null ? rs.getTimestamp("last_login").toLocalDateTime() : null);
+            return user;
+        };
+    }
+
+    /**
+     * RowMapper pour l'authentification (avec mot de passe)
+     * Utilisé pour authenticate()
+     */
+    public RowMapper<Map<String, Object>> userAuthRowMapper() {
+        return (rs, rowNum) -> {
+            Map<String, Object> user = new HashMap<>();
+            user.put("id", rs.getLong("id"));
+            user.put("email", rs.getString("email"));
+            user.put("mot_de_passe", rs.getString("mot_de_passe"));
+            user.put("nom", rs.getString("nom") != null ? rs.getString("nom") : "");
+            user.put("prenom", rs.getString("prenom") != null ? rs.getString("prenom") : "");
+            user.put("role", rs.getString("role"));
+            user.put("active", rs.getBoolean("active"));
+            user.put("client_id", rs.getLong("client_id"));
+            return user;
+        };
+    }
+
+    /**
+     * RowMapper pour l'entité Utilisateur complète
+     * Utilisé pour findById(), findByEmail(), getEmployeesByClient()
+     */
+    public RowMapper<Utilisateur> utilisateurRowMapper() {
+        return (rs, rowNum) -> {
+            Utilisateur user = new Utilisateur();
+            user.setId(rs.getLong("id"));
+            user.setEmail(rs.getString("email"));
+            user.setNom(rs.getString("nom"));
+            user.setPrenom(rs.getString("prenom"));
+            user.setActive(rs.getBoolean("active"));
+            user.setClientId(rs.getLong("client_id"));
+
+            String role = rs.getString("role");
+            if (role != null) {
+                user.setRole(Utilisateur.RoleUtilisateur.valueOf(role));
+            }
+
+            // ✅ Vérifie que ces lignes sont présentes
+            if (rs.getTimestamp("created_at") != null) {
+                user.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+            }
+            if (rs.getTimestamp("last_login") != null) {
+                user.setLastLogin(rs.getTimestamp("last_login").toLocalDateTime());
+            }
+            if (rs.getTimestamp("updated_at") != null) {
+                user.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
+            }
+
+            user.setMotDePasse(rs.getString("mot_de_passe"));
+
+            String preferredLanguage = rs.getString("preferred_language");
+            if (preferredLanguage != null) {
+                user.setPreferredLanguage(org.erp.invera.model.platform.PreferredLanguage.valueOf(preferredLanguage));
+            }
+
+            return user;
+        };
+    }
+    // ==================== ROW MAPPER POUR COMMANDES ====================
 
     // ✅ RowMapper pour CommandeClient (complet)
     public RowMapper<CommandeClient> commandeRowMapper() {
