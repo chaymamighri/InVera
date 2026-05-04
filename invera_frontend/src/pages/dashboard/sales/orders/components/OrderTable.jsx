@@ -12,9 +12,7 @@ import {
   CalendarIcon,
   UserCircleIcon,
   ShoppingBagIcon,
-  CurrencyDollarIcon,
   BuildingOfficeIcon,
-  BriefcaseIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   TagIcon,
@@ -34,6 +32,34 @@ const OrderTable = ({
   setValidationError,
   t
 }) => {
+  // ✅ Fonction de traduction sécurisée (fallback)
+  const safeT = (key) => {
+    if (!t) return key;
+    const translated = t(key);
+    if (!translated || translated === key) {
+      const fallbacks = {
+        'salesPages.orderNumber': 'N° commande',
+        'salesPages.client': 'Client',
+        'salesPages.creationDate': 'Date de création',
+        'salesPages.products': 'Produits',
+        'salesPages.finalAmount': 'Montant total',
+        'salesPages.status': 'Statut',
+        'salesPages.actions': 'Actions',
+        'salesPages.pending': 'En attente',
+        'salesPages.confirmed': 'Confirmé',
+        'salesPages.rejected': 'Refusé',
+        'salesPages.view': 'Voir détails',
+        'salesPages.validate': 'Valider',
+        'salesPages.reject': 'Rejeter',
+        'salesPages.noOrdersFound': 'Aucune commande trouvée',
+        'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
+        'salesPages.processed': 'Traitée'
+      };
+      return fallbacks[key] || key;
+    }
+    return translated;
+  };
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -169,7 +195,7 @@ const OrderTable = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       
-      {/* ✅ Popup d'erreur stock insuffisant */}
+      {/* Popup d'erreur stock insuffisant */}
       {validationError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -239,7 +265,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <ShoppingBagIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {('salesPages.orderNumber')}
+                  {safeT('salesPages.orderNumber')}
                   {sortField === 'numero' && (
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -254,7 +280,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {('salesPages.client')}
+                  {safeT('salesPages.client')}
                   {sortField === 'clientNom' && (  
                     sortDirection === 'asc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -269,7 +295,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {('salesPages.creationDate')}
+                  {safeT('salesPages.creationDate')}
                   {sortField === 'dateCommande' && ( 
                     sortDirection === 'desc' ? 
                       <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
@@ -279,18 +305,21 @@ const OrderTable = ({
               </th>
               
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {('salesPages.products')}
+                {safeT('salesPages.products')}
               </th>
+              
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                {safeT('salesPages.finalAmount')}
+              </th>
+              
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {('salesPages.finalAmount')}
+                {safeT('salesPages.status')}
               </th>
+              
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {('salesPages.status')}
+                {safeT('salesPages.actions')}
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                ACTIONS
-              </th>
-             </tr>
+            </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {currentCommandes.map((commande) => {
@@ -309,7 +338,7 @@ const OrderTable = ({
                         {formatDate(commande.dateCommande)}
                       </div>
                     </div>
-                   </td>
+                  </td>
 
                   {/* Client */}
                   <td className="px-4 py-3">
@@ -329,14 +358,14 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                   </td>
+                  </td>
 
                   {/* Date de création */}
                   <td className="px-4 py-3">
                     <div className="text-sm text-gray-900">
                       {formatDate(commande.dateCommande)}
                     </div>
-                   </td>
+                  </td>
 
                   {/* Produits */}
                   <td className="px-4 py-3">
@@ -375,17 +404,17 @@ const OrderTable = ({
                         })()}
                       </div>
                     </div>
-                   </td>
+                  </td>
 
                   {/* Montant Final avec Remise */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-right">
                     <div>
                       <div className="font-bold text-gray-900 text-lg">
                         {formatMontant(commande.total)}
                       </div>
                       
                       {pourcentageRemise > 0 && (
-                        <div className="flex items-center mt-1">
+                        <div className="flex items-center justify-end mt-1">
                           <div className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium border border-green-200">
                             <TagIcon className="h-2.5 w-2.5 mr-1" />
                             -{pourcentageRemise}%
@@ -396,7 +425,7 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                   </td>
+                  </td>
 
                   {/* Statut */}
                   <td className="px-4 py-3">
@@ -412,13 +441,13 @@ const OrderTable = ({
                         {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
                         {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
                         <span className="font-semibold">
-                          {commande.statut === 'EN_ATTENTE' ? 'En attente' : 
-                           commande.statut === 'CONFIRMEE' ? 'Confirmé' : 
-                           commande.statut === 'ANNULEE' ? 'Refusé' : commande.statut}
+                          {commande.statut === 'EN_ATTENTE' ? safeT('salesPages.pending') : 
+                           commande.statut === 'CONFIRMEE' ? safeT('salesPages.confirmed') : 
+                           commande.statut === 'ANNULEE' ? safeT('salesPages.rejected') : commande.statut}
                         </span>
                       </button>
                     </div>
-                   </td>
+                  </td>
 
                   {/* Actions */}
                   <td className="px-4 py-3">
@@ -426,7 +455,7 @@ const OrderTable = ({
                       <button
                         onClick={() => onVoirDetails(commande)}
                         className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200"
-                        title="Voir détails"
+                        title={safeT('salesPages.view')}
                       >
                         <EyeIcon className="h-4 w-4" />
                       </button>
@@ -436,7 +465,7 @@ const OrderTable = ({
                           <button
                             onClick={() => onValider(commande.id)}
                             className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-all duration-200"
-                            title="Valider la commande"
+                            title={safeT('salesPages.validate')}
                           >
                             <CheckCircleIcon className="h-4 w-4" />
                           </button>
@@ -444,7 +473,7 @@ const OrderTable = ({
                           <button
                             onClick={() => onRejeter(commande.id)}
                             className="p-1.5 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-all duration-200"
-                            title="Rejeter la commande"
+                            title={safeT('salesPages.reject')}
                           >
                             <XCircleIcon className="h-4 w-4" />
                           </button>
@@ -454,12 +483,12 @@ const OrderTable = ({
                       {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' || 
                         commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
                         <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300">
-                          Traitée
+                          {safeT('salesPages.processed')}
                         </span>
                       )}
                     </div>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               );
             })}
           </tbody>
@@ -472,9 +501,9 @@ const OrderTable = ({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
             <ShoppingBagIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune commande trouvée</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{safeT('salesPages.noOrdersFound')}</h3>
           <p className="text-gray-500 max-w-md mx-auto text-sm">
-            Aucune commande ne correspond à vos critères de recherche.
+            {safeT('salesPages.noOrdersMatch')}
           </p>
         </div>
       )}
