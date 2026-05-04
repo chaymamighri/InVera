@@ -1,6 +1,5 @@
 package org.erp.invera.service.platform;
 
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.platform.abonnementdto.AbonnementResponse;
@@ -9,7 +8,7 @@ import org.erp.invera.model.platform.Client;
 import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
-import org.erp.invera.service.erp.EmailService;  // ← AJOUTER L'IMPORT
+import org.erp.invera.service.erp.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,62 +63,35 @@ public class SubscriptionService {
 
     // ==================== CREATION D'ABONNEMENT ====================
 
-    /**
-     * Crée un abonnement APRÈS paiement réussi
-     * À appeler uniquement quand le client a payé
-     */
     @Transactional
     public AbonnementResponse createSubscriptionFromOffer(Long clientId, Long offreId) {
-        // Récupérer l'offre (vérifie que l'offre existe et est active)
         OffreAbonnement offre = offreAbonnementService.getAvailableOfferEntityById(offreId);
-
-        // Récupérer le client
         Client client = clientService.getClientById(clientId);
-
-        // Vérifier qu'il n'a pas déjà un abonnement actif
         assertNoActiveSubscription(clientId);
 
-        // Créer l'abonnement
+        // ✅ Créer l'abonnement EN ATTENTE (pas de dates, pas d'activation)
         Abonnement abonnement = Abonnement.builder()
                 .client(client)
                 .offreAbonnement(offre)
-                .dateDebut(LocalDateTime.now())
-                .dateFin(LocalDateTime.now().plusMonths(offre.getDureeMois()))
-                .statut(Abonnement.StatutAbonnement.ACTIF)
+                .dateDebut(null)  // NULL car pas encore payé
+                .dateFin(null)     // NULL car pas encore payé
+                .statut(Abonnement.StatutAbonnement.EN_ATTENTE_VALIDATION)
                 .build();
 
         Abonnement saved = abonnementRepository.save(abonnement);
 
-        // Mettre à jour le client
-        applyActiveSubscriptionToClient(client, saved);
-
-        // ⭐ ENVOYER EMAIL DE CONFIRMATION D'ABONNEMENT
-        String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
-        emailService.sendSubscriptionConfirmation(
-                client.getEmail(),
-                clientNom.trim(),
-                offre.getNom(),
-                saved.getDateFin()
-        );
-
-        log.info("Abonnement créé pour client {} - Offre: {} - Durée: {} mois - Prix: {} {} - Expiration: {}",
-                client.getEmail(), offre.getNom(), offre.getDureeMois(),
-                offre.getPrix(), offre.getDevise(), saved.getDateFin());
+        log.info("✅ Abonnement créé en attente de paiement pour client {} - Offre: {}",
+                client.getEmail(), offre.getNom());
 
         return toResponse(saved);
     }
 
     // ==================== TÂCHE PLANIFIÉE : EXPIRATION ====================
 
-    /**
-     * Vérifie les abonnements expirés et désactive l'accès
-     * À exécuter quotidiennement via @Scheduled(cron = "0 0 1 * * ?") à 1h du matin
-     */
     @Transactional
     public void checkAndExpireSubscriptions() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Trouver les abonnements actifs qui ont expiré
         List<Abonnement> expiredSubscriptions = abonnementRepository.findByStatutAndDateFinBefore(
                 Abonnement.StatutAbonnement.ACTIF, now
         );
@@ -127,18 +99,15 @@ public class SubscriptionService {
         log.info("Vérification des abonnements expirés : {} abonnements trouvés", expiredSubscriptions.size());
 
         for (Abonnement abonnement : expiredSubscriptions) {
-            // Passer le statut à EXPIRE
             abonnement.setStatut(Abonnement.StatutAbonnement.EXPIRE);
             abonnementRepository.save(abonnement);
 
-            // Désactiver l'accès du client
             Client client = abonnement.getClient();
             client.setAbonnementActif(null);
             client.setStatut(Client.StatutClient.INACTIF);
             client.setIsActive(false);
             clientRepository.save(client);
 
-            // ⭐ ENVOYER EMAIL D'EXPIRATION
             String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
             emailService.sendExpirationNotice(
                     client.getEmail(),
@@ -151,16 +120,13 @@ public class SubscriptionService {
         }
     }
 
-    /**
-     * Envoie des rappels d'expiration (à appeler par un CRON séparé)
-     */
     @Transactional(readOnly = true)
     public void sendExpirationReminders() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime startOfDay = now.withHour(0).withMinute(0).withSecond(0);
         LocalDateTime endOfDay = now.withHour(23).withMinute(59).withSecond(59);
 
-        // 1. Abonnements qui expirent AUJOURD'HUI (J-0)
+        // J-0
         List<Abonnement> expiringToday = abonnementRepository
                 .findByStatutAndDateFinBetween(
                         Abonnement.StatutAbonnement.ACTIF,
@@ -171,21 +137,17 @@ public class SubscriptionService {
         for (Abonnement abonnement : expiringToday) {
             Client client = abonnement.getClient();
             String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
-
-            // ⭐ ENVOYER EMAIL RAPPEL URGENT (J-0)
             emailService.sendExpirationReminder(
                     client.getEmail(),
                     clientNom.trim(),
                     abonnement.getOffreAbonnement().getNom(),
                     abonnement.getDateFin(),
-                    0  // 0 jour restant
+                    0
             );
-
-            log.info("⚠️ RAPPEL URGENT - Abonnement expire AUJOURD'HUI pour client {}",
-                    client.getEmail());
+            log.info("⚠️ RAPPEL URGENT - Abonnement expire AUJOURD'HUI pour client {}", client.getEmail());
         }
 
-        // 2. Abonnements qui expirent DEMAIN (J-1)
+        // J-1
         LocalDateTime tomorrowStart = now.plusDays(1).withHour(0).withMinute(0).withSecond(0);
         LocalDateTime tomorrowEnd = now.plusDays(1).withHour(23).withMinute(59).withSecond(59);
 
@@ -199,8 +161,6 @@ public class SubscriptionService {
         for (Abonnement abonnement : expiringTomorrow) {
             Client client = abonnement.getClient();
             String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
-
-            // ⭐ ENVOYER EMAIL RAPPEL J-1
             emailService.sendExpirationReminder(
                     client.getEmail(),
                     clientNom.trim(),
@@ -208,11 +168,10 @@ public class SubscriptionService {
                     abonnement.getDateFin(),
                     1
             );
-
             log.info("📧 Rappel J-1 pour client {}", client.getEmail());
         }
 
-        // 3. Abonnements qui expirent dans 7 jours (J-7)
+        // J-7
         LocalDateTime in7DaysStart = now.plusDays(7).withHour(0).withMinute(0).withSecond(0);
         LocalDateTime in7DaysEnd = now.plusDays(7).withHour(23).withMinute(59).withSecond(59);
 
@@ -226,8 +185,6 @@ public class SubscriptionService {
         for (Abonnement abonnement : expiringIn7Days) {
             Client client = abonnement.getClient();
             String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
-
-            // ⭐ ENVOYER EMAIL RAPPEL J-7
             emailService.sendExpirationReminder(
                     client.getEmail(),
                     clientNom.trim(),
@@ -235,7 +192,6 @@ public class SubscriptionService {
                     abonnement.getDateFin(),
                     7
             );
-
             log.info("📧 Rappel J-7 pour client {}", client.getEmail());
         }
     }
@@ -244,13 +200,19 @@ public class SubscriptionService {
 
     /**
      * Suspendre un abonnement (admin seulement)
+     * ✅ Sans motif obligatoire
      */
     @Transactional
-    public AbonnementResponse suspendSubscription(Long abonnementId, String motif) {
+    public AbonnementResponse suspendSubscription(Long abonnementId) {
         Abonnement abonnement = getSubscriptionEntity(abonnementId);
 
         if (abonnement.getStatut() != Abonnement.StatutAbonnement.ACTIF) {
             throw new RuntimeException("Seul un abonnement actif peut être suspendu");
+        }
+
+        // ✅ Vérification de null pour dateFin
+        if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Impossible de suspendre un abonnement expiré");
         }
 
         abonnement.setStatut(Abonnement.StatutAbonnement.SUSPENDU);
@@ -258,13 +220,13 @@ public class SubscriptionService {
 
         deactivateClientAccess(abonnement.getClient());
 
-        log.warn("Abonnement suspendu pour client {} - Motif: {}",
-                abonnement.getClient().getEmail(), motif);
+        log.warn("Abonnement suspendu pour client {}", abonnement.getClient().getEmail());
         return toResponse(abonnement);
     }
 
     /**
      * Réactiver un abonnement suspendu (admin seulement)
+     * ✅ Sans motif
      */
     @Transactional
     public AbonnementResponse reactivateSubscription(Long abonnementId) {
@@ -274,9 +236,9 @@ public class SubscriptionService {
             throw new RuntimeException("Seul un abonnement suspendu peut être réactivé");
         }
 
-        // Vérifier que la date n'est pas dépassée
-        if (abonnement.getDateFin().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Impossible de réactiver: abonnement expiré");
+        // ✅ Vérification de null pour dateFin
+        if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Impossible de réactiver un abonnement expiré");
         }
 
         abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
@@ -290,18 +252,28 @@ public class SubscriptionService {
 
     /**
      * Annuler un abonnement (admin seulement)
+     * ✅ Sans motif obligatoire
      */
     @Transactional
-    public AbonnementResponse cancelSubscription(Long abonnementId, String motif) {
+    public AbonnementResponse cancelSubscription(Long abonnementId) {
         Abonnement abonnement = getSubscriptionEntity(abonnementId);
+
+        if (abonnement.getStatut() != Abonnement.StatutAbonnement.ACTIF &&
+                abonnement.getStatut() != Abonnement.StatutAbonnement.SUSPENDU) {
+            throw new RuntimeException("Seuls les abonnements actifs ou suspendus peuvent être annulés");
+        }
+
+        // ✅ Vérification de null pour dateFin
+        if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Impossible d'annuler un abonnement expiré");
+        }
 
         abonnement.setStatut(Abonnement.StatutAbonnement.ANNULE);
         abonnementRepository.save(abonnement);
 
         deactivateClientAccess(abonnement.getClient());
 
-        log.info("Abonnement annulé par admin pour client {} - Motif: {}",
-                abonnement.getClient().getEmail(), motif);
+        log.info("Abonnement annulé par admin pour client {}", abonnement.getClient().getEmail());
         return toResponse(abonnement);
     }
 
@@ -353,5 +325,60 @@ public class SubscriptionService {
                 .dateFin(abonnement.getDateFin())
                 .statut(abonnement.getStatut().name())
                 .build();
+    }
+
+    // ==================== ACTIVATION APRÈS PAIEMENT ====================
+
+    /**
+     * Active un abonnement après paiement réussi
+     * Passe de EN_ATTENTE_VALIDATION à ACTIF
+     * À appeler uniquement après confirmation de paiement
+     */
+    @Transactional
+    public AbonnementResponse activateAfterPayment(Long abonnementId) {
+        // 1. Récupérer l'abonnement
+        Abonnement abonnement = getSubscriptionEntity(abonnementId);
+
+        // 2. Vérifier qu'il est bien en attente de validation
+        if (abonnement.getStatut() != Abonnement.StatutAbonnement.EN_ATTENTE_VALIDATION) {
+            throw new RuntimeException("L'abonnement n'est pas en attente de validation. Statut actuel: " + abonnement.getStatut());
+        }
+
+        // 3. Vérifier que l'offre existe et est active
+        OffreAbonnement offre = abonnement.getOffreAbonnement();
+        if (offre == null || !offre.getActive()) {
+            throw new RuntimeException("L'offre associée n'est pas disponible");
+        }
+
+        // 4. Activer l'abonnement
+        abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
+        abonnement.setDateDebut(LocalDateTime.now());
+        abonnement.setDateFin(LocalDateTime.now().plusMonths(offre.getDureeMois()));
+
+        // 5. Sauvegarder l'abonnement
+        Abonnement saved = abonnementRepository.save(abonnement);
+
+        // 6. Mettre à jour le client
+        Client client = abonnement.getClient();
+        client.setAbonnementActif(saved);
+        client.setStatut(Client.StatutClient.ACTIF);
+        client.setIsActive(true);
+        client.setConnexionsMax(999999);
+        client.setConnexionsRestantes(999999);
+        clientRepository.save(client);
+
+        // 7. Envoyer un email de confirmation
+        String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
+        emailService.sendSubscriptionConfirmation(
+                client.getEmail(),
+                clientNom.trim(),
+                offre.getNom(),
+                saved.getDateFin()
+        );
+
+        log.info("✅ Abonnement {} activé après paiement pour client {} - Expiration le {}",
+                saved.getId(), client.getEmail(), saved.getDateFin());
+
+        return toResponse(saved);
     }
 }

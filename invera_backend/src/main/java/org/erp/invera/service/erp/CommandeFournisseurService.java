@@ -1,16 +1,14 @@
 package org.erp.invera.service.erp;
 
 import lombok.RequiredArgsConstructor;
-
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.erp.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.erp.commandeFornisseurdto.LigneCommandeDTO;
 import org.erp.invera.dto.erp.commandeFornisseurdto.ReceptionDTO;
-
 import org.erp.invera.model.erp.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.erp.Fournisseurs.Fournisseur;
 import org.erp.invera.model.erp.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.erp.Produit;
-
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,12 +22,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j  // ✅ AJOUTER pour utiliser log.info(), log.error()
 @Service
 @RequiredArgsConstructor
 public class CommandeFournisseurService {
 
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
+    private final BonCommandePdfService bonCommandePdfService;
+    private final EmailService emailService;
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 
@@ -44,27 +45,88 @@ public class CommandeFournisseurService {
         return tenantRepo.getClientJdbcTemplate(clientId, String.valueOf(clientId));
     }
 
-    // ==================== MÉTHODE POUR OBTENIR LE FOURNISSEUR D'UNE COMMANDE ====================
-    private Fournisseur getFournisseurFromCommande(CommandeFournisseur commande) {
-        if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
-            throw new RuntimeException("Impossible de déterminer le fournisseur : la commande n'a aucun produit");
+    // ==================== RÉCUPÉRATION COMPLÈTE POUR PDF ====================
+
+    /**
+     * Récupère une commande avec toutes ses lignes et produits (multi-tenant)
+     */
+    private CommandeFournisseur getCommandeEntity(Integer id, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        // 1. Récupérer la commande
+        String sql = """
+            SELECT * FROM commandes_fournisseurs 
+            WHERE id_commande_fournisseur = ? AND actif = true
+            """;
+
+        CommandeFournisseur commande = tenantRepo.queryForObject(sql, (rs, rowNum) -> {
+            CommandeFournisseur c = new CommandeFournisseur();
+            c.setIdCommandeFournisseur(rs.getInt("id_commande_fournisseur"));
+            c.setNumeroCommande(rs.getString("numero_commande"));
+            c.setDateCommande(rs.getTimestamp("date_commande") != null ? rs.getTimestamp("date_commande").toLocalDateTime() : null);
+            c.setDateLivraisonPrevue(rs.getTimestamp("date_livraison_prevue") != null ? rs.getTimestamp("date_livraison_prevue").toLocalDateTime() : null);
+            c.setDateLivraisonReelle(rs.getTimestamp("date_livraison_reelle") != null ? rs.getTimestamp("date_livraison_reelle").toLocalDateTime() : null);
+            c.setAdresseLivraison(rs.getString("adresse_livraison"));
+            c.setStatut(CommandeFournisseur.StatutCommande.valueOf(rs.getString("statut")));
+            c.setTotalHT(rs.getBigDecimal("totalht"));
+            c.setTotalTVA(rs.getBigDecimal("totaltva"));
+            c.setTotalTTC(rs.getBigDecimal("totalttc"));
+            c.setActif(rs.getBoolean("actif"));
+            c.setNumeroBonLivraison(rs.getString("numero_bon_livraison"));
+            return c;
+        }, clientId, authClientId, id);
+
+        if (commande == null) {
+            throw new RuntimeException("Commande non trouvée");
         }
 
-        Fournisseur premierFournisseur = commande.getLignesCommande().get(0).getProduit().getFournisseur();
-        if (premierFournisseur == null) {
-            throw new RuntimeException("Le produit '" + commande.getLignesCommande().get(0).getProduit().getLibelle() + "' n'a pas de fournisseur associé");
-        }
+        // 2. Récupérer les lignes avec produits et fournisseurs
+        String lignesSql = """
+            SELECT l.*, p.libelle as produit_libelle, p.prix_achat,
+                   f.id_fournisseur, f.nom_fournisseur, f.email as fournisseur_email,
+                   f.adresse, f.ville, f.telephone
+            FROM lignes_commande_fournisseurs l
+            JOIN produit p ON l.produit_id = p.id_produit
+            LEFT JOIN fournisseurs f ON p.fournisseur_id = f.id_fournisseur
+            WHERE l.commande_fournisseur_id = ? AND l.actif = true
+            """;
 
-        for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
-            Fournisseur f = ligne.getProduit().getFournisseur();
-            if (f == null) {
-                throw new RuntimeException("Le produit '" + ligne.getProduit().getLibelle() + "' n'a pas de fournisseur associé");
+        List<LigneCommandeFournisseur> lignes = tenantRepo.query(lignesSql, (rs, rowNum) -> {
+            LigneCommandeFournisseur ligne = new LigneCommandeFournisseur();
+            ligne.setIdLigneCommandeFournisseur(rs.getInt("id_ligne_commande_fournisseur"));
+            ligne.setQuantite(rs.getInt("quantite"));
+            ligne.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
+            ligne.setSousTotalHT(rs.getBigDecimal("sous_total_ht"));
+            ligne.setMontantTVA(rs.getBigDecimal("montant_tva"));
+            ligne.setSousTotalTTC(rs.getBigDecimal("sous_total_ttc"));
+            ligne.setTauxTVA(rs.getBigDecimal("tauxtva"));
+            ligne.setNotes(rs.getString("notes"));
+
+            // Produit
+            Produit produit = new Produit();
+            produit.setIdProduit(rs.getInt("produit_id"));
+            produit.setLibelle(rs.getString("produit_libelle"));
+            produit.setPrixAchat(rs.getBigDecimal("prix_achat"));
+
+            // Fournisseur
+            if (rs.getObject("id_fournisseur") != null) {
+                Fournisseur fournisseur = new Fournisseur();
+                fournisseur.setIdFournisseur(rs.getInt("id_fournisseur"));
+                fournisseur.setNomFournisseur(rs.getString("nom_fournisseur"));
+                fournisseur.setEmail(rs.getString("fournisseur_email"));
+                fournisseur.setAdresse(rs.getString("adresse"));
+                fournisseur.setVille(rs.getString("ville"));
+                fournisseur.setTelephone(rs.getString("telephone"));
+                produit.setFournisseur(fournisseur);
             }
-            if (!f.getIdFournisseur().equals(premierFournisseur.getIdFournisseur())) {
-                throw new RuntimeException("Tous les produits doivent appartenir au même fournisseur.");
-            }
-        }
-        return premierFournisseur;
+
+            ligne.setProduit(produit);
+            return ligne;
+        }, clientId, authClientId, id);
+
+        commande.setLignesCommande(lignes);
+        return commande;
     }
 
     // ==================== LISTES ====================
@@ -108,7 +170,6 @@ public class CommandeFournisseurService {
 
         String numeroCommande = genererNumeroCommande(jdbc);
 
-        // Insertion commande
         String insertCommandeSql = """
             INSERT INTO commandes_fournisseurs (
                 numero_commande, date_commande, date_livraison_prevue,
@@ -125,7 +186,6 @@ public class CommandeFournisseurService {
         Fournisseur fournisseurUnique = null;
 
         for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
-            // Récupérer produit avec fournisseur
             String produitSql = """
                 SELECT p.*, f.id_fournisseur as fournisseur_id, f.nom_fournisseur, f.email as fournisseur_email
                 FROM produit p
@@ -234,7 +294,6 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Commande non trouvée");
         }
 
-        // Récupérer lignes
         String lignesSql = """
             SELECT l.*, p.libelle as produit_libelle, p.is_active,
                    cat.nom_categorie as categorie_nom
@@ -267,65 +326,6 @@ public class CommandeFournisseurService {
         return dto;
     }
 
-    // ==================== MODIFICATION ====================
-    @Transactional
-    public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto, String token) {
-        Long clientId = getClientIdFromToken(token);
-        String authClientId = String.valueOf(clientId);
-
-        CommandeFournisseurDTO existing = getCommandeById(id, token);
-        if (!"REJETEE".equals(existing.getStatut().name())) {
-            throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées");
-        }
-
-        String updateSql = """
-            UPDATE commandes_fournisseurs 
-            SET date_livraison_prevue = ?, adresse_livraison = ?
-            WHERE id_commande_fournisseur = ?
-            """;
-        tenantRepo.update(updateSql, clientId, authClientId,
-                dto.getDateLivraisonPrevue(), dto.getAdresseLivraison(), id);
-
-        String deleteLignesSql = "DELETE FROM lignes_commande_fournisseurs WHERE commande_fournisseur_id = ?";
-        tenantRepo.update(deleteLignesSql, clientId, authClientId, id);
-
-        List<LigneCommandeDTO> nouvellesLignes = new ArrayList<>();
-        for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
-            BigDecimal tauxTVA = ligneDTO.getTauxTVA() != null ? ligneDTO.getTauxTVA() : TVA_PAR_DEFAUT;
-            BigDecimal sousTotalHT = ligneDTO.getPrixUnitaire()
-                    .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()))
-                    .setScale(3, RoundingMode.HALF_UP);
-            BigDecimal montantTVA = sousTotalHT.multiply(tauxTVA)
-                    .divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
-            BigDecimal sousTotalTTC = sousTotalHT.add(montantTVA).setScale(3, RoundingMode.HALF_UP);
-
-            String insertLigneSql = """
-                INSERT INTO lignes_commande_fournisseurs (
-                    commande_fournisseur_id, produit_id, quantite,
-                    prix_unitaire, sous_total_ht, montant_tva, sous_total_ttc, tauxtva, notes, actif
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """;
-
-            tenantRepo.update(insertLigneSql, clientId, authClientId,
-                    id, ligneDTO.getProduitId(), ligneDTO.getQuantite(),
-                    ligneDTO.getPrixUnitaire(), sousTotalHT, montantTVA, sousTotalTTC, tauxTVA, ligneDTO.getNotes(), true);
-
-            ligneDTO.setSousTotalHT(sousTotalHT);
-            ligneDTO.setMontantTVA(montantTVA);
-            ligneDTO.setSousTotalTTC(sousTotalTTC);
-            nouvellesLignes.add(ligneDTO);
-        }
-
-        BigDecimal totalHT = nouvellesLignes.stream().map(LigneCommandeDTO::getSousTotalHT).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalTVA = nouvellesLignes.stream().map(LigneCommandeDTO::getMontantTVA).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalTTC = nouvellesLignes.stream().map(LigneCommandeDTO::getSousTotalTTC).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        String updateTotauxSql = "UPDATE commandes_fournisseurs SET totalht = ?, totaltva = ?, totalttc = ? WHERE id_commande_fournisseur = ?";
-        tenantRepo.update(updateTotauxSql, clientId, authClientId, totalHT, totalTVA, totalTTC, id);
-
-        return getCommandeById(id, token);
-    }
-
     // ==================== VALIDATION ====================
     @Transactional
     public CommandeFournisseurDTO validerCommande(Integer id, String token) {
@@ -345,12 +345,13 @@ public class CommandeFournisseurService {
         return getCommandeById(id, token);
     }
 
-    // ==================== ENVOI ====================
+    // ==================== ENVOI bon commande ====================
     @Transactional
     public CommandeFournisseurDTO envoyerCommande(Integer id, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
+        // 1. Vérifier le statut
         String checkSql = "SELECT statut FROM commandes_fournisseurs WHERE id_commande_fournisseur = ?";
         String statut = tenantRepo.queryForObject(checkSql, String.class, clientId, authClientId, id);
 
@@ -358,10 +359,65 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Seules les commandes validées peuvent être envoyées");
         }
 
+        // 2. Récupérer le numéro de commande
+        String numeroSql = "SELECT numero_commande FROM commandes_fournisseurs WHERE id_commande_fournisseur = ?";
+        String numeroCommande = tenantRepo.queryForObject(numeroSql, String.class, clientId, authClientId, id);
+
+        // 3. Récupérer la commande complète pour le PDF
+        CommandeFournisseur commande = getCommandeEntity(id, token);
+
+        // 4. Extraire le fournisseur de la commande
+        Fournisseur fournisseur = getFournisseurFromCommande(commande);
+
+        if (fournisseur == null) {
+            throw new RuntimeException("Impossible de déterminer le fournisseur pour cette commande");
+        }
+
+        if (fournisseur.getEmail() == null || fournisseur.getEmail().isEmpty()) {
+            throw new RuntimeException("Le fournisseur '" + fournisseur.getNomFournisseur() + "' n'a pas d'email configuré");
+        }
+
+        // 5. Générer le PDF
+        byte[] pdfContent = bonCommandePdfService.genererBonCommandePdf(commande);
+
+        // 6. Envoyer l'email
+        try {
+            emailService.envoyerBonCommande(
+                    fournisseur.getEmail(),
+                    fournisseur.getNomFournisseur(),
+                    numeroCommande,
+                    pdfContent
+            );
+            log.info("✅ Bon de commande {} envoyé à {}", numeroCommande, fournisseur.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur envoi email pour commande {}: {}", numeroCommande, e.getMessage());
+            throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
+        }
+
+        // 7. Mettre à jour le statut
         String updateSql = "UPDATE commandes_fournisseurs SET statut = 'ENVOYEE' WHERE id_commande_fournisseur = ?";
         tenantRepo.update(updateSql, clientId, authClientId, id);
 
+        log.info("✅ Commande {} marquée comme ENVOYEE", numeroCommande);
+
         return getCommandeById(id, token);
+    }
+
+    /**
+     * Récupère le fournisseur à partir des produits de la commande
+     */
+    private Fournisseur getFournisseurFromCommande(CommandeFournisseur commande) {
+        if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
+            throw new RuntimeException("La commande n'a aucun produit");
+        }
+
+        // Prendre le fournisseur du premier produit
+        Produit premierProduit = commande.getLignesCommande().get(0).getProduit();
+        if (premierProduit == null || premierProduit.getFournisseur() == null) {
+            throw new RuntimeException("Le premier produit n'a pas de fournisseur associé");
+        }
+
+        return premierProduit.getFournisseur();
     }
 
     // ==================== RÉCEPTION ====================
@@ -532,6 +588,65 @@ public class CommandeFournisseurService {
         }, clientId, authClientId, debut, fin);
 
         return commandes.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    // ==================== MODIFICATION ====================
+    @Transactional
+    public CommandeFournisseurDTO modifierCommande(Integer id, CommandeFournisseurDTO dto, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        CommandeFournisseurDTO existing = getCommandeById(id, token);
+        if (!"REJETEE".equals(existing.getStatut().name())) {
+            throw new RuntimeException("Seules les commandes rejetées peuvent être modifiées");
+        }
+
+        String updateSql = """
+            UPDATE commandes_fournisseurs 
+            SET date_livraison_prevue = ?, adresse_livraison = ?
+            WHERE id_commande_fournisseur = ?
+            """;
+        tenantRepo.update(updateSql, clientId, authClientId,
+                dto.getDateLivraisonPrevue(), dto.getAdresseLivraison(), id);
+
+        String deleteLignesSql = "DELETE FROM lignes_commande_fournisseurs WHERE commande_fournisseur_id = ?";
+        tenantRepo.update(deleteLignesSql, clientId, authClientId, id);
+
+        List<LigneCommandeDTO> nouvellesLignes = new ArrayList<>();
+        for (LigneCommandeDTO ligneDTO : dto.getLignesCommande()) {
+            BigDecimal tauxTVA = ligneDTO.getTauxTVA() != null ? ligneDTO.getTauxTVA() : TVA_PAR_DEFAUT;
+            BigDecimal sousTotalHT = ligneDTO.getPrixUnitaire()
+                    .multiply(BigDecimal.valueOf(ligneDTO.getQuantite()))
+                    .setScale(3, RoundingMode.HALF_UP);
+            BigDecimal montantTVA = sousTotalHT.multiply(tauxTVA)
+                    .divide(new BigDecimal("100"), 3, RoundingMode.HALF_UP);
+            BigDecimal sousTotalTTC = sousTotalHT.add(montantTVA).setScale(3, RoundingMode.HALF_UP);
+
+            String insertLigneSql = """
+                INSERT INTO lignes_commande_fournisseurs (
+                    commande_fournisseur_id, produit_id, quantite,
+                    prix_unitaire, sous_total_ht, montant_tva, sous_total_ttc, tauxtva, notes, actif
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+
+            tenantRepo.update(insertLigneSql, clientId, authClientId,
+                    id, ligneDTO.getProduitId(), ligneDTO.getQuantite(),
+                    ligneDTO.getPrixUnitaire(), sousTotalHT, montantTVA, sousTotalTTC, tauxTVA, ligneDTO.getNotes(), true);
+
+            ligneDTO.setSousTotalHT(sousTotalHT);
+            ligneDTO.setMontantTVA(montantTVA);
+            ligneDTO.setSousTotalTTC(sousTotalTTC);
+            nouvellesLignes.add(ligneDTO);
+        }
+
+        BigDecimal totalHT = nouvellesLignes.stream().map(LigneCommandeDTO::getSousTotalHT).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalTVA = nouvellesLignes.stream().map(LigneCommandeDTO::getMontantTVA).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalTTC = nouvellesLignes.stream().map(LigneCommandeDTO::getSousTotalTTC).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String updateTotauxSql = "UPDATE commandes_fournisseurs SET totalht = ?, totaltva = ?, totalttc = ? WHERE id_commande_fournisseur = ?";
+        tenantRepo.update(updateTotauxSql, clientId, authClientId, totalHT, totalTVA, totalTTC, id);
+
+        return getCommandeById(id, token);
     }
 
     private String genererNumeroCommande(JdbcTemplate jdbc) {
