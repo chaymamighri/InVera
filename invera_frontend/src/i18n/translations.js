@@ -1223,4 +1223,6 @@ export const translations = {
       sessionExpired: 'انتهت الجلسة',
     },
   },
+
+
 };

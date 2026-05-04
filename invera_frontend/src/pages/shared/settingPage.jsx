@@ -161,40 +161,53 @@ const SettingsPage = () => {
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
+   const load = async () => {
   setLoadingMe(true);
   try {
-    const res = await authService.getCurrentUser();
-    console.log('📦 SettingsPage - getCurrentUser response:', res);
+    // Essayer d'abord avec l'API
+    try {
+      const res = await authService.getCurrentUser();
+      const data = res?.data;
+      
+      if (data && data.email) {
+        setMe(data);
+        setProfileForm({
+          username: data?.username || '',
+          nom: data?.nom || data?.lastName || '',
+          prenom: data?.prenom || data?.firstName || '',
+          email: data?.email || '',
+        });
+        
+        // Stocker dans localStorage
+        if (data?.nom) localStorage.setItem('userNom', data.nom);
+        if (data?.prenom) localStorage.setItem('userPrenom', data.prenom);
+        if (data?.email) localStorage.setItem('userEmail', data.email);
+        if (data?.role) localStorage.setItem('userRole', data.role);
+        
+        setLoadingMe(false);
+        return;
+      }
+    } catch (apiError) {
+      console.warn('API /me not available, using localStorage');
+    }
     
-    const data = res?.data;
-    console.log('📦 SettingsPage - data:', data);
-    
-    setMe(data);
-    setProfileForm({
-      username: data?.username || '',
-      nom: data?.nom || data?.lastName || '',
-      prenom: data?.prenom || data?.firstName || '',
-      email: data?.email || '',
-    });
-
-    // ✅ Stocker dans localStorage
-    if (data?.nom) localStorage.setItem('userNom', data.nom);
-    if (data?.prenom) localStorage.setItem('userPrenom', data.prenom);
-    if (data?.email) localStorage.setItem('userEmail', data.email);
-    if (data?.role) localStorage.setItem('userRole', data.role);
-    
-  } catch (error) {
-    console.error('❌ SettingsPage error:', error);
-    toast.error(copy.loadError);
-    
-    // ✅ Fallback localStorage
+    // Fallback : utiliser localStorage
     setProfileForm({
       username: '',
       nom: localStorage.getItem('userNom') || '',
       prenom: localStorage.getItem('userPrenom') || '',
       email: localStorage.getItem('userEmail') || '',
     });
+    
+    setMe({
+      nom: localStorage.getItem('userNom'),
+      prenom: localStorage.getItem('userPrenom'),
+      email: localStorage.getItem('userEmail'),
+      role: localStorage.getItem('userRole'),
+    });
+    
+  } catch (error) {
+    console.error('❌ SettingsPage error:', error);
   } finally {
     setLoadingMe(false);
   }
@@ -235,45 +248,44 @@ const SettingsPage = () => {
     return '';
   };
 
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    const err = validateProfile();
-    if (err) return toast.error(err);
+const handleProfileSubmit = async (e) => {
+  e.preventDefault();
+  const err = validateProfile();
+  if (err) return toast.error(err);
 
-    setSavingProfile(true);
-    try {
-      await api.put('/auth/update-profile', {
-        username: profileForm.username.trim(),
-        nom: profileForm.nom.trim(),
-        prenom: profileForm.prenom.trim(),
-      });
+  setSavingProfile(true);
+  try {
+    // 1. Mettre à jour le profil via l'API
+    await api.put('/auth/update-profile', {
+      nom: profileForm.nom.trim(),
+      prenom: profileForm.prenom.trim(),
+    });
 
-      const res = await authService.getCurrentUser({ force: true });
-      const data = res?.data;
-      setMe(data);
-      setProfileForm({
-        username: data?.username || '',
-        nom: data?.lastName || data?.nom || '',
-        prenom: data?.firstName || data?.prenom || '',
-        email: data?.email || profileForm.email,
-      });
+    // 2. Mettre à jour le localStorage
+    localStorage.setItem('userNom', profileForm.nom.trim());
+    localStorage.setItem('userPrenom', profileForm.prenom.trim());
+    localStorage.setItem('userName', `${profileForm.prenom.trim()} ${profileForm.nom.trim()}`);
 
-      const fullName = `${data?.nom || data?.lastName || ''} ${data?.prenom || data?.firstName || ''}`.trim();
-      if (fullName) localStorage.setItem('userName', fullName);
+    // 3. Mettre à jour l'état local (sans rechargement)
+    setMe(prev => ({ 
+      ...prev, 
+      nom: profileForm.nom.trim(), 
+      prenom: profileForm.prenom.trim() 
+    }));
 
-      toast.success(copy.profileSuccess);
-    } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        error?.message ||
-        copy.profileError;
-      toast.error(typeof msg === 'string' ? msg : copy.profileError);
-    } finally {
-      setSavingProfile(false);
-    }
-  };
+    // 4. Le formulaire est déjà à jour
 
+    toast.success(copy.profileSuccess);
+    
+  
+    
+  } catch (error) {
+    const msg = error?.response?.data?.error || error?.message || copy.profileError;
+    toast.error(typeof msg === 'string' ? msg : copy.profileError);
+  } finally {
+    setSavingProfile(false);
+  }
+};
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     const err = validatePassword();

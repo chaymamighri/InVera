@@ -55,6 +55,8 @@ import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 import ConditionsInvera from './pages/public/ConditionsInvera';
 
+import PaymentPage from './pages/public/PaymentPage';
+
 
 
 const ROLE_MAPPING = {
@@ -264,6 +266,39 @@ function App() {
                 </PublicLayout>
               }
             />
+<Route
+  path="/paiement/checkout"
+  element={
+    <PublicLayout>
+      <PaymentPage />
+    </PublicLayout>
+  }
+/>
+<Route
+  path="/paiement/succes"
+  element={
+    <PublicLayout>
+      <PaymentPage />
+    </PublicLayout>
+  }
+/>
+<Route
+  path="/paiement/echec"
+  element={
+    <PublicLayout>
+      <PaymentPage />
+    </PublicLayout>
+  }
+/>
+<Route
+  path="/paiement/annuler"
+  element={
+    <PublicLayout>
+      <PaymentPage />
+    </PublicLayout>
+  }
+/>
+
             <Route path="/support" element={<Navigate to="/more-information" replace />} />
             <Route path="/about" element={<Navigate to="/more-information" replace />} />
 

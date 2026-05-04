@@ -200,77 +200,77 @@ export const authService = {
     }
   },
 
-  loginSuperAdmin: async (credentials) => {
-    clearCurrentUserCache();
+ loginSuperAdmin: async (credentials) => {
+  clearCurrentUserCache();
+  
+  try {
+    const response = await api.post('/super-admin/login', {
+      email: credentials.email,
+      motDePasse: credentials.password
+    });
     
-    try {
-      const response = await api.post('/super-admin/login', {
-        email: credentials.email,
-        motDePasse: credentials.password
-      });
-      
-      const data = response.data;
-      if (!data.token) {
-        const error = new Error('Aucun token reçu du serveur');
-        error.userMessage = 'Erreur technique. Veuillez réessayer.';
-        throw error;
-      }
-      
-      const normalizedToken = data.token;
-      
-      localStorage.setItem('token', normalizedToken);
+    const data = response.data;
+    if (!data.token) {
+      const error = new Error('Aucun token reçu du serveur');
+      error.userMessage = 'Erreur technique. Veuillez réessayer.';
+      throw error;
+    }
     
-    // ✅ STOCKER TOUTES LES INFORMATIONS DANS localStorage
-    localStorage.setItem('userRole', data.role || '');
+    const normalizedToken = data.token;
+    const backendEmail = data.email || credentials.email;
+    const fullName = data.nom || 'Super Admin';
+    
+    localStorage.setItem('token', normalizedToken);
+    localStorage.setItem('userRole', 'SUPER_ADMIN');
     localStorage.setItem('userName', fullName);
     localStorage.setItem('userEmail', backendEmail);
-    localStorage.setItem('userNom', data.nom || '');      // ← AJOUTER
-    localStorage.setItem('userPrenom', data.prenom || ''); // ← AJOUTER
-    localStorage.setItem('userFullName', fullName);   
-      
-      if (data.warning) {
-        sessionStorage.setItem('sessionWarning', data.warning);
-      }
-
-      return {
-        success: true,
-        data: {
-          token: normalizedToken,
-          user: {
-            email: data.email,
-            name: data.nom,
-            role: 'SUPER_ADMIN',
-            nom: data.nom
-          }
-        }
-      };
-    } catch (error) {
-      console.error('❌ authService.loginSuperAdmin error:', error);
-      
-      let userMessage = 'Email ou mot de passe incorrect';
-      
-      if (error.response) {
-        const status = error.response.status;
-        const backendMessage = error.response.data?.message;
-        
-        if (status === 401) {
-          userMessage = 'Email ou mot de passe incorrect.';
-        } else if (status === 404) {
-          userMessage = 'Aucun compte Super Admin trouvé.';
-        } else {
-          userMessage = backendMessage || userMessage;
-        }
-      } else if (error.userMessage) {
-        userMessage = error.userMessage;
-      } else if (error.message) {
-        userMessage = error.message;
-      }
-      
-      const formattedError = new Error(userMessage);
-      formattedError.userMessage = userMessage;
-      throw formattedError;
+    localStorage.setItem('userNom', data.nom || '');
+    localStorage.setItem('userPrenom', '');
+    localStorage.setItem('userFullName', fullName);
+    
+    if (data.warning) {
+      sessionStorage.setItem('sessionWarning', data.warning);
     }
-  },
+
+    return {
+      success: true,
+      data: {
+        token: normalizedToken,
+        user: {
+          email: backendEmail,
+          name: fullName,
+          role: 'SUPER_ADMIN',
+          nom: data.nom
+        }
+      }
+    };
+  } catch (error) {
+    console.error('❌ authService.loginSuperAdmin error:', error);
+    
+    let userMessage = 'Email ou mot de passe incorrect';
+    
+    if (error.response) {
+      const status = error.response.status;
+      const backendMessage = error.response.data?.message;
+      
+      if (status === 401) {
+        userMessage = 'Email ou mot de passe incorrect.';
+      } else if (status === 404) {
+        userMessage = 'Aucun compte Super Admin trouvé.';
+      } else {
+        userMessage = backendMessage || userMessage;
+      }
+    } else if (error.userMessage) {
+      userMessage = error.userMessage;
+    } else if (error.message) {
+      userMessage = error.message;
+    }
+    
+    const formattedError = new Error(userMessage);
+    formattedError.userMessage = userMessage;
+    throw formattedError;
+  }
+},
 
   logout: async () => {
     clearCurrentUserCache();
