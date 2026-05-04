@@ -239,74 +239,83 @@ public class EmailService {
         }
     }
 
-    // Dans EmailService.java - Ajouter cette méthode
-
     /**
-     * Envoi d'email après validation admin pour inviter au paiement
+     * Envoi d'email apres validation admin pour inviter au paiement
      * @param email Email du client
      * @param clientName Nom du client (raison sociale ou nom complet)
-     * @param clientId ID du client
+     * @param paymentLink LIEN DE PAIEMENT AVEC TOKEN
+     * @param amount Montant a payer
+     * @param offreNom Nom de l'offre d'abonnement
+     * @param paiementId ID du paiement
      */
-    public void sendValidationEmail(String email, String clientName, Long clientId) {
+    public void sendValidationEmail(String email, String clientName, String paymentLink, Double amount, String offreNom, Long paiementId) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("✅ Votre compte InVera a été validé - Passez au paiement");
-
-            String paymentLink = "https://app.invera.com/payment/" + clientId;
+            helper.setSubject("Votre compte InVera a ete valide - Passez au paiement");
 
             String htmlContent = String.format("""
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto;">
-                    <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
-                        <h1>InVera ERP</h1>
-                    </div>
-
-                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
-                        <h2 style="color: #1976d2;">Bonjour %s,</h2>
-
-                        <p>Nous avons le plaisir de vous informer que <strong>votre dossier a été validé</strong> par notre équipe administrative.</p>
-
-                        <p>Pour finaliser votre inscription et accéder à votre espace, vous devez :</p>
-                        <ol>
-                            <li>Choisir votre formule d'abonnement</li>
-                            <li>Effectuer le paiement sécurisé</li>
-                        </ol>
-
-                        <div style="margin: 24px 0; text-align: center;">
-                            <a href="%s" style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #28a745; color: #ffffff; text-decoration: none; font-weight: bold;">
-                                💰 Payer votre abonnement
-                            </a>
-                        </div>
-                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                        <p style="color: #999; font-size: 12px; text-align: center;">
-                            © 2026 InVera ERP. Tous droits réservés.<br>
-                        </p>
-                    </div>
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1>InVera ERP</h1>
                 </div>
-            </body>
-            </html>
-            """,
+
+                <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
+                    <h2 style="color: #1976d2;">Bonjour %s,</h2>
+
+                    <p>Nous avons le plaisir de vous informer que <strong>votre dossier a ete valide</strong> par notre equipe administrative.</p>
+
+                    <p>Pour finaliser votre inscription et acceder a votre espace, vous devez :</p>
+                    <ol>
+                        <li>Choisir votre formule d'abonnement</li>
+                        <li>Effectuer le paiement securise</li>
+                    </ol>
+                    
+                    <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>Offre selectionnee :</strong> %s</p>
+                        <p style="margin: 5px 0;"><strong>Montant a payer :</strong> <span style="color: #28a745; font-size: 20px; font-weight: bold;">%.2f TND</span></p>
+                        <p style="margin: 5px 0;"><strong>Reference paiement :</strong> #%d</p>
+                    </div>
+
+                    <div style="margin: 24px 0; text-align: center;">
+                        <a href="%s" style="display: inline-block; padding: 14px 28px; border-radius: 10px; background: #28a745; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 16px;">
+                            Payer votre abonnement
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 12px; color: #666;"><strong>Attention : Ce lien est valable 24 heures uniquement.</strong></p>
+                    
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        (c) 2026 InVera ERP. Tous droits reserves.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """,
                     clientName,
-                    paymentLink,
-                    30  // nombre de connexions restantes en essai
+                    offreNom,
+                    amount,
+                    paiementId,
+                    paymentLink
             );
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email de validation/paiement envoyé à " + email);
+            System.out.println("Email de validation/paiement envoye a " + email);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email validation: " + e.getMessage());
+            System.err.println("Erreur envoi email validation: " + e.getMessage());
         }
     }
-
     /**
      * Envoi d'email de refus de dossier
      * @param email Email du client
@@ -393,43 +402,50 @@ public class EmailService {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             String dateFinFormatted = dateFin.format(formatter);
 
+            // Nom par défaut si vide
+            String clientDisplayName = (clientName != null && !clientName.trim().isEmpty())
+                    ? clientName
+                    : "Cher client";
+
             String htmlContent = String.format("""
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto;">
-                    <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
-                        <h1>Invera ERP</h1>
-                    </div>
-                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
-                        <h2 style="color: #1976d2;">Bonjour %s,</h2>
-                        <p>Votre abonnement <strong>%s</strong> est maintenant <strong>actif</strong>.</p>
-                        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                            <p style="margin: 5px 0;"><strong>📅 Date d'expiration :</strong> %s</p>
-                        </div>
-                        <p>Connectez-vous dès maintenant pour accéder à vos services.</p>
-                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-                        <p style="color: #999; font-size: 12px; text-align: center;">
-                            © 2026 Invera ERP. Tous droits réservés.
-                        </p>
-                    </div>
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #1976d2; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1 style="margin: 0;">Invera ERP</h1>
                 </div>
-            </body>
-            </html>
-            """, clientName, offreNom, dateFinFormatted);
+                <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
+                    <h2 style="color: #1976d2;">Bonjour %s,</h2>
+                    <p>Nous vous confirmons que votre abonnement <strong>%s</strong> est maintenant <strong style="color: #4caf50;">actif</strong>.</p>
+                    
+                    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>📦 Offre souscrite :</strong> %s</p>
+                        <p style="margin: 5px 0;"><strong>📅 Date d'expiration :</strong> %s</p>
+                    </div>
+                    
+                    <p>Connectez-vous dès maintenant à votre espace client pour accéder à vos services.</p>
+                    
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                    
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        © 2026 Invera ERP. Tous droits réservés.<br>
+                        Cet email est un message automatique, merci de ne pas y répondre.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """, clientDisplayName, offreNom, offreNom, dateFinFormatted);
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
-
-            // ✅ Remplacer log.info par System.out.println
             System.out.println("✅ Email confirmation abonnement envoyé à " + email);
 
         } catch (MessagingException e) {
-            // ❌ Remplacer log.error par System.err.println
-            System.err.println("❌ Erreur envoi email confirmation: " + e.getMessage());
+            System.err.println("❌ Erreur envoi email confirmation à " + email + ": " + e.getMessage());
         }
     }
-
     /**
      * Envoi d'email de rappel d'expiration (J-7 ou J-1)
      */

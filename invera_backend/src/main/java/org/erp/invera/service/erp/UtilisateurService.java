@@ -17,7 +17,7 @@ import java.util.*;
 public class UtilisateurService {
 
     private final TenantAwareRepository tenantRepo;
-    private final TenantRowMapper rowMapper;  // ✅ Injection du TenantRowMapper
+    private final TenantRowMapper rowMapper;
     private final BCryptPasswordEncoder passwordEncoder;
 
     // ==================== AUTHENTIFICATION ====================

@@ -1,8 +1,11 @@
 package org.erp.invera.repository.platform;
 
 import org.erp.invera.model.platform.Abonnement;
+import org.erp.invera.model.platform.Client;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -12,18 +15,23 @@ import java.util.Optional;
 @Repository
 public interface AbonnementRepository extends JpaRepository<Abonnement, Long> {
 
+    // ✅ AJOUTER CETTE MÉTHODE
+    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
+    Optional<Abonnement> findById(Long id);
+
+    // OU BIEN cette méthode plus explicite :
+    @Query("SELECT a FROM Abonnement a JOIN FETCH a.offreAbonnement WHERE a.id = :id")
+    Optional<Abonnement> findByIdWithOffre(@Param("id") Long id);
+
     @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     List<Abonnement> findByStatutAndDateFinBefore(Abonnement.StatutAbonnement statut, LocalDateTime date);
 
     @EntityGraph(attributePaths = {"client", "offreAbonnement"})
-    Optional<Abonnement> findByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
-
-    @EntityGraph(attributePaths = {"client", "offreAbonnement"})
     List<Abonnement> findByClientIdOrderByDateDebutDesc(Long clientId);
 
-    boolean existsByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
+    Optional<Abonnement> findByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
 
-    long countByStatut(Abonnement.StatutAbonnement statut);
+    boolean existsByClientIdAndStatut(Long clientId, Abonnement.StatutAbonnement statut);
 
     long countByOffreAbonnementId(Long offreAbonnementId);
 
@@ -49,5 +57,4 @@ public interface AbonnementRepository extends JpaRepository<Abonnement, Long> {
             LocalDateTime start,
             LocalDateTime end
     );
-
 }

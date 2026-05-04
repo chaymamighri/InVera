@@ -63,6 +63,9 @@ public class Client {
     @Column(name = "rne_url")
     private String rneUrl;
 
+    @Column(name = "logo_url", nullable = true)
+    private String logoUrl;
+
     // ========== STATUT ==========
     @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
@@ -91,16 +94,13 @@ public class Client {
 
     // ========== ABONNEMENT ==========
     @OneToOne
+    @JsonIgnore
     @JoinColumn(name = "abonnement_actif_id")
     private Abonnement abonnementActif;
 
     @JsonIgnore
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
     private List<Abonnement> abonnements = new ArrayList<>();
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL)
-    private List<Paiement> paiements = new ArrayList<>();
 
     // ========== DATES ==========
     @Column(name = "date_inscription", nullable = false)
@@ -157,7 +157,6 @@ public class Client {
         StatutClient(String label) { this.label = label; }
         public String getLabel() { return label; }
     }
-
 
 }
 
