@@ -95,18 +95,12 @@ const registerCopy = {
     successWaitingDescription: "Votre dossier est en cours de validation par l'administrateur.",
     loginNow: 'Se connecter',
     backToHome: "Retour à l'accueil",
-    // Messages d'erreur inscription
-    emailExistsTitle: '❌ Email déjà utilisé',
-    emailExistsMessage: 'Un compte existe déjà avec cette adresse email.',
-    emailExistsAction: 'Veuillez vous connecter ou utiliser un autre email.',
-    phoneExistsTitle: '❌ Téléphone déjà utilisé',
-    phoneExistsMessage: 'Un compte existe déjà avec ce numéro de téléphone.',
-    phoneExistsAction: 'Vérifiez le numéro saisi ou connectez-vous avec votre compte existant.',
-    matriculeExistsTitle: '❌ Matricule fiscal déjà utilisé',
-    matriculeExistsMessage: 'Ce matricule fiscal est déjà associé à un compte.',
-    matriculeExistsAction: 'Vérifiez que vous avez saisi le bon matricule fiscal.',
-    inscriptionErrorTitle: '❌ Échec de l\'inscription',
-    inscriptionErrorMessage: 'Une erreur est survenue lors de la création de votre compte.'
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 Cette adresse email est déjà utilisée. Veuillez vous connecter ou utiliser un autre email.',
+    phoneExists: '📱 Ce numéro de téléphone est déjà utilisé. Veuillez utiliser un autre numéro ou vous connecter.',
+    matriculeExists: '📄 Ce matricule fiscal est déjà utilisé. Vérifiez que vous avez saisi le bon matricule.',
+    inscriptionError: '❌ Échec de l\'inscription',
+    defaultErrorMessage: 'Une erreur est survenue lors de la création de votre compte. Veuillez réessayer.'
   },
   en: {
     otpTitle: 'Email verification',
@@ -169,17 +163,12 @@ const registerCopy = {
     successWaitingDescription: 'Your file is being reviewed by the administrator.',
     loginNow: 'Log in',
     backToHome: 'Back to home',
-    emailExistsTitle: '❌ Email already exists',
-    emailExistsMessage: 'An account already exists with this email address.',
-    emailExistsAction: 'Please log in or use another email.',
-    phoneExistsTitle: '❌ Phone already exists',
-    phoneExistsMessage: 'An account already exists with this phone number.',
-    phoneExistsAction: 'Check the number or log in with your existing account.',
-    matriculeExistsTitle: '❌ Tax number already used',
-    matriculeExistsMessage: 'This tax registration number is already associated with an account.',
-    matriculeExistsAction: 'Verify that you entered the correct tax number.',
-    inscriptionErrorTitle: '❌ Registration failed',
-    inscriptionErrorMessage: 'An error occurred while creating your account.'
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 This email address is already registered. Please log in or use another email.',
+    phoneExists: '📱 This phone number is already registered. Please use another number or log in.',
+    matriculeExists: '📄 This tax registration number is already registered. Verify your information.',
+    inscriptionError: '❌ Registration failed',
+    defaultErrorMessage: 'An error occurred while creating your account. Please try again.'
   },
   ar: {
     otpTitle: 'التحقق من البريد الإلكتروني',
@@ -242,17 +231,12 @@ const registerCopy = {
     successWaitingDescription: 'ملفك قيد المراجعة من طرف المسؤول.',
     loginNow: 'تسجيل الدخول',
     backToHome: 'العودة إلى الرئيسية',
-    emailExistsTitle: '❌ البريد الإلكتروني موجود بالفعل',
-    emailExistsMessage: 'يوجد حساب بالفعل مع عنوان البريد الإلكتروني هذا.',
-    emailExistsAction: 'يرجى تسجيل الدخول أو استخدام بريد إلكتروني آخر.',
-    phoneExistsTitle: '❌ الهاتف موجود بالفعل',
-    phoneExistsMessage: 'يوجد حساب بالفعل مع رقم الهاتف هذا.',
-    phoneExistsAction: 'تحقق من الرقم أو قم بتسجيل الدخول بحسابك الحالي.',
-    matriculeExistsTitle: '❌ الرقم الضريبي مستخدم بالفعل',
-    matriculeExistsMessage: 'هذا الرقم الضريبي مرتبط بالفعل بحساب.',
-    matriculeExistsAction: 'تحقق من إدخال الرقم الضريبي الصحيح.',
-    inscriptionErrorTitle: '❌ فشل التسجيل',
-    inscriptionErrorMessage: 'حدث خطأ أثناء إنشاء حسابك.'
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 عنوان البريد الإلكتروني هذا مسجل بالفعل. يرجى تسجيل الدخول أو استخدام بريد إلكتروني آخر.',
+    phoneExists: '📱 رقم الهاتف هذا مسجل بالفعل. يرجى استخدام رقم آخر أو تسجيل الدخول.',
+    matriculeExists: '📄 الرقم الضريبي هذا مسجل بالفعل. تحقق من معلوماتك.',
+    inscriptionError: '❌ فشل التسجيل',
+    defaultErrorMessage: 'حدث خطأ أثناء إنشاء حسابك. يرجى المحاولة مرة أخرى.'
   },
 };
 
@@ -329,7 +313,6 @@ const RegisterPage = () => {
   const [otpError, setOtpError] = useState('');
   const [otpSuccessMessage, setOtpSuccessMessage] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const countryDropdownRef = useRef(null);
   const logoInputRef = useRef(null);
@@ -560,7 +543,6 @@ const RegisterPage = () => {
     if (result.success) {
       setOtpSent(true);
       setOtpSuccessMessage(copy.resendCodeSuccess);
-      setResendTimer(60);
       setTimeout(() => setOtpSuccessMessage(''), 3000);
     } else {
       setOtpError(result.message || copy.genericOtpError);
@@ -568,203 +550,168 @@ const RegisterPage = () => {
     setOtpLoading(false);
   };
 
-const handleVerifyOtp = async () => {
-  const cleanedCode = otpCode ? otpCode.toString().trim() : '';
+  const handleVerifyOtp = async () => {
+    const cleanedCode = otpCode ? otpCode.toString().trim() : '';
 
-  if (!cleanedCode) {
-    setOtpError(copy.codeRequired);
-    return;
-  }
+    if (!cleanedCode) {
+      setOtpError(copy.codeRequired);
+      return;
+    }
 
-  setOtpLoading(true);
-  setOtpError('');
+    setOtpLoading(true);
+    setOtpError('');
 
-  try {
-    const result = await verifyOtp(email, cleanedCode);
-    
-    console.log('Résultat verifyOtp:', result);
-    console.log('Email à sauvegarder:', email);  // ← AJOUTEZ CE LOG
-    
-    if (result && result.success === true) {
-      console.log('✅ Code valide, email:', email);  // ← LOG
-      setStep('form');
-      setFormData((prev) => ({ 
-        ...prev, 
-        email: email  // Sauvegarde l'email
-      }));
-      setOtpError('');
-    } else {
-      console.log('❌ Code invalide');
-      const errorMessage = result?.message || '';
-      if (errorMessage.toLowerCase().includes('expir')) {
-        setOtpError(copy.expiredCode);
+    try {
+      const result = await verifyOtp(email, cleanedCode);
+      
+      if (result && result.success === true) {
+        setStep('form');
+        setFormData((prev) => ({ 
+          ...prev, 
+          email: email
+        }));
+        setOtpError('');
       } else {
-        setOtpError(copy.invalidCode);
+        const errorMessage = result?.message || '';
+        if (errorMessage.toLowerCase().includes('expir')) {
+          setOtpError(copy.expiredCode);
+        } else {
+          setOtpError(copy.invalidCode);
+        }
       }
+    } catch (error) {
+      console.error('Erreur vérification OTP:', error);
+      setOtpError(copy.invalidCode);
+    } finally {
+      setOtpLoading(false);
     }
-  } catch (error) {
-    console.error('Erreur vérification OTP:', error);
-    setOtpError(copy.invalidCode);
-  } finally {
-    setOtpLoading(false);
-  }
-};
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!validateForm()) return;
-  
-  // ✅ CRITIQUE: Utiliser l'email du state OTP (variable 'email' ligne 306)
-  const finalEmail = email;  // 'email' est le state de l'étape OTP
-  
-  console.log('=== VÉRIFICATION DES VALEURS AVANT ENVOI ===');
-  console.log('email (state OTP):', email);
-  console.log('email (formData):', formData.email);
-  console.log('email FINAL utilisé:', finalEmail);
-  console.log('typeCompte:', formData.typeCompte);
-  console.log('typeInscription:', formData.typeInscription);
-  console.log('otpCode:', otpCode);
-  
-  // ✅ Vérifier que l'email existe
-  if (!finalEmail || finalEmail === 'undefined' || finalEmail === '') {
-    console.error('❌ Email manquant!');
-    setError({ 
-      code: 'missing_email',
-      title: 'Email manquant',
-      message: "L'adresse email est requise. Veuillez recommencer l'inscription.",
-      action: 'Retour à la vérification email'
-    });
-    setLoading(false);
-    return;
-  }
-  
-  // ✅ FORCER LES VALEURS PAR DÉFAUT SI UNDEFINED
-  const safeTypeCompte = formData.typeCompte || 'PARTICULIER';
-  const safeTypeInscription = formData.typeInscription || 'ESSAI';
-  const safeNom = formData.nom || '';
-  const safePrenom = formData.prenom || '';
-  const safePassword = formData.motDePasse || '';
-  
-  if (!safePassword || safePassword === 'undefined') {
-    console.error('❌ Mot de passe manquant!');
-    setError({ message: "Le mot de passe est requis." });
-    setLoading(false);
-    return;
-  }
-  
-  setLoading(true);
-  setError(null);
-  
-  const formDataToSend = new FormData();
-  
-  // ✅ UTILISER finalEmail au lieu de formData.email
-  formDataToSend.append('email', finalEmail);
-  formDataToSend.append('telephone', getFullPhoneNumber());
-  formDataToSend.append('typeCompte', safeTypeCompte);
-  formDataToSend.append('typeInscription', safeTypeInscription);
-  formDataToSend.append('otp', otpCode);
-  formDataToSend.append('password', safePassword);
-  formDataToSend.append('nom', safeNom);
-  formDataToSend.append('prenom', safePrenom);
-  formDataToSend.append('raisonSociale', formData.raisonSociale || '');
-  formDataToSend.append('matriculeFiscal', formData.matriculeFiscal || '');
-  
-  if (selectedOffre?.id) {
-    formDataToSend.append('offreId', selectedOffre.id.toString());
-  }
-  
-  if (formData.companyLogo) {
-    formDataToSend.append('logo', formData.companyLogo);
-    console.log('✅ Logo ajouté:', formData.companyLogo.name);
-  }
-  
-  formData.documents?.forEach((doc) => {
-    formDataToSend.append(`documents[${doc.type}]`, doc.file);
-    console.log(`✅ Document ajouté: ${doc.type}`);
-  });
-  
-  // ✅ AFFICHER TOUTES LES VALEURS ENVOYÉES
-  console.log('=== FORM DATA ENVOYÉE ===');
-  for (let pair of formDataToSend.entries()) {
-    if (pair[1] instanceof File) {
-      console.log(pair[0] + ':', '[FILE]', pair[1].name);
-    } else {
-      console.log(pair[0] + ':', pair[1]);
-    }
-  }
-  
-  try {
-    const result = await register(formDataToSend);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    if (result.success) {
-      setSuccess(true);
-    } else {
-      const errorMessage = result.message || '';
-      console.log('Erreur reçue:', errorMessage);
+    if (!validateForm()) return;
+    
+    const finalEmail = email;
+    
+    if (!finalEmail || finalEmail === 'undefined' || finalEmail === '') {
+      console.error('❌ Email manquant!');
+      setError({ 
+        type: 'missing_email',
+        message: "L'adresse email est requise. Veuillez recommencer l'inscription."
+      });
+      setLoading(false);
+      return;
+    }
+    
+    const safeTypeCompte = formData.typeCompte || 'PARTICULIER';
+    const safeTypeInscription = formData.typeInscription || 'ESSAI';
+    const safeNom = formData.nom || '';
+    const safePrenom = formData.prenom || '';
+    const safePassword = formData.motDePasse || '';
+    
+    if (!safePassword || safePassword === 'undefined') {
+      setError({ message: "Le mot de passe est requis." });
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    const formDataToSend = new FormData();
+    
+    formDataToSend.append('email', finalEmail);
+    formDataToSend.append('telephone', getFullPhoneNumber());
+    formDataToSend.append('typeCompte', safeTypeCompte);
+    formDataToSend.append('typeInscription', safeTypeInscription);
+    formDataToSend.append('otp', otpCode);
+    formDataToSend.append('password', safePassword);
+    formDataToSend.append('nom', safeNom);
+    formDataToSend.append('prenom', safePrenom);
+    formDataToSend.append('raisonSociale', formData.raisonSociale || '');
+    formDataToSend.append('matriculeFiscal', formData.matriculeFiscal || '');
+    
+    if (selectedOffre?.id) {
+      formDataToSend.append('offreId', selectedOffre.id.toString());
+    }
+    
+    if (formData.companyLogo) {
+      formDataToSend.append('logo', formData.companyLogo);
+    }
+    
+    formData.documents?.forEach((doc) => {
+      formDataToSend.append(`documents[${doc.type}]`, doc.file);
+    });
+    
+    try {
+      const result = await register(formDataToSend);
+      
+      if (result.success) {
+        setSuccess(true);
+      } else {
+        const errorMessage = result.message || '';
+        
+        // Vérification des différents types d'erreurs
+        if (errorMessage.toLowerCase().includes('email déjà utilisé') || 
+            errorMessage.toLowerCase().includes('email already exists') ||
+            errorMessage.toLowerCase().includes('email existe déjà')) {
+          setError({
+            type: 'email_exists',
+            message: copy.emailExists
+          });
+        } 
+        else if (errorMessage.toLowerCase().includes('téléphone déjà utilisé') || 
+                 errorMessage.toLowerCase().includes('phone already exists') ||
+                 errorMessage.toLowerCase().includes('phone existe déjà')) {
+          setError({
+            type: 'phone_exists',
+            message: copy.phoneExists
+          });
+        }
+        else if (errorMessage.toLowerCase().includes('matricule fiscal déjà utilisé') || 
+                 errorMessage.toLowerCase().includes('matricule already exists')) {
+          setError({
+            type: 'matricule_exists',
+            message: copy.matriculeExists
+          });
+        }
+        else {
+          setError({
+            type: 'unknown',
+            message: errorMessage || copy.defaultErrorMessage
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erreur inscription catch:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || '';
       
       if (errorMessage.toLowerCase().includes('email déjà utilisé') || 
           errorMessage.toLowerCase().includes('email already exists') ||
           errorMessage.toLowerCase().includes('email existe déjà')) {
         setError({
-          code: 'email_exists',
-          title: copy.emailExistsTitle,
-          message: copy.emailExistsMessage,
-          action: copy.emailExistsAction
+          type: 'email_exists',
+          message: copy.emailExists
         });
       } 
       else if (errorMessage.toLowerCase().includes('téléphone déjà utilisé') || 
                errorMessage.toLowerCase().includes('phone already exists')) {
         setError({
-          code: 'phone_exists',
-          title: copy.phoneExistsTitle,
-          message: copy.phoneExistsMessage,
-          action: copy.phoneExistsAction
-        });
-      }
-      else if (errorMessage.toLowerCase().includes('matricule fiscal déjà utilisé') || 
-               errorMessage.toLowerCase().includes('matricule already exists')) {
-        setError({
-          code: 'matricule_exists',
-          title: copy.matriculeExistsTitle,
-          message: copy.matriculeExistsMessage,
-          action: copy.matriculeExistsAction
+          type: 'phone_exists',
+          message: copy.phoneExists
         });
       }
       else {
         setError({
-          code: 'unknown',
-          title: copy.inscriptionErrorTitle,
-          message: errorMessage || copy.inscriptionErrorMessage,
-          action: 'Si le problème persiste, contactez notre support.'
+          type: 'unknown',
+          message: copy.defaultErrorMessage
         });
       }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Erreur inscription catch:', error);
-    const errorMessage = error?.response?.data?.error || error?.message || '';
-    
-    if (errorMessage.toLowerCase().includes('email déjà utilisé') || 
-        errorMessage.toLowerCase().includes('email already exists') ||
-        errorMessage.toLowerCase().includes('email existe déjà')) {
-      setError({
-        code: 'email_exists',
-        title: copy.emailExistsTitle,
-        message: copy.emailExistsMessage,
-        action: copy.emailExistsAction
-      });
-    } 
-    else {
-      setError({
-        code: 'unknown',
-        title: copy.inscriptionErrorTitle,
-        message: copy.inscriptionErrorMessage,
-        action: 'Si le problème persiste, contactez notre support.'
-      });
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Nettoyage du preview URL
   useEffect(() => {
@@ -864,14 +811,7 @@ const handleSubmit = async (e) => {
                         >
                           ← {copy.editEmail}
                         </button>
-                        
-                        <button
-                          onClick={handleSendOtp}
-                          disabled={resendTimer > 0 || otpLoading}
-                          className="flex-1 text-[#0b4ea2] py-2 text-sm hover:underline transition disabled:text-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {resendTimer > 0 ? `${copy.resendCode} (${resendTimer}s)` : copy.resendCode}
-                        </button>
+                      
                       </div>
                     </>
                   )}
@@ -1020,40 +960,6 @@ const handleSubmit = async (e) => {
               <CheckCircleIcon className="w-4 h-4" /> {copy.emailVerified}
             </div>
           </div>
-
-          {/* ✅ Message d'erreur d'inscription amélioré */}
-          {error && (
-            <div className="mb-6 p-5 rounded-xl border bg-red-50 border-red-200">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                  <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-red-800 text-lg">{error.title}</h3>
-                  <p className="text-red-700 mt-1">{error.message}</p>
-                  <div className="mt-3 flex gap-3">
-                    {error.code === 'email_exists' && (
-                      <button 
-                        onClick={() => navigate('/login')}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
-                      >
-                        Se connecter
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => setError(null)}
-                      className="px-4 py-2 border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-                    >
-                      Fermer
-                    </button>
-                  </div>
-                  {error.action && (
-                    <p className="text-sm text-red-600 mt-3 pt-2 border-t border-red-100">{error.action}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} autoComplete="on" className="space-y-6">
             {/* SECTION 1: TYPE DE COMPTE */}
@@ -1567,6 +1473,37 @@ const handleSubmit = async (e) => {
               </label>
               {fieldErrors.conditions && <p className="text-xs text-red-500 mt-2">{fieldErrors.conditions}</p>}
             </div>
+
+            {/* ✅ MESSAGES D'ERREUR D'INSCRIPTION - AVANT LE BOUTON */}
+            {error && (
+              <div className="mt-6 p-4 rounded-xl border bg-red-50 border-red-200">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                      <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">{error.message}</p>
+                    {error.type === 'phone_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Veuillez vérifier le numéro de télephone saisi ou vous connecter avec votre compte existant.
+                      </p>
+                    )}
+                    {error.type === 'email_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Un compte existe déjà avec cette adresse email. Veuillez vous connecter.
+                      </p>
+                    )}
+                    {error.type === 'matricule_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Vérifiez que vous avez saisi le bon matricule fiscal.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* BOUTON CRÉER UN COMPTE */}
             <button 
