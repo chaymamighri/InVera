@@ -1,7 +1,7 @@
 // src/pages/Register/RegisterPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { sendOtp, verifyOtp, register, fetchOffres } from '../../services/registerService';
+import { sendOtp, verifyOtp, register } from '../../services/registerService';
 import logo from '../../assets/images/logo.png';
 import ReactCountryFlag from "react-country-flag";
 
@@ -9,7 +9,6 @@ import ReactCountryFlag from "react-country-flag";
 import { 
   ArrowLeftIcon,
   EnvelopeIcon,
-  KeyIcon,
   CheckCircleIcon,
   UserIcon,
   GiftIcon,
@@ -24,11 +23,14 @@ import {
   ExclamationTriangleIcon,
   WalletIcon,
   ChevronDownIcon,
-  CheckBadgeIcon
+  CheckBadgeIcon,
+  BuildingOfficeIcon,
+  PhotoIcon,
+  XMarkIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 import { useNavigate } from 'react-router-dom';
-import PublicHeader from '../../components/PublicHeader';
 import { useLanguage } from '../../context/LanguageContext';
 
 const registerCopy = {
@@ -47,8 +49,11 @@ const registerCopy = {
     editEmail: 'Modifier mon email',
     emailRequired: 'Veuillez saisir votre email.',
     codeRequired: 'Veuillez saisir le code reçu.',
-    invalidCode: 'Code invalide. Veuillez réessayer.',
-    genericOtpError: "Erreur lors de l'envoi du code",
+    invalidCode: '❌ Code invalide. Veuillez réessayer.',
+    expiredCode: '⏰ Code expiré. Veuillez en demander un nouveau.',
+    genericOtpError: "❌ Erreur lors de l'envoi du code",
+    resendCode: 'Renvoyer le code',
+    resendCodeSuccess: '✅ Un nouveau code a été envoyé',
     pageTitle: 'Créer mon compte',
     pageDescription: '30 connexions offertes pour découvrir la plateforme',
     emailVerified: 'Email vérifié',
@@ -59,10 +64,11 @@ const registerCopy = {
     trial: 'Essai gratuit',
     trialConnections: '30 connexions',
     subscription: 'Abonnement',
-    subscriptionPrice: '29€/mois',
     lastName: 'Nom *',
     firstName: 'Prénom *',
     companyName: 'Raison sociale *',
+    companyLogo: 'Logo Entreprise',
+    companyLogoHint: 'Votre logo (optionnel)',
     matriculeFiscal: 'Matricule fiscal',
     phone: 'Téléphone *',
     password: 'Mot de passe *',
@@ -70,7 +76,7 @@ const registerCopy = {
     invalidEmail: 'Veuillez saisir un email valide (exemple@domaine.com)',
     invalidPhone: 'Le numéro de téléphone doit contenir entre 8 et 15 chiffres',
     invalidRaisonSociale: 'La raison sociale doit contenir au moins 2 caractères',
-   invalidMatriculeFiscal: 'Le matricule fiscal doit contenir des lettres ET des chiffres (5-15 caractères)',
+    invalidMatriculeFiscal: 'Le matricule fiscal doit contenir des lettres ET des chiffres (5-15 caractères)',
     mandatoryDocuments: 'Documents justificatifs obligatoires',
     nationalId: "Carte d'identité nationale",
     managerId: "Carte d'identité du gérant",
@@ -79,20 +85,22 @@ const registerCopy = {
     acceptedFormats: 'JPG, PNG ou PDF',
     uploaded: 'Document chargé',
     rneWarningTitle: 'Attention',
-    rneWarning:
-      "L'extrait RNE doit dater de moins de 3 mois. L'administrateur vérifiera visuellement la date sur le document.",
-    monthlySubscription: 'Abonnement mensuel - 29€ HT / mois',
-    paymentInfo: 'Paiement à effectuer après validation de votre dossier',
+    rneWarning: "L'extrait RNE doit dater de moins de 3 mois.",
     submit: "S'inscrire",
     submitting: 'Inscription en cours...',
     terms: "En cliquant sur \"S'inscrire\", vous acceptez nos conditions générales d'utilisation.",
     successTrialTitle: 'Compte essai créé !',
     successTrialDescription: 'Vous pouvez dès maintenant vous connecter.',
-    successValidatedTitle: 'Inscription enregistrée !',
-    successValidatedDescription: "Votre dossier est en cours de validation par l'administrateur.",
-    successValidatedHint: 'Vous serez notifié par email dès que votre compte sera activé.',
+    successWaitingTitle: 'Inscription enregistrée !',
+    successWaitingDescription: "Votre dossier est en cours de validation par l'administrateur.",
     loginNow: 'Se connecter',
     backToHome: "Retour à l'accueil",
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 Cette adresse email est déjà utilisée. Veuillez vous connecter ou utiliser un autre email.',
+    phoneExists: '📱 Ce numéro de téléphone est déjà utilisé. Veuillez utiliser un autre numéro ou vous connecter.',
+    matriculeExists: '📄 Ce matricule fiscal est déjà utilisé. Vérifiez que vous avez saisi le bon matricule.',
+    inscriptionError: '❌ Échec de l\'inscription',
+    defaultErrorMessage: 'Une erreur est survenue lors de la création de votre compte. Veuillez réessayer.'
   },
   en: {
     otpTitle: 'Email verification',
@@ -109,8 +117,11 @@ const registerCopy = {
     editEmail: 'Edit my email',
     emailRequired: 'Please enter your email.',
     codeRequired: 'Please enter the code you received.',
-    invalidCode: 'Invalid code. Please try again.',
-    genericOtpError: 'Failed to send the code',
+    invalidCode: '❌ Invalid code. Please try again.',
+    expiredCode: '⏰ Expired code. Please request a new one.',
+    genericOtpError: '❌ Failed to send the code',
+    resendCode: 'Resend code',
+    resendCodeSuccess: '✅ A new code has been sent',
     pageTitle: 'Create my account',
     pageDescription: '30 free logins to discover the platform',
     emailVerified: 'Email verified',
@@ -121,10 +132,11 @@ const registerCopy = {
     trial: 'Free trial',
     trialConnections: '30 logins',
     subscription: 'Subscription',
-    subscriptionPrice: '29€/month',
     lastName: 'Last name *',
     firstName: 'First name *',
     companyName: 'Company name *',
+    companyLogo: 'Company Logo',
+    companyLogoHint: 'Your logo (optional)',
     matriculeFiscal: 'Tax registration number',
     phone: 'Phone *',
     password: 'Password *',
@@ -132,7 +144,7 @@ const registerCopy = {
     invalidEmail: 'Please enter a valid email (example@domain.com)',
     invalidPhone: 'Phone number must contain between 8 and 15 digits',
     invalidRaisonSociale: 'Company name must contain at least 2 characters',
-invalidMatriculeFiscal: 'Tax registration number must contain both letters AND digits (5-15 characters)',
+    invalidMatriculeFiscal: 'Tax registration number must contain both letters AND digits (5-15 characters)',
     mandatoryDocuments: 'Required supporting documents',
     nationalId: 'National identity card',
     managerId: "Manager's identity card",
@@ -141,20 +153,22 @@ invalidMatriculeFiscal: 'Tax registration number must contain both letters AND d
     acceptedFormats: 'JPG, PNG, or PDF',
     uploaded: 'Document uploaded',
     rneWarningTitle: 'Warning',
-    rneWarning:
-      'The RNE extract must be less than 3 months old. The administrator will check the date visually on the document.',
-    monthlySubscription: 'Monthly subscription - 29€ excl. tax / month',
-    paymentInfo: 'Payment is required after your file is validated',
+    rneWarning: 'The RNE extract must be less than 3 months old.',
     submit: 'Register',
     submitting: 'Registering...',
     terms: 'By clicking "Register", you accept our general terms of use.',
     successTrialTitle: 'Trial account created!',
     successTrialDescription: 'You can now log in.',
-    successValidatedTitle: 'Registration recorded!',
-    successValidatedDescription: 'Your file is being reviewed by the administrator.',
-    successValidatedHint: 'You will receive an email once your account is activated.',
+    successWaitingTitle: 'Registration recorded!',
+    successWaitingDescription: 'Your file is being reviewed by the administrator.',
     loginNow: 'Log in',
     backToHome: 'Back to home',
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 This email address is already registered. Please log in or use another email.',
+    phoneExists: '📱 This phone number is already registered. Please use another number or log in.',
+    matriculeExists: '📄 This tax registration number is already registered. Verify your information.',
+    inscriptionError: '❌ Registration failed',
+    defaultErrorMessage: 'An error occurred while creating your account. Please try again.'
   },
   ar: {
     otpTitle: 'التحقق من البريد الإلكتروني',
@@ -171,8 +185,11 @@ invalidMatriculeFiscal: 'Tax registration number must contain both letters AND d
     editEmail: 'تعديل بريدي الإلكتروني',
     emailRequired: 'يرجى إدخال بريدك الإلكتروني.',
     codeRequired: 'يرجى إدخال الرمز الذي استلمته.',
-    invalidCode: 'رمز غير صالح. حاول مرة أخرى.',
-    genericOtpError: 'تعذر إرسال الرمز',
+    invalidCode: '❌ رمز غير صالح. حاول مرة أخرى.',
+    expiredCode: '⏰ رمز منتهي الصلاحية. يرجى طلب رمز جديد.',
+    genericOtpError: '❌ تعذر إرسال الرمز',
+    resendCode: 'إعادة إرسال الرمز',
+    resendCodeSuccess: '✅ تم إرسال رمز جديد',
     pageTitle: 'إنشاء حسابي',
     pageDescription: '30 عملية دخول مجانية لاكتشاف المنصة',
     emailVerified: 'تم التحقق من البريد',
@@ -183,10 +200,11 @@ invalidMatriculeFiscal: 'Tax registration number must contain both letters AND d
     trial: 'تجربة مجانية',
     trialConnections: '30 عملية دخول',
     subscription: 'اشتراك',
-    subscriptionPrice: '29€/شهريًا',
     lastName: 'اللقب *',
     firstName: 'الاسم *',
     companyName: 'الاسم التجاري *',
+    companyLogo:'شعار الشركة',
+    companyLogoHint: 'شعارك (اختياري)',
     matriculeFiscal: 'الرقم الضريبي',
     phone: 'الهاتف *',
     password: 'كلمة المرور *',
@@ -203,133 +221,43 @@ invalidMatriculeFiscal: 'Tax registration number must contain both letters AND d
     acceptedFormats: 'JPG أو PNG أو PDF',
     uploaded: 'تم رفع الوثيقة',
     rneWarningTitle: 'تنبيه',
-    rneWarning:
-      'يجب أن يكون مستخرج RNE أقل من 3 أشهر. سيقوم المسؤول بالتحقق من التاريخ بصريًا على الوثيقة.',
-    monthlySubscription: 'اشتراك شهري - 29€ دون ضرائب / شهريًا',
-    paymentInfo: 'يتم الدفع بعد التحقق من الملف',
+    rneWarning: 'يجب أن يكون مستخرج RNE أقل من 3 أشهر.',
     submit: 'تسجيل',
     submitting: 'جاري التسجيل...',
     terms: 'بالنقر على "تسجيل"، فإنك توافق على الشروط العامة للاستخدام.',
     successTrialTitle: 'تم إنشاء الحساب التجريبي!',
     successTrialDescription: 'يمكنك الآن تسجيل الدخول.',
-    successValidatedTitle: 'تم تسجيل الطلب!',
-    successValidatedDescription: 'ملفك قيد المراجعة من طرف المسؤول.',
-    successValidatedHint: 'ستتلقى إشعارًا عبر البريد الإلكتروني بمجرد تفعيل الحساب.',
+    successWaitingTitle: 'تم تسجيل الطلب!',
+    successWaitingDescription: 'ملفك قيد المراجعة من طرف المسؤول.',
     loginNow: 'تسجيل الدخول',
     backToHome: 'العودة إلى الرئيسية',
+    // ✅ Messages d'erreur inscription CORRIGÉS
+    emailExists: '📧 عنوان البريد الإلكتروني هذا مسجل بالفعل. يرجى تسجيل الدخول أو استخدام بريد إلكتروني آخر.',
+    phoneExists: '📱 رقم الهاتف هذا مسجل بالفعل. يرجى استخدام رقم آخر أو تسجيل الدخول.',
+    matriculeExists: '📄 الرقم الضريبي هذا مسجل بالفعل. تحقق من معلوماتك.',
+    inscriptionError: '❌ فشل التسجيل',
+    defaultErrorMessage: 'حدث خطأ أثناء إنشاء حسابك. يرجى المحاولة مرة أخرى.'
   },
 };
 
-const cardBaseClass =
-  'border-2 rounded-xl p-4 text-center transition hover:border-[#0b4ea2]';
-
 // Liste des pays avec code, indicatif
 const countryCodes = [
-  // Afrique du Nord
   { code: 'TN', name: 'Tunisie', dialCode: '+216' },
   { code: 'MA', name: 'Maroc', dialCode: '+212' },
   { code: 'DZ', name: 'Algérie', dialCode: '+213' },
   { code: 'LY', name: 'Libye', dialCode: '+218' },
   { code: 'EG', name: 'Égypte', dialCode: '+20' },
-  { code: 'MR', name: 'Mauritanie', dialCode: '+222' },
-  
-  // Afrique de l'Ouest
-  { code: 'SN', name: 'Sénégal', dialCode: '+221' },
-  { code: 'CI', name: "Côte d'Ivoire", dialCode: '+225' },
-  { code: 'CM', name: 'Cameroun', dialCode: '+237' },
-  { code: 'ML', name: 'Mali', dialCode: '+223' },
-  { code: 'BF', name: 'Burkina Faso', dialCode: '+226' },
-  { code: 'NE', name: 'Niger', dialCode: '+227' },
-  { code: 'TG', name: 'Togo', dialCode: '+228' },
-  { code: 'BJ', name: 'Bénin', dialCode: '+229' },
-  { code: 'GN', name: 'Guinée', dialCode: '+224' },
-  { code: 'GH', name: 'Ghana', dialCode: '+233' },
-  { code: 'NG', name: 'Nigéria', dialCode: '+234' },
-  
-  // Afrique centrale et australe
-  { code: 'GA', name: 'Gabon', dialCode: '+241' },
-  { code: 'CG', name: 'Congo', dialCode: '+242' },
-  { code: 'CD', name: 'RDC', dialCode: '+243' },
-  { code: 'ZA', name: 'Afrique du Sud', dialCode: '+27' },
-  { code: 'AO', name: 'Angola', dialCode: '+244' },
-  { code: 'MG', name: 'Madagascar', dialCode: '+261' },
-  { code: 'MU', name: 'Maurice', dialCode: '+230' },
-  
-  // Europe
   { code: 'FR', name: 'France', dialCode: '+33' },
   { code: 'BE', name: 'Belgique', dialCode: '+32' },
   { code: 'CH', name: 'Suisse', dialCode: '+41' },
   { code: 'DE', name: 'Allemagne', dialCode: '+49' },
   { code: 'IT', name: 'Italie', dialCode: '+39' },
   { code: 'ES', name: 'Espagne', dialCode: '+34' },
-  { code: 'PT', name: 'Portugal', dialCode: '+351' },
   { code: 'GB', name: 'Royaume-Uni', dialCode: '+44' },
-  { code: 'NL', name: 'Pays-Bas', dialCode: '+31' },
-  { code: 'LU', name: 'Luxembourg', dialCode: '+352' },
-  { code: 'AT', name: 'Autriche', dialCode: '+43' },
-  { code: 'SE', name: 'Suède', dialCode: '+46' },
-  { code: 'NO', name: 'Norvège', dialCode: '+47' },
-  { code: 'DK', name: 'Danemark', dialCode: '+45' },
-  { code: 'FI', name: 'Finlande', dialCode: '+358' },
-  { code: 'IE', name: 'Irlande', dialCode: '+353' },
-  { code: 'GR', name: 'Grèce', dialCode: '+30' },
-  { code: 'TR', name: 'Turquie', dialCode: '+90' },
-  { code: 'PL', name: 'Pologne', dialCode: '+48' },
-  { code: 'CZ', name: 'République Tchèque', dialCode: '+420' },
-  { code: 'HU', name: 'Hongrie', dialCode: '+36' },
-  { code: 'RO', name: 'Roumanie', dialCode: '+40' },
-  { code: 'RU', name: 'Russie', dialCode: '+7' },
-  
-  // Amérique du Nord
   { code: 'CA', name: 'Canada', dialCode: '+1' },
   { code: 'US', name: 'États-Unis', dialCode: '+1' },
-  { code: 'MX', name: 'Mexique', dialCode: '+52' },
-  
-  // Amérique du Sud
-  { code: 'BR', name: 'Brésil', dialCode: '+55' },
-  { code: 'AR', name: 'Argentine', dialCode: '+54' },
-  { code: 'CL', name: 'Chili', dialCode: '+56' },
-  { code: 'PE', name: 'Pérou', dialCode: '+51' },
-  { code: 'CO', name: 'Colombie', dialCode: '+57' },
-  { code: 'VE', name: 'Venezuela', dialCode: '+58' },
-  { code: 'EC', name: 'Équateur', dialCode: '+593' },
-  { code: 'BO', name: 'Bolivie', dialCode: '+591' },
-  { code: 'PY', name: 'Paraguay', dialCode: '+595' },
-  { code: 'UY', name: 'Uruguay', dialCode: '+598' },
-  
-  // Asie
-  { code: 'CN', name: 'Chine', dialCode: '+86' },
-  { code: 'JP', name: 'Japon', dialCode: '+81' },
-  { code: 'KR', name: 'Corée du Sud', dialCode: '+82' },
-  { code: 'IN', name: 'Inde', dialCode: '+91' },
-  { code: 'ID', name: 'Indonésie', dialCode: '+62' },
-  { code: 'MY', name: 'Malaisie', dialCode: '+60' },
-  { code: 'SG', name: 'Singapour', dialCode: '+65' },
-  { code: 'TH', name: 'Thaïlande', dialCode: '+66' },
-  { code: 'VN', name: 'Vietnam', dialCode: '+84' },
-  { code: 'PH', name: 'Philippines', dialCode: '+63' },
-  { code: 'PK', name: 'Pakistan', dialCode: '+92' },
-  { code: 'BD', name: 'Bangladesh', dialCode: '+880' },
-  { code: 'LK', name: 'Sri Lanka', dialCode: '+94' },
-  
-  // Moyen-Orient
-  { code: 'SA', name: 'Arabie Saoudite', dialCode: '+966' },
-  { code: 'AE', name: 'Émirats Arabes Unis', dialCode: '+971' },
-  { code: 'QA', name: 'Qatar', dialCode: '+974' },
-  { code: 'KW', name: 'Koweït', dialCode: '+965' },
-  { code: 'BH', name: 'Bahreïn', dialCode: '+973' },
-  { code: 'OM', name: 'Oman', dialCode: '+968' },
-  { code: 'JO', name: 'Jordanie', dialCode: '+962' },
-  { code: 'LB', name: 'Liban', dialCode: '+961' },
-  { code: 'SY', name: 'Syrie', dialCode: '+963' },
-  { code: 'IQ', name: 'Irak', dialCode: '+964' },
-  { code: 'YE', name: 'Yémen', dialCode: '+967' },
-  { code: 'PS', name: 'Palestine', dialCode: '+970' },
-  
-  // Océanie
-  { code: 'AU', name: 'Australie', dialCode: '+61' },
-  { code: 'NZ', name: 'Nouvelle-Zélande', dialCode: '+64' },
 ];
+
 // ==================== FONCTIONS DE VALIDATION ====================
 
 const validateEmail = (email) => {
@@ -351,35 +279,22 @@ const validatePassword = (password) => {
 
 const validateRaisonSociale = (raisonSociale) => {
   if (!raisonSociale) return false;
-  // Au moins 2 caractères : lettres, chiffres, espaces, tirets, points, apostrophes
   const regex = /^[a-zA-Z0-9\s\-\.\']{2,}$/;
   return regex.test(raisonSociale.trim());
 };
 
 const validateMatriculeFiscal = (matriculeFiscal) => {
-  if (!matriculeFiscal) return true; // Optionnel
-  
-  // Vérifier la longueur (5 à 15 caractères)
-  if (matriculeFiscal.length < 5 || matriculeFiscal.length > 15) {
-    return false;
-  }
-  
-  // Vérifier que seuls les caractères alphanumériques sont utilisés
+  if (!matriculeFiscal) return true;
+  if (matriculeFiscal.length < 5 || matriculeFiscal.length > 15) return false;
   const isValidChars = /^[a-zA-Z0-9]+$/.test(matriculeFiscal);
-  if (!isValidChars) {
-    return false;
-  }
-  
-  // Vérifier la présence d'au moins une lettre ET d'au moins un chiffre
+  if (!isValidChars) return false;
   const hasLetter = /[a-zA-Z]/.test(matriculeFiscal);
   const hasDigit = /[0-9]/.test(matriculeFiscal);
-  
   return hasLetter && hasDigit;
 };
 
 const validateNomPrenom = (value) => {
   if (!value) return false;
-  // Lettres, espaces, tirets, apostrophes, au moins 2 caractères
   const regex = /^[a-zA-Z\s\-']{2,}$/;
   return regex.test(value.trim());
 };
@@ -388,7 +303,7 @@ const validateNomPrenom = (value) => {
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { language, isArabic, t } = useLanguage();
+  const { language, isArabic } = useLanguage();
   const copy = registerCopy[language] || registerCopy.fr;
 
   const [step, setStep] = useState('otp');
@@ -396,16 +311,16 @@ const RegisterPage = () => {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
+  const [otpSuccessMessage, setOtpSuccessMessage] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const countryDropdownRef = useRef(null);
+  const logoInputRef = useRef(null);
 
-  // États pour les erreurs de validation en temps réel
   const [fieldErrors, setFieldErrors] = useState({});
 
   const [formData, setFormData] = useState({
     typeCompte: 'PARTICULIER',
-    typeInscription: 'ESSAI',
     nom: '',
     prenom: '',
     raisonSociale: '',
@@ -416,7 +331,9 @@ const RegisterPage = () => {
     motDePasse: '',
     email: '',
     documents: [],
-    typeAbonnement: 'ESSAI',
+    typeInscription: 'ESSAI',
+    companyLogo: null,
+    companyLogoPreview: null,
   });
 
   const [loading, setLoading] = useState(false);
@@ -428,102 +345,67 @@ const RegisterPage = () => {
   const [offresLoading, setOffresLoading] = useState(false);
   const [selectedOffre, setSelectedOffre] = useState(null);
 
-  // Fermer le dropdown quand on clique dehors
-// ==================== CHARGEMENT DES OFFRES ====================
-useEffect(() => {
-  const loadOffres = async () => {
-    setOffresLoading(true);
-    try {
-      const offresArray = await fetchOffres();
-      console.log('📦 Offres reçues:', offresArray);
-      console.log('📦 Nombre d\'offres:', offresArray.length);
-      setOffres(offresArray);
-    } catch (err) {
-      console.error('Erreur chargement offres:', err);
-      setOffres([]);
-    } finally {
-      setOffresLoading(false);
-    }
-  };
-
-  loadOffres();
-}, []); 
-
-// ==================== FERMER LE DROPDOWN ====================
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target)) {
-      setShowCountryDropdown(false);
-    }
-  };
-  document.addEventListener('mousedown', handleClickOutside);
-  return () => document.removeEventListener('mousedown', handleClickOutside);
-}, []);
-
-
-  const loadOffres = async () => {
-  setOffresLoading(true);
-  try {
-    const offresArray = await fetchOffres();
-    console.log('📦 Offres reçues:', offresArray);
-    console.log('📦 Nombre d\'offres:', offresArray.length);
-    
-    setOffres(offresArray);
-  } catch (err) {
-    console.error('Erreur chargement offres:', err);
-    setOffres([]);
-  } finally {
-    setOffresLoading(false);
-  }
-};
-
-  const isEssai = formData.typeInscription === 'ESSAI' || formData.typeAbonnement === 'ESSAI';
-  const isPayant = formData.typeAbonnement === 'PAYANT';
+  // ✅ Variables dérivées
+  const isEssai = formData.typeInscription === 'ESSAI';
+  const isPayant = formData.typeInscription === 'DEFINITIF';
   const isParticulier = formData.typeCompte === 'PARTICULIER';
-
-  // ==================== VALIDATION EN TEMPS RÉEL ====================
   
+
+  // ✅ Chargement des offres
+  useEffect(() => {
+    const loadOffres = async () => {
+      setOffresLoading(true);
+      try {
+        const response = await fetch('http://localhost:8081/api/public/offres');
+        if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+        const data = await response.json();
+        console.log('Offres chargées:', data);
+        setOffres(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Erreur chargement offres:', err);
+        setOffres([]);
+      } finally {
+        setOffresLoading(false);
+      }
+    };
+    loadOffres();
+  }, []);
+
+  // ✅ Gestion click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target)) {
+        setShowCountryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const validateField = (field, value) => {
     let error = null;
-    
     switch (field) {
       case 'email':
-        if (!value) {
-          error = copy.emailRequired;
-        } else if (!validateEmail(value)) {
-          error = copy.invalidEmail;
-        }
+        if (!value) error = copy.emailRequired;
+        else if (!validateEmail(value)) error = copy.invalidEmail;
         break;
       case 'telephone':
-        if (!value) {
-          error = copy.phone + ' est requis';
-        } else if (!validatePhone(value)) {
-          error = copy.invalidPhone;
-        }
+        if (!value) error = copy.phone + ' est requis';
+        else if (!validatePhone(value)) error = copy.invalidPhone;
         break;
       case 'motDePasse':
-        if (!value) {
-          error = copy.password + ' est requis';
-        } else if (!validatePassword(value)) {
-          error = copy.passwordMinLength;
-        }
+        if (!value) error = copy.password + ' est requis';
+        else if (!validatePassword(value)) error = copy.passwordMinLength;
         break;
       case 'raisonSociale':
-        if (!isParticulier && !value) {
-          error = copy.companyName + ' est requis';
-        } else if (!isParticulier && value && !validateRaisonSociale(value)) {
-          error = copy.invalidRaisonSociale;
-        }
+        if (!isParticulier && !value) error = copy.companyName + ' est requis';
+        else if (!isParticulier && value && !validateRaisonSociale(value)) error = copy.invalidRaisonSociale;
         break;
       case 'matriculeFiscal':
-        if (!isParticulier && value && !validateMatriculeFiscal(value)) {
-          error = copy.invalidMatriculeFiscal;
-        }
+        if (!isParticulier && value && !validateMatriculeFiscal(value)) error = copy.invalidMatriculeFiscal;
         break;
-      default:
-        break;
+      default: break;
     }
-    
     setFieldErrors(prev => ({ ...prev, [field]: error }));
     return !error;
   };
@@ -542,13 +424,40 @@ useEffect(() => {
     const currentDocs = formData.documents || [];
     const newDocs = [...currentDocs];
     const existingIndex = newDocs.findIndex((d) => d.type === field);
-
     if (existingIndex !== -1) {
       newDocs[existingIndex] = { type: field, file };
     } else {
       newDocs.push({ type: field, file });
     }
     updateFormData('documents', newDocs);
+  };
+
+  const handleLogoUpload = (file) => {
+    if (!file) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setFieldErrors(prev => ({ ...prev, companyLogo: 'Format non supporté. Utilisez JPG, PNG, SVG ou WEBP' }));
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setFieldErrors(prev => ({ ...prev, companyLogo: 'Le logo ne doit pas dépasser 2MB' }));
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    updateFormData('companyLogo', file);
+    updateFormData('companyLogoPreview', previewUrl);
+    setFieldErrors(prev => ({ ...prev, companyLogo: null }));
+  };
+
+  const removeLogo = () => {
+    if (formData.companyLogoPreview) {
+      URL.revokeObjectURL(formData.companyLogoPreview);
+    }
+    updateFormData('companyLogo', null);
+    updateFormData('companyLogoPreview', null);
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
   };
 
   const hasDocument = (field) => formData.documents?.some((d) => d.type === field);
@@ -562,40 +471,25 @@ useEffect(() => {
     return `${formData.paysCode}${formData.telephone}`;
   };
 
-  // Validation complète avant soumission
   const validateForm = () => {
     const errors = {};
-    
-    // Email
     if (!formData.email) errors.email = copy.emailRequired;
     else if (!validateEmail(formData.email)) errors.email = copy.invalidEmail;
-    
-    // Téléphone
     if (!formData.telephone) errors.telephone = copy.phone + ' est requis';
     else if (!validatePhone(formData.telephone)) errors.telephone = copy.invalidPhone;
-    
-    // Mot de passe
     if (!formData.motDePasse) errors.motDePasse = copy.password + ' est requis';
     else if (!validatePassword(formData.motDePasse)) errors.motDePasse = copy.passwordMinLength;
-    
-    // Nom/Prénom
     if (!formData.nom) errors.nom = copy.lastName + ' est requis';
     else if (!validateNomPrenom(formData.nom)) errors.nom = 'Le nom doit contenir au moins 2 caractères';
-    
     if (!formData.prenom) errors.prenom = copy.firstName + ' est requis';
     else if (!validateNomPrenom(formData.prenom)) errors.prenom = 'Le prénom doit contenir au moins 2 caractères';
-    
-    // Entreprise
     if (!isParticulier) {
       if (!formData.raisonSociale) errors.raisonSociale = copy.companyName + ' est requis';
       else if (!validateRaisonSociale(formData.raisonSociale)) errors.raisonSociale = copy.invalidRaisonSociale;
-      
       if (formData.matriculeFiscal && !validateMatriculeFiscal(formData.matriculeFiscal)) {
         errors.matriculeFiscal = copy.invalidMatriculeFiscal;
       }
     }
-    
-    // Documents pour abonnement payant
     if (isPayant) {
       if (isParticulier) {
         if (!hasDocument('CIN')) errors.documents = 'La carte d\'identité est obligatoire';
@@ -606,24 +500,19 @@ useEffect(() => {
       }
       if (!selectedOffre) errors.offre = 'Veuillez sélectionner une offre d\'abonnement';
     }
-    
     if (!acceptConditions) errors.conditions = 'Vous devez accepter les conditions générales';
-    
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const isValid = () => {
-    // Validation basique pour l'affichage du bouton
     const hasBasicInfo = formData.email && formData.telephone && formData.motDePasse;
     if (!hasBasicInfo) return false;
-
     if (isParticulier) {
       if (!formData.nom || !formData.prenom) return false;
     } else {
       if (!formData.raisonSociale) return false;
     }
-
     if (isPayant) {
       if (isParticulier) {
         if (!hasDocument('CIN')) return false;
@@ -632,9 +521,7 @@ useEffect(() => {
       }
       if (!selectedOffre) return false;
     }
-    
     if (!acceptConditions) return false;
-    
     return true;
   };
 
@@ -643,7 +530,6 @@ useEffect(() => {
       setOtpError(copy.emailRequired);
       return;
     }
-    
     if (!validateEmail(email)) {
       setOtpError(copy.invalidEmail);
       return;
@@ -651,10 +537,13 @@ useEffect(() => {
 
     setOtpLoading(true);
     setOtpError('');
+    setOtpSuccessMessage('');
 
     const result = await sendOtp(email);
     if (result.success) {
       setOtpSent(true);
+      setOtpSuccessMessage(copy.resendCodeSuccess);
+      setTimeout(() => setOtpSuccessMessage(''), 3000);
     } else {
       setOtpError(result.message || copy.genericOtpError);
     }
@@ -672,95 +561,166 @@ useEffect(() => {
     setOtpLoading(true);
     setOtpError('');
 
-    const isValidCode = await verifyOtp(email, cleanedCode);
-
-    if (isValidCode) {
-      setStep('form');
-      setFormData((prev) => ({ ...prev, email }));
-    } else {
+    try {
+      const result = await verifyOtp(email, cleanedCode);
+      
+      if (result && result.success === true) {
+        setStep('form');
+        setFormData((prev) => ({ 
+          ...prev, 
+          email: email
+        }));
+        setOtpError('');
+      } else {
+        const errorMessage = result?.message || '';
+        if (errorMessage.toLowerCase().includes('expir')) {
+          setOtpError(copy.expiredCode);
+        } else {
+          setOtpError(copy.invalidCode);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur vérification OTP:', error);
       setOtpError(copy.invalidCode);
+    } finally {
+      setOtpLoading(false);
     }
-
-    setOtpLoading(false);
   };
-
-
-  // Ajouter ces fonctions avant handleSubmit (vers ligne 700)
-const parseErrorMessage = (message) => {
-  if (!message) return 'unknown';
-  if (message.includes('email existe déjà')) return 'email_exists';
-  if (message.includes('phone existe déjà')) return 'phone_exists';
-  if (message.includes('matricule fiscal existe déjà')) return 'matricule_exists';
-  if (message.includes('Email already exists')) return 'email_exists';
-  return 'unknown';
-};
-
-const getUserFriendlyMessage = (errorCode) => {
-  switch(errorCode) {
-    case 'email_exists':
-      return {
-        title: '❌ Email déjà utilisé',
-        message: 'Un compte existe déjà avec cette adresse email.',
-        action: 'Si vous avez déjà un compte, veuillez vous connecter. Si vous avez oublié votre mot de passe, utilisez la fonction "Mot de passe oublié".'
-      };
-    case 'phone_exists':
-      return {
-        title: '❌ Téléphone déjà utilisé',
-        message: 'Un compte existe déjà avec ce numéro de téléphone.',
-        action: 'Vérifiez le numéro saisi ou connectez-vous avec votre compte existant.'
-      };
-    case 'matricule_exists':
-      return {
-        title: '❌ Matricule fiscal déjà utilisé',
-        message: 'Ce matricule fiscal est déjà associé à un compte.',
-        action: 'Vérifiez que vous avez saisi le bon matricule fiscal.'
-      };
-    default:
-      return {
-        title: '❌ Erreur lors de l\'inscription',
-        message: message || 'Une erreur inattendue est survenue. Veuillez réessayer.',
-        action: 'Si le problème persiste, contactez notre support.'
-      };
-  }
-};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    if (!validateForm()) return;
+    
+    const finalEmail = email;
+    
+    if (!finalEmail || finalEmail === 'undefined' || finalEmail === '') {
+      console.error('❌ Email manquant!');
+      setError({ 
+        type: 'missing_email',
+        message: "L'adresse email est requise. Veuillez recommencer l'inscription."
+      });
+      setLoading(false);
+      return;
+    }
+    
+    const safeTypeCompte = formData.typeCompte || 'PARTICULIER';
+    const safeTypeInscription = formData.typeInscription || 'ESSAI';
+    const safeNom = formData.nom || '';
+    const safePrenom = formData.prenom || '';
+    const safePassword = formData.motDePasse || '';
+    
+    if (!safePassword || safePassword === 'undefined') {
+      setError({ message: "Le mot de passe est requis." });
+      setLoading(false);
       return;
     }
     
     setLoading(true);
     setError(null);
     
-    const registerData = {
-      email: formData.email,
-      telephone: getFullPhoneNumber(),
-      typeCompte: formData.typeCompte,
-      typeInscription: isEssai ? 'ESSAI' : 'DEFINITIF',
-      code: otpCode,
-      motDePasse: formData.motDePasse,
-      documents: formData.documents,
-      nom: formData.nom || '',
-      prenom: formData.prenom || '',
-      raisonSociale: formData.raisonSociale || '',
-      matriculeFiscal: formData.matriculeFiscal || '',
-      offreId: selectedOffre?.id || null
-    };
+    const formDataToSend = new FormData();
     
-    const result = await register(registerData);
+    formDataToSend.append('email', finalEmail);
+    formDataToSend.append('telephone', getFullPhoneNumber());
+    formDataToSend.append('typeCompte', safeTypeCompte);
+    formDataToSend.append('typeInscription', safeTypeInscription);
+    formDataToSend.append('otp', otpCode);
+    formDataToSend.append('password', safePassword);
+    formDataToSend.append('nom', safeNom);
+    formDataToSend.append('prenom', safePrenom);
+    formDataToSend.append('raisonSociale', formData.raisonSociale || '');
+    formDataToSend.append('matriculeFiscal', formData.matriculeFiscal || '');
     
-    if (result.success) {
-      setSuccess(true);
-    } else {
-      const errorCode = parseErrorMessage(result.message);
-      const userFriendly = getUserFriendlyMessage(errorCode);
-      setError({ code: errorCode, ...userFriendly });
-      console.error('Erreur inscription:', result.message);
+    if (selectedOffre?.id) {
+      formDataToSend.append('offreId', selectedOffre.id.toString());
     }
-    setLoading(false);
+    
+    if (formData.companyLogo) {
+      formDataToSend.append('logo', formData.companyLogo);
+    }
+    
+    formData.documents?.forEach((doc) => {
+      formDataToSend.append(`documents[${doc.type}]`, doc.file);
+    });
+    
+    try {
+      const result = await register(formDataToSend);
+      
+      if (result.success) {
+        setSuccess(true);
+      } else {
+        const errorMessage = result.message || '';
+        
+        // Vérification des différents types d'erreurs
+        if (errorMessage.toLowerCase().includes('email déjà utilisé') || 
+            errorMessage.toLowerCase().includes('email already exists') ||
+            errorMessage.toLowerCase().includes('email existe déjà')) {
+          setError({
+            type: 'email_exists',
+            message: copy.emailExists
+          });
+        } 
+        else if (errorMessage.toLowerCase().includes('téléphone déjà utilisé') || 
+                 errorMessage.toLowerCase().includes('phone already exists') ||
+                 errorMessage.toLowerCase().includes('phone existe déjà')) {
+          setError({
+            type: 'phone_exists',
+            message: copy.phoneExists
+          });
+        }
+        else if (errorMessage.toLowerCase().includes('matricule fiscal déjà utilisé') || 
+                 errorMessage.toLowerCase().includes('matricule already exists')) {
+          setError({
+            type: 'matricule_exists',
+            message: copy.matriculeExists
+          });
+        }
+        else {
+          setError({
+            type: 'unknown',
+            message: errorMessage || copy.defaultErrorMessage
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erreur inscription catch:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || '';
+      
+      if (errorMessage.toLowerCase().includes('email déjà utilisé') || 
+          errorMessage.toLowerCase().includes('email already exists') ||
+          errorMessage.toLowerCase().includes('email existe déjà')) {
+        setError({
+          type: 'email_exists',
+          message: copy.emailExists
+        });
+      } 
+      else if (errorMessage.toLowerCase().includes('téléphone déjà utilisé') || 
+               errorMessage.toLowerCase().includes('phone already exists')) {
+        setError({
+          type: 'phone_exists',
+          message: copy.phoneExists
+        });
+      }
+      else {
+        setError({
+          type: 'unknown',
+          message: copy.defaultErrorMessage
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Nettoyage du preview URL
+  useEffect(() => {
+    return () => {
+      if (formData.companyLogoPreview) {
+        URL.revokeObjectURL(formData.companyLogoPreview);
+      }
+    };
+  }, [formData.companyLogoPreview]);
 
   // ==================== ÉCRAN OTP ====================
   if (step === 'otp') {
@@ -839,22 +799,54 @@ const getUserFriendlyMessage = (errorCode) => {
                         {otpLoading ? copy.verifyingCode : copy.verifyCode}
                       </button>
 
-                      <button
-                        onClick={() => {
-                          setOtpSent(false);
-                          setOtpError('');
-                          setOtpCode('');
-                        }}
-                        className="w-full text-[#0b4ea2] py-2 text-sm hover:underline transition"
-                      >
-                        ← {copy.editEmail}
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setOtpSent(false);
+                            setOtpError('');
+                            setOtpCode('');
+                            setOtpSuccessMessage('');
+                          }}
+                          className="flex-1 text-[#0b4ea2] py-2 text-sm hover:underline transition"
+                        >
+                          ← {copy.editEmail}
+                        </button>
+                      
+                      </div>
                     </>
                   )}
 
+                  {otpSuccessMessage && (
+                    <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm flex items-center gap-2">
+                      <CheckCircleIcon className="w-4 h-4" />
+                      {otpSuccessMessage}
+                    </div>
+                  )}
+
                   {otpError && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-                      {otpError}
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-red-800">
+                            {otpError.includes('expiré') ? 'Code expiré' : 'Code invalide'}
+                          </p>
+                          <p className="text-sm text-red-700 mt-1">{otpError}</p>
+                          {otpError.includes('invalide') && (
+                            <p className="text-sm text-red-600 mt-2">
+                              Vérifiez votre boîte email et saisissez le code à 6 chiffres correct.
+                            </p>
+                          )}
+                          {otpError.includes('expiré') && (
+                            <button
+                              onClick={handleSendOtp}
+                              className="mt-3 text-sm text-red-700 underline font-medium"
+                            >
+                              {copy.resendCode}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -864,7 +856,7 @@ const getUserFriendlyMessage = (errorCode) => {
         </div>
       </div>
     );
-  }
+  }  
 
   // ==================== ÉCRAN DE SUCCÈS ====================
   if (success) {
@@ -894,11 +886,10 @@ const getUserFriendlyMessage = (errorCode) => {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckBadgeIcon className="w-10 h-10 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {isEssai ? copy.successTrialTitle : copy.successValidatedTitle}
-                </h2>
+                
                 {isEssai ? (
                   <>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successTrialTitle}</h2>
                     <p className="text-gray-600 mb-4">{copy.successTrialDescription}</p>
                     <button 
                       onClick={() => navigate('/login')} 
@@ -909,42 +900,41 @@ const getUserFriendlyMessage = (errorCode) => {
                   </>
                 ) : (
                   <>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successWaitingTitle}</h2>
+                    <p className="text-gray-600 mb-4">{copy.successWaitingDescription}</p>
                     <div className="text-left space-y-3 mb-6">
-                      <p className="text-gray-700">✅ Votre inscription a été bien enregistrée !</p>
                       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <p className="text-blue-800 text-sm font-medium mb-2">🎁 Période d'essai offerte</p>
-                        <p className="text-blue-700 text-sm">Vous bénéficiez immédiatement de <strong>30 connexions gratuites</strong> pour découvrir la plateforme en attendant la validation de votre dossier.</p>
-                      </div>
-                      <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
-                        <p className="text-yellow-800 text-sm font-medium mb-2">⏳ En attente de validation</p>
-                        <p className="text-yellow-700 text-sm">Votre dossier est en cours de vérification par notre équipe administrative. Vous recevrez un email dès que votre compte sera validé pour finaliser votre abonnement.</p>
+                        <p className="text-blue-800 text-sm font-medium mb-2 flex items-center gap-2">
+                          <ClockIcon className="w-4 h-4" />
+                          Dossier en cours de validation
+                        </p>
+                        <p className="text-blue-700 text-sm">Votre dossier sera examiné par notre équipe. Vous serez notifié par email dès son activation.</p>
                       </div>
                     </div>
                     <button onClick={() => navigate('/login')} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">
                       🔑 {copy.loginNow}
                     </button>
-                    <div className="mt-4">
-                      <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
-                        ← {copy.backToHome}
-                      </Link>
-                    </div>
                   </>
                 )}
+                <div className="mt-4">
+                  <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
+                    ← {copy.backToHome}
+                  </Link>
+                </div>
               </div>
             </div>
           </main>
         </div>
       </div>
     );
-  }
+  } 
 
-  // ==================== ÉCRAN PRINCIPAL (FORMULAIRE AVEC VALIDATIONS EN TEMPS RÉEL) ====================
+  // ==================== ÉCRAN PRINCIPAL DU FORMULAIRE ====================
   return (
     <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-24 pt-6">
         
-        {/* Header */}
         <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <Link to="/" className="flex items-center gap-4 group cursor-pointer">
@@ -963,52 +953,15 @@ const getUserFriendlyMessage = (errorCode) => {
         </header>
 
         <main className="pt-14">
-          {/* En-tête */}
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-slate-900">Créer un compte</h1>
+            <h1 className="text-3xl font-bold text-slate-900">{copy.pageTitle}</h1>
+            <p className="text-slate-500 mt-2">{copy.pageDescription}</p>
             <div className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-600 mt-3 items-center gap-1">
               <CheckCircleIcon className="w-4 h-4" /> {copy.emailVerified}
             </div>
           </div>
 
-          {/* Affichage des erreurs amélioré */}
-          {error && (
-            <div className={`mb-6 p-4 rounded-xl border ${
-              error.code === 'email_exists' || error.code === 'phone_exists'
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="flex items-start gap-3">
-                <ExclamationTriangleIcon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                  error.code === 'email_exists' || error.code === 'phone_exists'
-                    ? 'text-amber-600'
-                    : 'text-red-600'
-                }`} />
-                <div className="flex-1">
-                  <p className={`font-semibold ${
-                    error.code === 'email_exists' || error.code === 'phone_exists'
-                      ? 'text-amber-800'
-                      : 'text-red-800'
-                  }`}>{error.title}</p>
-                  <p className={`text-sm mt-1 ${
-                    error.code === 'email_exists' || error.code === 'phone_exists'
-                      ? 'text-amber-700'
-                      : 'text-red-700'
-                  }`}>{error.message}</p>
-                  <p className="text-sm mt-2 text-gray-600">{error.action}</p>
-                  {(error.code === 'email_exists' || error.code === 'phone_exists') && (
-                    <Link to="/login" className="inline-block mt-3 text-sm font-medium text-[#0b4ea2] hover:underline">
-                      🔑 Se connecter à mon compte →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Formulaire vertical avec onSubmit */}
           <form onSubmit={handleSubmit} autoComplete="on" className="space-y-6">
-            
             {/* SECTION 1: TYPE DE COMPTE */}
             <div className="bg-white rounded-2xl border border-sky-100 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-5">
@@ -1016,12 +969,12 @@ const getUserFriendlyMessage = (errorCode) => {
                   <UserIcon className="w-5 h-5 text-[#0b4ea2]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-800">1. Informations du compte</h2>
-                  <p className="text-xs text-gray-400">Type de compte</p>
+                  <h2 className="text-lg font-semibold text-slate-800">1. {copy.accountType}</h2>
+                  <p className="text-xs text-gray-400">Sélectionnez votre profil</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Type de compte *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">{copy.accountType} *</label>
                 <div className="relative">
                   <select
                     value={formData.typeCompte}
@@ -1033,8 +986,8 @@ const getUserFriendlyMessage = (errorCode) => {
                     }}
                     className="w-full appearance-none px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] bg-white cursor-pointer"
                   >
-                    <option value="PARTICULIER">👤 Particulier</option>
-                    <option value="ENTREPRISE">🏢 Entreprise</option>
+                    <option value="PARTICULIER">👤 {copy.individual}</option>
+                    <option value="ENTREPRISE">🏢 {copy.company}</option>
                   </select>
                   <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 </div>
@@ -1048,7 +1001,7 @@ const getUserFriendlyMessage = (errorCode) => {
                   <IdentificationIcon className="w-5 h-5 text-[#0b4ea2]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-800">Informations personnelles</h2>
+                  <h2 className="text-lg font-semibold text-slate-800">2. Informations {!isParticulier ? "de l'entreprise" : "personnelles"}</h2>
                   <p className="text-xs text-gray-400">Vos coordonnées</p>
                 </div>
               </div>
@@ -1056,34 +1009,30 @@ const getUserFriendlyMessage = (errorCode) => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Nom *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{copy.lastName}</label>
                     <input 
                       type="text" 
-                      placeholder="Nom" 
+                      placeholder="Dupont" 
                       className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                         fieldErrors.nom ? 'border-red-500' : 'border-gray-200'
                       }`}
                       value={formData.nom} 
                       onChange={(e) => handleFieldChange('nom', e.target.value)} 
                     />
-                    {fieldErrors.nom && (
-                      <p className="text-xs text-red-500 mt-1">{fieldErrors.nom}</p>
-                    )}
+                    {fieldErrors.nom && <p className="text-xs text-red-500 mt-1">{fieldErrors.nom}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Prénom *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{copy.firstName}</label>
                     <input 
                       type="text" 
-                      placeholder="Prénom" 
+                      placeholder="Jean" 
                       className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                         fieldErrors.prenom ? 'border-red-500' : 'border-gray-200'
                       }`}
                       value={formData.prenom} 
                       onChange={(e) => handleFieldChange('prenom', e.target.value)} 
                     />
-                    {fieldErrors.prenom && (
-                      <p className="text-xs text-red-500 mt-1">{fieldErrors.prenom}</p>
-                    )}
+                    {fieldErrors.prenom && <p className="text-xs text-red-500 mt-1">{fieldErrors.prenom}</p>}
                   </div>
                 </div>
 
@@ -1103,13 +1052,11 @@ const getUserFriendlyMessage = (errorCode) => {
                       onChange={(e) => handleFieldChange('email', e.target.value)} 
                     />
                   </div>
-                  {fieldErrors.email && (
-                    <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>
-                  )}
+                  {fieldErrors.email && <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Téléphone *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">{copy.phone}</label>
                   <div className="flex gap-2">
                     <div className="relative w-40" ref={countryDropdownRef}>
                       <button
@@ -1156,86 +1103,136 @@ const getUserFriendlyMessage = (errorCode) => {
                         type="tel" 
                         name="telephone"
                         autoComplete="tel"
-                        placeholder="Numéro de téléphone" 
+                        placeholder="XX XXX XXX" 
                         className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                           fieldErrors.telephone ? 'border-red-500' : 'border-gray-200'
                         }`}
                         value={formData.telephone} 
-                         autoComplete="off" 
                         onChange={(e) => handleFieldChange('telephone', e.target.value)} 
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Exemple: {formData.paysCode} XX XXX XXX
-                  </p>
-                  {fieldErrors.telephone && (
-                    <p className="text-xs text-red-500 mt-1">{fieldErrors.telephone}</p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-1">Exemple: {formData.paysCode} XX XXX XXX</p>
+                  {fieldErrors.telephone && <p className="text-xs text-red-500 mt-1">{fieldErrors.telephone}</p>}
+                </div>
+
+                {/* SECTION LOGO */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    {copy.companyLogo}
+                    <span className="text-gray-400 text-xs ml-2 font-normal">{copy.companyLogoHint}</span>
+                  </label>
+                  
+                  <div className="mt-2">
+                    {!formData.companyLogoPreview ? (
+                      <label className="relative w-full border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-[#0b4ea2] transition-colors group block">
+                        <input 
+                          type="file" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          accept="image/jpeg,image/png,image/svg+xml,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file);
+                          }}
+                        />
+                        <div className="flex flex-col items-center gap-2 pointer-events-none">
+                          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                            <BuildingOfficeIcon className="w-8 h-8 text-gray-400 group-hover:text-[#0b4ea2] transition-colors" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 group-hover:text-[#0b4ea2] transition-colors">
+                              Cliquez pour importer le logo
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">JPG, PNG, SVG ou WEBP (max. 2MB)</p>
+                          </div>
+                        </div>
+                      </label>
+                    ) : (
+                      <div className="relative w-full border border-gray-200 rounded-xl p-4 bg-gray-50">
+                        <div className="flex items-center gap-4">
+                          <div className="w-20 h-20 rounded-xl bg-white shadow-sm flex items-center justify-center overflow-hidden border border-gray-200">
+                            <img src={formData.companyLogoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain p-2" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-700">{formData.companyLogo?.name || 'Logo chargé'}</p>
+                            <p className="text-xs text-gray-400">{(formData.companyLogo?.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <button type="button" onClick={removeLogo} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50">
+                            <XMarkIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <label className="mt-3 inline-block text-sm text-[#0b4ea2] hover:underline font-medium cursor-pointer">
+                          Changer le logo
+                          <input type="file" className="hidden" accept="image/jpeg,image/png,image/svg+xml,image/webp" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (formData.companyLogoPreview) URL.revokeObjectURL(formData.companyLogoPreview);
+                              handleLogoUpload(file);
+                            }
+                            e.target.value = '';
+                          }} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  {fieldErrors.companyLogo && <p className="text-xs text-red-500 mt-2">{fieldErrors.companyLogo}</p>}
                 </div>
 
                 {!isParticulier && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Raison sociale *</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">{copy.companyName}</label>
                       <input 
                         type="text" 
-                        placeholder="Raison sociale" 
+                        placeholder="Ma Société SARL" 
                         className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                           fieldErrors.raisonSociale ? 'border-red-500' : 'border-gray-200'
                         }`}
                         value={formData.raisonSociale} 
                         onChange={(e) => handleFieldChange('raisonSociale', e.target.value)} 
                       />
-                      {fieldErrors.raisonSociale && (
-                        <p className="text-xs text-red-500 mt-1">{fieldErrors.raisonSociale}</p>
-                      )}
+                      {fieldErrors.raisonSociale && <p className="text-xs text-red-500 mt-1">{fieldErrors.raisonSociale}</p>}
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Matricule fiscal (optionnel)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        {copy.matriculeFiscal} <span className="text-gray-400">*</span>
+                      </label>
                       <input 
                         type="text" 
-                        placeholder="Matricule fiscal" 
+                        placeholder="1234567X" 
                         className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                           fieldErrors.matriculeFiscal ? 'border-red-500' : 'border-gray-200'
                         }`}
                         value={formData.matriculeFiscal} 
                         onChange={(e) => handleFieldChange('matriculeFiscal', e.target.value)} 
                       />
-                      {fieldErrors.matriculeFiscal && (
-                        <p className="text-xs text-red-500 mt-1">{fieldErrors.matriculeFiscal}</p>
-                      )}
+                      {fieldErrors.matriculeFiscal && <p className="text-xs text-red-500 mt-1">{fieldErrors.matriculeFiscal}</p>}
                     </div>
                   </>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Mot de passe *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">{copy.password}</label>
                   <div className="relative">
                     <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input 
                       type={showPassword ? "text" : "password"} 
                       name="password"
                       autoComplete="new-password"
-                      placeholder="Mot de passe (min. 8 caractères)" 
+                      placeholder="••••••••" 
                       className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] transition-colors ${
                         fieldErrors.motDePasse ? 'border-red-500' : 'border-gray-200'
                       }`}
                       value={formData.motDePasse} 
                       onChange={(e) => handleFieldChange('motDePasse', e.target.value)} 
                     />
-                    <button 
-                      type="button" 
-                      autoComplete="off"
-                      onClick={() => setShowPassword(!showPassword)} 
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                    >
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
                       {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                     </button>
                   </div>
-                  {fieldErrors.motDePasse && (
-                    <p className="text-xs text-red-500 mt-1">{fieldErrors.motDePasse}</p>
-                  )}
+                  {fieldErrors.motDePasse && <p className="text-xs text-red-500 mt-1">{fieldErrors.motDePasse}</p>}
+                  <p className="text-xs text-gray-400 mt-1">Minimum 8 caractères</p>
                 </div>
               </div>
             </div>
@@ -1247,25 +1244,25 @@ const getUserFriendlyMessage = (errorCode) => {
                   <WalletIcon className="w-5 h-5 text-[#0b4ea2]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-800">2. Abonnement</h2>
+                  <h2 className="text-lg font-semibold text-slate-800">3. {copy.subscription}</h2>
                   <p className="text-xs text-gray-400">Choisissez votre formule</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Type d'abonnement *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">{copy.registrationType} *</label>
                 <div className="relative mb-4">
                   <select
-                    value={formData.typeAbonnement}
+                    value={formData.typeInscription}
                     onChange={(e) => { 
-                      updateFormData('typeAbonnement', e.target.value); 
+                      updateFormData('typeInscription', e.target.value);
                       setSelectedOffre(null);
-                      setFieldErrors(prev => ({ ...prev, offre: null }));
+                      setFieldErrors(prev => ({ ...prev, offre: null, documents: null }));
                     }}
                     className="w-full appearance-none px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0b4ea2] bg-white cursor-pointer"
                   >
-                    <option value="ESSAI">🎁 Essai gratuit 30 connexions</option>
-                    <option value="PAYANT">💰 Choisir une formule payante</option>
+                    <option value="ESSAI">🎁 {copy.trial} ({copy.trialConnections})</option>
+                    <option value="DEFINITIF">💰 {copy.subscription}</option>
                   </select>
                   <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 </div>
@@ -1280,7 +1277,7 @@ const getUserFriendlyMessage = (errorCode) => {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0b4ea2] mx-auto"></div>
                       <p className="text-sm text-gray-500 mt-2">Chargement des offres...</p>
                     </div>
-                  ) : (
+                  ) : offres.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {offres.map((offre) => (
                         <div 
@@ -1297,37 +1294,26 @@ const getUserFriendlyMessage = (errorCode) => {
                         >
                           <p className="font-bold text-slate-800 text-base">{offre.duree}</p>
                           <p className="text-green-600 font-semibold text-xl mt-1">{offre.prix} TND</p>
-                          {offre.dureeMois === 3 && (
-                            <p className="text-xs text-gray-400 mt-1">(26,33 TND/mois)</p>
-                          )}
-                          {offre.dureeMois === 12 && (
-                            <p className="text-xs text-gray-400 mt-1">(22,42 TND/mois)</p>
-                          )}
-                          {offre.description && (
-                            <p className="text-xs text-gray-500 mt-2">{offre.description}</p>
-                          )}
+                          {offre.dureeMois === 3 && <p className="text-xs text-gray-400 mt-1">(26,33 TND/mois)</p>}
+                          {offre.dureeMois === 12 && <p className="text-xs text-gray-400 mt-1">(22,42 TND/mois)</p>}
+                          {offre.description && <p className="text-xs text-gray-500 mt-2">{offre.description}</p>}
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">Aucune offre disponible pour le moment</div>
                   )}
                   
-                  {offres.length === 0 && !offresLoading && (
-                    <div className="text-center py-4 text-gray-500">
-                      Aucune offre disponible pour le moment
-                    </div>
-                  )}
-                  
-                  {fieldErrors.offre && (
-                    <p className="text-xs text-red-500 mt-2">{fieldErrors.offre}</p>
-                  )}
+                  {fieldErrors.offre && <p className="text-xs text-red-500 mt-2">{fieldErrors.offre}</p>}
                 </div>
               )}
 
               {isEssai && (
                 <div className="bg-green-50 rounded-xl p-5 text-center border border-green-200">
                   <GiftIcon className="w-10 h-10 text-green-500 mx-auto mb-2" />
-                  <p className="font-semibold text-green-700 text-base">30 connexions offertes</p>
-                  <p className="text-sm text-green-600 mt-1">Testez toutes les fonctionnalités de la plateforme avant de choisir votre abonnement.</p>
+                  <p className="font-semibold text-green-700 text-lg">🎁 {copy.trialConnections} offertes</p>
+                  <p className="text-sm text-green-600 mt-1">Testez toutes les fonctionnalités sans engagement.</p>
+                  <p className="text-xs text-green-500 mt-2">Aucun document requis - Commencez immédiatement !</p>
                 </div>
               )}
             </div>
@@ -1340,7 +1326,7 @@ const getUserFriendlyMessage = (errorCode) => {
                     <DocumentDuplicateIcon className="w-5 h-5 text-[#0b4ea2]" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-800">Documents justificatifs</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">4. {copy.mandatoryDocuments}</h2>
                     <p className="text-xs text-gray-400">Requis pour valider votre inscription</p>
                   </div>
                 </div>
@@ -1352,8 +1338,8 @@ const getUserFriendlyMessage = (errorCode) => {
                         <IdentificationIcon className={`w-5 h-5 ${hasDocument('CIN') ? 'text-white' : 'text-gray-400'}`} />
                       </div>
                       <div>
-                        <p className="font-medium text-slate-800">Carte d'identité nationale *</p>
-                        <p className="text-xs text-gray-400">JPG, PNG ou PDF</p>
+                        <p className="font-medium text-slate-800">{copy.nationalId} *</p>
+                        <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
                       </div>
                     </div>
                     <div>
@@ -1365,9 +1351,7 @@ const getUserFriendlyMessage = (errorCode) => {
                         </div>
                       ) : (
                         <label htmlFor="cin" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                          </svg>
+                          <PhotoIcon className="w-4 h-4" />
                           Importer
                         </label>
                       )}
@@ -1381,8 +1365,8 @@ const getUserFriendlyMessage = (errorCode) => {
                           <UserIcon className={`w-5 h-5 ${hasDocument('GERANT_CIN') ? 'text-white' : 'text-gray-400'}`} />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-800">Carte d'identité du gérant *</p>
-                          <p className="text-xs text-gray-400">JPG, PNG ou PDF</p>
+                          <p className="font-medium text-slate-800">{copy.managerId} *</p>
+                          <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
                         </div>
                       </div>
                       <div>
@@ -1394,9 +1378,7 @@ const getUserFriendlyMessage = (errorCode) => {
                           </div>
                         ) : (
                           <label htmlFor="cinGerant" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
+                            <PhotoIcon className="w-4 h-4" />
                             Importer
                           </label>
                         )}
@@ -1409,7 +1391,7 @@ const getUserFriendlyMessage = (errorCode) => {
                           <DocumentTextIcon className={`w-5 h-5 ${hasDocument('PATENTE') ? 'text-white' : 'text-gray-400'}`} />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-800">Patente *</p>
+                          <p className="font-medium text-slate-800">{copy.patent} *</p>
                           <p className="text-xs text-gray-400">Document officiel</p>
                         </div>
                       </div>
@@ -1422,9 +1404,7 @@ const getUserFriendlyMessage = (errorCode) => {
                           </div>
                         ) : (
                           <label htmlFor="patente" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
+                            <PhotoIcon className="w-4 h-4" />
                             Importer
                           </label>
                         )}
@@ -1437,7 +1417,7 @@ const getUserFriendlyMessage = (errorCode) => {
                           <BriefcaseIcon className={`w-5 h-5 ${hasDocument('RNE') ? 'text-white' : 'text-gray-400'}`} />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-800">Extrait RNE *</p>
+                          <p className="font-medium text-slate-800">{copy.rne} *</p>
                           <p className="text-xs text-gray-400">Moins de 3 mois</p>
                         </div>
                       </div>
@@ -1450,9 +1430,7 @@ const getUserFriendlyMessage = (errorCode) => {
                           </div>
                         ) : (
                           <label htmlFor="rne" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
+                            <PhotoIcon className="w-4 h-4" />
                             Importer
                           </label>
                         )}
@@ -1462,19 +1440,17 @@ const getUserFriendlyMessage = (errorCode) => {
                     {!hasDocument('RNE') && (
                       <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
                         <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-yellow-800"><strong>Attention :</strong> L'extrait RNE doit dater de <strong>moins de 3 mois</strong>.</p>
+                        <p className="text-sm text-yellow-800"><strong>{copy.rneWarningTitle} :</strong> {copy.rneWarning}</p>
                       </div>
                     )}
                   </div>
                 )}
                 
-                {fieldErrors.documents && (
-                  <p className="text-xs text-red-500 mt-3">{fieldErrors.documents}</p>
-                )}
+                {fieldErrors.documents && <p className="text-xs text-red-500 mt-3">{fieldErrors.documents}</p>}
               </div>
             )}
 
-            {/* Checkbox pour les conditions générales */}
+            {/* Checkbox conditions générales */}
             <div className="mt-6 pt-4 border-t border-gray-200">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -1482,26 +1458,52 @@ const getUserFriendlyMessage = (errorCode) => {
                   checked={acceptConditions}
                   onChange={(e) => {
                     setAcceptConditions(e.target.checked);
-                    if (e.target.checked) {
-                      setFieldErrors(prev => ({ ...prev, conditions: null }));
-                    }
+                    if (e.target.checked) setFieldErrors(prev => ({ ...prev, conditions: null }));
                   }}
                   className="mt-1 w-5 h-5 rounded border-gray-300 text-[#0b4ea2] focus:ring-[#0b4ea2] cursor-pointer"
                 />
-
                 <div className="flex-1">
                   <p className="text-sm text-gray-700">
                     J'accepte les{' '}
-                    <a href="/conditions-invera" target="_blank" className="text-[#0b4ea2] underline font-medium">
+                    <a href="/conditions-invera" target="_blank" rel="noopener noreferrer" className="text-[#0b4ea2] underline font-medium">
                       conditions générales et politique de confidentialité d'InVera
                     </a>
                   </p>
                 </div>
               </label>
-              {fieldErrors.conditions && (
-                <p className="text-xs text-red-500 mt-2">{fieldErrors.conditions}</p>
-              )}
+              {fieldErrors.conditions && <p className="text-xs text-red-500 mt-2">{fieldErrors.conditions}</p>}
             </div>
+
+            {/* ✅ MESSAGES D'ERREUR D'INSCRIPTION - AVANT LE BOUTON */}
+            {error && (
+              <div className="mt-6 p-4 rounded-xl border bg-red-50 border-red-200">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                      <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">{error.message}</p>
+                    {error.type === 'phone_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Veuillez vérifier le numéro de télephone saisi ou vous connecter avec votre compte existant.
+                      </p>
+                    )}
+                    {error.type === 'email_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Un compte existe déjà avec cette adresse email. Veuillez vous connecter.
+                      </p>
+                    )}
+                    {error.type === 'matricule_exists' && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Vérifiez que vous avez saisi le bon matricule fiscal.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* BOUTON CRÉER UN COMPTE */}
             <button 
@@ -1510,11 +1512,14 @@ const getUserFriendlyMessage = (errorCode) => {
               className="w-full mt-6 bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  {copy.submitting}
+                </>
               ) : (
                 <>
                   <CheckCircleIcon className="w-5 h-5" /> 
-                  Créer un compte
+                  {copy.submit}
                 </>
               )}
             </button>

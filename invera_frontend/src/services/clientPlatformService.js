@@ -3,10 +3,12 @@ import api from '../services/api';
 
 export const clientPlatformService = {
   
-  // ⭐ Récupérer TOUS les clients
+  // Récupérer TOUS les clients
   getAllClients: async () => {
     try {
       const response = await api.get('/platform/clients');
+      // ✅ S'assurer que les données d'offre sont incluses
+      console.log('✅ Clients chargés:', response.data.length);
       return response.data;
     } catch (error) {
       console.error('Erreur getAllClients:', error);
@@ -56,7 +58,7 @@ export const clientPlatformService = {
     }
   },
 
-  // ⭐ Récupérer un client par ID
+  // ⭐ Récupérer un client par ID (avec détails de l'offre)
   getClientById: async (id) => {
     try {
       const response = await api.get(`/platform/clients/${id}`);
@@ -66,7 +68,6 @@ export const clientPlatformService = {
       throw error;
     }
   },
-
   // ⭐ VALIDER un client (EN_ATTENTE → VALIDE_EN_ATTENTE_PAIEMENT)
   validateClient: async (clientId) => {
     try {

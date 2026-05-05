@@ -35,8 +35,85 @@ import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import useClients from '../../../../hooks/useClient';
 import { useLanguage } from '../../../../context/LanguageContext';
 
+// ✅ Textes de fallback pour les traductions manquantes
+const FALLBACK_TEXTS = {
+  'salesPages.clientManagementTitle': 'Gestion des clients',
+  'salesPages.newClient': 'Nouveau client',
+  'salesPages.total': 'Total',
+  'salesPages.individual': 'Particulier',
+  'salesPages.company': 'Entreprise',
+  'salesPages.vip': 'VIP',
+  'salesPages.loyalCustomer': 'Client fidèle',
+  'salesPages.id': 'ID',
+  'salesPages.nameSurname': 'Nom et prénom',
+  'salesPages.phone': 'Téléphone',
+  'salesPages.address': 'Adresse',
+  'salesPages.type': 'Type',
+  'salesPages.actions': 'Actions',
+  'salesPages.noClientsFound': 'Aucun client trouvé',
+  'salesPages.edit': 'Modifier',
+  'salesPages.viewDetails': 'Voir détails',
+  'salesPages.delete': 'Supprimer',
+  'salesPages.of': 'de',
+  'salesPages.clients': 'clients',
+  'salesPages.show': 'Afficher',
+  'salesPages.perPage': 'par page',
+  'salesPages.firstPage': 'Première page',
+  'salesPages.previousPage': 'Page précédente',
+  'salesPages.nextPage': 'Page suivante',
+  'salesPages.lastPage': 'Dernière page',
+  'salesPages.loadingError': 'Erreur de chargement',
+  'salesPages.particulier': 'Particulier',
+  'salesPages.entreprise': 'Entreprise',
+  'salesPages.professionnel': 'Professionnel',
+  'salesPages.fidele': 'Fidèle',
+  'salesPages.clientsCount': 'clients',
+  'salesPages.searchPlaceholder': 'Rechercher par nom, prénom ou téléphone...',
+  'salesPages.sortBy': 'Trier par',
+  'salesPages.date': 'Date',
+  'salesPages.idSort': 'ID',
+  'salesPages.ascending': 'Croissant',
+  'salesPages.descending': 'Décroissant',
+  'salesPages.createClient': 'Créer un client',
+  'salesPages.editClient': 'Modifier le client',
+  'salesPages.clientDetails': 'Détails du client',
+  'salesPages.confirmDelete': 'Confirmer la suppression',
+  'salesPages.deleteConfirmation': 'Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible.',
+  'salesPages.cancel': 'Annuler',
+  'salesPages.confirm': 'Confirmer',
+  'salesPages.save': 'Enregistrer',
+  'salesPages.update': 'Mettre à jour',
+  'salesPages.name': 'Nom',
+  'salesPages.firstName': 'Prénom',
+  'salesPages.email': 'Email',
+  'salesPages.phoneNumber': 'Numéro de téléphone',
+  'salesPages.addressLabel': 'Adresse',
+  'salesPages.clientType': 'Type de client',
+  'salesPages.remise': 'Remise (%)',
+  'salesPages.createdAt': 'Date de création',
+  'salesPages.actionsLabel': 'Actions',
+    'salesPages.individuals': 'Particuliers',
+  'salesPages.companies': 'Entreprises',
+  'salesPages.loyal': 'Fidèles',
+  'salesPages.par': 'PAR',  // Particuliers
+  'salesPages.ent': 'ENT',  // Entreprises
+  'salesPages.vip': 'VIP',
+  'salesPages.fid': 'FID', 
+};
+
 const ClientManagePage = () => {
   const { t } = useLanguage();
+  
+  // ✅ Fonction de traduction avec fallback
+  const safeT = (key) => {
+    const translated = t(key);
+    // Si la traduction retourne la clé elle-même (non trouvée) ou est vide
+    if (!translated || translated === key) {
+      return FALLBACK_TEXTS[key] || key;
+    }
+    return translated;
+  };
+
   const [openModal, setOpenModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
@@ -166,11 +243,11 @@ const ClientManagePage = () => {
 
   const getTypeClientLabel = (type) => {
     const labels = {
-      'PARTICULIER': t('salesPages.individual'),
-      'VIP': t('salesPages.vip'),
-      'PROFESSIONNEL': t('salesPages.company'),
-      'ENTREPRISE': t('salesPages.company'),
-      'FIDELE': t('salesPages.loyalCustomer')
+      'PARTICULIER': safeT('salesPages.individual'),
+      'VIP': safeT('salesPages.vip'),
+      'PROFESSIONNEL': safeT('salesPages.company'),
+      'ENTREPRISE': safeT('salesPages.company'),
+      'FIDELE': safeT('salesPages.loyalCustomer')
     };
     return labels[type] || type;
   };
@@ -190,7 +267,7 @@ const ClientManagePage = () => {
     return (
       <div className="p-6">
         <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow">
-          <p className="font-medium">{t('salesPages.loadingError')}</p>
+          <p className="font-medium">{safeT('salesPages.loadingError')}</p>
           <p className="text-sm">{error}</p>
         </div>
       </div>
@@ -206,7 +283,7 @@ const ClientManagePage = () => {
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <h1 className="text-2xl font-bold text-gray-900">{t('salesPages.clientManagementTitle')}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{safeT('salesPages.clientManagementTitle')}</h1>
           </div>
           
           <div className="flex gap-3">
@@ -217,7 +294,7 @@ const ClientManagePage = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>{t('salesPages.newClient')}</span>
+              <span>{safeT('salesPages.newClient')}</span>
             </button>
           </div>
         </div>
@@ -225,7 +302,7 @@ const ClientManagePage = () => {
 
       {/* Stats Cards */}
       <div className="mb-8">
-        <ClientStats clients={clients} t={t} />
+        <ClientStats clients={clients} t={safeT} />
       </div>
 
       {/* Filters */}
@@ -237,7 +314,7 @@ const ClientManagePage = () => {
           setSortBy={setSortBy}
           sortOrder={sortOrder}
           setSortOrder={setSortOrder}
-          t={t}
+          t={safeT}
         />
       </div>
 
@@ -247,12 +324,12 @@ const ClientManagePage = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.id')}</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.nameSurname')}</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.phone')}</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.address')}</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.type')}</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('salesPages.actions')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.id')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.nameSurname')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.phone')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.address')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.type')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -271,7 +348,7 @@ const ClientManagePage = () => {
                       <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
-                      <p className="text-gray-500">{t('salesPages.noClientsFound')}</p>
+                      <p className="text-gray-500">{safeT('salesPages.noClientsFound')}</p>
                     </div>
                   </td>
                 </tr>
@@ -299,7 +376,7 @@ const ClientManagePage = () => {
                         <button
                           onClick={() => handleEditClient(client)}
                           className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={t('salesPages.edit')}
+                          title={safeT('salesPages.edit')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -308,7 +385,7 @@ const ClientManagePage = () => {
                         <button
                           onClick={() => handleViewDetails(client)}
                           className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={t('salesPages.viewDetails')}
+                          title={safeT('salesPages.viewDetails')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -318,7 +395,7 @@ const ClientManagePage = () => {
                         <button
                           onClick={() => handleDeleteClick(client)}
                           className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title={t('salesPages.delete')}
+                          title={safeT('salesPages.delete')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -341,13 +418,13 @@ const ClientManagePage = () => {
                 <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>
                 <span> - </span>
                 <span className="font-medium">{Math.min(currentPage * itemsPerPage, sortedClients.length)}</span>
-                <span> {t('salesPages.of')} </span>
+                <span> {safeT('salesPages.of')} </span>
                 <span className="font-medium">{sortedClients.length}</span>
-                <span> {t('salesPages.clients')}</span>
+                <span> {safeT('salesPages.clients')}</span>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">{t('salesPages.show')}</span>
+                <span className="text-sm text-gray-600">{safeT('salesPages.show')}</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
@@ -361,7 +438,7 @@ const ClientManagePage = () => {
                   <option value={20}>20</option>
                   <option value={50}>50</option>
                 </select>
-                <span className="text-sm text-gray-600">{t('salesPages.perPage')}</span>
+                <span className="text-sm text-gray-600">{safeT('salesPages.perPage')}</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -369,7 +446,7 @@ const ClientManagePage = () => {
                   onClick={() => handlePageChange(1)}
                   disabled={currentPage === 1}
                   className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-                  title={t('salesPages.firstPage')}
+                  title={safeT('salesPages.firstPage')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -380,7 +457,7 @@ const ClientManagePage = () => {
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-                  title={t('salesPages.previousPage')}
+                  title={safeT('salesPages.previousPage')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -420,7 +497,7 @@ const ClientManagePage = () => {
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-                  title={t('salesPages.nextPage')}
+                  title={safeT('salesPages.nextPage')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -431,7 +508,7 @@ const ClientManagePage = () => {
                   onClick={() => handlePageChange(totalPages)}
                   disabled={currentPage === totalPages}
                   className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-                  title={t('salesPages.lastPage')}
+                  title={safeT('salesPages.lastPage')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -453,6 +530,7 @@ const ClientManagePage = () => {
         getRemiseForType={getRemiseForType}
         clientTypes={clientTypes}
         createClient={createClient}
+        t={safeT}
       />
 
       {/* Modal de modification */}
@@ -461,7 +539,8 @@ const ClientManagePage = () => {
         onClose={handleUpdateModalClose}
         client={selectedClient}
         onSuccess={handleModalSuccess}
-        updateClient={updateClient} 
+        updateClient={updateClient}
+        t={safeT}
       />
 
       {/* Modal de détails */}
@@ -469,6 +548,7 @@ const ClientManagePage = () => {
         open={openDetailsModal}
         onClose={handleDetailsModalClose}
         client={selectedClient}
+        t={safeT}
       />
 
       {/* Modal de confirmation de suppression */}
@@ -477,6 +557,7 @@ const ClientManagePage = () => {
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
+        t={safeT}
       />
     </div>
   );

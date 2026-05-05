@@ -1,47 +1,48 @@
+// subscriptionPlatformService.js
 import platformApi from './platformApi';
 
 export const subscriptionPlatformService = {
+  
+  // ========== GESTION DES OFFRES ==========
+  
   getOffers: async (activeOnly = false) => {
-    const response = await platformApi.get('/super-admin/abonnements/offres', {
-      params: { activeOnly },
-    });
+    const response = await platformApi.get(`/super-admin/offres?activeOnly=${activeOnly}`);
     return response.data;
   },
 
   getOfferById: async (id) => {
-    const response = await platformApi.get(`/super-admin/abonnements/offres/${id}`);
+    const response = await platformApi.get(`/super-admin/offres/${id}`);
     return response.data;
   },
 
   createOffer: async (payload) => {
-    const response = await platformApi.post('/super-admin/abonnements/offres', payload);
+    const response = await platformApi.post('/super-admin/offres', payload);
     return response.data;
   },
 
   updateOffer: async (id, payload) => {
-    const response = await platformApi.put(`/super-admin/abonnements/offres/${id}`, payload);
+    const response = await platformApi.put(`/super-admin/offres/${id}`, payload);
     return response.data;
   },
 
   activateOffer: async (id) => {
-    const response = await platformApi.patch(`/super-admin/abonnements/offres/${id}/activate`);
+    const response = await platformApi.patch(`/super-admin/offres/${id}/activate`);
     return response.data;
   },
 
   deactivateOffer: async (id) => {
-    const response = await platformApi.patch(`/super-admin/abonnements/offres/${id}/deactivate`);
+    const response = await platformApi.patch(`/super-admin/offres/${id}/deactivate`);
     return response.data;
   },
 
-  deleteOffer: async (id) => {
-    const response = await platformApi.delete(`/super-admin/abonnements/offres/${id}`);
-    return response.data;
-  },
-
-  getSubscriptions: async (statut) => {
-    const response = await platformApi.get('/super-admin/abonnements', {
-      params: statut ? { statut } : {},
-    });
+  // ========== GESTION DES ABONNEMENTS ==========
+  // ✅ CORRECTION : utiliser /abonnements au lieu de /subscriptions
+  
+  getSubscriptions: async (statut = null) => {
+    const url = statut && statut !== 'ALL' 
+      ? `/super-admin/abonnements?statut=${statut}` 
+      : '/super-admin/abonnements';
+    const response = await platformApi.get(url);
     return response.data;
   },
 
@@ -50,13 +51,8 @@ export const subscriptionPlatformService = {
     return response.data;
   },
 
-  getClientSubscriptions: async (clientId) => {
-    const response = await platformApi.get(`/super-admin/abonnements/clients/${clientId}`);
-    return response.data;
-  },
-
-  assignOfferToClient: async (clientId, offerId) => {
-    const response = await platformApi.post(`/super-admin/abonnements/clients/${clientId}/offres/${offerId}`);
+  getSubscriptionsByClient: async (clientId) => {
+    const response = await platformApi.get(`/super-admin/abonnements/client/${clientId}`);
     return response.data;
   },
 
@@ -75,15 +71,9 @@ export const subscriptionPlatformService = {
     return response.data;
   },
 
-  renewSubscription: async (id) => {
-    const response = await platformApi.patch(`/super-admin/abonnements/${id}/renew`);
-    return response.data;
-  },
-
-  updateAutoRenewal: async (id, autoRenouvellement) => {
-    const response = await platformApi.patch(`/super-admin/abonnements/${id}/auto-renewal`, {
-      autoRenouvellement,
-    });
+  // Créer un abonnement pour un client existant
+  createSubscriptionForClient: async (clientId, offreId) => {
+    const response = await platformApi.post(`/super-admin/abonnements/client/${clientId}/offre/${offreId}`);
     return response.data;
   },
 };

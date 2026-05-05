@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Shield,
 } from 'lucide-react';
-import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { useLanguage } from '../../context/LanguageContext';
 import { superAdminService } from '../../servicesPlatform/superAdminService';
 import { getStoredLanguage, updateLanguagePreference } from '../../services/languagePreferenceService';
@@ -156,9 +155,7 @@ const AdminLogin = () => {
                 </span>
               </div>
             </div>
-            <div className="mt-4 flex justify-end">
-              <LanguageSwitcher menuClassName="z-[100]" variant="light" />
-            </div>
+            {/* ✅ LanguageSwitcher supprimé */}
           </div>
 
           <div className="px-8 py-8">

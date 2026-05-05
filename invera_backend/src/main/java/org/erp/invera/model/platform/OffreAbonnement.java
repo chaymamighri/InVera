@@ -42,6 +42,7 @@ public class OffreAbonnement {
     @Builder.Default
     private String devise = "TND";
 
+    @Column(nullable = false)
     private String description;
 
     @Column(nullable = false)

@@ -9,6 +9,7 @@ import {
   CreditCardIcon,
   DocumentTextIcon,
   ArrowRightOnRectangleIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 
 const SuperAdminDashboard = () => {
@@ -17,6 +18,7 @@ const SuperAdminDashboard = () => {
   const location = useLocation();
   const [adminInfo, setAdminInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -66,7 +68,27 @@ const SuperAdminDashboard = () => {
     superAdminService.logout();
   };
 
+  const handleProfileClick = () => {
+    setShowProfileMenu(!showProfileMenu);
+  };
+
+  const handleViewProfile = () => {
+    setShowProfileMenu(false);
+    navigate('/super-admin/dashboard/profile');
+  };
+
   const isActive = (path) => location.pathname.includes(path);
+
+  // Fermer le menu si on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showProfileMenu && !event.target.closest('.profile-menu-container')) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showProfileMenu]);
 
   if (loading) {
     return (
@@ -82,25 +104,55 @@ const SuperAdminDashboard = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold">InVera Platform</h1>
-              <p className="text-purple-200 text-sm">{t('common.superAdminSpace')}</p>
+          <h1 className="text-xl font-bold text-white">InVera Platform</h1>
+    <p className="text-purple-200 text-xs flex items-center gap-1">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400"></span>
+      Espace administrateur
+    </p>
             </div>
             <div className="flex items-center gap-4">
               <LanguageSwitcher menuClassName="z-[100]" />
-              <button
-                onClick={() => navigate('/super-admin/dashboard/profile')}
-                className="text-right transition hover:opacity-80"
-              >
-                <p className="font-semibold">{adminInfo?.nom || 'Administrateur'}</p>
-                <p className="text-sm text-purple-200">{adminInfo?.email}</p>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center gap-2"
-              >
-                <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                {t('common.logout')}
-              </button>
+              
+              {/* Profile Icon with Dropdown Menu */}
+              <div className="relative profile-menu-container">
+                <button
+                  onClick={handleProfileClick}
+                  className="flex items-center gap-2 transition hover:opacity-80 focus:outline-none"
+                  title={t('common.profile')}
+                >
+                  <UserCircleIcon className="w-10 h-10 text-white hover:text-purple-200 transition" />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {adminInfo?.nom || 'Administrateur'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {adminInfo?.email}
+                      </p>
+                    </div>
+                    <div className="py-2">
+                      <button
+                        onClick={handleViewProfile}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition flex items-center gap-2"
+                      >
+                        <UserCircleIcon className="w-4 h-4" />
+                        {t('common.profile')}
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 transition flex items-center gap-2"
+                      >
+                        <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                        {t('common.logout')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.erp.UtilisateurService;
+import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final SessionManagementService sessionManagementService;
     private final EmailService emailService;
+    private final ClientPlatformService clientPlatformService;
 
     // ==================== LOGIN ====================
     @PostMapping("/login")
@@ -35,10 +37,7 @@ public class AuthController {
         String email = request.get("email");
         String password = request.get("password");
 
-        log.info("========================================");
-        log.info("=== TENTATIVE DE LOGIN ===");
-        log.info("Email: {}", email);
-        log.info("========================================");
+        log.info(" Tentative de login: {}", email);
 
         try {
             Long clientId = null;
@@ -46,100 +45,59 @@ public class AuthController {
             Client client = null;
             String dbName = null;
 
-            // 1. D'abord, chercher si c'est un CLIENT (admin) dans la base centrale
-            log.info("1. Recherche du client dans la base centrale...");
+            // 1. Recherche du client
             client = findClientByUserEmail(email);
 
             if (client != null) {
-                // C'est un client (admin)
                 clientId = client.getId();
                 dbName = client.getNomBaseDonnees();
-                log.info("✅ Client trouvé - ID: {}, Base: {}", clientId, dbName);
 
-                // Vérifier que la base existe
                 if (dbName == null || dbName.isEmpty()) {
-                    log.error("❌ Base de données non configurée pour le client");
                     return ResponseEntity.status(401).body(Map.of("error", "Configuration base de données manquante"));
                 }
 
-                // Authentifier dans sa base ERP
                 authResult = utilisateurService.authenticate(clientId, email, password);
 
             } else {
-                // 2. Ce n'est pas un client, chercher dans TOUTES les bases ERP
-                log.info("2. Client non trouvé, recherche dans toutes les bases ERP...");
-
+                // 2. Recherche dans toutes les bases ERP
                 List<Client> allClients = clientRepository.findAll();
-                log.info("Nombre de clients à vérifier: {}", allClients.size());
 
                 for (Client c : allClients) {
                     try {
-                        log.info("   - Test dans base client_{} pour {}", c.getId(), email);
                         Map<String, Object> result = utilisateurService.authenticate(c.getId(), email, password);
-
                         if (result != null && !result.isEmpty()) {
-                            // Utilisateur trouvé !
                             client = c;
                             clientId = c.getId();
                             dbName = c.getNomBaseDonnees();
                             authResult = result;
-                            log.info("   ✅ Utilisateur trouvé dans la base client_{}", clientId);
                             break;
                         }
                     } catch (Exception e) {
-                        log.debug("   Échec pour client_{}: {}", c.getId(), e.getMessage());
+                        // Silencieux
                     }
                 }
             }
 
-            // Vérifier si authentification réussie
             if (authResult == null || client == null) {
-                log.warn("❌ Authentification échouée pour: {}", email);
+                log.warn(" Login échoué: {}", email);
                 return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
             }
 
-            log.info("✅ Authentification réussie - Rôle: {}, ClientId: {}", authResult.get("role"), clientId);
+            // 3. Enregistrer la connexion (recordLogin gère tout)
+            Client updatedClient = clientPlatformService.recordLogin(email);
+            client = updatedClient;
 
-            // 3. Gestion des connexions (période d'essai)
             boolean hasActiveSubscription = client.getAbonnementActif() != null;
-            log.info("3. Abonnement actif: {}", hasActiveSubscription);
-
-            if (!hasActiveSubscription) {
-                if (client.getConnexionsRestantes() <= 0) {
-                    log.warn("❌ Période d'essai expirée");
-                    return ResponseEntity.status(403).body(Map.of(
-                            "error", "❌ Période d'essai expirée. Veuillez souscrire un abonnement.",
-                            "code", "ESSAI_EXPIRE"
-                    ));
-                }
-
-                int anciennesConnexions = client.getConnexionsRestantes();
-                client.setConnexionsRestantes(anciennesConnexions - 1);
-                clientRepository.save(client);
-
-                log.info("🔐 Période d'essai - Connexions restantes: {}/{}",
-                        client.getConnexionsRestantes(), client.getConnexionsMax());
-            }
 
             // 4. Génération du token
-            log.info("4. Génération du token JWT...");
-            String token = jwtTokenProvider.generateToken(
-                    email,
-                    (String) authResult.get("role"),
-                    clientId,
-                    dbName
-            );
+            String token = jwtTokenProvider.generateToken(email, (String) authResult.get("role"), clientId, dbName);
 
             if (token == null || token.isEmpty()) {
-                log.error("❌ Token généré vide");
                 return ResponseEntity.status(500).body(Map.of("error", "Erreur lors de la génération du token"));
             }
 
-            log.info("✅ Token généré avec succès");
-
             // 5. Gestion de session
             boolean wasOtherSessionActive = sessionManagementService.registerSession(email, token);
-            log.info("5. Autre session active: {}", wasOtherSessionActive);
 
             // 6. Construction de la réponse
             Map<String, Object> response = new HashMap<>();
@@ -159,8 +117,9 @@ public class AuthController {
             response.put("statut", client.getStatut().getLabel());
             response.put("hasActiveSubscription", hasActiveSubscription);
 
+            // Avertissement si connexions faibles
             if (!hasActiveSubscription && client.getConnexionsRestantes() <= 5 && client.getConnexionsRestantes() > 0) {
-                response.put("warning", "⚠️ Attention : Il vous reste " + client.getConnexionsRestantes() +
+                response.put("warning", " Il vous reste " + client.getConnexionsRestantes() +
                         " connexion(s) avant la fin de votre période d'essai.");
             }
 
@@ -168,19 +127,15 @@ public class AuthController {
                 response.put("sessionWarning", "Une autre session a été fermée suite à cette connexion");
             }
 
-            log.info("========================================");
-            log.info("✅ LOGIN RÉUSSI - Email: {} - Base: {} - Rôle: {}",
-                    email, dbName, authResult.get("role"));
-            log.info("========================================");
+            log.info("✅ Login réussi: {} - Rôle: {}", email, authResult.get("role"));
 
             return ResponseEntity.ok(response);
 
+        } catch (RuntimeException e) {
+            log.warn("❌ Login échoué: {} - {}", email, e.getMessage());
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("========================================");
-            log.error("❌ ERREUR LOGIN");
-            log.error("Message: {}", e.getMessage());
-            log.error("Stack trace:", e);
-            log.error("========================================");
+            log.error("❌ Erreur login: {}", e.getMessage());
             return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
         }
     }
@@ -267,7 +222,7 @@ public class AuthController {
             // ✅ AJOUTER L'ENVOI D'EMAIL D'ACTIVATION
             String activationToken = jwtTokenProvider.generateActivationToken(email, 24);
             emailService.sendActivationLinkEmail(email, activationToken, nom, prenom);
-            log.info("📧 Email d'activation envoyé à {}", email);
+            log.info(" Email d'activation envoyé à {}", email);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -305,12 +260,12 @@ public class AuthController {
             String jwt = token.replace("Bearer ", "");
             Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
 
-            log.info("📋 Récupération de tous les utilisateurs pour clientId: {}", clientId);
+            log.info(" Récupération de tous les utilisateurs pour clientId: {}", clientId);
 
             // Récupérer les utilisateurs depuis la base ERP du client
             List<Map<String, Object>> users = utilisateurService.getAllUsers(clientId);
 
-            log.info("✅ {} utilisateur(s) trouvé(s) pour clientId: {}", users.size(), clientId);
+            log.info("{} utilisateur(s) trouvé(s) pour clientId: {}", users.size(), clientId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -327,6 +282,82 @@ public class AuthController {
             ));
         }
     }
+
+    // ==================== UPDATE UTILISATEUR ====================
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Long id,
+                                        @RequestBody Map<String, String> request,
+                                        Authentication authentication) {
+        try {
+            log.info("=== Update user ===");
+            log.info("ID utilisateur à modifier: {}", id);
+
+            String currentUserEmail = authentication.getName();
+            log.info("Utilisateur courant: {}", currentUserEmail);
+
+            Client currentClient = findClientByUserEmail(currentUserEmail);
+            if (currentClient == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Client non trouvé"));
+            }
+
+            Long clientId = currentClient.getId();
+
+            // Récupérer l'utilisateur à modifier
+            Utilisateur userToUpdate = utilisateurService.findById(clientId, id);
+            if (userToUpdate == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // ✅ EMPÊCHER la modification d'un compte admin
+            if (userToUpdate.getRole().name().equals("ADMIN_CLIENT")) {
+                return ResponseEntity.status(403).body(Map.of("error", "Vous ne pouvez pas modifier un compte administrateur."));
+            }
+
+            // ✅ EMPÊCHER la modification de son propre compte
+            if (userToUpdate.getEmail().equals(currentUserEmail)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Vous ne pouvez pas modifier votre propre compte via cette interface."));
+            }
+
+            // Récupérer les données
+            String nom = request.get("nom");
+            String prenom = request.get("prenom");
+            String email = request.get("email");
+            String role = request.get("role");
+            String activeStr = request.get("active");
+
+            Boolean active = activeStr != null ? Boolean.parseBoolean(activeStr) : null;
+
+            // Valider l'email
+            if (email != null && !email.equals(userToUpdate.getEmail())) {
+                boolean emailExists = utilisateurService.userExists(clientId, email);
+                if (emailExists) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Cet email est déjà utilisé par un autre utilisateur."));
+                }
+            }
+
+            // Mettre à jour
+            String backendRole = null;
+            if (role != null) {
+                backendRole = mapFrontendRoleToBackend(role);
+            }
+
+            utilisateurService.updateEmployee(clientId, id, nom, prenom, email, backendRole, active);
+
+            log.info(" Utilisateur {} mis à jour avec succès", id);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Utilisateur modifié avec succès",
+                    "id", id
+            ));
+
+        } catch (Exception e) {
+            log.error("Erreur update user: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@RequestHeader("Authorization") String token) {
         try {
@@ -335,7 +366,7 @@ public class AuthController {
             Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
             String role = jwtTokenProvider.getRoleFromToken(jwt);
 
-            log.info("📋 GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
+            log.info("📌 GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
 
             Client client = findClientByUserEmail(email);
             if (client == null) {
@@ -359,25 +390,37 @@ public class AuthController {
             response.put("clientId", clientId);
             response.put("database", "client_" + clientId);
 
-            // ✅ AJOUTER CES CHAMPS MANQUANTS
+            // Dates
             response.put("memberSince", user.getCreatedAt());
             response.put("lastLogin", user.getLastLogin());
             response.put("sessionsThisWeek", 0);
 
-            // ✅ INFOS CLIENT
+            // Infos client (abonnement)
             response.put("connexionsRestantes", client.getConnexionsRestantes());
             response.put("connexionsMax", client.getConnexionsMax());
             response.put("typeInscription", client.getTypeInscription().name());
             response.put("hasActiveSubscription", client.getAbonnementActif() != null);
             response.put("statut", client.getStatut().getLabel());
 
+            // ✅ AJOUTER LES CHAMPS MANQUANTS POUR LE PROFIL
+            response.put("typeCompte", client.getTypeCompte() != null ? client.getTypeCompte().name() : "PARTICULIER");
+            response.put("raisonSociale", client.getRaisonSociale() != null ? client.getRaisonSociale() : "");
+            response.put("matriculeFiscal", client.getMatriculeFiscal() != null ? client.getMatriculeFiscal() : "");
+            response.put("logoUrl", client.getLogoUrl() != null ? client.getLogoUrl() : "");
+
+            log.info("✅ Infos client retournées - typeCompte: {}, raisonSociale: {}, logoUrl: {}",
+                    client.getTypeCompte(),
+                    client.getRaisonSociale(),
+                    client.getLogoUrl() != null ? "Présent" : "Absent");
+
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Erreur getCurrentUser: {}", e.getMessage(), e);
+            log.error("❌ Erreur getCurrentUser: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
+
     // ==================== DÉCONNEXION ====================
 
     @PostMapping("/logout")
@@ -385,7 +428,7 @@ public class AuthController {
         if (authentication != null) {
             String email = authentication.getName();
             sessionManagementService.removeSession(email);
-            log.info("🔓 Déconnexion - Session supprimée pour {}", email);
+            log.info(" Déconnexion - Session supprimée pour {}", email);
         }
         return ResponseEntity.ok(Map.of("message", "Déconnecté avec succès"));
     }
@@ -429,38 +472,66 @@ public class AuthController {
         }
     }
 
-    // ==================== MODIFICATION UTILISATEUR ====================
-// ==================== MODIFICATION UTILISATEUR ====================
-    @PutMapping("/update/{userId}")
-    public ResponseEntity<?> updateUser(@PathVariable Long userId, @RequestBody Map<String, String> request, Authentication authentication) {
-        try {
-            log.info("=== Update user ===");
-            log.info("UserId: {}, request: {}", userId, request);
+// ==================== UPDATE PROFILE ====================
+@PutMapping("/update-profile")
+public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request,
+                                       @RequestHeader("Authorization") String token) {
+    try {
+        String jwt = token.replace("Bearer ", "");
+        String email = jwtTokenProvider.getEmailFromToken(jwt);
+        Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
 
-            String currentUserEmail = authentication.getName();
-            Client currentClient = findClientByUserEmail(currentUserEmail);
-            if (currentClient == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Client non trouvé"));
+        String nom = request.get("nom");
+        String prenom = request.get("prenom");
+
+        // Aller directement à l'utilisateur
+        Utilisateur user = utilisateurService.findByEmail(clientId, email);
+        if (user == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Utilisateur non trouvé"));
+        }
+
+        utilisateurService.updateEmployee(clientId, user.getId(), nom, prenom, null, null, null);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Profil mis à jour avec succès",
+                "nom", nom,
+                "prenom", prenom
+        ));
+
+    } catch (Exception e) {
+        log.error("Erreur update-profile: {}", e.getMessage(), e);
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+}
+
+// ==================== CHANGE PASSWORD ====================
+
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request,
+                                            @RequestHeader("Authorization") String token) {
+        try {
+            String jwt = token.replace("Bearer ", "");
+            String email = jwtTokenProvider.getEmailFromToken(jwt);
+            Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
+
+            String oldPassword = request.get("oldPassword");
+            String newPassword = request.get("newPassword");
+
+            // Vérifier l'ancien mot de passe
+            Map<String, Object> authResult = utilisateurService.authenticate(clientId, email, oldPassword);
+            if (authResult == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Mot de passe actuel incorrect"));
             }
 
-            Long clientId = currentClient.getId();
+            // Mettre à jour le mot de passe
+            Utilisateur user = utilisateurService.findByEmail(clientId, email);
+            utilisateurService.updatePassword(clientId, user.getId(), newPassword);
 
-            String nom = request.get("nom");
-            String prenom = request.get("prenom");
-            String email = request.get("email");        // ✅ Ajouter l'email
-            String role = request.get("role");
-            Boolean active = request.containsKey("active") ? Boolean.valueOf(request.get("active")) : null;
-
-            // Mettre à jour l'utilisateur
-            utilisateurService.updateEmployee(clientId, userId, nom, prenom, email, role, active);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Utilisateur modifié avec succès"
-            ));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Mot de passe modifié avec succès"));
 
         } catch (Exception e) {
-            log.error("Erreur update user: {}", e.getMessage(), e);
+            log.error("Erreur change-password: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -511,14 +582,14 @@ public class AuthController {
     @GetMapping("/activation-link-info")
     public ResponseEntity<?> getActivationLinkInfo(@RequestParam String token) {
         try {
-            log.info("🔐 Vérification du token d'activation: {}", token);
+            log.info(" Vérification du token d'activation: {}", token);
 
             if (!jwtTokenProvider.validateToken(token)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
             }
 
             String email = jwtTokenProvider.getEmailFromToken(token);
-            log.info("📧 Token valide pour: {}", email);
+            log.info(" Token valide pour: {}", email);
 
             Client client = findClientByUserEmail(email);
             if (client == null) {
@@ -543,7 +614,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de la vérification: {}", e.getMessage());
+            log.error(" Erreur lors de la vérification: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de la vérification: " + e.getMessage()));
         }
@@ -555,7 +626,7 @@ public class AuthController {
             String token = request.get("token");
             String newPassword = request.get("newPassword");
 
-            log.info("🔐 Activation du compte avec création de mot de passe");
+            log.info(" Activation du compte avec création de mot de passe");
 
             if (!jwtTokenProvider.validateToken(token)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
@@ -566,7 +637,7 @@ public class AuthController {
             }
 
             String email = jwtTokenProvider.getEmailFromToken(token);
-            log.info("📧 Activation du compte pour: {}", email);
+            log.info(" Activation du compte pour: {}", email);
 
             Client client = findClientByUserEmail(email);
             if (client == null) {
@@ -588,7 +659,7 @@ public class AuthController {
             // Mettre à jour le mot de passe
             utilisateurService.updatePassword(client.getId(), utilisateur.getId(), newPassword);
 
-            log.info("✅ Compte activé avec succès: {}", email);
+            log.info(" Compte activé avec succès: {}", email);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -598,7 +669,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur lors de l'activation: {}", e.getMessage());
+            log.error(" Erreur lors de l'activation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de l'activation: " + e.getMessage()));
         }
@@ -610,7 +681,7 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         try {
             String email = request.get("email");
-            log.info("🔐 Demande de réinitialisation pour: {}", email);
+            log.info(" Demande de réinitialisation pour: {}", email);
 
             // 1. Vérifier que le client existe
             Client client = findClientByUserEmail(email);
@@ -659,12 +730,7 @@ public class AuthController {
             String code = request.get("code");
             String newPassword = request.get("newPassword");
 
-            log.info("🔐 Réinitialisation du mot de passe pour: {}", email);
-
-            // 1. Valider le code (à implémenter selon ton stockage)
-            // if (!resetCodeService.validateCode(email, code)) {
-            //     return ResponseEntity.badRequest().body(Map.of("error", "Code invalide ou expiré"));
-            // }
+            log.info(" Réinitialisation du mot de passe pour: {}", email);
 
             // 2. Vérifier que le client existe
             Client client = findClientByUserEmail(email);
@@ -686,7 +752,7 @@ public class AuthController {
             // 5. Mettre à jour le mot de passe
             utilisateurService.updatePassword(client.getId(), user.getId(), newPassword);
 
-            log.info("✅ Mot de passe réinitialisé pour: {}", email);
+            log.info(" Mot de passe réinitialisé pour: {}", email);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
