@@ -12,14 +12,21 @@ import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.OffreAbonnementRepository;
+import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.docJusticatif.DocumentUploadService;
 import org.erp.invera.service.erp.EmailService;
+import org.erp.invera.service.logo.LogoUploadService;
 import org.erp.invera.service.platform.*;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,6 +50,8 @@ public class PlatformClientController {
     private final OffreAbonnementRepository  offreAbonnementRepository;
     private final SubscriptionService  subscriptionService;
     private final PaiementService paiementService;
+    private  final JwtTokenProvider jwtTokenProvider;
+    private  final LogoUploadService logoUploadService;
 
     // ========== 1. INSCRIPTION ==========
     @PostMapping("/register")
@@ -289,11 +298,58 @@ public class PlatformClientController {
 
             return ResponseEntity.ok(response);
 
+        } catch (DataIntegrityViolationException e) {
+            // ✅ GESTION DES ERREURS DE DUPLICATION
+            log.error("Erreur de contrainte unique: {}", e.getMessage());
+
+            String errorMessage = e.getMostSpecificCause().getMessage();
+
+            if (errorMessage != null) {
+                if (errorMessage.contains("telephone") || errorMessage.contains("uk_telephone")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📱 Ce numéro de téléphone est déjà utilisé. Veuillez utiliser un autre numéro ou vous connecter."));
+                }
+                else if (errorMessage.contains("email") || errorMessage.contains("uk_email")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📧 Cette adresse email est déjà utilisée. Veuillez vous connecter ou utiliser un autre email."));
+                }
+                else if (errorMessage.contains("matricule") || errorMessage.contains("uk_matricule")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📄 Ce matricule fiscal est déjà utilisé. Vérifiez vos informations."));
+                }
+            }
+
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "❌ Ces informations existent déjà dans notre système. Veuillez vérifier vos coordonnées."));
+
         } catch (IllegalArgumentException e) {
             log.error("Erreur paramètre inscription: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Erreur lors de l'inscription", e);
+
+            // Vérifier si l'erreur contient des informations de duplication (fallback)
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("Duplicate") || errorMsg.contains("duplicate") || errorMsg.contains("unique"))) {
+                if (errorMsg.contains("telephone") || errorMsg.contains("phone")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📱 Ce numéro de téléphone est déjà utilisé"));
+                } else if (errorMsg.contains("email")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📧 Cette adresse email est déjà utilisée"));
+                } else if (errorMsg.contains("matricule")) {
+                    return ResponseEntity
+                            .status(HttpStatus.CONFLICT)
+                            .body(Map.of("error", "📄 Ce matricule fiscal est déjà utilisé"));
+                }
+            }
+
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -724,6 +780,191 @@ public class PlatformClientController {
             return ResponseEntity.ok(client);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ========== 4. GESTION DU LOGO ET INFOS ENTREPRISE ==========
+
+    /**
+     * Uploader ou mettre à jour le logo du client connecté
+     */
+    @PutMapping("/logo")
+    public ResponseEntity<?> uploadLogo(
+            @RequestParam("logo") MultipartFile logoFile,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Long clientId = getClientIdFromToken(token);
+
+            if (clientId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Utilisateur non authentifié"));
+            }
+
+            Client client = clientPlatformService.getClientById(clientId);
+
+            // Utiliser votre service LogoUploadService
+            String logoPath = logoUploadService.uploadLogo(clientId, logoFile);
+            client.setLogoUrl(logoPath);
+            clientRepository.save(client);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("logoUrl", logoPath);
+            response.put("message", "Logo mis à jour avec succès");
+
+            log.info("✅ Logo uploadé pour le client ID: {}", clientId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur upload logo: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+
+
+    /**
+     * Récupérer le logo du client connecté
+     */
+    @GetMapping(value = "/logo")
+    public ResponseEntity<?> getLogo(@RequestHeader("Authorization") String token) {
+        try {
+            Long clientId = getClientIdFromToken(token);
+            log.info("🔍 getLogo - clientId: {}", clientId);
+
+            Client client = clientPlatformService.getClientById(clientId);
+            log.info("🔍 logoUrl de la base: {}", client.getLogoUrl());
+
+            if (client.getLogoUrl() == null) {
+                log.warn("⚠️ Logo URL est null");
+                return ResponseEntity.notFound().build();
+            }
+
+            Path logoPath = Paths.get(client.getLogoUrl());
+            log.info("📁 Chemin testé: {}", logoPath.toAbsolutePath());
+
+            if (!Files.exists(logoPath)) {
+                // Essayer depuis le répertoire de travail
+                Path altPath = Paths.get(System.getProperty("user.dir"), client.getLogoUrl());
+                log.info("📁 Chemin alternatif: {}", altPath.toAbsolutePath());
+                if (Files.exists(altPath)) {
+                    logoPath = altPath;
+                } else {
+                    log.error("❌ Fichier non trouvé aux deux emplacements");
+                    return ResponseEntity.notFound().build();
+                }
+            }
+
+            byte[] imageBytes = Files.readAllBytes(logoPath);
+            String contentType = Files.probeContentType(logoPath);
+            log.info("✅ Logo trouvé - taille: {} bytes, type: {}", imageBytes.length, contentType);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : "image/jpeg"))
+                    .body(imageBytes);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur getLogo: {}", e.getMessage(), e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Endpoint PUBLIC pour récupérer le logo (sans authentification)
+     */
+    @GetMapping(value = "/public/logo/{clientId}", produces = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})
+    public ResponseEntity<?> getPublicLogo(@PathVariable Long clientId) {
+        try {
+            Client client = clientPlatformService.getClientById(clientId);
+
+            if (client.getLogoUrl() == null) {
+                log.warn("⚠️ Aucun logo trouvé pour le client ID: {}", clientId);
+                return ResponseEntity.notFound().build();
+            }
+
+            Path logoPath = Paths.get(client.getLogoUrl());
+
+            // Si le chemin relatif ne fonctionne pas, essayer depuis le répertoire courant
+            if (!Files.exists(logoPath)) {
+                logoPath = Paths.get(System.getProperty("user.dir"), client.getLogoUrl());
+            }
+
+            if (!Files.exists(logoPath)) {
+                log.error("❌ Fichier logo non trouvé: {}", client.getLogoUrl());
+                return ResponseEntity.notFound().build();
+            }
+
+            byte[] imageBytes = Files.readAllBytes(logoPath);
+            String contentType = Files.probeContentType(logoPath);
+
+            log.info("✅ Logo public récupéré pour client ID: {}, taille: {} bytes", clientId, imageBytes.length);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : "image/jpeg"))
+                    .header("Cache-Control", "public, max-age=3600")
+                    .body(imageBytes);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur récupération logo public: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Mettre à jour les informations de l'entreprise (raison sociale, matricule fiscal)
+     */
+    @PutMapping("/update-company")
+    public ResponseEntity<?> updateCompanyInfo(
+            @RequestBody Map<String, String> request,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Long clientId = getClientIdFromToken(token);
+
+            if (clientId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Utilisateur non authentifié"));
+            }
+
+            Client client = clientPlatformService.getClientById(clientId);
+
+            String raisonSociale = request.get("raisonSociale");
+            String matriculeFiscal = request.get("matriculeFiscal");
+
+            if (raisonSociale != null && !raisonSociale.isEmpty()) {
+                client.setRaisonSociale(raisonSociale);
+                log.info("📝 Mise à jour raison sociale: {}", raisonSociale);
+            }
+
+            if (matriculeFiscal != null && !matriculeFiscal.isEmpty()) {
+                client.setMatriculeFiscal(matriculeFiscal);
+                log.info("📝 Mise à jour matricule fiscal: {}", matriculeFiscal);
+            }
+
+            clientRepository.save(client);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Informations entreprise mises à jour avec succès"
+            ));
+
+        } catch (Exception e) {
+            log.error("❌ Erreur mise à jour entreprise: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+// ========== MÉTHODES PRIVÉES ==========
+
+    /**
+     * Extraire le clientId du token JWT
+     */
+    private Long getClientIdFromToken(String token) {
+        try {
+            String jwt = token.replace("Bearer ", "");
+            // Utilisez votre JwtTokenProvider
+            return jwtTokenProvider.getClientIdFromToken(jwt);
+        } catch (Exception e) {
+            log.error("Erreur extraction clientId du token: {}", e.getMessage());
+            return null;
         }
     }
 }

@@ -86,6 +86,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return true;
             }
         }
+        if (path.startsWith("/api/platform/clients/public/logo/")) {
+            System.out.println("🔓 [PUBLIC LOGO] " + path);
+            return true;  // Ne pas appliquer le filtre JWT
+        }
 
         // ✅ AJOUTER CETTE CONDITION AU DÉBUT
         if (path.matches("/api/paiement/\\d+/konnect")) {

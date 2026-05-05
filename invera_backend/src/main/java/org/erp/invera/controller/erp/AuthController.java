@@ -366,7 +366,7 @@ public class AuthController {
             Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
             String role = jwtTokenProvider.getRoleFromToken(jwt);
 
-            log.info(" GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
+            log.info("📌 GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
 
             Client client = findClientByUserEmail(email);
             if (client == null) {
@@ -376,7 +376,7 @@ public class AuthController {
             Utilisateur user = utilisateurService.findByEmail(clientId, email);
 
             if (user == null) {
-                log.warn(" Utilisateur non trouvé dans la base client_{}", clientId);
+                log.warn("⚠️ Utilisateur non trouvé dans la base client_{}", clientId);
                 return ResponseEntity.status(404).body(Map.of("error", "Utilisateur non trouvé"));
             }
 
@@ -390,22 +390,33 @@ public class AuthController {
             response.put("clientId", clientId);
             response.put("database", "client_" + clientId);
 
-            // ✅ AJOUTER CES CHAMPS MANQUANTS
+            // Dates
             response.put("memberSince", user.getCreatedAt());
             response.put("lastLogin", user.getLastLogin());
             response.put("sessionsThisWeek", 0);
 
-            // ✅ INFOS CLIENT
+            // Infos client (abonnement)
             response.put("connexionsRestantes", client.getConnexionsRestantes());
             response.put("connexionsMax", client.getConnexionsMax());
             response.put("typeInscription", client.getTypeInscription().name());
             response.put("hasActiveSubscription", client.getAbonnementActif() != null);
             response.put("statut", client.getStatut().getLabel());
 
+            // ✅ AJOUTER LES CHAMPS MANQUANTS POUR LE PROFIL
+            response.put("typeCompte", client.getTypeCompte() != null ? client.getTypeCompte().name() : "PARTICULIER");
+            response.put("raisonSociale", client.getRaisonSociale() != null ? client.getRaisonSociale() : "");
+            response.put("matriculeFiscal", client.getMatriculeFiscal() != null ? client.getMatriculeFiscal() : "");
+            response.put("logoUrl", client.getLogoUrl() != null ? client.getLogoUrl() : "");
+
+            log.info("✅ Infos client retournées - typeCompte: {}, raisonSociale: {}, logoUrl: {}",
+                    client.getTypeCompte(),
+                    client.getRaisonSociale(),
+                    client.getLogoUrl() != null ? "Présent" : "Absent");
+
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Erreur getCurrentUser: {}", e.getMessage(), e);
+            log.error("❌ Erreur getCurrentUser: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
