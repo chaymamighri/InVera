@@ -126,11 +126,12 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/update/**",
                                 "/api/auth/delete/**",
-                                "/api/auth/activate/**"
-                        ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN")
+                                "/api/auth/activate/**",
+                                "/api/auth/me"
+                        ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN","COMMERCIAL","RESPONSABLE_ACHAT")
 
                         .requestMatchers("/api/users/me/preferences/**")
-                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+                        .hasAnyAuthority("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
 
                         // ========== SUPER ADMIN ==========
                         .requestMatchers(

@@ -14,7 +14,7 @@ const createLanguageRequestConfig = () => {
   const language = getStoredLanguage();
 
   return {
-    baseURL: LANGUAGE_API_BASE_URL,
+    baseURL: LANGUAGE_API_BASE_URL, 
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -41,7 +41,7 @@ export const applyLanguageToDocument = (language) => {
 
 export const getLanguagePreference = async () => {
   const response = await axios.get(
-    '/users/me/preferences/language',
+    '/users/me/preferences/language',  // ← Le chemin commence par /
     createLanguageRequestConfig()
   );
   return response.data;

@@ -33,7 +33,6 @@ const normalizeCurrentUser = (data) => ({
     memberSince: data?.memberSince || null,
     lastLogin: data?.lastLogin || null,
     sessionsThisWeek: data?.sessionsThisWeek ?? 0,
-    // ⭐ Ajout des informations de connexion
     connexionsRestantes: data?.connexionsRestantes,
     connexionsMax: data?.connexionsMax,
     typeInscription: data?.typeInscription,
@@ -43,7 +42,6 @@ const normalizeCurrentUser = (data) => ({
   }
 });
 
-// Normalisation pour Super Admin
 const normalizeSuperAdmin = (data) => ({
   success: true,
   data: {
@@ -62,127 +60,216 @@ export const authService = {
   login: async (credentials) => {
     clearCurrentUserCache();
 
-    const response = await api.post(`${API_URL}/login`, {
-      email: credentials.email,
-      password: credentials.password,
-      rememberMe: credentials.rememberMe
-    });
+    try {
+      const response = await api.post(`${API_URL}/login`, {
+        email: credentials.email,
+        password: credentials.password,
+        rememberMe: credentials.rememberMe
+      });
 
-    const data = response.data;
-    if (!data.token) throw new Error('Aucun token reçu du serveur');
-
-    const cleanedToken = String(data.token || '').replace(/^"|"$/g, '').trim();
-    const normalizedToken = cleanedToken.startsWith('Bearer ')
-      ? cleanedToken.slice(7)
-      : cleanedToken;
-
-    const fullName = `${data.nom || ''} ${data.prenom || ''}`.trim() || 'Utilisateur';
-    const backendEmail = data.email || data.username || credentials.email;
-
-    if (credentials.rememberMe) {
-      localStorage.setItem('token', normalizedToken);
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 30);
-      localStorage.setItem('tokenExpiry', expiryDate.toISOString());
-      localStorage.setItem('rememberMe', 'true');
-      localStorage.setItem('savedEmail', credentials.email);
-    } else {
-      sessionStorage.setItem('token', normalizedToken);
-    }
-
-    localStorage.setItem('userRole', data.role || '');
-    localStorage.setItem('userName', fullName);
-    localStorage.setItem('userEmail', backendEmail);
-
-    // ⭐ STOCKER LES INFORMATIONS DE CONNEXION CLIENT
-    if (data.connexionsRestantes !== undefined) {
-      localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
-    }
-    if (data.connexionsMax !== undefined) {
-      localStorage.setItem('connexionsMax', data.connexionsMax);
-    }
-    if (data.typeInscription) {
-      localStorage.setItem('typeInscription', data.typeInscription);
-    }
-    if (data.hasActiveSubscription !== undefined) {
-      localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
-    }
-    if (data.statut) {
-      localStorage.setItem('clientStatut', data.statut);
-    }
-    if (data.clientId) {
-      localStorage.setItem('clientId', data.clientId);
-    }
-
-    // ⭐ STOCKER LE FLAG POUR LE TOAST
-    sessionStorage.setItem('justLoggedIn', 'true');
-    console.log('✅ Flag justLoggedIn stocké dans sessionStorage');
-
-    // Stocker le warning si une autre session a été fermée
-    if (data.warning) {
-      sessionStorage.setItem('sessionWarning', data.warning);
-    }
-
-    // ⭐ RETOURNER TOUTES LES DONNÉES CLIENT DANS LA RÉPONSE
-    return {
-      success: true,
-      data: {
-        token: normalizedToken,
-        user: {
-          email: backendEmail,
-          name: fullName,
-          role: data.role,
-          firstName: data.prenom,
-          lastName: data.nom,
-          prenom: data.prenom,
-          nom: data.nom
-        },
-        // ⭐ DONNÉES DE CONNEXION ESSENTIELLES POUR LE TOAST
-        connexionsRestantes: data.connexionsRestantes,
-        connexionsMax: data.connexionsMax,
-        typeInscription: data.typeInscription,
-        hasActiveSubscription: data.hasActiveSubscription,
-        statut: data.statut,
-        clientId: data.clientId
+      const data = response.data;
+      
+      if (!data.token) {
+        const error = new Error('Aucun token reçu du serveur');
+        error.userMessage = 'Erreur technique. Veuillez réessayer.';
+        throw error;
       }
-    };
+
+      const cleanedToken = String(data.token || '').replace(/^"|"$/g, '').trim();
+      const normalizedToken = cleanedToken.startsWith('Bearer ')
+        ? cleanedToken.slice(7)
+        : cleanedToken;
+
+      const fullName = `${data.nom || ''} ${data.prenom || ''}`.trim() || 'Utilisateur';
+      const backendEmail = data.email || data.username || credentials.email;
+
+      if (credentials.rememberMe) {
+        localStorage.setItem('token', normalizedToken);
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('savedEmail', credentials.email);
+      } else {
+        sessionStorage.setItem('token', normalizedToken);
+      }
+
+      // ✅ Stocker toutes les informations utilisateur
+      localStorage.setItem('userRole', data.role || '');
+      localStorage.setItem('userName', fullName);
+      localStorage.setItem('userEmail', backendEmail);
+      localStorage.setItem('userNom', data.nom || '');      // ← AJOUTÉ
+      localStorage.setItem('userPrenom', data.prenom || ''); // ← AJOUTÉ
+      localStorage.setItem('userFullName', fullName);        // ← AJOUTÉ
+
+      if (data.connexionsRestantes !== undefined) {
+        localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+      }
+      if (data.connexionsMax !== undefined) {
+        localStorage.setItem('connexionsMax', data.connexionsMax);
+      }
+      if (data.typeInscription) {
+        localStorage.setItem('typeInscription', data.typeInscription);
+      }
+      if (data.hasActiveSubscription !== undefined) {
+        localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+      }
+      if (data.statut) {
+        localStorage.setItem('clientStatut', data.statut);
+      }
+      if (data.clientId) {
+        localStorage.setItem('clientId', data.clientId);
+      }
+      if (data.memberSince) {
+        localStorage.setItem('memberSince', data.memberSince);
+      }
+      if (data.lastLogin) {
+        localStorage.setItem('lastLogin', data.lastLogin);
+      }
+
+      sessionStorage.setItem('justLoggedIn', 'true');
+
+      if (data.warning) {
+        sessionStorage.setItem('sessionWarning', data.warning);
+      }
+
+      return {
+        success: true,
+        data: {
+          token: normalizedToken,
+          user: {
+            email: backendEmail,
+            name: fullName,
+            role: data.role,
+            firstName: data.prenom,
+            lastName: data.nom,
+            prenom: data.prenom,
+            nom: data.nom
+          },
+          connexionsRestantes: data.connexionsRestantes,
+          connexionsMax: data.connexionsMax,
+          typeInscription: data.typeInscription,
+          hasActiveSubscription: data.hasActiveSubscription,
+          statut: data.statut,
+          clientId: data.clientId
+        }
+      };
+    } catch (error) {
+      console.error('❌ authService.login error:', error);
+      clearCurrentUserCache();
+      
+      let userMessage = 'Email ou mot de passe incorrect';
+      
+      if (error.response) {
+        const status = error.response.status;
+        const backendMessage = error.response.data?.message;
+        const errorCode = error.response.data?.error;
+        
+        if (status === 401) {
+          userMessage = 'Email ou mot de passe incorrect. Veuillez réessayer.';
+        } else if (status === 404) {
+          userMessage = 'Aucun compte trouvé avec cet email.';
+        } else if (status === 403) {
+          if (errorCode === 'ACCOUNT_INACTIVE') {
+            userMessage = 'Votre compte est désactivé. Veuillez contacter l\'administrateur.';
+          } else if (errorCode === 'ACCOUNT_LOCKED') {
+            userMessage = 'Votre compte est verrouillé. Veuillez contacter l\'administrateur.';
+          } else {
+            userMessage = backendMessage || 'Accès refusé.';
+          }
+        } else if (status === 500) {
+          userMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+        } else {
+          userMessage = backendMessage || userMessage;
+        }
+      } else if (error.userMessage) {
+        userMessage = error.userMessage;
+      } else if (error.message && error.message !== 'Request failed with status code 401') {
+        userMessage = error.message;
+      }
+      
+      const formattedError = new Error(userMessage);
+      formattedError.userMessage = userMessage;
+      formattedError.originalError = error;
+      if (error.response) {
+        formattedError.status = error.response.status;
+        formattedError.response = error.response;
+      }
+      
+      throw formattedError;
+    }
   },
 
-  // Login pour Super Admin
   loginSuperAdmin: async (credentials) => {
     clearCurrentUserCache();
     
-    const response = await api.post('/super-admin/login', {
-      email: credentials.email,
-      motDePasse: credentials.password
-    });
-    
-    const data = response.data;
-    if (!data.token) throw new Error('Aucun token reçu du serveur');
-    
-    const normalizedToken = data.token;
-    
-    localStorage.setItem('token', normalizedToken);
-    localStorage.setItem('userRole', 'SUPER_ADMIN');
-    localStorage.setItem('userName', data.nom);
-    localStorage.setItem('userEmail', data.email);
-    
-    if (data.warning) {
-      sessionStorage.setItem('sessionWarning', data.warning);
-    }
-
-    return {
-      success: true,
-      data: {
-        token: normalizedToken,
-        user: {
-          email: data.email,
-          name: data.nom,
-          role: 'SUPER_ADMIN',
-          nom: data.nom
-        }
+    try {
+      const response = await api.post('/super-admin/login', {
+        email: credentials.email,
+        motDePasse: credentials.password
+      });
+      
+      const data = response.data;
+      if (!data.token) {
+        const error = new Error('Aucun token reçu du serveur');
+        error.userMessage = 'Erreur technique. Veuillez réessayer.';
+        throw error;
       }
-    };
+      
+      const normalizedToken = data.token;
+      
+      localStorage.setItem('token', normalizedToken);
+    
+    // ✅ STOCKER TOUTES LES INFORMATIONS DANS localStorage
+    localStorage.setItem('userRole', data.role || '');
+    localStorage.setItem('userName', fullName);
+    localStorage.setItem('userEmail', backendEmail);
+    localStorage.setItem('userNom', data.nom || '');      // ← AJOUTER
+    localStorage.setItem('userPrenom', data.prenom || ''); // ← AJOUTER
+    localStorage.setItem('userFullName', fullName);   
+      
+      if (data.warning) {
+        sessionStorage.setItem('sessionWarning', data.warning);
+      }
+
+      return {
+        success: true,
+        data: {
+          token: normalizedToken,
+          user: {
+            email: data.email,
+            name: data.nom,
+            role: 'SUPER_ADMIN',
+            nom: data.nom
+          }
+        }
+      };
+    } catch (error) {
+      console.error('❌ authService.loginSuperAdmin error:', error);
+      
+      let userMessage = 'Email ou mot de passe incorrect';
+      
+      if (error.response) {
+        const status = error.response.status;
+        const backendMessage = error.response.data?.message;
+        
+        if (status === 401) {
+          userMessage = 'Email ou mot de passe incorrect.';
+        } else if (status === 404) {
+          userMessage = 'Aucun compte Super Admin trouvé.';
+        } else {
+          userMessage = backendMessage || userMessage;
+        }
+      } else if (error.userMessage) {
+        userMessage = error.userMessage;
+      } else if (error.message) {
+        userMessage = error.message;
+      }
+      
+      const formattedError = new Error(userMessage);
+      formattedError.userMessage = userMessage;
+      throw formattedError;
+    }
   },
 
   logout: async () => {
@@ -202,23 +289,12 @@ export const authService = {
       }
     }
     
-    // ⭐ NETTOYER LES DONNÉES DE CONNEXION
-    localStorage.removeItem('connexionsRestantes');
-    localStorage.removeItem('connexionsMax');
-    localStorage.removeItem('typeInscription');
-    localStorage.removeItem('hasActiveSubscription');
-    localStorage.removeItem('clientStatut');
-    localStorage.removeItem('clientId');
-    sessionStorage.removeItem('justLoggedIn');
-    sessionStorage.removeItem('toastShownForSession');
-    
     localStorage.clear();
     sessionStorage.clear();
     
     return { success: true };
   },
 
-  // ✅ CORRIGÉ: Récupérer les infos du token d'activation
   getActivationLinkInfo: async (token) => {
     try {
       const response = await api.get(`/auth/activation-link-info?token=${encodeURIComponent(token)}`);
@@ -230,7 +306,6 @@ export const authService = {
     }
   },
 
-  // ✅ CORRIGÉ: Activer le compte avec le mot de passe
   activateAccount: async (token, newPassword) => {
     try {
       const response = await api.post('/auth/activate-account', {
@@ -245,7 +320,6 @@ export const authService = {
     }
   },
 
-  // ✅ NOUVEAU: Vérifier si le token d'activation est valide
   verifyActivationToken: async (token) => {
     try {
       const response = await api.get(`/auth/verify-activation-token?token=${encodeURIComponent(token)}`);
@@ -256,7 +330,6 @@ export const authService = {
     }
   },
 
-  // ✅ NOUVEAU: Renvoyer un email d'activation
   resendActivationEmail: async (email) => {
     try {
       const response = await api.post('/auth/resend-activation', { email });
@@ -267,13 +340,11 @@ export const authService = {
     }
   },
 
-  // Mot de passe oublié
   forgotPassword: async (email) => {
     const response = await api.post('/auth/forgot-password', { email });
     return response.data;
   },
 
-  // Réinitialisation avec code OTP
   resetPassword: async (code, email, newPassword) => {
     try {
       const response = await api.post('/auth/reset-password', {

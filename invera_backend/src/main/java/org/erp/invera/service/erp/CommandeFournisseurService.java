@@ -5,23 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.erp.invera.dto.erp.commandeFornisseurdto.CommandeFournisseurDTO;
 import org.erp.invera.dto.erp.commandeFornisseurdto.LigneCommandeDTO;
 import org.erp.invera.dto.erp.commandeFornisseurdto.ReceptionDTO;
-import org.erp.invera.dto.erp.fournisseurdto.FournisseurDTO;
 
 import org.erp.invera.model.erp.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.erp.Fournisseurs.Fournisseur;
 import org.erp.invera.model.erp.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.erp.Produit;
-import org.erp.invera.model.erp.stock.StockMovement;
-import org.erp.invera.model.erp.Notification;
-import org.erp.invera.model.platform.Utilisateur;
 
-import org.erp.invera.repository.erp.*;
-import org.erp.invera.repository.platform.utilisateurRepository;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -39,10 +30,6 @@ public class CommandeFournisseurService {
 
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
-    private final utilisateurRepository utilisateurRepository;
-    private final BonCommandePdfService bonCommandePdfService;
-    private final EmailService emailService;
-    private final ProduitService produitService;
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
 

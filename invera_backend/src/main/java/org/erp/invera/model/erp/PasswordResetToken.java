@@ -1,4 +1,4 @@
-package org.erp.invera.model.platform;
+package org.erp.invera.model.erp;
 
 import jakarta.persistence.*;
 import lombok.Data;
