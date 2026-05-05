@@ -8,6 +8,9 @@ import {
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon,
+  BuildingOfficeIcon,
+  IdentificationIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 import { authService } from '../../services/authService';
@@ -17,43 +20,52 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const settingsCopy = {
   fr: {
-    title: 'Parametres',
+    title: 'Paramètres',
     profileTab: 'Profil',
-    profileDescription: 'Mettez a jour vos informations personnelles',
-    securityTab: 'Securite',
+    profileDescription: 'Mettez à jour vos informations personnelles',
+    securityTab: 'Sécurité',
     securityDescription: 'Modifiez votre mot de passe',
+    companyTab: 'Entreprise',
+    companyDescription: 'Informations de votre entreprise',
     backToProfile: 'Retour au profil',
     profileInformation: 'Informations du profil',
+    companyInformation: 'Informations de l\'entreprise',
     readOnlyEmail: 'Email (lecture seule)',
     lastName: 'Nom',
-    firstName: 'Prenom',
+    firstName: 'Prénom',
     lastNamePlaceholder: 'Votre nom',
-    firstNamePlaceholder: 'Votre prenom',
+    firstNamePlaceholder: 'Votre prénom',
+    raisonSociale: 'Raison sociale',
+    raisonSocialePlaceholder: 'Nom de votre entreprise',
+    matriculeFiscal: 'Matricule fiscal',
+    matriculeFiscalPlaceholder: 'Votre matricule fiscal',
     save: 'Enregistrer',
-    saving: 'Mise a jour...',
-    disabledAccount: "Votre compte est desactive. Contactez l'administrateur.",
+    saving: 'Mise à jour...',
+    disabledAccount: "Votre compte est désactivé. Contactez l'administrateur.",
     changePassword: 'Changer le mot de passe',
     hide: 'Masquer',
     show: 'Afficher',
     currentPassword: 'Mot de passe actuel',
     currentPasswordPlaceholder: 'Entrez votre mot de passe actuel',
     newPassword: 'Nouveau mot de passe',
-    newPasswordPlaceholder: 'Minimum 8 caracteres',
+    newPasswordPlaceholder: 'Minimum 8 caractères',
     confirmPassword: 'Confirmer le nouveau mot de passe',
     confirmPasswordPlaceholder: 'Retapez votre nouveau mot de passe',
-    passwordHint: 'Astuce: utilisez au moins 8 caracteres avec des chiffres et lettres.',
-    updatePassword: 'Mettre a jour',
+    passwordHint: 'Astuce: utilisez au moins 8 caractères avec des chiffres et lettres.',
+    updatePassword: 'Mettre à jour',
     updatingPassword: 'Modification...',
     loadError: 'Impossible de charger vos informations.',
-    profileSuccess: 'Profil mis a jour avec succes.',
-    profileError: 'Erreur lors de la mise a jour du profil.',
-    passwordSuccess: 'Mot de passe modifie avec succes.',
+    profileSuccess: 'Profil mis à jour avec succès.',
+    profileError: 'Erreur lors de la mise à jour du profil.',
+    companyProfileSuccess: 'Informations entreprise mises à jour avec succès.',
+    passwordSuccess: 'Mot de passe modifié avec succès.',
     passwordError: 'Erreur lors de la modification du mot de passe.',
     validationLastName: 'Le nom est requis.',
-    validationFirstName: 'Le prenom est requis.',
+    validationFirstName: 'Le prénom est requis.',
+    validationRaisonSociale: 'La raison sociale est requise.',
     validationCurrentPassword: 'Le mot de passe actuel est requis.',
     validationNewPassword: 'Le nouveau mot de passe est requis.',
-    validationPasswordMin: 'Le mot de passe doit contenir au moins 8 caracteres.',
+    validationPasswordMin: 'Le mot de passe doit contenir au moins 8 caractères.',
     validationPasswordMismatch: 'Les mots de passe ne correspondent pas.',
   },
   en: {
@@ -62,13 +74,20 @@ const settingsCopy = {
     profileDescription: 'Update your personal information',
     securityTab: 'Security',
     securityDescription: 'Change your password',
+    companyTab: 'Company',
+    companyDescription: 'Your company information',
     backToProfile: 'Back to profile',
     profileInformation: 'Profile information',
+    companyInformation: 'Company information',
     readOnlyEmail: 'Email (read only)',
     lastName: 'Last name',
     firstName: 'First name',
     lastNamePlaceholder: 'Your last name',
     firstNamePlaceholder: 'Your first name',
+    raisonSociale: 'Company name',
+    raisonSocialePlaceholder: 'Your company name',
+    matriculeFiscal: 'Tax registration number',
+    matriculeFiscalPlaceholder: 'Your tax registration number',
     save: 'Save',
     saving: 'Updating...',
     disabledAccount: 'Your account is disabled. Please contact the administrator.',
@@ -87,53 +106,64 @@ const settingsCopy = {
     loadError: 'Unable to load your information.',
     profileSuccess: 'Profile updated successfully.',
     profileError: 'Error while updating profile.',
+    companyProfileSuccess: 'Company information updated successfully.',
     passwordSuccess: 'Password updated successfully.',
     passwordError: 'Error while changing password.',
     validationLastName: 'Last name is required.',
     validationFirstName: 'First name is required.',
+    validationRaisonSociale: 'Company name is required.',
     validationCurrentPassword: 'Current password is required.',
     validationNewPassword: 'New password is required.',
     validationPasswordMin: 'Password must contain at least 8 characters.',
     validationPasswordMismatch: 'Passwords do not match.',
   },
   ar: {
-    title: 'الاعدادات',
+    title: 'الإعدادات',
     profileTab: 'الملف الشخصي',
     profileDescription: 'قم بتحديث معلوماتك الشخصية',
-    securityTab: 'الامان',
+    securityTab: 'الأمان',
     securityDescription: 'قم بتغيير كلمة المرور',
-    backToProfile: 'العودة الى الملف الشخصي',
+    companyTab: 'الشركة',
+    companyDescription: 'معلومات شركتك',
+    backToProfile: 'العودة إلى الملف الشخصي',
     profileInformation: 'معلومات الملف الشخصي',
-    readOnlyEmail: 'البريد الالكتروني (للقراءة فقط)',
+    companyInformation: 'معلومات الشركة',
+    readOnlyEmail: 'البريد الإلكتروني (للقراءة فقط)',
     lastName: 'اللقب',
     firstName: 'الاسم',
     lastNamePlaceholder: 'لقبك',
     firstNamePlaceholder: 'اسمك',
+    raisonSociale: 'الاسم التجاري',
+    raisonSocialePlaceholder: 'اسم شركتك',
+    matriculeFiscal: 'الرقم الضريبي',
+    matriculeFiscalPlaceholder: 'رقمك الضريبي',
     save: 'حفظ',
     saving: 'جار التحديث...',
     disabledAccount: 'تم تعطيل حسابك. يرجى التواصل مع المسؤول.',
     changePassword: 'تغيير كلمة المرور',
-    hide: 'اخفاء',
-    show: 'اظهار',
+    hide: 'إخفاء',
+    show: 'إظهار',
     currentPassword: 'كلمة المرور الحالية',
-    currentPasswordPlaceholder: 'ادخل كلمة المرور الحالية',
+    currentPasswordPlaceholder: 'أدخل كلمة المرور الحالية',
     newPassword: 'كلمة المرور الجديدة',
-    newPasswordPlaceholder: '8 احرف على الاقل',
+    newPasswordPlaceholder: '8 أحرف على الأقل',
     confirmPassword: 'تأكيد كلمة المرور الجديدة',
-    confirmPasswordPlaceholder: 'اعد كتابة كلمة المرور الجديدة',
-    passwordHint: 'نصيحة: استخدم 8 احرف على الاقل مع ارقام وحروف.',
+    confirmPasswordPlaceholder: 'أعد كتابة كلمة المرور الجديدة',
+    passwordHint: 'نصيحة: استخدم 8 أحرف على الأقل مع أرقام وحروف.',
     updatePassword: 'تحديث',
     updatingPassword: 'جار التعديل...',
     loadError: 'تعذر تحميل معلوماتك.',
     profileSuccess: 'تم تحديث الملف الشخصي بنجاح.',
-    profileError: 'حدث خطأ اثناء تحديث الملف الشخصي.',
+    profileError: 'حدث خطأ أثناء تحديث الملف الشخصي.',
+    companyProfileSuccess: 'تم تحديث معلومات الشركة بنجاح.',
     passwordSuccess: 'تم تغيير كلمة المرور بنجاح.',
-    passwordError: 'حدث خطأ اثناء تغيير كلمة المرور.',
+    passwordError: 'حدث خطأ أثناء تغيير كلمة المرور.',
     validationLastName: 'اللقب مطلوب.',
     validationFirstName: 'الاسم مطلوب.',
+    validationRaisonSociale: 'الاسم التجاري مطلوب.',
     validationCurrentPassword: 'كلمة المرور الحالية مطلوبة.',
     validationNewPassword: 'كلمة المرور الجديدة مطلوبة.',
-    validationPasswordMin: 'يجب ان تحتوي كلمة المرور على 8 احرف على الاقل.',
+    validationPasswordMin: 'يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل.',
     validationPasswordMismatch: 'كلمتا المرور غير متطابقتين.',
   },
 };
@@ -151,6 +181,10 @@ const SettingsPage = () => {
     prenom: '',
     email: '',
   });
+  const [companyForm, setCompanyForm] = useState({
+    raisonSociale: '',
+    matriculeFiscal: '',
+  });
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -158,66 +192,88 @@ const SettingsPage = () => {
   });
   const [showPasswords, setShowPasswords] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingCompany, setSavingCompany] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  const isAdminClient = () => {
+    const role = String(me?.role || localStorage.getItem('userRole') || '').toUpperCase();
+    return role === 'ADMIN_CLIENT';
+  };
+
+  const isCompany = () => {
+    const typeCompte = me?.typeCompte || localStorage.getItem('typeCompte') || '';
+    return typeCompte === 'ENTREPRISE';
+  };
+
   useEffect(() => {
-   const load = async () => {
-  setLoadingMe(true);
-  try {
-    // Essayer d'abord avec l'API
-    try {
-      const res = await authService.getCurrentUser();
-      const data = res?.data;
-      
-      if (data && data.email) {
-        setMe(data);
+    const load = async () => {
+      setLoadingMe(true);
+      try {
+        try {
+          const res = await authService.getCurrentUser();
+          const data = res?.data;
+          
+          if (data && data.email) {
+            setMe(data);
+            setProfileForm({
+              username: data?.username || '',
+              nom: data?.nom || data?.lastName || '',
+              prenom: data?.prenom || data?.firstName || '',
+              email: data?.email || '',
+            });
+            setCompanyForm({
+              raisonSociale: data?.raisonSociale || '',
+              matriculeFiscal: data?.matriculeFiscal || '',
+            });
+            
+            // Stocker dans localStorage
+            if (data?.nom) localStorage.setItem('userNom', data.nom);
+            if (data?.prenom) localStorage.setItem('userPrenom', data.prenom);
+            if (data?.email) localStorage.setItem('userEmail', data.email);
+            if (data?.role) localStorage.setItem('userRole', data.role);
+            if (data?.typeCompte) localStorage.setItem('typeCompte', data.typeCompte);
+            if (data?.raisonSociale) localStorage.setItem('raisonSociale', data.raisonSociale);
+            if (data?.matriculeFiscal) localStorage.setItem('matriculeFiscal', data.matriculeFiscal);
+            
+            setLoadingMe(false);
+            return;
+          }
+        } catch (apiError) {
+          console.warn('API /me not available, using localStorage');
+        }
+        
         setProfileForm({
-          username: data?.username || '',
-          nom: data?.nom || data?.lastName || '',
-          prenom: data?.prenom || data?.firstName || '',
-          email: data?.email || '',
+          username: '',
+          nom: localStorage.getItem('userNom') || '',
+          prenom: localStorage.getItem('userPrenom') || '',
+          email: localStorage.getItem('userEmail') || '',
+        });
+        setCompanyForm({
+          raisonSociale: localStorage.getItem('raisonSociale') || '',
+          matriculeFiscal: localStorage.getItem('matriculeFiscal') || '',
+        });
+        setMe({
+          nom: localStorage.getItem('userNom'),
+          prenom: localStorage.getItem('userPrenom'),
+          email: localStorage.getItem('userEmail'),
+          role: localStorage.getItem('userRole'),
+          typeCompte: localStorage.getItem('typeCompte'),
+          raisonSociale: localStorage.getItem('raisonSociale'),
+          matriculeFiscal: localStorage.getItem('matriculeFiscal'),
         });
         
-        // Stocker dans localStorage
-        if (data?.nom) localStorage.setItem('userNom', data.nom);
-        if (data?.prenom) localStorage.setItem('userPrenom', data.prenom);
-        if (data?.email) localStorage.setItem('userEmail', data.email);
-        if (data?.role) localStorage.setItem('userRole', data.role);
-        
+      } catch (error) {
+        console.error('❌ SettingsPage error:', error);
+      } finally {
         setLoadingMe(false);
-        return;
       }
-    } catch (apiError) {
-      console.warn('API /me not available, using localStorage');
-    }
-    
-    // Fallback : utiliser localStorage
-    setProfileForm({
-      username: '',
-      nom: localStorage.getItem('userNom') || '',
-      prenom: localStorage.getItem('userPrenom') || '',
-      email: localStorage.getItem('userEmail') || '',
-    });
-    
-    setMe({
-      nom: localStorage.getItem('userNom'),
-      prenom: localStorage.getItem('userPrenom'),
-      email: localStorage.getItem('userEmail'),
-      role: localStorage.getItem('userRole'),
-    });
-    
-  } catch (error) {
-    console.error('❌ SettingsPage error:', error);
-  } finally {
-    setLoadingMe(false);
-  }
-};
+    };
 
     load();
-  }, [copy.loadError]);
+  }, []);
 
-  const tabs = useMemo(
-    () => [
+  const tabs = useMemo(() => {
+    const baseTabs = [
       {
         id: 'profile',
         name: copy.profileTab,
@@ -230,13 +286,29 @@ const SettingsPage = () => {
         icon: <ShieldCheckIcon className="h-5 w-5" />,
         description: copy.securityDescription,
       },
-    ],
-    [copy]
-  );
+    ];
+    
+    // Ajouter l'onglet entreprise seulement pour ADMIN_CLIENT avec typeCompte ENTREPRISE
+    if (isAdminClient() && isCompany()) {
+      baseTabs.push({
+        id: 'company',
+        name: copy.companyTab,
+        icon: <BuildingOfficeIcon className="h-5 w-5" />,
+        description: copy.companyDescription,
+      });
+    }
+    
+    return baseTabs;
+  }, [copy, isAdminClient, isCompany]);
 
   const validateProfile = () => {
     if (!profileForm.nom.trim()) return copy.validationLastName;
     if (!profileForm.prenom.trim()) return copy.validationFirstName;
+    return '';
+  };
+
+  const validateCompany = () => {
+    if (!companyForm.raisonSociale.trim()) return copy.validationRaisonSociale;
     return '';
   };
 
@@ -248,44 +320,67 @@ const SettingsPage = () => {
     return '';
   };
 
-const handleProfileSubmit = async (e) => {
-  e.preventDefault();
-  const err = validateProfile();
-  if (err) return toast.error(err);
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    const err = validateProfile();
+    if (err) return toast.error(err);
 
-  setSavingProfile(true);
-  try {
-    // 1. Mettre à jour le profil via l'API
-    await api.put('/auth/update-profile', {
-      nom: profileForm.nom.trim(),
-      prenom: profileForm.prenom.trim(),
-    });
+    setSavingProfile(true);
+    try {
+      await api.put('/auth/update-profile', {
+        nom: profileForm.nom.trim(),
+        prenom: profileForm.prenom.trim(),
+      });
 
-    // 2. Mettre à jour le localStorage
-    localStorage.setItem('userNom', profileForm.nom.trim());
-    localStorage.setItem('userPrenom', profileForm.prenom.trim());
-    localStorage.setItem('userName', `${profileForm.prenom.trim()} ${profileForm.nom.trim()}`);
+      localStorage.setItem('userNom', profileForm.nom.trim());
+      localStorage.setItem('userPrenom', profileForm.prenom.trim());
+      localStorage.setItem('userName', `${profileForm.prenom.trim()} ${profileForm.nom.trim()}`);
 
-    // 3. Mettre à jour l'état local (sans rechargement)
-    setMe(prev => ({ 
-      ...prev, 
-      nom: profileForm.nom.trim(), 
-      prenom: profileForm.prenom.trim() 
-    }));
+      setMe(prev => ({ 
+        ...prev, 
+        nom: profileForm.nom.trim(), 
+        prenom: profileForm.prenom.trim() 
+      }));
 
-    // 4. Le formulaire est déjà à jour
+      toast.success(copy.profileSuccess);
+    } catch (error) {
+      const msg = error?.response?.data?.error || error?.message || copy.profileError;
+      toast.error(typeof msg === 'string' ? msg : copy.profileError);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
-    toast.success(copy.profileSuccess);
-    
-  
-    
-  } catch (error) {
-    const msg = error?.response?.data?.error || error?.message || copy.profileError;
-    toast.error(typeof msg === 'string' ? msg : copy.profileError);
-  } finally {
-    setSavingProfile(false);
-  }
-};
+  const handleCompanySubmit = async (e) => {
+    e.preventDefault();
+    const err = validateCompany();
+    if (err) return toast.error(err);
+
+    setSavingCompany(true);
+    try {
+      await api.put('/platform/clients/update-company', {
+        raisonSociale: companyForm.raisonSociale.trim(),
+        matriculeFiscal: companyForm.matriculeFiscal.trim(),
+      });
+
+      localStorage.setItem('raisonSociale', companyForm.raisonSociale.trim());
+      localStorage.setItem('matriculeFiscal', companyForm.matriculeFiscal.trim());
+
+      setMe(prev => ({ 
+        ...prev,
+        raisonSociale: companyForm.raisonSociale.trim(),
+        matriculeFiscal: companyForm.matriculeFiscal.trim(),
+      }));
+
+      toast.success(copy.companyProfileSuccess);
+    } catch (error) {
+      const msg = error?.response?.data?.error || error?.message || copy.profileError;
+      toast.error(typeof msg === 'string' ? msg : copy.profileError);
+    } finally {
+      setSavingCompany(false);
+    }
+  };
+
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     const err = validatePassword();
@@ -316,6 +411,8 @@ const handleProfileSubmit = async (e) => {
   const directionClasses = isArabic ? 'text-right' : 'text-left';
   const inlineRowClasses = isArabic ? 'flex-row-reverse' : 'flex-row';
   const inputDir = isArabic ? 'rtl' : 'ltr';
+
+  const currentTab = tabs.find(t => t.id === activeTab);
 
   if (loadingMe) {
     return (
@@ -370,13 +467,13 @@ const handleProfileSubmit = async (e) => {
               <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
                 <div className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 p-8">
                   <div className={`flex items-center gap-3 ${inlineRowClasses}`}>
-                    <div className="rounded-lg bg-blue-100 p-2">{tabs.find((t) => t.id === activeTab)?.icon}</div>
+                    <div className="rounded-lg bg-blue-100 p-2">{currentTab?.icon}</div>
                     <h1 className={`text-2xl font-bold text-gray-900 ${directionClasses}`}>
-                      {tabs.find((t) => t.id === activeTab)?.name}
+                      {currentTab?.name}
                     </h1>
                   </div>
                   <p className={`mt-3 text-lg text-gray-600 ${directionClasses}`}>
-                    {tabs.find((t) => t.id === activeTab)?.description}
+                    {currentTab?.description}
                   </p>
                 </div>
 
@@ -451,6 +548,61 @@ const handleProfileSubmit = async (e) => {
                             {copy.disabledAccount}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'company' && (
+                    <div className="space-y-6">
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
+                        <h3 className={`mb-6 text-lg font-semibold text-gray-800 ${directionClasses}`}>
+                          <BuildingOfficeIcon className={`inline h-5 w-5 text-blue-600 ${isArabic ? 'ml-2' : 'mr-2'}`} />
+                          {copy.companyInformation}
+                        </h3>
+
+                        <form onSubmit={handleCompanySubmit} className="space-y-5">
+                          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <div>
+                              <label className={`mb-2 block text-sm font-medium text-gray-700 ${directionClasses}`}>
+                                {copy.raisonSociale}
+                              </label>
+                              <input
+                                type="text"
+                                value={companyForm.raisonSociale}
+                                onChange={(e) => setCompanyForm((p) => ({ ...p, raisonSociale: e.target.value }))}
+                                dir={inputDir}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                                placeholder={copy.raisonSocialePlaceholder}
+                              />
+                            </div>
+
+                            <div>
+                              <label className={`mb-2 block text-sm font-medium text-gray-700 ${directionClasses}`}>
+                                {copy.matriculeFiscal}
+                              </label>
+                              <input
+                                type="text"
+                                value={companyForm.matriculeFiscal}
+                                onChange={(e) => setCompanyForm((p) => ({ ...p, matriculeFiscal: e.target.value }))}
+                                dir={inputDir}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                                placeholder={copy.matriculeFiscalPlaceholder}
+                              />
+                            </div>
+                          </div>
+
+                          <div className={`flex ${isArabic ? 'justify-start' : 'justify-end'}`}>
+                            <button
+                              type="submit"
+                              disabled={savingCompany}
+                              className={`rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-3 font-medium text-white transition-all hover:from-blue-700 hover:to-blue-600 ${
+                                savingCompany ? 'cursor-not-allowed opacity-70' : ''
+                              }`}
+                            >
+                              {savingCompany ? copy.saving : copy.save}
+                            </button>
+                          </div>
+                        </form>
                       </div>
                     </div>
                   )}

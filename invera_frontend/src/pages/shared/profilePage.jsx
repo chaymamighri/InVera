@@ -1,12 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
   EnvelopeIcon,
   CalendarIcon,
   ArrowLeftIcon,
+  BuildingOfficeIcon,
+  PhotoIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 
 import { authService } from '../../services/authService';
+import api from '../../services/api';
 import Header from '../../components/Header';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -23,22 +28,30 @@ const profileCopy = {
     editProfile: 'Modifier le profil',
     personalInfo: 'Informations personnelles',
     professionalInfo: 'Informations professionnelles',
+    companyInfo: "Informations de l'entreprise",
     fullName: 'Nom complet',
     email: 'Email',
     role: 'Rôle',
     memberSince: 'Membre depuis',
-    sessionsThisWeek: 'Sessions cette semaine',
     lastLogin: 'Dernière connexion',
     memberSinceHelper: 'Date de création du compte',
     unavailableHelper: 'Date non disponible',
-    sessionsHelper: 'Activité récente sur les 7 derniers jours',
     lastLoginHelper: 'Dernière activité',
     noLoginHelper: 'Aucune connexion enregistrée',
     administrator: 'Administrateur',
+    adminClient: 'Administrateur Client',
     salesManager: 'Responsable Commercial',
     procurementManager: 'Responsable Achats',
     salesLead: 'Responsable Ventes',
     user: 'Utilisateur',
+    companyLogo: "Logo de l'entreprise",
+    raisonSociale: 'Raison sociale',
+    matriculeFiscal: 'Matricule fiscal',
+    changeLogo: 'Changer le logo',
+    addLogo: 'Ajouter un logo',
+    logoUploadSuccess: 'Logo mis à jour avec succès',
+    logoUploadError: 'Erreur lors de la mise à jour du logo',
+    uploadLogo: 'Importer un logo',
   },
   en: {
     unknown: 'Not provided',
@@ -52,22 +65,30 @@ const profileCopy = {
     editProfile: 'Edit profile',
     personalInfo: 'Personal information',
     professionalInfo: 'Professional information',
+    companyInfo: 'Company information',
     fullName: 'Full name',
     email: 'Email',
     role: 'Role',
     memberSince: 'Member since',
-    sessionsThisWeek: 'Sessions this week',
     lastLogin: 'Last login',
     memberSinceHelper: 'Account creation date',
     unavailableHelper: 'Date not available',
-    sessionsHelper: 'Recent activity over the last 7 days',
     lastLoginHelper: 'Latest activity',
     noLoginHelper: 'No recorded login yet',
     administrator: 'Administrator',
+    adminClient: 'Client Administrator',
     salesManager: 'Sales Manager',
     procurementManager: 'Procurement Manager',
     salesLead: 'Sales Lead',
     user: 'User',
+    companyLogo: 'Company logo',
+    raisonSociale: 'Company name',
+    matriculeFiscal: 'Tax registration number',
+    changeLogo: 'Change logo',
+    addLogo: 'Add logo',
+    logoUploadSuccess: 'Logo updated successfully',
+    logoUploadError: 'Error updating logo',
+    uploadLogo: 'Upload logo',
   },
   ar: {
     unknown: 'غير متوفر',
@@ -81,22 +102,30 @@ const profileCopy = {
     editProfile: 'تعديل الملف الشخصي',
     personalInfo: 'المعلومات الشخصية',
     professionalInfo: 'المعلومات المهنية',
+    companyInfo: 'معلومات الشركة',
     fullName: 'الاسم الكامل',
     email: 'البريد الإلكتروني',
     role: 'الدور',
     memberSince: 'عضو منذ',
-    sessionsThisWeek: 'الجلسات هذا الأسبوع',
     lastLogin: 'آخر تسجيل دخول',
     memberSinceHelper: 'تاريخ إنشاء الحساب',
     unavailableHelper: 'التاريخ غير متوفر',
-    sessionsHelper: 'النشاط خلال آخر 7 أيام',
     lastLoginHelper: 'آخر نشاط',
     noLoginHelper: 'لا توجد عملية دخول مسجلة',
     administrator: 'المدير',
+    adminClient: 'مدير العملاء',
     salesManager: 'مسؤول المبيعات',
     procurementManager: 'مسؤول المشتريات',
     salesLead: 'مشرف المبيعات',
     user: 'مستخدم',
+    companyLogo: 'شعار الشركة',
+    raisonSociale: 'الاسم التجاري',
+    matriculeFiscal: 'الرقم الضريبي',
+    changeLogo: 'تغيير الشعار',
+    addLogo: 'إضافة شعار',
+    logoUploadSuccess: 'تم تحديث الشعار بنجاح',
+    logoUploadError: 'خطأ في تحديث الشعار',
+    uploadLogo: 'رفع شعار',
   },
 };
 
@@ -130,10 +159,6 @@ const highlightCardStyles = {
     wrapper: 'border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50',
     label: 'text-blue-600',
   },
-  green: {
-    wrapper: 'border-green-100 bg-gradient-to-r from-green-50 to-emerald-50',
-    label: 'text-green-600',
-  },
   purple: {
     wrapper: 'border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50',
     label: 'text-purple-600',
@@ -156,8 +181,15 @@ const ProfilePage = () => {
   const { language, isArabic } = useLanguage();
   const locale = language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR';
   const copy = profileCopy[language] || profileCopy.fr;
+  
+  const fileInputRef = useRef(null);
+  const [logoTimestamp, setLogoTimestamp] = useState(Date.now());
+  const [logoError, setLogoError] = useState(false);
+  const [logoUploadSuccess, setLogoUploadSuccess] = useState(false);
 
   const [userData, setUserData] = useState({
+    id: null,
+    clientId: null, 
     nom: '',
     prenom: '',
     email: '',
@@ -165,10 +197,44 @@ const ProfilePage = () => {
     active: true,
     memberSince: null,
     lastLogin: null,
-    sessionsThisWeek: 0,
+    typeCompte: '',
+    raisonSociale: '',
+    matriculeFiscal: '',
+    logoUrl: null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const getLogoUrl = () => {
+    const clientId = userData.clientId;  
+    
+    if (!clientId) {
+      console.log('❌ Pas de clientId disponible');
+      return null;
+    }
+    
+    const baseURL = api.defaults.baseURL || 'http://localhost:8081/api';
+    const url = `${baseURL}/platform/clients/public/logo/${clientId}?t=${logoTimestamp}`;
+    
+    console.log('🔍 Génération URL logo:', { 
+      clientId, 
+      timestamp: logoTimestamp, 
+      url 
+    });
+    
+    return url;
+  };
+
+  const hasValidLogo = useCallback(() => {
+    const logo = userData.logoUrl || localStorage.getItem('logoUrl');
+    return logo && logo !== 'null' && logo !== '' && !logoError;
+  }, [userData.logoUrl, logoError]);
+
+  const refreshLogo = () => {
+    setLogoTimestamp(Date.now());
+    setLogoError(false);
+  };
 
   useEffect(() => {
     const loadMe = async () => {
@@ -178,9 +244,14 @@ const ProfilePage = () => {
       try {
         const res = await authService.getCurrentUser();
         const me = res?.data;
+        console.log('🔍 DONNÉES COMPLÈTES DE /auth/me:', me);
+        console.log('🔍 clientId dans la réponse:', me.clientId);
+        console.log('🔍 id dans la réponse:', me.id);
         
         if (me && me.email) {
           setUserData({
+            id: me.id,
+            clientId: me.clientId, 
             nom: me.nom || me?.lastName || '',
             prenom: me.prenom || me?.firstName || '',
             email: me.email || '',
@@ -188,37 +259,43 @@ const ProfilePage = () => {
             active: me.active !== false,
             memberSince: me.memberSince || me.createdAt || null,
             lastLogin: me.lastLogin || null,
-            sessionsThisWeek: me.sessionsThisWeek || 0,
+            typeCompte: me.typeCompte || '',
+            raisonSociale: me.raisonSociale || '',
+            matriculeFiscal: me.matriculeFiscal || '',
+            logoUrl: me.logoUrl || null,
           });
 
-          // Stocker dans localStorage
           if (me.nom) localStorage.setItem('userNom', me.nom);
           if (me.prenom) localStorage.setItem('userPrenom', me.prenom);
           if (me.email) localStorage.setItem('userEmail', me.email);
           if (me.role) localStorage.setItem('userRole', me.role);
-          if (me.memberSince) localStorage.setItem('memberSince', me.memberSince);
-          if (me.lastLogin) localStorage.setItem('lastLogin', me.lastLogin);
+          if (me.typeCompte) localStorage.setItem('typeCompte', me.typeCompte);
+          if (me.raisonSociale) localStorage.setItem('raisonSociale', me.raisonSociale);
+          if (me.matriculeFiscal) localStorage.setItem('matriculeFiscal', me.matriculeFiscal);
+          if (me.logoUrl) localStorage.setItem('logoUrl', me.logoUrl);
+          
+          refreshLogo();
         } else {
           throw new Error('No data from API');
         }
       } catch (e) {
         console.warn('API /me not available, using localStorage');
-        // Ne pas afficher d'erreur à l'utilisateur
         setError('');
         
-        // Utiliser les données du localStorage
-        const storedMemberSince = localStorage.getItem('memberSince');
-        const storedLastLogin = localStorage.getItem('lastLogin');
-        
         setUserData({
+          id: null,
+          clientId: null,
           nom: localStorage.getItem('userNom') || '',
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
           role: localStorage.getItem('userRole') || '',
           active: true,
-          memberSince: storedMemberSince || new Date().toISOString(),
-          lastLogin: storedLastLogin || new Date().toISOString(),
-          sessionsThisWeek: 0,
+          memberSince: localStorage.getItem('memberSince') || new Date().toISOString(),
+          lastLogin: localStorage.getItem('lastLogin') || new Date().toISOString(),
+          typeCompte: localStorage.getItem('typeCompte') || '',
+          raisonSociale: localStorage.getItem('raisonSociale') || '',
+          matriculeFiscal: localStorage.getItem('matriculeFiscal') || '',
+          logoUrl: localStorage.getItem('logoUrl') || null,
         });
       } finally {
         setLoading(false);
@@ -232,7 +309,7 @@ const ProfilePage = () => {
     const normalized = String(role || '').toUpperCase();
     const roles = {
       ADMIN: copy.administrator,
-      ADMIN_CLIENT: copy.administrator,
+      ADMIN_CLIENT: copy.adminClient,
       COMMERCIAL: copy.salesManager,
       RESPONSABLE_ACHAT: copy.procurementManager,
       SALES: copy.salesLead,
@@ -241,11 +318,87 @@ const ProfilePage = () => {
     return roles[normalized] || role || copy.user;
   };
 
+  const isAdminClient = () => {
+    const role = String(userData.role || '').toUpperCase();
+    return role === 'ADMIN_CLIENT';
+  };
+
+  const isCompany = () => {
+    return userData.typeCompte === 'ENTREPRISE';
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Format non supporté. Utilisez JPG, PNG, SVG ou WEBP');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Le logo ne doit pas dépasser 2MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    setLogoUploadSuccess(false);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const response = await api.put('/platform/clients/logo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      console.log('📦 Réponse upload:', response.data);
+
+      if (response.data.success && response.data.logoUrl) {
+        const newLogoUrl = response.data.logoUrl;
+        
+        setUserData(prev => ({ 
+          ...prev, 
+          logoUrl: newLogoUrl 
+        }));
+        
+        if (newLogoUrl) {
+          localStorage.setItem('logoUrl', newLogoUrl);
+        }
+        
+        refreshLogo();
+        setLogoError(false);
+        setLogoUploadSuccess(true);
+        
+        toast.success(copy.logoUploadSuccess);
+        
+        // Recharger les données utilisateur pour être sûr
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.error('Réponse inattendue du serveur');
+      }
+    } catch (error) {
+      console.error('Erreur upload logo:', error);
+      toast.error(copy.logoUploadError);
+    } finally {
+      setUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const initials = useMemo(() => {
+    // Pour ADMIN_CLIENT, on n'affiche pas les initiales si pas de logo
+    if (isAdminClient()) {
+      return '';
+    }
     const firstInitial = userData.prenom?.charAt(0)?.toUpperCase() || '';
     const lastInitial = userData.nom?.charAt(0)?.toUpperCase() || '';
     return `${firstInitial}${lastInitial}` || 'U';
-  }, [userData.nom, userData.prenom]);
+  }, [userData.nom, userData.prenom, isAdminClient]);
 
   const avatarColor = useMemo(() => {
     const colors = [
@@ -275,12 +428,6 @@ const ProfilePage = () => {
       value: formatDate(userData.memberSince, locale, copy.unknown),
       helper: userData.memberSince ? copy.memberSinceHelper : copy.unavailableHelper,
       tone: 'blue',
-    },
-    {
-      label: copy.sessionsThisWeek,
-      value: String(userData.sessionsThisWeek || 0),
-      helper: copy.sessionsHelper,
-      tone: 'green',
     },
     {
       label: copy.lastLogin,
@@ -331,19 +478,63 @@ const ProfilePage = () => {
           <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
             <div className="relative h-48 bg-gradient-to-r from-blue-600 to-cyan-500">
               <div className={`absolute -bottom-16 ${isArabic ? 'right-8' : 'left-8'}`}>
-                <div className={`flex h-32 w-32 items-center justify-center rounded-full border-4 border-white shadow-lg ${avatarColor}`}>
-                  <span className="text-4xl font-bold text-white">{initials}</span>
-                </div>
+                {/* Toujours essayer d'afficher le logo si ADMIN_CLIENT */}
+                {(hasValidLogo() || isAdminClient()) ? (
+                  <div className="relative">
+                    <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
+                      {hasValidLogo() ? (
+                        <img 
+                          src={getLogoUrl()}
+                          alt="Logo" 
+                          className="max-h-3/4 max-w-3/4 object-contain"
+                          onError={() => {
+                            console.log('❌ Erreur chargement logo');
+                            setLogoError(true);
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gray-200">
+                          <PhotoIcon className="h-12 w-12 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    {isAdminClient() && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute -bottom-2 -right-2 rounded-full bg-blue-600 p-1.5 text-white shadow-lg hover:bg-blue-700"
+                        disabled={uploadingLogo}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`flex h-32 w-32 items-center justify-center rounded-full border-4 border-white shadow-lg ${avatarColor}`}>
+                    <span className="text-4xl font-bold text-white">{initials}</span>
+                  </div>
+                )}
               </div>
+              
+              
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/svg+xml,image/webp"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
             </div>
 
             <div className="px-8 pb-8 pt-20">
               <div className={`flex items-start justify-between gap-6 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">
-  {userData.prenom} {userData.nom}
-  {!userData.prenom && !userData.nom && (userData.email || 'Utilisateur')}
-</h1>
+                    {isCompany() && userData.raisonSociale 
+                      ? userData.raisonSociale 
+                      : `${userData.prenom} ${userData.nom}`}
+                    {!userData.prenom && !userData.nom && !userData.raisonSociale && (userData.email || 'Utilisateur')}
+                  </h1>
                   <p className="mt-1 text-lg text-gray-600">{getRoleLabel(userData.role)}</p>
 
                   {userData.active === false && (
@@ -367,9 +558,7 @@ const ProfilePage = () => {
                   <div className="space-y-4">
                     <div className={`flex items-center ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
                       <div className="w-32 text-gray-500">{copy.fullName}</div>
-                      <div className="font-medium text-gray-800">
-                        {userData.prenom} {userData.nom}
-                      </div>
+                      <div className="font-medium text-gray-800">{`${userData.prenom} ${userData.nom}`}</div>
                     </div>
                     <div className={`flex items-center ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
                       <div className="w-32 text-gray-500">{copy.email}</div>
@@ -401,7 +590,26 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+              {isCompany() && (
+                <div className="mt-8 rounded-xl bg-gray-50 p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-800">
+                    <BuildingOfficeIcon className={`inline h-5 w-5 text-blue-600 ${isArabic ? 'ml-2' : 'mr-2'}`} />
+                    {copy.companyInfo}
+                  </h2>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className={`flex items-center ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
+                      <div className="w-40 text-gray-500">{copy.raisonSociale}</div>
+                      <div className="font-medium text-gray-800">{userData.raisonSociale || '—'}</div>
+                    </div>
+                    <div className={`flex items-center ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
+                      <div className="w-40 text-gray-500">{copy.matriculeFiscal}</div>
+                      <div className="font-medium text-gray-800">{userData.matriculeFiscal || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
                 {profileHighlights.map((item) => (
                   <ProfileHighlightCard
                     key={item.label}

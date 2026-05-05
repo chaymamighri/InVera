@@ -38,7 +38,13 @@ const normalizeCurrentUser = (data) => ({
     typeInscription: data?.typeInscription,
     hasActiveSubscription: data?.hasActiveSubscription,
     clientStatut: data?.statut,
-    clientId: data?.clientId
+    clientId: data?.clientId,
+    
+    // ✅ AJOUTER CES CHAMPS
+    typeCompte: data?.typeCompte || '',
+    raisonSociale: data?.raisonSociale || '',
+    matriculeFiscal: data?.matriculeFiscal || '',
+    logoUrl: data?.logoUrl || null,
   }
 });
 
@@ -383,63 +389,81 @@ export const authService = {
     }
   },
 
-  getCurrentUser: async ({ force = false } = {}) => {
-    const token = authService.getToken();
-    if (!token) throw new Error('Non authentifié');
+ getCurrentUser: async ({ force = false } = {}) => {
+  const token = authService.getToken();
+  if (!token) throw new Error('Non authentifié');
 
-    const userRole = localStorage.getItem('userRole');
-    const isSuperAdmin = userRole === 'SUPER_ADMIN';
-    
-    console.log(`🔍 getCurrentUser - isSuperAdmin: ${isSuperAdmin}, role: ${userRole}`);
+  // ✅ Extraire clientId du token JWT
+  let tokenClientId = null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    tokenClientId = payload.clientId;
+    console.log('🔍 clientId extrait du token:', tokenClientId);
+  } catch (e) {
+    console.error('Erreur extraction clientId du token:', e);
+  }
 
-    const now = Date.now();
-    const cacheIsValid =
-      !force &&
-      currentUserCache &&
-      currentUserCacheToken === token &&
-      now - currentUserCacheTimestamp < CURRENT_USER_CACHE_TTL_MS;
+  const userRole = localStorage.getItem('userRole');
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
+  
+  console.log(`🔍 getCurrentUser - isSuperAdmin: ${isSuperAdmin}, role: ${userRole}`);
 
-    if (cacheIsValid) {
-      return currentUserCache;
-    }
+  const now = Date.now();
+  const cacheIsValid =
+    !force &&
+    currentUserCache &&
+    currentUserCacheToken === token &&
+    now - currentUserCacheTimestamp < CURRENT_USER_CACHE_TTL_MS;
 
-    if (!force && currentUserPromise && currentUserCacheToken === token) {
-      return currentUserPromise;
-    }
+  if (cacheIsValid) {
+    return currentUserCache;
+  }
 
-    currentUserCacheToken = token;
-    
-    const endpoint = isSuperAdmin ? '/super-admin/me' : '/auth/me';
-    console.log(`🔍 getCurrentUser - Endpoint: ${endpoint}`);
-
-    currentUserPromise = api
-      .get(endpoint)
-      .then(async (response) => {
-        const data = response.data;
-        
-        const normalized = isSuperAdmin ? normalizeSuperAdmin(data) : normalizeCurrentUser(data);
-
-        if (normalized.data?.active === false) {
-          clearCurrentUserCache();
-          await authService.logout();
-          throw new Error("Compte désactivé. Contactez l'administrateur.");
-        }
-
-        currentUserCache = normalized;
-        currentUserCacheTimestamp = Date.now();
-        return normalized;
-      })
-      .catch((error) => {
-        console.error(`❌ Erreur sur ${endpoint}:`, error);
-        clearCurrentUserCache();
-        throw error;
-      })
-      .finally(() => {
-        currentUserPromise = null;
-      });
-
+  if (!force && currentUserPromise && currentUserCacheToken === token) {
     return currentUserPromise;
-  },
+  }
+
+  currentUserCacheToken = token;
+  
+  const endpoint = isSuperAdmin ? '/super-admin/me' : '/auth/me';
+  console.log(`🔍 getCurrentUser - Endpoint: ${endpoint}`);
+
+  currentUserPromise = api
+    .get(endpoint)
+    .then(async (response) => {
+      const data = response.data;
+      
+      // ✅ Fusionner les données API avec le clientId du token
+      const mergedData = {
+        ...data,
+        clientId: tokenClientId || data?.clientId,  // Priorité au token
+      };
+      
+      console.log('🔍 Données fusionnées:', mergedData);
+      
+      const normalized = isSuperAdmin ? normalizeSuperAdmin(mergedData) : normalizeCurrentUser(mergedData);
+
+      if (normalized.data?.active === false) {
+        clearCurrentUserCache();
+        await authService.logout();
+        throw new Error("Compte désactivé. Contactez l'administrateur.");
+      }
+
+      currentUserCache = normalized;
+      currentUserCacheTimestamp = Date.now();
+      return normalized;
+    })
+    .catch((error) => {
+      console.error(`❌ Erreur sur ${endpoint}:`, error);
+      clearCurrentUserCache();
+      throw error;
+    })
+    .finally(() => {
+      currentUserPromise = null;
+    });
+
+  return currentUserPromise;
+},
 
   getToken: () => {
     return sessionStorage.getItem('token') || localStorage.getItem('token');
