@@ -1,8 +1,10 @@
 package org.erp.invera.service.erp;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Utilisateur;
+import org.erp.invera.model.platform.Client;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.repository.tenant.TenantRowMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -19,6 +21,7 @@ public class UtilisateurService {
     private final TenantAwareRepository tenantRepo;
     private final TenantRowMapper rowMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+
 
     // ==================== AUTHENTIFICATION ====================
     public Map<String, Object> authenticate(Long clientId, String email, String password) {
@@ -228,6 +231,7 @@ public class UtilisateurService {
 
         log.info("✅ Employé supprimé: userId={}", userId);
     }
+
     // ==================== MÉTHODES UTILITAIRES ====================
 
     public boolean userExists(Long clientId, String email) {

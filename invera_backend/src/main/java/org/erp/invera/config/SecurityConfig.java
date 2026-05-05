@@ -107,8 +107,18 @@ public class SecurityConfig {
                                 "/api/platform/clients/request-otp",
                                 "/api/platform/clients/verify-otp",
                                 "/api/platform/clients/*/justificatifs",
-                                "/api/platform/clients/*/document/*"
+                                "/api/platform/clients/*/document/*",
+                                "/api/platform/clients/public/logo/*"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
+
+
+                        .requestMatchers(
+                                "/api/platform/clients/update-company"
+                        ).hasRole("ADMIN_CLIENT")
+
 
                         // ========== SUPER ADMIN AUTH PUBLIC ==========
                         .requestMatchers(

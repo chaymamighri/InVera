@@ -26,7 +26,6 @@ import java.util.List;
 public class ClientPlatformService {
 
     private final ClientPlatformRepository clientRepository;
-    private final OtpService otpService;
     private final LogoUploadService logoUploadService;
 
 
@@ -154,16 +153,16 @@ public class ClientPlatformService {
     }
 
 // ========== GESTION DES CONNEXIONS ==========
-
     /**
      * Enregistrer une connexion et décrémenter le compteur
      *
-     *  RÈGLES D'ACCÈS :
-     * - ACTIF : Accès illimité (abonné)
-     * - EN_ATTENTE : Accès limité à 30 connexions (période d'essai)
-     * - VALIDE :  Accès refusé (en attente de paiement)
-     * - REFUSE :  Accès refusé
-     * - INACTIF :  Accès refusé
+     * RÈGLES D'ACCÈS :
+     * - ACTIF avec abonnement : Accès illimité
+     * - ACTIF sans abonnement (ESSAI) : Accès limité à 30 connexions
+     * - EN_ATTENTE (DEFINITIF en attente validation) : Accès limité à 30 connexions
+     * - VALIDE : Accès refusé (en attente de paiement)
+     * - REFUSE : Accès refusé
+     * - INACTIF : Accès refusé
      */
     @Transactional
     public Client recordLogin(String email) {
@@ -176,8 +175,8 @@ public class ClientPlatformService {
         Client client = clientRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Client non trouvé pour cet email: " + email));
 
-        log.info(" Client trouvé: ID={}, Statut={}, Connexions restantes={}/{}",
-                client.getId(), client.getStatut(),
+        log.info(" Client trouvé: ID={}, Statut={}, TypeInscription={}, Connexions restantes={}/{}",
+                client.getId(), client.getStatut(), client.getTypeInscription(),
                 client.getConnexionsRestantes(), client.getConnexionsMax());
 
         // ============================================================
@@ -188,20 +187,15 @@ public class ClientPlatformService {
         // ============================================================
         // ÉTAPE 3 : Vérifier si le client a le droit de se connecter
         // ============================================================
-        //  Seuls les statuts ACTIF et EN_ATTENTE peuvent se connecter
-        //  VALIDE = documents validés mais paiement non effectué → refusé
-        //  REFUSE, INACTIF = refusé
-        if (client.getStatut() == Client.StatutClient.ACTIF) {
-            log.info(" Client ACTIF (abonné) - Accès autorisé avec connexions illimitées");
+        boolean isAbonne = client.getAbonnementActif() != null;
+        boolean isEnAttente = client.getStatut() == Client.StatutClient.EN_ATTENTE;
+        boolean isActifWithoutSubscription = client.getStatut() == Client.StatutClient.ACTIF && !isAbonne;
+        boolean isEssai = client.getTypeInscription() == Client.TypeInscription.ESSAI;
 
-        } else if (client.getStatut() == Client.StatutClient.EN_ATTENTE) {
-            log.info(" Client EN_ATTENTE (période d'essai) - Accès autorisé avec {} connexions restantes",
-                    client.getConnexionsRestantes());
-
-        } else if (client.getStatut() == Client.StatutClient.VALIDE) {
-            // Client a validé ses documents mais n'a pas payé
+        // Clients avec accès refusé
+        if (client.getStatut() == Client.StatutClient.VALIDE) {
             log.warn(" Client VALIDE - En attente de paiement, accès refusé");
-            throw new RuntimeException(" Vos documents ont été validés. Veuillez finaliser votre paiement pour accéder à la plateforme.");
+            throw new RuntimeException("Vos documents ont été validés. Veuillez finaliser votre paiement pour accéder à la plateforme.");
 
         } else if (client.getStatut() == Client.StatutClient.REFUSE) {
             log.warn(" Client REFUSÉ - Inscription rejetée, accès refusé");
@@ -209,8 +203,20 @@ public class ClientPlatformService {
             throw new RuntimeException("Votre inscription a été refusée." + motif);
 
         } else if (client.getStatut() == Client.StatutClient.INACTIF) {
-            log.warn("Client INACTIF - Compte désactivé, accès refusé");
+            log.warn(" Client INACTIF - Compte désactivé, accès refusé");
             throw new RuntimeException("Votre compte a été désactivé. Veuillez contacter l'administrateur.");
+
+        } else if (client.getStatut() == Client.StatutClient.ACTIF || client.getStatut() == Client.StatutClient.EN_ATTENTE) {
+            // Clients autorisés à se connecter
+            if (isAbonne) {
+                log.info(" Client ABONNÉ (ACTIF avec abonnement) - Accès illimité");
+            } else if (isActifWithoutSubscription || isEnAttente) {
+                log.info(" Client EN PÉRIODE D'ESSAI - Accès avec {} connexions restantes",
+                        client.getConnexionsRestantes());
+            } else {
+                log.warn(" Client non éligible - Statut: {}, Abonné: {}", client.getStatut(), isAbonne);
+                throw new RuntimeException("Vous n'êtes pas autorisé à vous connecter. Statut: " + client.getStatut().getLabel());
+            }
 
         } else {
             log.error(" Statut non reconnu: {}", client.getStatut());
@@ -218,26 +224,26 @@ public class ClientPlatformService {
         }
 
         // ============================================================
-        // ÉTAPE 4 : Gérer la consommation des connexions (uniquement pour EN_ATTENTE)
+        // ÉTAPE 4 : Gérer la consommation des connexions
         // ============================================================
-        boolean isAbonne = client.getAbonnementActif() != null;
-        boolean isEnAttente = client.getStatut() == Client.StatutClient.EN_ATTENTE;
-
-        log.info(" Vérification: isAbonne={}, isEnAttente={}", isAbonne, isEnAttente);
+        log.info(" Vérification: isAbonne={}, isEnAttente={}, isActifWithoutSubscription={}",
+                isAbonne, isEnAttente, isActifWithoutSubscription);
 
         if (isAbonne) {
             // Cas 1: Client abonné → connexions illimitées (ne pas décrémenter)
             log.info(" Client ABONNÉ - Connexions illimitées (aucune consommation)");
 
-        } else if (isEnAttente) {
-            // Cas 2: Client en période d'essai → consomme 1 connexion
+        } else if (isEnAttente || isActifWithoutSubscription) {
+            // Cas 2: Client en période d'essai (EN_ATTENTE ou ACTIF sans abonnement) → consomme 1 connexion
+
             if (client.getConnexionsRestantes() <= 0) {
                 // Plus de connexions disponibles
                 client.setStatut(Client.StatutClient.INACTIF);
                 client.setIsActive(false);
                 clientRepository.save(client);
                 log.warn(" Période d'essai expirée pour client {}", client.getEmail());
-                throw new RuntimeException("Votre période d'essai de 30 connexions est expirée. Veuillez souscrire un abonnement pour continuer.");
+                throw new RuntimeException("Votre période d'essai de " + client.getConnexionsMax() +
+                        " connexions est expirée. Veuillez souscrire un abonnement pour continuer.");
             }
 
             int anciennesConnexions = client.getConnexionsRestantes();
@@ -249,13 +255,13 @@ public class ClientPlatformService {
 
             // Alerter si plus que 5 connexions restantes
             if (client.getConnexionsRestantes() <= 5 && client.getConnexionsRestantes() > 0) {
-                log.info("⚠ Attention: Plus que {} connexions restantes pour le client {}",
+                log.warn("⚠ Attention: Plus que {} connexions restantes pour le client {}",
                         client.getConnexionsRestantes(), client.getEmail());
             }
 
         } else {
             // Cas 3: Autres statuts (normalement déjà filtrés plus haut)
-            log.warn(" Client non éligible à la connexion - Statut: {}", client.getStatut());
+            log.warn(" Client non éligible à la consommation de connexion - Statut: {}", client.getStatut());
             throw new RuntimeException("Vous n'êtes pas autorisé à vous connecter. Statut: " + client.getStatut().getLabel());
         }
 
