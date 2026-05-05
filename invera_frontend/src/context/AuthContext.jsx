@@ -129,99 +129,155 @@ export const AuthProvider = ({ children }) => {
   );
 
   /**
-   * Connecte l'utilisateur
-   * ✅ Gère les rôles backend : SUPER_ADMIN, ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT
-   */
-  const login = useCallback(async (credentials) => {
-    setLoading(true);
-    setError(null);
+ * Connecte l'utilisateur
+ * ✅ Gère les rôles backend : SUPER_ADMIN, ADMIN_CLIENT, COMMERCIAL, RESPONSABLE_ACHAT
+ */
+
+const login = useCallback(async (credentials) => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const result = await authService.login(credentials);
+
+    if (!result?.success) {
+      const errorMessage = result?.message || 'Erreur de connexion';
+      throw new Error(errorMessage);
+    }
+
+    if (!result?.data?.user) {
+      throw new Error('Données utilisateur manquantes');
+    }
+
+    const userData = {
+      ...result.data.user,
+      role: result.data.user.role,
+      originalRole: result.data.user.role
+    };
+    
+    applyUser(userData);
+    setAuthenticated(true);
 
     try {
-      const result = await authService.login(credentials);
-
-      if (!result?.success) throw new Error('Erreur de connexion');
-
-      // ✅ Garder le rôle exact du backend
-      const userData = {
-        ...result.data.user,
-        role: result.data.user.role,
-        originalRole: result.data.user.role
-      };
-      
-      applyUser(userData);
-      setAuthenticated(true);
-
-      try {
-        await updateLanguagePreference(getStoredLanguage());
-      } catch (languageError) {
-        console.error('Language preference sync failed after login', languageError);
-      }
-
-      // ✅ Redirection selon le rôle backend
-      let dashboardPath = '/dashboard';
-      switch (result.data.user.role) {
-        case 'SUPER_ADMIN':
-          dashboardPath = '/dashboard/admin';
-          break;
-        case 'ADMIN_CLIENT':
-          dashboardPath = '/dashboard';
-          break;
-        case 'COMMERCIAL':
-          dashboardPath = '/dashboard/sales/dashboard';
-          break;
-        case 'RESPONSABLE_ACHAT':
-          dashboardPath = '/dashboard/procurement';
-          break;
-        default:
-          dashboardPath = '/dashboard';
-          break;
-      }
-
-      localStorage.setItem('userDashboard', dashboardPath);
-      return { success: true, data: result.data, dashboard: dashboardPath };
-    } catch (err) {
-      setError(err?.message || 'Erreur de connexion');
-      throw err;
-    } finally {
-      setLoading(false);
+      await updateLanguagePreference(getStoredLanguage());
+    } catch (languageError) {
+      console.error('Language preference sync failed after login', languageError);
     }
-  }, [applyUser]);
+
+    let dashboardPath = '/dashboard';
+    switch (result.data.user.role) {
+      case 'SUPER_ADMIN':
+        dashboardPath = '/dashboard/admin';
+        break;
+      case 'ADMIN_CLIENT':
+        dashboardPath = '/dashboard';
+        break;
+      case 'COMMERCIAL':
+        dashboardPath = '/dashboard/sales/dashboard';
+        break;
+      case 'RESPONSABLE_ACHAT':
+        dashboardPath = '/dashboard/procurement';
+        break;
+      default:
+        dashboardPath = '/dashboard';
+        break;
+    }
+
+    localStorage.setItem('userDashboard', dashboardPath);
+    
+    return { success: true, data: result.data, dashboard: dashboardPath };
+  } catch (err) {
+    console.error('Login error in AuthContext:', err);
+    
+    // ⭐ CORRECTION ICI ⭐
+    // Priorité: userMessage (de authService) > message > message par défaut
+    const errorMessage = err?.userMessage   // ← Prendre userMessage de authService
+      || err?.response?.data?.message
+      || err?.response?.data?.error
+      || err?.message 
+      || 'Email ou mot de passe incorrect';
+    
+    console.log('📢 AuthContext propagant erreur:', errorMessage);
+    
+    setError(errorMessage);
+    
+    // ✅ Créer une nouvelle erreur avec le message formaté
+    const formattedError = new Error(errorMessage);
+    formattedError.userMessage = errorMessage;
+    
+    throw formattedError;
+  } finally {
+    setLoading(false);
+  }
+}, [applyUser]);
 
   // ===== EFFETS =====
 
-  useEffect(() => {
-    let cancelled = false;
+useEffect(() => {
+  let cancelled = false;
 
-    const initializeAuth = async () => {
-      if (!authService.isAuthenticated()) {
-        if (!cancelled) {
-          clearAuthState();
-          setLoading(false);
-        }
-        return;
+  const initializeAuth = async () => {
+    // ✅ IGNORER L'AUTHENTIFICATION SUR LA PAGE LOGIN
+    const isLoginPage = window.location.pathname === '/login' || 
+                        window.location.pathname === '/login/';
+    
+    if (isLoginPage) {
+      console.log('🔐 Page login détectée - Nettoyage et désactivation auto-auth');
+      clearAuthState();
+      
+      // ✅ Nettoyer les tokens périmés mais garder l'email si rememberMe
+      const savedEmail = localStorage.getItem('savedEmail');
+      const rememberMe = localStorage.getItem('rememberMe');
+      
+      localStorage.removeItem('token');
+      localStorage.removeItem('tokenExpiry');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      sessionStorage.removeItem('token');
+      
+      // Restaurer rememberMe et email si nécessaire
+      if (rememberMe === 'true' && savedEmail) {
+        localStorage.setItem('rememberMe', rememberMe);
+        localStorage.setItem('savedEmail', savedEmail);
       }
-
-      try {
-        const result = await authService.getCurrentUser();
-
-        if (!cancelled && result?.success) {
-          applyUser(result.data);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          clearAuthState();
-          setError(err?.message || 'Erreur d\'authentification');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      
+      if (!cancelled) {
+        setLoading(false);
       }
-    };
+      return;
+    }
+    
+    // Comportement normal pour les autres pages
+    if (!authService.isAuthenticated()) {
+      if (!cancelled) {
+        clearAuthState();
+        setLoading(false);
+      }
+      return;
+    }
 
-    initializeAuth();
+    try {
+      const result = await authService.getCurrentUser();
 
-    return () => { cancelled = true; };
-  }, [applyUser, clearAuthState]);
+      if (!cancelled && result?.success) {
+        applyUser(result.data);
+        setError(null);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        clearAuthState();
+        setError(err?.message || 'Erreur d\'authentification');
+      }
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  };
+
+  initializeAuth();
+
+  return () => { cancelled = true; };
+}, [applyUser, clearAuthState]);
 
   useEffect(() => {
     if (!authenticated) return undefined;

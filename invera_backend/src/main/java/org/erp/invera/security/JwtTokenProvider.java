@@ -2,7 +2,7 @@ package org.erp.invera.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import org.erp.invera.model.platform.Utilisateur;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class JwtTokenProvider {
 
@@ -65,23 +66,6 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    /**
-     * Valide un token d'activation et retourne l'email
-     */
-    public String validateActivationToken(String token) {
-        try {
-            Claims claims = getClaims(token);
-            String type = claims.get("type", String.class);
-            String purpose = claims.get("purpose", String.class);
-
-            if ("ACTIVATION".equals(type) && "ACCOUNT_ACTIVATION".equals(purpose)) {
-                return claims.get("email", String.class);
-            }
-            return null;
-        } catch (JwtException | IllegalArgumentException e) {
-            return null;
-        }
-    }
 
     public Integer getUserIdFromToken(String token) {
         Claims claims = getClaims(token);
@@ -119,14 +103,39 @@ public class JwtTokenProvider {
 
     public Long getClientIdFromToken(String token) {
         Claims claims = getClaims(token);
-        Object clientId = claims.get("clientId");
-        if (clientId == null) {
+        Object clientIdObj = claims.get("clientId");
+
+        if (log.isDebugEnabled()) {
+            log.debug("📦 clientId brut dans le token: {} (type: {})", clientIdObj,
+                    clientIdObj != null ? clientIdObj.getClass().getSimpleName() : "null");
+        }
+
+        if (clientIdObj == null) {
+            log.warn("⚠️ clientId non trouvé dans le token");
             return null;
         }
-        if (clientId instanceof Integer) {
-            return ((Integer) clientId).longValue();
+
+        Long clientId = null;
+
+        if (clientIdObj instanceof Integer) {
+            clientId = ((Integer) clientIdObj).longValue();
+        } else if (clientIdObj instanceof Long) {
+            clientId = (Long) clientIdObj;
+        } else if (clientIdObj instanceof String) {
+            try {
+                clientId = Long.parseLong((String) clientIdObj);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        } else {
+            return null;
         }
-        return (Long) clientId;
+
+        if (log.isDebugEnabled()) {
+            log.debug("🎯 clientId final extrait: {}", clientId);
+        }
+
+        return clientId;
     }
 
     public String getTypeFromToken(String token) {
@@ -168,31 +177,12 @@ public class JwtTokenProvider {
         }
     }
 
-    public String generateTokenForSuperAdmin(Integer id, String email, String nom) {
+    public String generateTokenForSuperAdmin(Integer adminId, String email, String nom) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("adminId", id);
+        claims.put("adminId", adminId);
         claims.put("email", email);
         claims.put("nom", nom);
         claims.put("role", "ROLE_SUPER_ADMIN");
-        claims.put("type", "SUPER_ADMIN");
-
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
-
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(email)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getKey(), SignatureAlgorithm.HS512)
-                .compact();
-    }
-
-    public String generateTokenForSuperAdmin(String email, String role, Long clientId) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("email", email);
-        claims.put("role", "ROLE_" + role);
-        claims.put("clientId", clientId);
         claims.put("type", "SUPER_ADMIN");
 
         Date now = new Date();
@@ -228,9 +218,50 @@ public class JwtTokenProvider {
 
     public String generateToken(String email, String role, Long clientId) {
         if (clientId == null) {
-            return generateTokenForSuperAdmin(email, role, null);
+            // Pour les Super Admins, il faut un ID et un nom
+            return generateTokenForSuperAdmin(null, email, role);
         }
         return generateTokenForClient(email, role, clientId);
+    }
+
+    /**
+     * Génère un token pour la réinitialisation du mot de passe (valable X minutes)
+     */
+    public String generateResetPasswordToken(String email, int expirationMinutes) {
+        long expirationMs = expirationMinutes * 60 * 1000;
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationMs);
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("type", "RESET_PASSWORD");
+        claims.put("purpose", "PASSWORD_RESET");
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(email)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    /**
+     * Valide un token de réinitialisation et retourne l'email
+     */
+    public String validateResetPasswordToken(String token) {
+        try {
+            Claims claims = getClaims(token);
+            String type = claims.get("type", String.class);
+            String purpose = claims.get("purpose", String.class);
+
+            if ("RESET_PASSWORD".equals(type) && "PASSWORD_RESET".equals(purpose)) {
+                return claims.get("email", String.class);
+            }
+            return null;
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private Claims getClaims(String token) {

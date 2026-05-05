@@ -24,6 +24,9 @@ public class TenantDatabaseService {
     private final ClientPlatformRepository clientRepository;
     private final CredentialService credentialService;
 
+    @Value("${PLATFORM_DB_URL}")
+    private String platformDbUrl;
+
     @Value("${spring.datasource.driver-class-name:org.postgresql.Driver}")
     private String driverClassName;
 
@@ -83,7 +86,7 @@ public class TenantDatabaseService {
             // (ferme les connexions correctement)
             DriverManagerDataSource dataSource = new DriverManagerDataSource();
             dataSource.setDriverClassName(driverClassName);
-            dataSource.setUrl(String.format("jdbc:postgresql://localhost:5432/%s", dbName));
+            dataSource.setUrl(buildTenantDatabaseUrl(dbName));
             dataSource.setUsername(creds.username());
             dataSource.setPassword(creds.password());
 
@@ -156,6 +159,14 @@ public class TenantDatabaseService {
      */
     public boolean hasConnection(Long clientId) {
         return clientJdbcTemplateCache.containsKey(clientId);
+    }
+
+    private String buildTenantDatabaseUrl(String dbName) {
+        int lastSlashIndex = platformDbUrl.lastIndexOf('/');
+        if (lastSlashIndex < 0) {
+            throw new IllegalStateException("PLATFORM_DB_URL invalide: " + platformDbUrl);
+        }
+        return platformDbUrl.substring(0, lastSlashIndex + 1) + dbName;
     }
 
     /**

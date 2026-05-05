@@ -2,7 +2,6 @@ package org.erp.invera.service.erp;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.erp.invera.model.erp.Notification;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;

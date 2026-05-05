@@ -13,10 +13,10 @@ public class AsyncDatabaseService {
     private final DatabaseCreationService databaseCreationService;
 
     @Async
-    public void createClientDatabaseAsync(Long clientId) {
+    public void createClientDatabaseWithAdmin(Long clientId, String plainPassword) {
         try {
-            databaseCreationService.createClientDatabase(clientId);
-            log.info("✅ Base créée asynchrone pour client {}", clientId);
+            databaseCreationService.createClientDatabaseWithAdmin(clientId, plainPassword);
+            log.info("✅ Base créée asynchrone avec admin pour client {}", clientId);
         } catch (Exception e) {
             log.error("❌ Erreur création base asynchrone: {}", e.getMessage());
         }

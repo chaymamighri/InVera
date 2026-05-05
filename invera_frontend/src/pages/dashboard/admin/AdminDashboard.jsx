@@ -1,13 +1,14 @@
 // AdminDashboard.jsx - Version avec Outlet pour les sous-routes
 
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'; // Ajouter useLocation
+import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   UsersIcon,
   ChartBarIcon,
   TagIcon,
   UserGroupIcon,
-  DocumentCheckIcon, // Ajouter l'icône pour validation commandes
+  DocumentCheckIcon,
+  ExclamationTriangleIcon, // ← AJOUTER CET IMPORT
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
@@ -20,10 +21,15 @@ const AdminDashboard = () => {
   const { getCurrentUser } = useAuth();
   const admin = getCurrentUser();
   const navigate = useNavigate();
-  const location = useLocation(); // Pour détecter la route active
+  const location = useLocation();
   const { collapsed, toggleSidebar } = useSidebar();
 
   const [user, setUser] = useState({ name: '', role: '', email: '', initials: '' });
+  
+  // ✅ AJOUTER LES ÉTATS POUR LES NOTIFICATIONS D'ESSAI
+  const [remainingLogins, setRemainingLogins] = useState(null);
+  const [typeInscription, setTypeInscription] = useState(null);
+  const [clientStatut, setClientStatut] = useState(null);
 
   useEffect(() => {
     const userName = admin?.nom || localStorage.getItem('userName') || 'Administrateur';
@@ -37,9 +43,29 @@ const AdminDashboard = () => {
       .substring(0, 2);
     
     setUser({ name: userName, role: userRole, email: userEmail, initials });
+    
+    // ✅ RÉCUPÉRER LES DONNÉES DE CONNEXIONS RESTANTES
+    const remaining = localStorage.getItem('connexionsRestantes');
+    const type = localStorage.getItem('typeInscription');
+    const statut = localStorage.getItem('clientStatut');
+    
+    if (remaining !== null) {
+      setRemainingLogins(parseInt(remaining, 10));
+    }
+    if (type !== null) {
+      setTypeInscription(type);
+    }
+    if (statut !== null) {
+      setClientStatut(statut);
+    }
   }, [admin]);
 
   const getFirstName = (fullName) => fullName.split(' ')[0];
+  
+  // ✅ DÉTERMINER SI L'UTILISATEUR EST EN PÉRIODE D'ESSAI
+  const isTrial = typeInscription === 'ESSAI';
+  const showTrialWarning = isTrial && remainingLogins !== null && remainingLogins <= 5 && remainingLogins > 0;
+  const showTrialExpired = isTrial && remainingLogins !== null && remainingLogins <= 0;
 
   // Détecter la page active depuis l'URL
   const getActivePage = () => {
@@ -214,6 +240,54 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* ✅ NOTIFICATION DE PÉRIODE D'ESSAI - AJOUTER ICI */}
+        {showTrialWarning && (
+          <div className="mx-6 mt-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-yellow-800">
+                  ⚠️ Votre période d'essai bientôt terminée
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Il vous reste <strong>{remainingLogins}</strong> connexion{remainingLogins > 1 ? 's' : ''} avant la fin de votre période d'essai.
+                </p>
+                <p className="text-xs text-yellow-600 mt-2">
+                  Pour continuer à utiliser InVera ERP après la fin de votre essai, veuillez souscrire un abonnement.
+                </p>
+                <Link 
+                  to="/subscription" 
+                  className="mt-3 inline-block text-sm font-semibold text-yellow-700 hover:text-yellow-800 hover:underline"
+                >
+                  Voir les offres d'abonnement →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showTrialExpired && (
+          <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-red-800">
+                  ❌ Votre période d'essai est terminée
+                </p>
+                <p className="text-sm text-red-700 mt-1">
+                  Votre période d'essai gratuite est expirée. Pour continuer à utiliser InVera ERP, vous devez souscrire un abonnement.
+                </p>
+                <Link 
+                  to="/subscription" 
+                  className="mt-3 inline-block text-sm font-semibold text-red-700 hover:text-red-800 hover:underline"
+                >
+                  Souscrire un abonnement →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Contenu de la page avec Outlet */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto">

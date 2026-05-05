@@ -386,8 +386,7 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                  </td>
-
+                  </td> 
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <button
@@ -464,8 +463,7 @@ const OrderTable = ({
                       )}
                     </div>
                   </td>
-                </tr>
-              );
+                </tr>);
             })}
           </tbody>
         </table>

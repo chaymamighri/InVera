@@ -1,8 +1,8 @@
 package org.erp.invera.security;
 
-import org.erp.invera.model.platform.Utilisateur;
+import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.model.platform.SuperAdmin;
-import org.erp.invera.repository.platform.utilisateurRepository;
+import org.erp.invera.repository.erp.utilisateurRepository;
 import org.erp.invera.repository.platform.SuperAdminRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

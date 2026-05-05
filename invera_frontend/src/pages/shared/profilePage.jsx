@@ -12,28 +12,28 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const profileCopy = {
   fr: {
-    unknown: 'Non renseigne',
+    unknown: 'Non renseigné',
     never: 'Jamais',
     today: "Aujourd'hui",
     yesterday: 'Hier',
     loadError: 'Impossible de charger votre profil.',
-    offlineTitle: 'Donnees affichees en mode hors-ligne',
+    offlineTitle: 'Données affichées en mode hors-ligne',
     backToDashboard: 'Retour au tableau de bord',
-    disabledAccount: 'Compte desactive',
+    disabledAccount: 'Compte désactivé',
     editProfile: 'Modifier le profil',
     personalInfo: 'Informations personnelles',
     professionalInfo: 'Informations professionnelles',
     fullName: 'Nom complet',
     email: 'Email',
-    role: 'Role',
+    role: 'Rôle',
     memberSince: 'Membre depuis',
     sessionsThisWeek: 'Sessions cette semaine',
-    lastLogin: 'Derniere connexion',
-    memberSinceHelper: 'Date de creation du compte',
+    lastLogin: 'Dernière connexion',
+    memberSinceHelper: 'Date de création du compte',
     unavailableHelper: 'Date non disponible',
-    sessionsHelper: 'Activite recente sur les 7 derniers jours',
-    lastLoginHelper: 'Derniere activite',
-    noLoginHelper: 'Aucune connexion enregistree',
+    sessionsHelper: 'Activité récente sur les 7 derniers jours',
+    lastLoginHelper: 'Dernière activité',
+    noLoginHelper: 'Aucune connexion enregistrée',
     administrator: 'Administrateur',
     salesManager: 'Responsable Commercial',
     procurementManager: 'Responsable Achats',
@@ -71,26 +71,26 @@ const profileCopy = {
   },
   ar: {
     unknown: 'غير متوفر',
-    never: 'ابدا',
+    never: 'أبداً',
     today: 'اليوم',
-    yesterday: 'امس',
+    yesterday: 'أمس',
     loadError: 'تعذر تحميل ملفك الشخصي.',
     offlineTitle: 'يتم عرض البيانات في وضع غير متصل',
-    backToDashboard: 'العودة الى لوحة التحكم',
+    backToDashboard: 'العودة إلى لوحة التحكم',
     disabledAccount: 'الحساب معطل',
     editProfile: 'تعديل الملف الشخصي',
     personalInfo: 'المعلومات الشخصية',
     professionalInfo: 'المعلومات المهنية',
     fullName: 'الاسم الكامل',
-    email: 'البريد الالكتروني',
+    email: 'البريد الإلكتروني',
     role: 'الدور',
     memberSince: 'عضو منذ',
-    sessionsThisWeek: 'الجلسات هذا الاسبوع',
-    lastLogin: 'اخر تسجيل دخول',
-    memberSinceHelper: 'تاريخ انشاء الحساب',
+    sessionsThisWeek: 'الجلسات هذا الأسبوع',
+    lastLogin: 'آخر تسجيل دخول',
+    memberSinceHelper: 'تاريخ إنشاء الحساب',
     unavailableHelper: 'التاريخ غير متوفر',
-    sessionsHelper: 'النشاط خلال اخر 7 ايام',
-    lastLoginHelper: 'اخر نشاط',
+    sessionsHelper: 'النشاط خلال آخر 7 أيام',
+    lastLoginHelper: 'آخر نشاط',
     noLoginHelper: 'لا توجد عملية دخول مسجلة',
     administrator: 'المدير',
     salesManager: 'مسؤول المبيعات',
@@ -178,33 +178,46 @@ const ProfilePage = () => {
       try {
         const res = await authService.getCurrentUser();
         const me = res?.data;
+        
+        if (me && me.email) {
+          setUserData({
+            nom: me.nom || me?.lastName || '',
+            prenom: me.prenom || me?.firstName || '',
+            email: me.email || '',
+            role: me.role || '',
+            active: me.active !== false,
+            memberSince: me.memberSince || me.createdAt || null,
+            lastLogin: me.lastLogin || null,
+            sessionsThisWeek: me.sessionsThisWeek || 0,
+          });
 
-        setUserData({
-          nom: me?.nom || me?.lastName || '',
-          prenom: me?.prenom || me?.firstName || '',
-          email: me?.email || '',
-          role: me?.role || '',
-          active: me?.active !== false,
-          memberSince: me?.memberSince || null,
-          lastLogin: me?.lastLogin || null,
-          sessionsThisWeek: me?.sessionsThisWeek || 0,
-        });
-
-        const fullName = `${me?.nom || ''} ${me?.prenom || ''}`.trim();
-        if (me?.role) localStorage.setItem('userRole', me.role);
-        if (fullName) localStorage.setItem('userName', fullName);
-        if (me?.email) localStorage.setItem('userEmail', me.email);
+          // Stocker dans localStorage
+          if (me.nom) localStorage.setItem('userNom', me.nom);
+          if (me.prenom) localStorage.setItem('userPrenom', me.prenom);
+          if (me.email) localStorage.setItem('userEmail', me.email);
+          if (me.role) localStorage.setItem('userRole', me.role);
+          if (me.memberSince) localStorage.setItem('memberSince', me.memberSince);
+          if (me.lastLogin) localStorage.setItem('lastLogin', me.lastLogin);
+        } else {
+          throw new Error('No data from API');
+        }
       } catch (e) {
-        setError(e?.message || copy.loadError);
-
+        console.warn('API /me not available, using localStorage');
+        // Ne pas afficher d'erreur à l'utilisateur
+        setError('');
+        
+        // Utiliser les données du localStorage
+        const storedMemberSince = localStorage.getItem('memberSince');
+        const storedLastLogin = localStorage.getItem('lastLogin');
+        
         setUserData({
           nom: localStorage.getItem('userNom') || '',
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
           role: localStorage.getItem('userRole') || '',
           active: true,
-          memberSince: null,
-          lastLogin: null,
+          memberSince: storedMemberSince || new Date().toISOString(),
+          lastLogin: storedLastLogin || new Date().toISOString(),
           sessionsThisWeek: 0,
         });
       } finally {
@@ -213,7 +226,7 @@ const ProfilePage = () => {
     };
 
     loadMe();
-  }, [copy.loadError]);
+  }, []);
 
   const getRoleLabel = (role) => {
     const normalized = String(role || '').toUpperCase();
@@ -328,8 +341,9 @@ const ProfilePage = () => {
               <div className={`flex items-start justify-between gap-6 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">
-                    {userData.prenom} {userData.nom}
-                  </h1>
+  {userData.prenom} {userData.nom}
+  {!userData.prenom && !userData.nom && (userData.email || 'Utilisateur')}
+</h1>
                   <p className="mt-1 text-lg text-gray-600">{getRoleLabel(userData.role)}</p>
 
                   {userData.active === false && (
