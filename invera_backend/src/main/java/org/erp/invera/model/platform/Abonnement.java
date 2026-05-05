@@ -38,6 +38,10 @@ public class Abonnement {
     private StatutAbonnement statut;
 
     public enum StatutAbonnement {
-        ACTIF, EXPIRE, SUSPENDU, ANNULE
+        EN_ATTENTE_VALIDATION,
+        ACTIF,                  // Payé et actif
+        SUSPENDU,               // Suspendu temporairement (Super Admin)
+        ANNULE,                 // Annulé définitivement (Super Admin/Client)
+        EXPIRE,
     }
 }

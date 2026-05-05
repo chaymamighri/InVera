@@ -20,12 +20,22 @@ import {
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_TRANSLATIONS = {
-  'salesPages.orderNumber': 'N° Commande',
+  'salesPages.orderNumber': 'N° commande',
   'salesPages.client': 'Client',
   'salesPages.creationDate': 'Date de création',
   'salesPages.products': 'Produits',
-  'salesPages.finalAmount': 'Montant final',
-  'salesPages.status': 'Statut'
+  'salesPages.finalAmount': 'Montant total',
+  'salesPages.status': 'Statut',
+  'salesPages.actions': 'Actions',
+  'salesPages.pending': 'En attente',
+  'salesPages.confirmed': 'Confirmé',
+  'salesPages.rejected': 'Refusé',
+  'salesPages.view': 'Voir détails',
+  'salesPages.validate': 'Valider',
+  'salesPages.reject': 'Rejeter',
+  'salesPages.noOrdersFound': 'Aucune commande trouvée',
+  'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
+  'salesPages.processed': 'Traitée'
 };
 
 const OrderTable = ({
@@ -41,9 +51,16 @@ const OrderTable = ({
   setValidationError = () => {},
   t
 }) => {
-  const translate = typeof t === 'function'
-    ? t
-    : (key) => DEFAULT_TRANSLATIONS[key] || key;
+  const safeT = (key) => {
+    if (typeof t !== 'function') {
+      return DEFAULT_TRANSLATIONS[key] || key;
+    }
+
+    const translated = t(key);
+    return !translated || translated === key
+      ? (DEFAULT_TRANSLATIONS[key] || key)
+      : translated;
+  };
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -201,6 +218,7 @@ const OrderTable = ({
               </div>
 
               <button
+                type="button"
                 onClick={closeErrorPopup}
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
@@ -232,7 +250,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <ShoppingBagIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {translate('salesPages.orderNumber')}
+                  {safeT('salesPages.orderNumber')}
                   {sortField === 'numero' && (
                     sortDirection === 'asc'
                       ? <ChevronUpIcon className="ml-1 h-3 w-3" />
@@ -247,7 +265,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {translate('salesPages.client')}
+                  {safeT('salesPages.client')}
                   {sortField === 'clientNom' && (
                     sortDirection === 'asc'
                       ? <ChevronUpIcon className="ml-1 h-3 w-3" />
@@ -262,7 +280,7 @@ const OrderTable = ({
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {translate('salesPages.creationDate')}
+                  {safeT('salesPages.creationDate')}
                   {sortField === 'dateCommande' && (
                     sortDirection === 'desc'
                       ? <ChevronUpIcon className="ml-1 h-3 w-3" />
@@ -272,20 +290,22 @@ const OrderTable = ({
               </th>
 
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {translate('salesPages.products')}
+                {safeT('salesPages.products')}
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {translate('salesPages.finalAmount')}
+
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                {safeT('salesPages.finalAmount')}
               </th>
+
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                {translate('salesPages.status')}
+                {safeT('salesPages.status')}
               </th>
+
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                ACTIONS
+                {safeT('salesPages.actions')}
               </th>
             </tr>
           </thead>
-
           <tbody className="bg-white divide-y divide-gray-100">
             {currentCommandes.map((commande) => {
               const pourcentageRemise = calculerPourcentageRemise(commande.sousTotal, commande.remise);
@@ -312,7 +332,6 @@ const OrderTable = ({
                           {commande.client?.prenom} {commande.client?.nom || 'Client inconnu'}
                         </span>
                       </div>
-
                       {commande.client?.typeClient && (
                         <div>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getClientTypeColor(commande.client.typeClient)}`}>
@@ -368,14 +387,14 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-right">
                     <div>
                       <div className="font-bold text-gray-900 text-lg">
                         {formatMontant(commande.total)}
                       </div>
 
                       {pourcentageRemise > 0 && (
-                        <div className="flex items-center mt-1">
+                        <div className="flex items-center justify-end mt-1">
                           <div className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium border border-green-200">
                             <TagIcon className="h-2.5 w-2.5 mr-1" />
                             -{pourcentageRemise}%
@@ -386,7 +405,8 @@ const OrderTable = ({
                         </div>
                       )}
                     </div>
-                  </td> 
+                  </td>
+
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <button
@@ -399,23 +419,16 @@ const OrderTable = ({
                               : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
                         } transition-colors`}
                       >
-                        {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && (
-                          <ClockIcon className="h-3.5 w-3.5 mr-1.5" />
-                        )}
-                        {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && (
-                          <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />
-                        )}
-                        {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
-                          <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />
-                        )}
-
+                        {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && <ClockIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
                         <span className="font-semibold">
                           {commande.statut === 'EN_ATTENTE'
-                            ? 'En attente'
+                            ? safeT('salesPages.pending')
                             : commande.statut === 'CONFIRMEE'
-                              ? 'Confirmé'
+                              ? safeT('salesPages.confirmed')
                               : commande.statut === 'ANNULEE'
-                                ? 'Refusé'
+                                ? safeT('salesPages.rejected')
                                 : commande.statut}
                         </span>
                       </button>
@@ -428,7 +441,7 @@ const OrderTable = ({
                         type="button"
                         onClick={() => onVoirDetails(commande)}
                         className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200"
-                        title="Voir détails"
+                        title={safeT('salesPages.view')}
                       >
                         <EyeIcon className="h-4 w-4" />
                       </button>
@@ -439,7 +452,7 @@ const OrderTable = ({
                             type="button"
                             onClick={() => onValider(commande.id)}
                             className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-all duration-200"
-                            title="Valider la commande"
+                            title={safeT('salesPages.validate')}
                           >
                             <CheckCircleIcon className="h-4 w-4" />
                           </button>
@@ -448,7 +461,7 @@ const OrderTable = ({
                             type="button"
                             onClick={() => onRejeter(commande.id)}
                             className="p-1.5 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-all duration-200"
-                            title="Rejeter la commande"
+                            title={safeT('salesPages.reject')}
                           >
                             <XCircleIcon className="h-4 w-4" />
                           </button>
@@ -458,12 +471,13 @@ const OrderTable = ({
                       {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' ||
                         commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
                         <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300">
-                          Traitée
+                          {safeT('salesPages.processed')}
                         </span>
                       )}
                     </div>
                   </td>
-                </tr>);
+                </tr>
+              );
             })}
           </tbody>
         </table>
@@ -474,9 +488,9 @@ const OrderTable = ({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
             <ShoppingBagIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune commande trouvée</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{safeT('salesPages.noOrdersFound')}</h3>
           <p className="text-gray-500 max-w-md mx-auto text-sm">
-            Aucune commande ne correspond à vos critères de recherche.
+            {safeT('salesPages.noOrdersMatch')}
           </p>
         </div>
       )}
@@ -524,26 +538,28 @@ const OrderTable = ({
 
                 <div className="flex items-center space-x-1">
                   {getPageNumbers().map((page, index) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                          currentPage === page
-                            ? 'bg-blue-600 text-white border border-blue-700'
-                            : 'text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400'
-                        } transition-colors`}
-                        aria-label={`Page ${page}`}
-                        aria-current={currentPage === page ? 'page' : undefined}
-                      >
-                        {page}
-                      </button>
-                    )
+                    page === '...'
+                      ? (
+                        <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
+                          ...
+                        </span>
+                      )
+                      : (
+                        <button
+                          type="button"
+                          key={page}
+                          onClick={() => goToPage(page)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white border border-blue-700'
+                              : 'text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400'
+                          } transition-colors`}
+                          aria-label={`Page ${page}`}
+                          aria-current={currentPage === page ? 'page' : undefined}
+                        >
+                          {page}
+                        </button>
+                      )
                   ))}
                 </div>
 

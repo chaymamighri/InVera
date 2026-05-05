@@ -43,8 +43,72 @@ import clientService from '../../../../services/clientService';
 import { commandeService } from '../../../../services/commandeService';
 import { useLanguage } from '../../../../context/LanguageContext';
 
+// ✅ Textes de fallback pour les traductions manquantes
+const FALLBACK_TEXTS = {
+  // Gestion des commandes
+  'salesPages.orderManagementTitle': 'Gestion des commandes',
+  'salesPages.orderManagementDescription': 'Consultez et gérez toutes les commandes clients',
+  'salesPages.newOrder': 'Nouvelle commande',
+  'salesPages.searchOrders': 'Rechercher une commande...',
+  'salesPages.allStatuses': 'Tous les statuts',
+  'salesPages.totalOrders': 'Commandes totales',
+  'salesPages.pendingOrders': 'En attente',
+  'salesPages.confirmedOrders': 'Confirmées',
+  'salesPages.rejectedOrders': 'Rejetées',
+  
+  // ✅ Clés pour le tableau des commandes
+  'salesPages.orderNumber': 'N° commande',
+  'salesPages.client': 'Client',
+  'salesPages.creationDate': 'Date de création',
+  'salesPages.products': 'Produits',
+  'salesPages.finalAmount': 'Montant total',
+  'salesPages.status': 'Statut',
+  'salesPages.actions': 'Actions',
+  
+  // Autres clés
+  'salesPages.noOrdersFound': 'Aucune commande trouvée',
+  'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
+  'salesPages.pending': 'En attente',
+  'salesPages.confirmed': 'Confirmée',
+  'salesPages.rejected': 'Refusée',
+  'salesPages.view': 'Voir',
+  'salesPages.edit': 'Modifier',
+  'salesPages.delete': 'Supprimer',
+  'salesPages.of': 'de',
+  'salesPages.orders': 'commandes',
+  'salesPages.show': 'Afficher',
+  'salesPages.perPage': 'par page',
+  'salesPages.loading': 'Chargement...',
+  'salesPages.validate': 'Valider',
+  'salesPages.reject': 'Rejeter',
+  'salesPages.viewOrder': 'Voir commande',
+  'salesPages.createOrder': 'Créer commande',
+  'salesPages.orderDetails': 'Détails commande',
+  'salesPages.orderSummary': 'Récapitulatif commande',
+  'salesPages.quantity': 'Quantité',
+  'salesPages.unitPrice': 'Prix unitaire',
+  'salesPages.totalPrice': 'Prix total',
+  'salesPages.discount': 'Remise',
+  'salesPages.finalTotal': 'Total final',
+  'salesPages.confirmOrder': 'Confirmer commande',
+  'salesPages.cancel': 'Annuler',
+  'salesPages.amount': 'Montant',
+  'salesPages.orderDate': 'Date commande',
+  'salesPages.orderId': 'N° Commande'
+};
+
 const OrdersPage = () => {
   const { t } = useLanguage();
+  
+  // ✅ Fonction de traduction avec fallback
+  const safeT = (key) => {
+    const translated = t(key);
+    if (!translated || translated === key) {
+      return FALLBACK_TEXTS[key] || key;
+    }
+    return translated;
+  };
+  
   // Utiliser le hook personnalisé
   const {
     commandes,
@@ -140,9 +204,9 @@ const OrdersPage = () => {
       
       const matchesStatus = selectedStatus === 'Tous' || 
         commande.statut === selectedStatus ||
-        (selectedStatus === 'En attente' && commande.statut === 'EN_ATTENTE') ||
-        (selectedStatus === 'Confirmé' && commande.statut === 'CONFIRMEE') ||
-        (selectedStatus === 'Refusé' && commande.statut === 'ANNULEE');
+        (selectedStatus === safeT('salesPages.pending') && commande.statut === 'EN_ATTENTE') ||
+        (selectedStatus === safeT('salesPages.confirmed') && commande.statut === 'CONFIRMEE') ||
+        (selectedStatus === safeT('salesPages.rejected') && commande.statut === 'ANNULEE');
       
       const matchesClient = selectedClientId === 'Tous' || 
         commande.client?.id === parseInt(selectedClientId);
@@ -203,7 +267,7 @@ const OrdersPage = () => {
     }
     
     setFilteredCommandes(filtered);
-  }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber]);
+  }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber, safeT]);
 
   // Fonction de réinitialisation des filtres
   const handleResetFilters = useCallback(() => {
@@ -334,13 +398,13 @@ const OrdersPage = () => {
       
       await handleValiderCommande(commandeId);
       
-      toast.success('Commande validée avec succès !');
+      toast.success(safeT('salesPages.orderValidated') || 'Commande validée avec succès !');
       await chargerDonnees();
     } catch (error) {
       console.error('Erreur lors de la validation:', error);
       toast.error('Erreur lors de la validation de la commande: ' + error.message);
     }
-  }, [handleValiderCommande, chargerDonnees]);
+  }, [handleValiderCommande, chargerDonnees, safeT]);
 
   // Fonction pour rejeter une commande
   const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
@@ -349,13 +413,13 @@ const OrdersPage = () => {
       
       await handleRejeterCommande(commandeId);
       
-      toast.success('Commande rejetée avec succès !');
+      toast.success(safeT('salesPages.orderRejected') || 'Commande rejetée avec succès !');
       await chargerDonnees();
     } catch (error) {
       console.error('Erreur lors du rejet:', error);
       toast.error('Erreur lors du rejet de la commande: ' + error.message);
     }
-  }, [handleRejeterCommande, chargerDonnees]);
+  }, [handleRejeterCommande, chargerDonnees, safeT]);
 
   const handleVoirDetails = useCallback((commande) => {
     setSelectedCommande(commande);
@@ -384,7 +448,7 @@ const OrdersPage = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement des commandes...</p>
+          <p className="mt-4 text-gray-600">{safeT('salesPages.loading')}</p>
         </div>
       </div>
     );
@@ -417,8 +481,8 @@ const OrdersPage = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">{t('salesPages.orderManagementTitle')}</h1>
-            <p className="text-gray-600 mt-2">{t('salesPages.orderManagementDescription')}</p>
+            <h1 className="text-2xl font-bold text-gray-800">{safeT('salesPages.orderManagementTitle')}</h1>
+            <p className="text-gray-600 mt-2">{safeT('salesPages.orderManagementDescription')}</p>
           </div>
           
           <div className="mt-4 md:mt-0 flex space-x-3">
@@ -428,12 +492,12 @@ const OrdersPage = () => {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {t('salesPages.loading')}
+                  {safeT('salesPages.loading')}
                 </>
               ) : (
                 <>
                   <PlusIcon className="h-5 w-5 mr-2" />
-                  {t('salesPages.newOrder')}
+                  {safeT('salesPages.newOrder')}
                 </>
               )}
             </button>
@@ -453,7 +517,7 @@ const OrdersPage = () => {
           clients={clients}
           clientTypes={clientTypes}
           onReset={handleResetFilters}
-          t={t}
+          t={safeT}
         />
       </div>
 
@@ -462,7 +526,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 font-medium">{t('salesPages.totalOrders')}</p>
+              <p className="text-sm text-blue-600 font-medium">{safeT('salesPages.totalOrders')}</p>
               <p className="text-2xl font-bold text-blue-800 mt-1">{commandes.length}</p>
             </div>
             <ShoppingBagIcon className="h-8 w-8 text-blue-400" />
@@ -472,7 +536,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-yellow-600 font-medium">{t('salesPages.pendingOrders')}</p>
+              <p className="text-sm text-yellow-600 font-medium">{safeT('salesPages.pendingOrders')}</p>
               <p className="text-2xl font-bold text-yellow-800 mt-1">
                 {commandes.filter(c => c.statut === 'EN_ATTENTE' || c.statut === 'En attente').length}
               </p>
@@ -484,7 +548,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">{t('salesPages.confirmedOrders')}</p>
+              <p className="text-sm text-green-600 font-medium">{safeT('salesPages.confirmedOrders')}</p>
               <p className="text-2xl font-bold text-green-800 mt-1">
                 {commandes.filter(c => c.statut === 'CONFIRMEE' || c.statut === 'Confirmé').length}
               </p>
@@ -496,7 +560,7 @@ const OrdersPage = () => {
         <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-600 font-medium">{t('salesPages.rejectedOrders')}</p>
+              <p className="text-sm text-red-600 font-medium">{safeT('salesPages.rejectedOrders')}</p>
               <p className="text-2xl font-bold text-red-800 mt-1">
                 {commandes.filter(c => c.statut === 'ANNULEE' || c.statut === 'Refusé').length}
               </p>
@@ -516,6 +580,7 @@ const OrdersPage = () => {
         onRejeter={handleRejeterCommandeAPI}
         onVoirDetails={handleVoirDetails}
         toNumber={toNumber}
+        t={safeT}
       />
 
       {/* Modal de création */}
@@ -538,6 +603,7 @@ const OrdersPage = () => {
           toNumber={toNumber}
           onOrderCreated={ajouterNouvelleCommande}
           isCreating={isCreating}
+          t={safeT}
         />
       )}
 
@@ -554,6 +620,7 @@ const OrdersPage = () => {
     const refreshed = await commandeService.getCommandeById(commandeId);
     return refreshed;
            }}
+          t={safeT}
         />
       )}
     </div>

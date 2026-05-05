@@ -53,7 +53,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/platform/clients/login",
             "/api/platform/clients/request-otp",
             "/api/platform/clients/verify-otp",
-            "/api/public/offres"
+            "/api/public/offres",
+            // AJOUTER LES ENDPOINTS DE PAIEMENT ICI
+            "/api/abonnement/",
+            "/api/abonnement/*/paiement/initier",
+            "/api/paiement/",
+            "/api/paiement/*/konnect",
+            "/paiement/checkout",
+            "/webhook/konnect",
+            "/paiement/succes",
+            "/paiement/echec",
+            "/paiement/annuler"
     );
 
     public JwtAuthenticationFilter() {
@@ -75,6 +85,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 System.out.println("🔓 [PUBLIC] " + path);
                 return true;
             }
+        }
+        if (path.startsWith("/api/platform/clients/public/logo/")) {
+            System.out.println("🔓 [PUBLIC LOGO] " + path);
+            return true;  // Ne pas appliquer le filtre JWT
+        }
+
+        // ✅ AJOUTER CETTE CONDITION AU DÉBUT
+        if (path.matches("/api/paiement/\\d+/konnect")) {
+            System.out.println("🔓 [PUBLIC - KONNECT] " + path);
+            return true;
+        }
+
+        if (path.matches("/api/abonnement/\\d+/paiement/initier")) {
+            System.out.println("🔓 [PUBLIC - ABONNEMENT] " + path);
+            return true;
         }
 
         if (path.matches("/api/platform/clients/\\d+/justificatifs")) {

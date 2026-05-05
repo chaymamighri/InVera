@@ -80,6 +80,19 @@ public class SecurityConfig {
                         // ========== PUBLIC API ==========
                         .requestMatchers("/api/public/**").permitAll()
 
+                        // ==========  NOUVEAU : PAIEMENT PUBLIC ==========
+                        .requestMatchers(
+                                "/paiement/checkout",
+                                "/webhook/konnect",
+                                "/paiement/succes",
+                                "/paiement/echec",
+                                "/paiement/annuler",
+                                "/api/abonnement/*/paiement/initier",
+                                "/api/paiement/*/konnect"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/api/paiement/**").permitAll()
+
                         // ========== AUTH PUBLICS ==========
                         .requestMatchers(
                                 "/api/auth/login",
@@ -92,9 +105,20 @@ public class SecurityConfig {
                                 "/api/platform/clients/register",
                                 "/api/platform/clients/login",
                                 "/api/platform/clients/request-otp",
+                                "/api/platform/clients/verify-otp",
                                 "/api/platform/clients/*/justificatifs",
-                                "/api/platform/clients/*/document/*"
+                                "/api/platform/clients/*/document/*",
+                                "/api/platform/clients/public/logo/*"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
+
+
+                        .requestMatchers(
+                                "/api/platform/clients/update-company"
+                        ).hasRole("ADMIN_CLIENT")
+
 
                         // ========== SUPER ADMIN AUTH PUBLIC ==========
                         .requestMatchers(
