@@ -61,26 +61,28 @@ const SalesPage = () => {
    * Vérifie pour chaque commande si une facture existe déjà
    * @param {Array} commandesList - Liste des commandes
    */
-  const checkInvoicesStatus = useCallback(async (commandesList) => {
-    const status = {};
-    
-    await Promise.all(
-      commandesList.map(async (cmd) => {
-        const commandeId = cmd.id || cmd.idCommandeClient || cmd.idCommande;
-        if (!commandeId) return;
-        
-        try {
-          const result = await commandeService.checkInvoiceExistsForCommande(commandeId);
-          status[commandeId] = result.exists;
-        } catch (error) {
-          console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
-          status[commandeId] = false;
-        }
-      })
-    );
-    
-    setInvoiceStatus(status);
-  }, []);
+const checkInvoicesStatus = useCallback(async (commandesList) => {
+  const status = {};
+  
+  await Promise.all(
+    commandesList.map(async (cmd) => {
+      const commandeId = cmd.id || cmd.idCommandeClient || cmd.idCommande;
+      if (!commandeId) return;
+      
+      try {
+        // ✅ Correction: La méthode retourne un booléen directement
+        const hasInvoice = await commandeService.checkInvoiceExistsForCommande(commandeId);
+        status[commandeId] = hasInvoice;
+        console.log(`📊 Commande ${commandeId} - Facture existe: ${hasInvoice}`);
+      } catch (error) {
+        console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
+        status[commandeId] = false;
+      }
+    })
+  );
+  
+  setInvoiceStatus(status);
+}, []);
 
   // ============================================
   //  CHARGEMENT DES COMMANDES
@@ -302,130 +304,144 @@ const SalesPage = () => {
    * @param {Object} invoiceData - Données de la facture
    * @param {string|number} commandeId - ID de la commande associée
    */
-  const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
-    const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-    
-    console.log('📄 Données facture reçues:', invoiceData);
-    
-    // Calcul de la date d'échéance (date facture + 30 jours)
-    let dueDate = null;
-    if (invoiceData.dateFacture) {
-      try {
-        const dateFacture = new Date(invoiceData.dateFacture);
-        if (!isNaN(dateFacture.getTime())) {
-          const dueDateObj = new Date(dateFacture);
-          dueDateObj.setDate(dueDateObj.getDate() + 30);
-          dueDate = dueDateObj.toISOString();
-        }
-      } catch (error) {
-        console.error('Erreur calcul date échéance:', error);
+const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
+  const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+  
+  console.log('📄 Données facture reçues:', invoiceData);
+  
+  // Calcul de la date d'échéance (date facture + 30 jours)
+  let dueDate = null;
+  if (invoiceData.dateFacture) {
+    try {
+      const dateFacture = new Date(invoiceData.dateFacture);
+      if (!isNaN(dateFacture.getTime())) {
+        const dueDateObj = new Date(dateFacture);
+        dueDateObj.setDate(dueDateObj.getDate() + 30);
+        dueDate = dueDateObj.toISOString();
       }
+    } catch (error) {
+      console.error('Erreur calcul date échéance:', error);
     }
+  }
+  
+  // Construction de l'objet facture pour le modal
+  const factureData = {
+    id: invoiceData.idFactureClient,
+    idFactureClient: invoiceData.idFactureClient,
+    referenceFactureClient: invoiceData.referenceFactureClient,
+    reference: invoiceData.referenceFactureClient,
+    invoiceNumber: invoiceData.referenceFactureClient,
+    dateFacture: invoiceData.dateFacture,
+    date: invoiceData.dateFacture,
+    dueDate: dueDate,
     
-    // Construction de l'objet facture pour le modal
-    const factureData = {
-      id: invoiceData.idFactureClient || invoiceData.id || invoiceData.factureId || `FAC-${commandeId}`,
-      referenceFactureClient: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
-      reference: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
-      invoiceNumber: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
-      dateFacture: invoiceData.dateFacture,
-      date: invoiceData.dateFacture,
-      dueDate: dueDate,
-      
-      client: {
-        nomComplet: commande?.client?.nomComplet || 
-                    (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
-        email: commande?.client?.email || invoiceData.client?.email || '',
-        telephone: commande?.client?.telephone || invoiceData.client?.telephone || '',
-        adresse: commande?.client?.adresse || invoiceData.client?.adresse || '',
-        typeClient: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER'
-      },
-      
-      commande: commande ? {
-        id: commande.id,
-        reference: commande.referenceCommandeClient || commande.numeroCommande,
-        lignesCommande: commande.produits?.map(p => ({
-          produit: { libelle: p.libelle || 'Produit' },
-          quantite: p.quantite,
-          prix_unitaire: p.prixUnitaire,
-          total: p.sousTotal || (p.quantite * p.prixUnitaire)
-        })) || []
-      } : null,
-      
-      montantTotal: invoiceData.montantTotal || commande?.montantTotal || 0,
-      total: invoiceData.montantTotal || commande?.total || 0,
-      
-      items: commande?.produits?.map(p => ({
-        description: p.libelle || 'Produit',
-        quantity: p.quantite,
-        unitPrice: p.prixUnitaire,
+    client: {
+      nomComplet: commande?.client?.nomComplet || 
+                  (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
+      email: commande?.client?.email || '',
+      telephone: commande?.client?.telephone || '',
+      adresse: commande?.client?.adresse || '',
+      typeClient: commande?.client?.typeClient || 'PARTICULIER'
+    },
+    
+    commande: commande ? {
+      id: commande.id,
+      reference: commande.referenceCommandeClient || commande.numeroCommande,
+      lignesCommande: commande.produits?.map(p => ({
+        produit: { libelle: p.libelle || p.nom || 'Produit' },
+        quantite: p.quantite,
+        prix_unitaire: p.prixUnitaire,
         total: p.sousTotal || (p.quantite * p.prixUnitaire)
-      })) || [],
-      
-      statut: invoiceData.statut || 'NON_PAYE',
-      status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
-      commandeId: commandeId,
-      paymentMethod: commande?.modePaiement || 'Non spécifié',
-      notes: commande?.notes || ''
-    };
+      })) || []
+    } : null,
     
-    console.log('✅ Facture préparée pour le modal:', factureData);
+    montantTotal: invoiceData.montantTotal || commande?.montantTotal || 0,
+    total: invoiceData.montantTotal || commande?.total || 0,
     
-    setSelectedFacture(factureData);
-    setIsInvoiceModalOpen(true);
+    items: commande?.produits?.map(p => ({
+      description: p.libelle || p.nom || 'Produit',
+      quantity: p.quantite,
+      unitPrice: p.prixUnitaire,
+      total: p.sousTotal || (p.quantite * p.prixUnitaire)
+    })) || [],
     
-    // Mise à jour du statut de la facture
-    setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-  }, [commandes]);
+    statut: invoiceData.statut || 'NON_PAYE',
+    status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
+    commandeId: commandeId,
+    paymentMethod: commande?.modePaiement || 'Non spécifié',
+    notes: commande?.notes || ''
+  };
+  
+  console.log('✅ Facture préparée pour le modal:', factureData);
+  
+  setSelectedFacture(factureData);
+  setIsInvoiceModalOpen(true);
+  
+  // Mise à jour du statut de la facture
+  setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
+}, [commandes]);
 
-  /**
+/**
    * Génère une nouvelle facture pour une commande
    * @param {string|number} commandeId - ID de la commande
    */
-  const handleGenerateInvoice = async (commandeId) => {
+const handleGenerateInvoice = async (commandeId) => {
     setInvoiceLoading(prev => ({ ...prev, [commandeId]: true }));
     
     try {
-      console.log('📄 Génération facture pour commande:', commandeId);
-      const result = await commandeService.generateOrGetInvoice(commandeId);
-      console.log('✅ Résultat API:', result);
-      
-      if (result && result.facture) {
-        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-        const factureComplete = { ...result.facture, items: commande?.produits || [] };
-        displayInvoiceInModal(factureComplete, commandeId);
-      }
-      
-      return result;
+        console.log('📄 Génération facture pour commande:', commandeId);
+        
+        // 1. Générer la facture
+        const result = await commandeService.generateOrGetInvoice(commandeId);
+        console.log('✅ Résultat API:', result);
+        
+        if (result && result.success) {
+            // 2. Récupérer la facture fraîchement créée
+            const invoice = await commandeService.getInvoiceByCommandeId(commandeId);
+            console.log('✅ Facture récupérée:', invoice);
+            
+            if (invoice) {
+                const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+                displayInvoiceInModal(invoice, commandeId);
+                
+                // ✅ Remplacer loadFactures() par la mise à jour du status
+                setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
+                
+                // ✅ Optionnel: Recharger la liste des commandes pour mettre à jour le statut
+                await loadCommandesValidees();
+            } else {
+                throw new Error('Facture non trouvée après génération');
+            }
+        } else {
+            throw new Error(result?.message || 'Erreur lors de la génération');
+        }
+        
+        return result;
     } catch (error) {
-      console.error('❌ Erreur génération facture:', error);
-      alert('Erreur lors de la génération de la facture');
-      throw error;
+        console.error('❌ Erreur génération facture:', error);
+        alert('Erreur lors de la génération de la facture: ' + error.message);
+        throw error;
     } finally {
-      setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
+        setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
     }
-  };
+};
 
   /**
    * Consulte une facture existante
    * @param {string|number} commandeId - ID de la commande
    */
-  const handleViewInvoice = useCallback(async (commandeId) => {
-    try {
-      console.log('📄 Consultation facture pour commande:', commandeId);
-      const result = await commandeService.generateOrGetInvoice(commandeId);
-      console.log('✅ Facture existante récupérée:', result);
-      
-      if (result && result.facture) {
-        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-        const factureComplete = { ...result.facture, items: commande?.produits || [] };
-        displayInvoiceInModal(factureComplete, commandeId);
-      }
-    } catch (error) {
-      console.error('❌ Erreur consultation facture:', error);
-      alert('Erreur lors de la consultation de la facture');
-    }
-  }, [commandes, displayInvoiceInModal]);
+const handleViewInvoice = useCallback(async (commandeId) => {
+  try {
+    console.log('📄 Consultation facture pour commande:', commandeId);
+    
+    // ✅ Utiliser viewInvoice qui ouvre l'URL directement
+    await commandeService.viewInvoice(commandeId);
+    
+  } catch (error) {
+    console.error('❌ Erreur consultation facture:', error);
+    alert(error.message || 'Erreur lors de la consultation de la facture');
+  }
+}, []);
 
   /**
    * Télécharge la facture au format PDF
@@ -525,6 +541,7 @@ const SalesPage = () => {
           setSelectedFacture(null);
         }}
         facture={selectedFacture}
+         commandeId={selectedFacture?.commandeId} 
         onStatusChange={async (factureId, newStatus) => {
           console.log('Statut changé pour facture:', factureId, newStatus);
           const commandeId = selectedFacture?.commandeId;

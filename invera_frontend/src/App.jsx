@@ -54,8 +54,7 @@ import SubscriptionsManagementPage from './pages/superAdmin/abonnements/Subscrip
 import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 import ConditionsInvera from './pages/public/ConditionsInvera';
-
-import PaymentPage from './pages/public/PaymentPage';
+import PaymentsView from './pages/superAdmin/paiement/PaymentsView';
 
 
 
@@ -266,14 +265,7 @@ function App() {
                 </PublicLayout>
               }
             />
-<Route
-  path="/paiement/checkout"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>
+{/*route
 <Route
   path="/paiement/succes"
   element={
@@ -297,7 +289,7 @@ function App() {
       <PaymentPage />
     </PublicLayout>
   }
-/>
+/>*/}
 
             <Route path="/support" element={<Navigate to="/more-information" replace />} />
             <Route path="/about" element={<Navigate to="/more-information" replace />} />
@@ -352,7 +344,7 @@ function App() {
               <Route index element={<Navigate to="clients" replace />} />
               <Route path="clients" element={<ClientsManagementPage />} />
               <Route path="abonnements" element={<SubscriptionsManagementPage />} />
-              <Route path="paiements" element={<div className="p-6"><h1 className="text-2xl font-bold">Gestion des paiements</h1></div>} />
+              <Route path="paiements" element={<PaymentsView />} /> 
               <Route path="profile" element={<SuperAdminProfilePage />} />
               <Route path="settings" element={<SuperAdminSettingsPage />} />
             </Route>

@@ -17,17 +17,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
 import { commandeService } from '../../../../../services/commandeService';
-import html2pdf from 'html2pdf.js';
-import InvoiceTemplate from './InvoiceTemplate';
 
-const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
-  //  TOUS LES HOOKS EN PREMIER
+const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) => {
   const [updating, setUpdating] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
 
   // Charger les articles quand la facture change
   useEffect(() => {
@@ -39,7 +36,6 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
 
       try {
         setLoadingItems(true);
-        
         const commandeDetails = await commandeService.getCommandeById(facture.commande.id);
         
         if (commandeDetails && commandeDetails.lignesCommande) {
@@ -48,26 +44,22 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
                                 ligne.prixUnitaire || 
                                 ligne.prix_vente ||
                                 ligne.produit?.prix_vente ||
-                                ligne.produit?.prix ||
-                                0;
+                                ligne.produit?.prix || 0;
             
             const totalLigne = ligne.sous_total || 
                               ligne.sousTotal || 
                               ligne.total ||
-                              (ligne.quantite * prixUnitaire) || 
-                              0;
+                              (ligne.quantite * prixUnitaire) || 0;
             
             return {
               description: ligne.produit?.libelle || 
                           ligne.produitLibelle || 
-                          ligne.libelle ||
-                          'Produit',
+                          ligne.libelle || 'Produit',
               quantity: ligne.quantite || 0,
               unitPrice: prixUnitaire,
               total: totalLigne
             };
           });
-          
           setItems(itemsFormatted);
         } else {
           setItems([]);
@@ -85,10 +77,8 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
     }
   }, [facture, isOpen]);
 
-  //  APRÈS tous les Hooks, on vérifie les conditions
   if (!isOpen || !facture) return null;
 
-  // Formatage de la date
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -99,7 +89,6 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
     }
   };
 
-  // Formatage du montant
   const formatMontant = (montant) => {
     if (montant === undefined || montant === null) return '0,000 DT';
     const nombre = typeof montant === 'number' ? montant : parseFloat(montant);
@@ -109,144 +98,108 @@ const InvoiceModal = ({ isOpen, onClose, facture, onStatusChange }) => {
     }).format(nombre) + ' DT';
   };
 
+  const handleStatusChange = async () => {
+    const factureId = facture.id;
+    if (facture.statut === 'PAYE' || updating) return;
 
-const handleStatusChange = async () => {
-  
-  const factureId = facture.id;
-  
-  console.log('🔍 ID facture à payer:', factureId);
-  console.log('🔍 ID commande associée:', facture.commandeId);
-  
-  if (facture.statut === 'PAYE' || updating) return;
-
-  try {
-    setUpdating(true);
-    
-    // Appel API avec l'ID de la facture (11)
-    await commandeService.marquerFacturePayee(factureId);
-    
-    // Passer l'ID de la facture au parent (11)
-    if (onStatusChange) {
-      await onStatusChange(factureId, 'payée');
+    try {
+      setUpdating(true);
+      await commandeService.marquerFacturePayee(factureId);
+      if (onStatusChange) {
+        await onStatusChange(factureId, 'payée');
+      }
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      alert('Erreur lors de la mise à jour du statut');
+    } finally {
+      setUpdating(false);
     }
-    
-  } catch (error) {
-    console.error('❌ Erreur:', error);
-    alert('Erreur lors de la mise à jour du statut');
-  } finally {
-    setUpdating(false);
-  }
-};
+  };
 
-  // Calcul des totaux
   const calculerTotaux = () => {
     const sousTotal = items.reduce((acc, item) => acc + (item.total || 0), 0);
     const tva = sousTotal * 0.19;
     const totalTTC = sousTotal + tva;
-    
     return { sousTotal, tva, totalTTC };
   };
 
   const totaux = calculerTotaux();
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    const htmlContent = InvoiceTemplate({ 
-      facture, 
-      items, 
-      totaux, 
-      formatDate, 
-      formatMontant 
-    });
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.print();
-  };
-
-  const handleExportPDF = () => {
-    try {
-      const element = document.createElement('div');
-      const htmlContent = InvoiceTemplate({ 
-        facture, 
-        items, 
-        totaux, 
-        formatDate, 
-        formatMontant 
-      });
-      
-      element.innerHTML = htmlContent;
-      document.body.appendChild(element);
-      
-      const opt = {
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `facture_${facture.referenceFactureClient || facture.reference}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, letterRendering: true },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
-      
-      html2pdf().from(element).set(opt).save();
-      
-      setTimeout(() => {
-        document.body.removeChild(element);
-      }, 1000);
-      
-    } catch (error) {
-      console.error('❌ Erreur export PDF:', error);
-      alert('Erreur lors de l\'export PDF');
+  //  Impression: Afficher le PDF dans une nouvelle fenêtre sans téléchargement
+const handlePrint = async () => {
+  try {
+    setPrintLoading(true);
+    console.log('🖨️ Impression directe pour facture:', facture.id);
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Session expirée, veuillez vous reconnecter');
+      return;
     }
-  };
-
-  const handleExportExcel = () => {
+    
+    const apiUrl = 'http://localhost:8081/api';
+    const response = await fetch(`${apiUrl}/factures/${facture.id}/pdf`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/pdf'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const pdfBlob = await response.blob();
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    // Ouvrir dans une nouvelle fenêtre et déclencher l'impression immédiatement
+    const printWindow = window.open(pdfUrl, '_blank');
+    
+    if (printWindow) {
+      // Attendre que le PDF soit chargé puis déclencher l'impression
+      printWindow.onload = () => {
+        printWindow.print();
+        // Optionnel: fermer la fenêtre après l'impression
+        printWindow.onafterprint = () => {
+          printWindow.close();
+          URL.revokeObjectURL(pdfUrl);
+        };
+      };
+    } else {
+      alert("Veuillez autoriser les popups pour cette application");
+      URL.revokeObjectURL(pdfUrl);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('Erreur lors de l\'impression de la facture');
+  } finally {
+    setPrintLoading(false);
+  }
+};
+  // ✅ Téléchargement du PDF
+  const handleExportPDF = async () => {
     try {
-      const wb = XLSX.utils.book_new();
+      setExportLoading(true);
+      console.log('📄 Téléchargement PDF pour facture:', facture.id);
       
-      const factureData = [
-        ['FACTURE', ''],
-        ['N°', facture.referenceFactureClient || facture.reference],
-        ['Date', formatDate(facture.dateFacture)],
-        ['Client', facture.client?.nomComplet || facture.client?.nom || 'N/A'],
-        ['Email', facture.client?.email || ''],
-        ['Téléphone', facture.client?.telephone || ''],
-        ['Statut', facture.statut === 'PAYE' ? 'Payée' : 'Non payée'],
-        ['', ''],
-        ['ARTICLES', ''],
-        ['Description', 'Quantité', 'Prix unitaire', 'Total']
-      ];
+      const pdfBlob = await commandeService.downloadInvoicePDF(facture.id);
       
-      items.forEach(item => {
-        factureData.push([
-          item.description,
-          item.quantity,
-          item.unitPrice,
-          item.total
-        ]);
-      });
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `facture_${facture.referenceFactureClient || facture.reference}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      factureData.push(
-        ['', '', 'Sous-total', totaux.sousTotal],
-        ['', '', 'TVA (19%)', totaux.tva],
-        ['', '', 'TOTAL TTC', totaux.totalTTC]
-      );
-      
-      const wsFacture = XLSX.utils.aoa_to_sheet(factureData);
-      XLSX.utils.book_append_sheet(wb, wsFacture, 'Facture');
-      
-      const articlesData = items.map(item => ({
-        'Description': item.description,
-        'Quantité': item.quantity,
-        'Prix unitaire (DT)': item.unitPrice,
-        'Total (DT)': item.total
-      }));
-      
-      const wsArticles = XLSX.utils.json_to_sheet(articlesData);
-      XLSX.utils.book_append_sheet(wb, wsArticles, 'Articles');
-      
-      XLSX.writeFile(wb, `facture_${facture.referenceFactureClient || facture.reference}.xlsx`);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
       
     } catch (error) {
-      console.error('❌ Erreur export Excel:', error);
-      alert('Erreur lors de l\'export Excel');
+      console.error('❌ Erreur téléchargement:', error);
+      alert('Erreur lors du téléchargement de la facture');
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -270,16 +223,10 @@ const handleStatusChange = async () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Overlay avec blur */}
-      <div 
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
       <div className="relative min-h-screen flex items-center justify-center p-4">
         <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
           
-          {/* Header minimaliste */}
           <div className="px-8 py-6 border-b border-gray-100 bg-white sticky top-0 z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -299,72 +246,13 @@ const handleStatusChange = async () => {
                   </p>
                 </div>
               </div>
-              
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    className="p-2.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                    title="Exporter"
-                  >
-                    <DocumentArrowDownIcon className="h-5 w-5" />
-                  </button>
-                  
-                  {showExportMenu && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40"
-                        onClick={() => setShowExportMenu(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 overflow-hidden">
-                        <button
-                          onClick={() => {
-                            handleExportPDF();
-                            setShowExportMenu(false);
-                          }}
-                          className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                        >
-                          <DocumentTextIcon className="h-4 w-4" />
-                          PDF
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleExportExcel();
-                            setShowExportMenu(false);
-                          }}
-                          className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                        >
-                          <TableCellsIcon className="h-4 w-4" />
-                          Excel
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <button
-                  onClick={handlePrint}
-                  className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                  title="Imprimer"
-                >
-                  <PrinterIcon className="h-5 w-5" />
-                </button>
-                
-                <button
-                  onClick={onClose}
-                  className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
+              <button onClick={onClose} className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
-          {/* Contenu */}
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-100px)]">
-            
-            {/* Statut et actions */}
             <div className="flex items-center justify-between mb-8 p-5 bg-gray-50/50 rounded-xl border border-gray-100">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-600">Statut :</span>
@@ -492,36 +380,20 @@ const handleStatusChange = async () => {
                 <table className="min-w-full divide-y divide-gray-100">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantité
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Prix unitaire
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Prix unitaire</th>
+                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
                     {items.length > 0 ? (
                       items.map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {item.description}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 text-center">
-                            {item.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 text-right font-mono">
-                            {formatMontant(item.unitPrice)}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">
-                            {formatMontant(item.total)}
-                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{item.description}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600 text-center">{item.quantity}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600 text-right font-mono">{formatMontant(item.unitPrice)}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">{formatMontant(item.total)}</td>
                         </tr>
                       ))
                     ) : (
@@ -533,30 +405,9 @@ const handleStatusChange = async () => {
                     )}
                   </tbody>
                   <tfoot className="bg-gray-50/50">
-                    <tr>
-                      <td colSpan="3" className="px-6 py-4 text-sm font-medium text-gray-600 text-right">
-                        Sous-total
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">
-                        {formatMontant(totaux.sousTotal)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan="3" className="px-6 py-4 text-sm font-medium text-gray-600 text-right">
-                        TVA (19%)
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">
-                        {formatMontant(totaux.tva)}
-                      </td>
-                    </tr>
-                    <tr className="border-t-2 border-gray-200">
-                      <td colSpan="3" className="px-6 py-4 text-base font-bold text-gray-900 text-right">
-                        TOTAL TTC
-                      </td>
-                      <td className="px-6 py-4 text-base font-bold text-blue-600 text-right font-mono">
-                        {formatMontant(totaux.totalTTC)}
-                      </td>
-                    </tr>
+                    <tr><td colSpan="3" className="px-6 py-4 text-sm font-medium text-gray-600 text-right">Sous-total</td><td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">{formatMontant(totaux.sousTotal)}</td></tr>
+                    <tr><td colSpan="3" className="px-6 py-4 text-sm font-medium text-gray-600 text-right">TVA (19%)</td><td className="px-6 py-4 text-sm font-medium text-gray-900 text-right font-mono">{formatMontant(totaux.tva)}</td></tr>
+                    <tr className="border-t-2 border-gray-200"><td colSpan="3" className="px-6 py-4 text-base font-bold text-gray-900 text-right">TOTAL TTC</td><td className="px-6 py-4 text-base font-bold text-blue-600 text-right font-mono">{formatMontant(totaux.totalTTC)}</td></tr>
                   </tfoot>
                 </table>
               </div>
@@ -566,17 +417,27 @@ const handleStatusChange = async () => {
             <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
               <button
                 onClick={handlePrint}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                disabled={printLoading}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50"
               >
-                <PrinterIcon className="h-4 w-4" />
+                {printLoading ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-gray-700 border-t-transparent rounded-full" />
+                ) : (
+                  <PrinterIcon className="h-4 w-4" />
+                )}
                 Imprimer
               </button>
               
               <button
                 onClick={handleExportPDF}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2 transition-colors shadow-sm"
+                disabled={exportLoading}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
               >
-                <DocumentArrowDownIcon className="h-4 w-4" />
+                {exportLoading ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <DocumentArrowDownIcon className="h-4 w-4" />
+                )}
                 Télécharger PDF
               </button>
             </div>

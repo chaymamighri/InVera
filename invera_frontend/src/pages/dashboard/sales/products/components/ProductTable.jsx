@@ -27,32 +27,6 @@ const IMAGES_BY_CATEGORY = {
 };
 
 // ========== FONCTIONS UTILITAIRES ==========
-const getStatusText = (status) => {
-  const statusMap = {
-    'EN_STOCK': 'En stock',
-    'RUPTURE': 'Rupture',
-    'FAIBLE': 'Stock faible',
-    'CRITIQUE': 'Stock critique'
-  };
-  return statusMap[status] || 'Inconnu';
-};
-
-const getStatusBadgeColor = (status) => {
-  const colorMap = {
-    'EN_STOCK': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    'RUPTURE': 'bg-red-100 text-red-800 border-red-200',
-    'FAIBLE': 'bg-amber-100 text-amber-800 border-amber-200',
-    'CRITIQUE': 'bg-orange-100 text-orange-800 border-orange-200'
-  };
-  return colorMap[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-};
-
-const getStockColor = (quantiteStock, seuilMinimum) => {
-  if (quantiteStock <= 0) return 'text-red-600';
-  if (quantiteStock <= seuilMinimum) return 'text-yellow-600';
-  return 'text-green-600';
-};
-
 const getCategoryImage = (categorie) => {
   if (!categorie) return DEFAULT_IMAGE;
   
@@ -66,22 +40,30 @@ const getCategoryImage = (categorie) => {
 };
 
 const normalizeImageUrl = (imageUrl, categorie) => {
-  // Si pas d'URL, utiliser image par catégorie
   if (!imageUrl || imageUrl === 'null' || imageUrl === 'undefined' || imageUrl.trim() === '') {
     return getCategoryImage(categorie);
   }
   
-  // Si l'URL contient des placeholders invalides
   if (imageUrl.includes('undefined') || imageUrl.includes('null') || imageUrl.includes('iphone-15-pro-finish')) {
     return getCategoryImage(categorie);
   }
   
-  // Si l'URL est relative, ajouter le préfixe du backend
+  // ✅ CORRECTION : Si l'URL contient déjà "uploads/produits/", l'utiliser directement
+  if (imageUrl.includes('uploads/produits/')) {
+    // Nettoyer l'URL pour éviter les doubles slashes
+    let cleanUrl = imageUrl;
+    if (!cleanUrl.startsWith('http')) {
+      cleanUrl = `http://localhost:8081/${cleanUrl}`;
+    }
+    return cleanUrl;
+  }
+  
+  // Si l'URL commence par /uploads/ (sans "produits")
   if (imageUrl.startsWith('/uploads/')) {
     return `http://localhost:8081${imageUrl}`;
   }
   
-  // Si l'URL ne commence pas par http, c'est un nom de fichier
+  // Pour les autres cas (juste le nom du fichier)
   if (!imageUrl.startsWith('http')) {
     return `http://localhost:8081/uploads/produits/${imageUrl}`;
   }
@@ -109,18 +91,16 @@ const ProductTable = ({
   itemsPerPage = 5
 }) => {
   
-  // États locaux
   const [currentProducts, setCurrentProducts] = useState([]);
   const [imageErrors, setImageErrors] = useState({});
 
-  // Calculer les produits à afficher pour la page courante
   useEffect(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     setCurrentProducts(products.slice(startIndex, endIndex));
   }, [products, currentPage, itemsPerPage]);
 
-  // Normaliser les données du produit
+  // Normaliser les données du produit (version simplifiée)
   const normalizeProductData = useCallback((product) => {
     const categorie = product.categorie?.nomCategorie || product.categorie || '';
     const imageUrl = normalizeImageUrl(product.imageUrl, categorie);
@@ -134,20 +114,15 @@ const ProductTable = ({
       libelle: product.libelle || 'Produit sans nom',
       imageUrl: imageUrl,
       categorie: categorie,
-      uniteMesure: product.uniteMesure || 'unité',
       prixVente: Number(prixBase),
       remiseTemporaire: Number(remise),
       prix: prixAvecRemise,
       prixInitial: prixBase,
       remise: remise,
       quantiteStock: Number(product.quantiteStock) || 0,
-      seuilMinimum: Number(product.seuilMinimum) || 5,
-      status: product.status || 'EN_STOCK',
-      statut: getStatusText(product.status)
     };
   }, []);
 
-  // Gérer l'erreur d'image
   const handleImageError = (productId, categorie) => {
     setImageErrors(prev => ({
       ...prev,
@@ -155,7 +130,6 @@ const ProductTable = ({
     }));
   };
 
-  // Obtenir l'URL de l'image (avec fallback)
   const getImageUrl = (product) => {
     if (imageErrors[product.idProduit]) {
       return getCategoryImage(product.categorie);
@@ -163,12 +137,9 @@ const ProductTable = ({
     return product.imageUrl;
   };
 
-  // Gérer la sélection/désélection de tous les produits
   const handleSelectAll = useCallback((e) => {
     if (e.target.checked) {
-      const produitsDisponibles = currentProducts.filter(p => 
-        p.status !== 'RUPTURE' && (p.quantiteStock || 0) > 0
-      );
+      const produitsDisponibles = currentProducts.filter(p => (p.quantiteStock || 0) > 0);
       
       const nouveauxProduits = produitsDisponibles
         .filter(p => !selectedProducts.some(sp => sp.idProduit === p.idProduit))
@@ -177,13 +148,11 @@ const ProductTable = ({
           libelle: p.libelle,
           prixVente: p.prixVente || 0,
           quantiteStock: p.quantiteStock || 0,
-          uniteMesure: p.uniteMesure || 'unité',
           imageUrl: p.imageUrl,
           categorie: p.categorie,
           quantiteCommande: 1,
           prix: p.prixVente || 0,
-          remiseTemporaire: p.remiseTemporaire || 0,
-          status: p.status
+          remiseTemporaire: p.remiseTemporaire || 0
         }));
       
       setSelectedProducts(prev => [...prev, ...nouveauxProduits]);
@@ -195,7 +164,6 @@ const ProductTable = ({
     }
   }, [currentProducts, selectedProducts, setSelectedProducts]);
 
-  // Modifier la quantité d'un produit sélectionné
   const handleChangeQuantite = useCallback((productId, newQuantite) => {
     setSelectedProducts(prev => prev.map(p => {
       if (p.idProduit === productId) {
@@ -209,12 +177,10 @@ const ProductTable = ({
     }));
   }, [setSelectedProducts]);
 
-  // Retirer un produit de la sélection
   const handleRemoveProduct = useCallback((productId) => {
     setSelectedProducts(prev => prev.filter(p => p.idProduit !== productId));
   }, [setSelectedProducts]);
 
-  // Vérifier si un produit spécifique est disponible
   const checkDisponibiliteProduit = useCallback((product) => {
     const selectedProduct = selectedProducts.find(p => p.idProduit === product.idProduit);
     if (!selectedProduct) return true;
@@ -225,16 +191,14 @@ const ProductTable = ({
     return stockDisponible >= quantiteDemandee;
   }, [selectedProducts]);
 
-  // Calculer si tous les produits de la page sont sélectionnés
   const allProductsSelected = useMemo(() => {
     if (currentProducts.length === 0) return false;
     return currentProducts.every(p => {
-      const isOutOfStock = p.status === 'RUPTURE' || (p.quantiteStock || 0) <= 0;
+      const isOutOfStock = (p.quantiteStock || 0) <= 0;
       return isOutOfStock || selectedProducts.some(sp => sp.idProduit === p.idProduit);
     });
   }, [currentProducts, selectedProducts]);
 
-  // Rendu de la pagination
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
@@ -243,14 +207,14 @@ const ProductTable = ({
         <div className="text-sm text-gray-700 mb-3 sm:mb-0">
           Page <span className="font-semibold">{currentPage}</span> sur <span className="font-semibold">{totalPages}</span>
           {' • '}
-          <span className="font-semibold">{products.length}</span> produit{products.length !== 1 ? 's' : ''} au total
+          <span className="font-semibold">{products.length}</span> produit{products.length !== 1 ? 's' : ''}
         </div>
         
         <div className="flex items-center space-x-2">
           <button
             onClick={() => onPageChange?.(currentPage - 1)}
             disabled={currentPage === 1}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             <ChevronLeftIcon className="h-4 w-4 mr-1" />
             Précédent
@@ -289,7 +253,7 @@ const ProductTable = ({
           <button
             onClick={() => onPageChange?.(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             Suivant
             <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -299,7 +263,6 @@ const ProductTable = ({
     );
   };
 
-  // États de chargement et erreur
   if (error) {
     return (
       <div className="bg-white rounded-xl shadow border p-8 text-center">
@@ -343,7 +306,7 @@ const ProductTable = ({
         </div>
       </div>
 
-      {/* Tableau des produits */}
+      {/* Tableau des produits simplifié */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -356,26 +319,9 @@ const ProductTable = ({
                   onChange={handleSelectAll}
                 />
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                <button onClick={() => handleSort('libelle')} className="flex items-center gap-1">
-                  <CubeIcon className="h-4 w-4" />
-                  Produit
-                  {sortField === 'libelle' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                <button onClick={() => handleSort('prixVente')} className="flex items-center gap-1">
-                  Prix
-                  {sortField === 'prixVente' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                <button onClick={() => handleSort('quantiteStock')} className="flex items-center gap-1">
-                  <ChartBarIcon className="h-4 w-4" />
-                  Stock
-                  {sortField === 'quantiteStock' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
-                </button>
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produit</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -387,7 +333,7 @@ const ProductTable = ({
               const quantiteCommande = selectedProduct?.quantiteCommande || 1;
               const isAvailable = checkDisponibiliteProduit(normalizedProduct);
               const imageUrl = getImageUrl(normalizedProduct);
-              const isOutOfStock = normalizedProduct.status === 'RUPTURE' || normalizedProduct.quantiteStock <= 0;
+              const isOutOfStock = normalizedProduct.quantiteStock <= 0;
               
               return (
                 <tr key={normalizedProduct.idProduit} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -420,12 +366,6 @@ const ProductTable = ({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-sm font-medium text-gray-900">{normalizedProduct.libelle}</h3>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(normalizedProduct.status)}`}>
-                            {normalizedProduct.statut}
-                          </span>
-                          <span className="text-xs text-gray-500">{normalizedProduct.uniteMesure}</span>
-                        </div>
                         {normalizedProduct.remiseTemporaire > 0 && (
                           <span className="inline-block mt-1 text-xs text-red-600 font-medium">
                             🔥 Remise {normalizedProduct.remiseTemporaire}%
@@ -443,10 +383,12 @@ const ProductTable = ({
                   </td>
                   
                   <td className="px-6 py-4">
-                    <div className={`font-medium ${getStockColor(normalizedProduct.quantiteStock, normalizedProduct.seuilMinimum)}`}>
+                    <div className="font-medium text-gray-900">
                       {normalizedProduct.quantiteStock} unités
                     </div>
-                    <div className="text-xs text-gray-500">Seuil: {normalizedProduct.seuilMinimum}</div>
+                    {isOutOfStock && (
+                      <span className="text-xs text-red-600">Rupture</span>
+                    )}
                   </td>
                   
                   <td className="px-6 py-4">
@@ -508,7 +450,6 @@ const ProductTable = ({
           </tbody>
         </table>
 
-        {/* États de chargement et vide */}
         {loading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -525,10 +466,8 @@ const ProductTable = ({
         )}
       </div>
 
-      {/* Pagination */}
       {renderPagination()}
 
-      {/* Footer avec résumé */}
       {selectedProducts.length > 0 && (
         <div className="border-t p-4 bg-blue-50">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -550,7 +489,7 @@ const ProductTable = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedProducts([])}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
               >
                 Vider le panier
               </button>

@@ -8,7 +8,7 @@ import {
   TagIcon,
   UserGroupIcon,
   DocumentCheckIcon,
-  ExclamationTriangleIcon, // ← AJOUTER CET IMPORT
+  ExclamationTriangleIcon, 
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSidebar } from '../../../context/SidebarContext';
