@@ -12,7 +12,7 @@ const api = axios.create({
   timeout: 60000
 });
 
-// ✅ Intercepteur avec LOGS OBLIGATOIRES pour debug
+//  Intercepteur avec LOGS OBLIGATOIRES pour debug
 api.interceptors.request.use(
   (config) => {
     console.log('=== INTERCEPTEUR REQUÊTE DÉCLENCHÉ ===');
@@ -54,7 +54,7 @@ api.interceptors.request.use(
   }
 );
 
-// Intercepteur response - CORRIGÉ
+// Intercepteur poue les log de response
 api.interceptors.response.use(
   (response) => {
     console.log('✅ Réponse reçue:', response.status, response.config.url);
@@ -72,21 +72,16 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && errorCode === 'SESSION_EXPIRED') {
       console.warn('🔒 Session unique - Connexion depuis un autre appareil');
       
-      // Stocker le message pour l'afficher au prochain login
       sessionStorage.setItem('sessionExpired', 'true');
       sessionStorage.setItem('sessionExpiredMessage', errorMessage || 'Vous êtes connecté depuis un autre appareil.');
       
-      // Nettoyer les tokens
       ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
        'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
         localStorage.removeItem(k)
       );
       sessionStorage.removeItem('token');
       
-      // Message spécifique
       toast.error('🔒 Session fermée - Connexion depuis un autre appareil');
-      
-      // Redirection
       window.location.href = '/login';
       return Promise.reject(error);
     }
@@ -96,7 +91,6 @@ api.interceptors.response.use(
       console.warn('⏰ Token expiré');
       sessionStorage.setItem('tokenExpired', 'true');
       
-      // Nettoyer les tokens
       ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
        'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
         localStorage.removeItem(k)
@@ -108,21 +102,102 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // ✅ Cas 3: Période d'essai expirée (status 403)
-    if (error.response?.status === 403 && errorMessage?.includes('Période d\'essai expirée')) {
-      console.warn('⚠️ Période d\'essai expirée');
-      sessionStorage.setItem('essaiExpire', 'true');
+   // CAS 3: COMPTE INACTIF
+if (error.response?.status === 403 && errorCode === 'ACCOUNT_INACTIVE') {
+  console.warn('❌ Compte inactif');
+  
+  // Nettoyer les tokens
+  ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+   'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+    localStorage.removeItem(k)
+  );
+  sessionStorage.removeItem('token');
+  
+  // ✅ STOCKER LE MESSAGE D'ERREUR AVANT REDIRECTION
+  sessionStorage.setItem('loginError', errorMessage || 'Votre compte est inactif. Veuillez contacter l\'administrateur.');
+  sessionStorage.setItem('loginErrorType', 'inactive');
+  
+  // Redirection vers login
+  window.location.href = '/login';
+  return Promise.reject(error);
+}
+
+// CAS 4: EN ATTENTE DE PAIEMENT
+if (error.response?.status === 403 && errorCode === 'PAYMENT_PENDING') {
+  console.warn('💰 Paiement en attente');
+  
+  // Nettoyer les tokens
+  ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+   'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+    localStorage.removeItem(k)
+  );
+  sessionStorage.removeItem('token');
+  
+  // ✅ STOCKER LE MESSAGE
+  sessionStorage.setItem('loginError', errorMessage || 'Vos documents ont été validés. Veuillez finaliser votre paiement.');
+  sessionStorage.setItem('loginErrorType', 'payment');
+  
+  window.location.href = '/login';
+  return Promise.reject(error);
+}
+
+// CAS 5: ABONNEMENT EXPIRE
+if (error.response?.status === 403 && errorCode === 'SUBSCRIPTION_EXPIRED') {
+  console.warn('⚠️ Abonnement expiré');
+  
+  // Nettoyer les tokens
+  ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+   'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+    localStorage.removeItem(k)
+  );
+  sessionStorage.removeItem('token');
+  
+  // ✅ STOCKER LE MESSAGE
+  sessionStorage.setItem('loginError', errorMessage || 'Votre abonnement a expiré. Veuillez le renouveler.');
+  sessionStorage.setItem('loginErrorType', 'expired');
+  
+  window.location.href = '/login';
+  return Promise.reject(error);
+}
+    
+    // ✅ CAS 6: COMPTE REFUSE
+    if (error.response?.status === 403 && errorCode === 'ACCOUNT_REJECTED') {
+      console.warn('❌ Compte refusé');
       
-      toast.error('Période d\'essai expirée. Veuillez souscrire un abonnement.');
-      // Ne pas rediriger automatiquement, laisser le message s'afficher sur la page de login
+      // Nettoyer les tokens
+      ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
+       'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
+        localStorage.removeItem(k)
+      );
+      sessionStorage.removeItem('token');
+      
+      // Afficher le message
+      toast.error(errorMessage || '❌ Votre inscription a été refusée. Contactez le support.');
+      
+      window.location.href = '/login?error=rejected';
       return Promise.reject(error);
     }
     
-    // ✅ Cas 4: Autres erreurs 401/403
+    // ✅ CAS 7: Période d'essai expirée (status 403 avec message spécifique)
+    if (error.response?.status === 403 && (errorMessage?.includes('Période d\'essai') || errorMessage?.includes('période d\'essai'))) {
+      console.warn('⚠️ Période d\'essai expirée');
+      sessionStorage.setItem('essaiExpire', 'true');
+      
+      toast.error(errorMessage || 'Période d\'essai expirée. Veuillez souscrire un abonnement.');
+      return Promise.reject(error);
+    }
+    
+    // ✅ CAS 8: ROLE INVALIDE
+    if (error.response?.status === 403 && errorCode === 'INVALID_ROLE') {
+      console.warn('⚠️ Rôle invalide');
+      toast.error(errorMessage || 'Rôle non autorisé pour cette action');
+      return Promise.reject(error);
+    }
+    
+    // ✅ CAS 9: Autres erreurs 401/403
     if (error.response?.status === 401 || error.response?.status === 403) {
       console.warn('🔒 Authentification invalide');
       
-      // Nettoyer les tokens
       ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
        'rememberMe', 'savedEmail', 'tokenExpiry', 'clientDatabase', 'clientId'].forEach(k => 
         localStorage.removeItem(k)
