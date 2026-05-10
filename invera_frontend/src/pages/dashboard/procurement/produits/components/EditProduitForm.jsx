@@ -47,22 +47,42 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const chargerFournisseurs = async () => {
     setLoadingFournisseurs(true);
     try {
-      const response = await FournisseurService.getActiveFournisseurs();
-      
-      let fournisseursList = [];
-      if (response?.success && response?.fournisseurs) {
-        fournisseursList = response.fournisseurs;
-      } else if (response?.data && Array.isArray(response.data)) {
-        fournisseursList = response.data;
-      } else if (Array.isArray(response)) {
-        fournisseursList = response;
-      }
-      
-      setFournisseursDisponibles(fournisseursList);
+        const response = await FournisseurService.getActiveFournisseurs();
+        
+        console.log('📋 === DÉTAIL RÉPONSE FOURNISSEURS ===');
+        console.log('Type de response:', typeof response);
+        console.log('Est-ce un tableau?', Array.isArray(response));
+        console.log('Response brute:', response);
+        
+        let fournisseursList = [];
+        
+        if (Array.isArray(response)) {
+            console.log('📋 Cas: tableau direct');
+            fournisseursList = response;
+        }
+        else if (response?.fournisseurs && Array.isArray(response.fournisseurs)) {
+            console.log('📋 Cas: objet avec fournisseurs');
+            fournisseursList = response.fournisseurs;
+        }
+        else if (response?.data && Array.isArray(response.data)) {
+            console.log('📋 Cas: objet avec data');
+            fournisseursList = response.data;
+        }
+        else if (response?.success && response?.data && Array.isArray(response.data)) {
+            console.log('📋 Cas: success + data');
+            fournisseursList = response.data;
+        }
+        
+        console.log('📋 Fournisseurs chargés:', fournisseursList.length);
+        console.log('📋 Premier fournisseur:', fournisseursList[0]);
+        
+        setFournisseursDisponibles(fournisseursList);
+        
     } catch (error) {
-      console.error('❌ Erreur chargement fournisseurs:', error);
+        console.error('❌ Erreur chargement fournisseurs:', error);
+        toast.error('Erreur lors du chargement des fournisseurs');
     } finally {
-      setLoadingFournisseurs(false);
+        setLoadingFournisseurs(false);
     }
   };
 
@@ -106,7 +126,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       }
     }
     
-    // ✅ Récupérer le fournisseur et le prix d'achat
     let fournisseurId = produitData.fournisseurId || 
                         produitData.fournisseur?.idFournisseur || 
                         '';
@@ -130,13 +149,14 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       fournisseurId: fournisseurId
     });
     
-    if (produitData.imageUrl) {
-      const imageUrl = produitData.imageUrl.startsWith('http') 
+if (produitData.imageUrl) {
+    const baseURL = 'http://localhost:8081';
+    const imageUrl = produitData.imageUrl.startsWith('http') 
         ? produitData.imageUrl 
-        : `http://localhost:8081/${produitData.imageUrl.replace(/^\/+/, '')}`;
-      setImagePreview(imageUrl);
-    }
-  };
+        : `${baseURL}/api/produits/uploads/produits/${produitData.imageUrl}`;
+    setImagePreview(imageUrl);
+}
+};
 
   const validateForm = () => {
     const newErrors = {};
@@ -243,7 +263,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     formDataToSend.append('remiseTemporaire', String(parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0));
     formDataToSend.append('active', formData.active ? 'true' : 'false');
     
-    // ✅ Envoyer un seul fournisseurId
     if (formData.fournisseurId) {
       formDataToSend.append('fournisseurId', formData.fournisseurId);
     }
@@ -258,7 +277,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       return;
     }
     
-    // ✅ Appeler onSave avec l'ID et les données
     await onSave(productId, formDataToSend);
   };
 

@@ -1,14 +1,12 @@
-// components/commandeDetailsModal.jsx - Version Clean Code
-import React, { useEffect, useMemo } from 'react';
+// components/commandeDetailsModal.jsx - Version avec API passée en prop
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   XMarkIcon,
-  DocumentArrowDownIcon,
   BuildingStorefrontIcon,
   CalendarIcon,
   TruckIcon,
   TagIcon,
   MapPinIcon,
-  ReceiptPercentIcon
 } from '@heroicons/react/24/outline';
 
 // ========== CONSTANTES ==========
@@ -75,7 +73,7 @@ const useCommandeCalculs = (commande) => {
     return commande.lignesCommande.map(ligne => {
       // ✅ Règle métier : quantité utilisée selon le statut
       const quantite = estRecue 
-        ? (ligne.quantiteRecue || 0)  // Si reçue : utiliser qté reçue (0 par défaut)
+        ? (ligne.quantiteRecue || 0)  // Si reçue : utiliser qté reçue
         : (ligne.quantite || 0);       // Sinon : utiliser qté commandée
       
       const prixUnitaire = ligne.prixUnitaire || 0;
@@ -105,30 +103,70 @@ const useCommandeCalculs = (commande) => {
     }), { totalHT: 0, totalTVA: 0, totalTTC: 0 });
   }, [ligneAvecTotaux]);
 
-  const detailTVA = useMemo(() => {
-    return ligneAvecTotaux.reduce((acc, ligne) => {
-      const taux = ligne.tauxTVA || 19;
-      if (!acc[taux]) acc[taux] = { ht: 0, tva: 0 };
-      acc[taux].ht += ligne.sousTotalHT;
-      acc[taux].tva += ligne.montantTVA;
-      return acc;
-    }, {});
-  }, [ligneAvecTotaux]);
-
-  return { estRecue, ligneAvecTotaux, totaux, detailTVA };
+  return { estRecue, ligneAvecTotaux, totaux };
 };
 
 // ========== COMPOSANT PRINCIPAL ==========
-const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
-  const { estRecue, ligneAvecTotaux, totaux, detailTVA } = useCommandeCalculs(commande);
+const CommandeDetailsModal = ({ isOpen, onClose, commande: commandeProp, commandeId, api }) => {
+  const [commande, setCommande] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  // ✅ Charger les détails si on a un ID ou utiliser la commande passée en prop
   useEffect(() => {
-    if (commande) {
-      console.log('📦 Commande reçue dans modal:', commande);
+    if (!isOpen) return;
+    
+    // Si on a une commande complète passée en prop avec des lignes, l'utiliser
+    if (commandeProp?.lignesCommande && commandeProp.lignesCommande.length > 0) {
+      console.log('📦 Utilisation de la commande passée en prop:', commandeProp);
+      console.log('📋 Lignes avec quantiteRecue:', commandeProp.lignesCommande.map(l => ({
+        produit: l.produitLibelle,
+        quantite: l.quantite,
+        quantiteRecue: l.quantiteRecue
+      })));
+      setCommande(commandeProp);
+      return;
     }
-  }, [commande]);
+    
+    // Sinon, charger depuis l'API si on a un ID et que l'API est disponible
+    if (commandeId && api) {
+      fetchCommandeDetails();
+    }
+  }, [isOpen, commandeId, commandeProp, api]);
 
-  if (!isOpen || !commande) return null;
+  const fetchCommandeDetails = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get(`/commandes-fournisseurs/${commandeId}`);
+      console.log('📦 Détails chargés depuis API:', response.data);
+      console.log('📋 Lignes avec quantiteRecue:', response.data.lignesCommande?.map(l => ({
+        produit: l.produitLibelle,
+        quantite: l.quantite,
+        quantiteRecue: l.quantiteRecue
+      })));
+      setCommande(response.data);
+    } catch (error) {
+      console.error('Erreur chargement détails:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Calculs - appelés à chaque rendu mais avec useMemo
+  const { estRecue, ligneAvecTotaux, totaux } = useCommandeCalculs(commande);
+
+  // ✅ Retour anticipé APRÈS tous les hooks
+  if (!isOpen) return null;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-6 rounded-xl">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Chargement des détails...</p>
+        </div>
+      </div>
+    );
+  }
+  if (!commande) return null;
 
   // Helper pour le statut de réception
   const getReceptionStatus = (ligne) => {
@@ -212,14 +250,14 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                         const quantiteRecue = ligne.quantiteRecue || 0;
                         const receptionStatus = getReceptionStatus(ligne);
                         const colorMap = { green: 'text-green-600', orange: 'text-orange-600', red: 'text-red-600' };
+                        const bgColorMap = { green: 'bg-green-50', orange: 'bg-orange-50', red: 'bg-red-50' };
                         
                         return (
                           <tr key={ligne.idLigneCommandeFournisseur || idx} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="font-medium text-gray-900">{ligne.produitLibelle || 'Produit sans nom'}</div>
-                              {ligne.produitReference && <div className="text-sm text-gray-500">Réf: {ligne.produitReference}</div>}
                               {estRecue && (
-                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-${receptionStatus.color}-100 text-${receptionStatus.color}-800`}>
+                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium ${bgColorMap[receptionStatus.color]} ${colorMap[receptionStatus.color]}`}>
                                   {receptionStatus.text}
                                 </span>
                               )}
@@ -240,11 +278,11 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
                                   )}
                                 </div>
                               ) : <span className="text-gray-400 italic text-sm">-</span>}
-                            </td>
+                             </td>
                             <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.prixUnitaire)}</td>
                             <td className="px-6 py-4 text-center">
                               <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{ligne.tauxTVA || 19}%</span>
-                            </td>
+                             </td>
                             <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.sousTotalHT)}</td>
                             <td className="px-6 py-4 text-right font-semibold text-blue-600">{formatPrice(ligne.sousTotalTTC)}</td>
                           </tr>
@@ -288,7 +326,7 @@ const InfoCard = ({ icon: Icon, label, value, highlight }) => (
       <Icon className={`w-5 h-5 ${highlight ? 'text-green-600' : 'text-blue-600'}`} />
       <div>
         <p className="text-xs text-gray-500">{label}</p>
-        <p className={`font-semibold ${highlight ? 'text-green-700' : ''}`}>{value}</p>
+        <p className={`font-semibold ${highlight ? 'text-green-700' : 'text-gray-900'}`}>{value}</p>
       </div>
     </div>
   </div>
@@ -310,11 +348,11 @@ const FournisseurCard = ({ fournisseur }) => (
         </div>
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
-          <a href={`mailto:${fournisseur?.email}`} className="text-base text-blue-600 hover:text-blue-800 font-medium">{fournisseur?.email || 'N/A'}</a>
+          <p className="text-base text-gray-900">{fournisseur?.email || 'N/A'}</p>
         </div>
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500 uppercase">Téléphone</p>
-          <a href={`tel:${fournisseur?.telephone}`} className="text-base text-gray-900 font-medium">{fournisseur?.telephone || 'N/A'}</a>
+          <p className="text-base text-gray-900">{fournisseur?.telephone || 'N/A'}</p>
         </div>
       </div>
     </div>

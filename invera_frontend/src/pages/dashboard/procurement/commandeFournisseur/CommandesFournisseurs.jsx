@@ -185,33 +185,18 @@ const CommandesFournisseurs = () => {
     };
   }, [commandes, showArchives]);
 
-const filteredCommandes = useMemo(() => {
-  console.log("=== FILTRAGE COMMANDES ===");
-  console.log("selectedStatut:", selectedStatut);
-  console.log("searchTerm:", searchTerm);
-  console.log("Total commandes avant filtre:", commandes.length);
-  console.log("Statuts disponibles:", commandes.map(c => c.statut));
-  
-  const filtered = commandes.filter((commande) => {
-    const matchesSearch =
-      commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredCommandes = useMemo(() => {
+    return commandes.filter((commande) => {
+      const matchesSearch =
+        commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
-    
-    if (!matchesStatut && selectedStatut === 'VALIDEE') {
-      console.log("Commande exclue:", commande.numeroCommande, "statut:", commande.statut);
-    }
-    
-    return matchesSearch && matchesStatut;
-  });
-  
-  console.log("Commandes après filtre:", filtered.length);
-  console.log("Commandes VALIDEE dans le résultat:", filtered.filter(c => c.statut === 'VALIDEE').length);
-  
-  return filtered;
-}, [commandes, searchTerm, selectedStatut]);
+      const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
+      
+      return matchesSearch && matchesStatut;
+    });
+  }, [commandes, searchTerm, selectedStatut]);
 
   const handleShowArchives = () => {
     setShowArchives((prev) => !prev);
@@ -252,6 +237,11 @@ const filteredCommandes = useMemo(() => {
   };
 
   const handleReceptionConfirm = async (receptionData) => {
+    if (!selectedCommande) {
+      toast.error("Erreur: commande non trouvée");
+      return;
+    }
+    
     try {
       setActionInProgress(`reception-${selectedCommande.idCommandeFournisseur}`);
       await recevoirCommande(selectedCommande.idCommandeFournisseur, receptionData);
@@ -272,43 +262,43 @@ const filteredCommandes = useMemo(() => {
   };
 
   // handleStatusChange pour gérer toutes les actions
-const handleStatusChange = async (id, action) => {
-  try {
-    setActionInProgress(`${action}-${id}`);
+  const handleStatusChange = async (id, action) => {
+    try {
+      setActionInProgress(`${action}-${id}`);
 
-    switch (action) {
-      case 'envoyer':
-        await envoyerCommande(id);
-        toast.success('Commande envoyee avec succes');
-        break;
-      
-      case 'renvoyer_attente':  
-        await renvoyerAttente(id);
-        toast.success('Commande renvoyee en attente apres correction');
-        break;
-      
-      case 'annuler':
-        await annulerCommande(id);
-        toast.success('Commande annulee avec succes');
-        break;
-      
-      default:
-        console.warn('Action non reconnue:', action);
-        return;
+      switch (action) {
+        case 'envoyer':
+          await envoyerCommande(id);
+          toast.success('Commande envoyee avec succes');
+          break;
+        
+        case 'renvoyer_attente':  
+          await renvoyerAttente(id);
+          toast.success('Commande renvoyee en attente apres correction');
+          break;
+        
+        case 'annuler':
+          await annulerCommande(id);
+          toast.success('Commande annulee avec succes');
+          break;
+        
+        default:
+          console.warn('Action non reconnue:', action);
+          return;
+      }
+
+      if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
+        clearFocus();
+      }
+
+      await fetchCommandes();
+    } catch (statusError) {
+      console.error('Erreur changement statut:', statusError);
+      toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
+    } finally {
+      setActionInProgress(null);
     }
-
-    if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
-      clearFocus();
-    }
-
-    await fetchCommandes();
-  } catch (statusError) {
-    console.error('Erreur changement statut:', statusError);
-    toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
-  } finally {
-    setActionInProgress(null);
-  }
-};
+  };
 
   const handleRestore = async (id) => {
     try {
@@ -327,14 +317,12 @@ const handleStatusChange = async (id, action) => {
     }
   };
 
-  // ✅ MODIFICATION : handleDelete - Permet suppression pour BROUILLON et REJETEE
   const handleDelete = (commande) => {
     if (showArchives) {
       toast.info('Utilisez le bouton de restauration pour reactiver la commande');
       return;
     }
 
-    // Permettre suppression pour BROUILLON et REJETEE
     if (commande.statut !== StatutCommande.BROUILLON && commande.statut !== StatutCommande.REJETEE) {
       toast.error('Seules les commandes en brouillon ou rejetees peuvent etre supprimees');
       return;
@@ -533,8 +521,6 @@ const handleStatusChange = async (id, action) => {
         commande={selectedCommande}
         onConfirm={handleReceptionConfirm}
       />
-
-  
     </div>
   );
 };

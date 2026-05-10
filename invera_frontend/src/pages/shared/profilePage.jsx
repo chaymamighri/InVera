@@ -6,7 +6,6 @@ import {
   CalendarIcon,
   ArrowLeftIcon,
   BuildingOfficeIcon,
-  PhotoIcon,
   PencilIcon,
 } from '@heroicons/react/24/outline';
 
@@ -236,6 +235,13 @@ const ProfilePage = () => {
     setLogoError(false);
   };
 
+  // Vérifier si l'utilisateur peut modifier le logo
+  const canEditLogo = () => {
+    const role = String(userData.role || '').toUpperCase();
+    // Seuls ADMIN_CLIENT et ADMIN peuvent modifier le logo
+    return role === 'ADMIN_CLIENT' || role === 'ADMIN';
+  };
+
   useEffect(() => {
     const loadMe = async () => {
       setLoading(true);
@@ -249,6 +255,24 @@ const ProfilePage = () => {
         console.log('🔍 id dans la réponse:', me.id);
         
         if (me && me.email) {
+          let logoUrl = me.logoUrl;
+          
+          if (!logoUrl) {
+            logoUrl = localStorage.getItem('logoUrl');
+          }
+          
+          if (!logoUrl && me.clientId) {
+            try {
+              const clientRes = await api.get(`/platform/clients/${me.clientId}`);
+              if (clientRes.data && clientRes.data.logoUrl) {
+                logoUrl = clientRes.data.logoUrl;
+                console.log('✅ Logo récupéré depuis API client:', logoUrl);
+              }
+            } catch (err) {
+              console.warn('Impossible de récupérer le logo du client:', err);
+            }
+          }
+          
           setUserData({
             id: me.id,
             clientId: me.clientId, 
@@ -262,7 +286,7 @@ const ProfilePage = () => {
             typeCompte: me.typeCompte || '',
             raisonSociale: me.raisonSociale || '',
             matriculeFiscal: me.matriculeFiscal || '',
-            logoUrl: me.logoUrl || null,
+            logoUrl: logoUrl || null,
           });
 
           if (me.nom) localStorage.setItem('userNom', me.nom);
@@ -272,7 +296,7 @@ const ProfilePage = () => {
           if (me.typeCompte) localStorage.setItem('typeCompte', me.typeCompte);
           if (me.raisonSociale) localStorage.setItem('raisonSociale', me.raisonSociale);
           if (me.matriculeFiscal) localStorage.setItem('matriculeFiscal', me.matriculeFiscal);
-          if (me.logoUrl) localStorage.setItem('logoUrl', me.logoUrl);
+          if (logoUrl) localStorage.setItem('logoUrl', logoUrl);
           
           refreshLogo();
         } else {
@@ -284,7 +308,7 @@ const ProfilePage = () => {
         
         setUserData({
           id: null,
-          clientId: null,
+          clientId: localStorage.getItem('clientId') || null,
           nom: localStorage.getItem('userNom') || '',
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
@@ -316,11 +340,6 @@ const ProfilePage = () => {
       USER: copy.user,
     };
     return roles[normalized] || role || copy.user;
-  };
-
-  const isAdminClient = () => {
-    const role = String(userData.role || '').toUpperCase();
-    return role === 'ADMIN_CLIENT';
   };
 
   const isCompany = () => {
@@ -372,7 +391,6 @@ const ProfilePage = () => {
         
         toast.success(copy.logoUploadSuccess);
         
-        // Recharger les données utilisateur pour être sûr
         setTimeout(() => {
           window.location.reload();
         }, 1500);
@@ -391,14 +409,10 @@ const ProfilePage = () => {
   };
 
   const initials = useMemo(() => {
-    // Pour ADMIN_CLIENT, on n'affiche pas les initiales si pas de logo
-    if (isAdminClient()) {
-      return '';
-    }
     const firstInitial = userData.prenom?.charAt(0)?.toUpperCase() || '';
     const lastInitial = userData.nom?.charAt(0)?.toUpperCase() || '';
     return `${firstInitial}${lastInitial}` || 'U';
-  }, [userData.nom, userData.prenom, isAdminClient]);
+  }, [userData.nom, userData.prenom]);
 
   const avatarColor = useMemo(() => {
     const colors = [
@@ -478,44 +492,39 @@ const ProfilePage = () => {
           <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
             <div className="relative h-48 bg-gradient-to-r from-blue-600 to-cyan-500">
               <div className={`absolute -bottom-16 ${isArabic ? 'right-8' : 'left-8'}`}>
-                {/* Toujours essayer d'afficher le logo si ADMIN_CLIENT */}
-                {(hasValidLogo() || isAdminClient()) ? (
-                  <div className="relative">
+                <div className="relative">
+                  {/* Afficher le logo ou les initiales */}
+                  {hasValidLogo() ? (
                     <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
-                      {hasValidLogo() ? (
-                        <img 
-                          src={getLogoUrl()}
-                          alt="Logo" 
-                          className="max-h-3/4 max-w-3/4 object-contain"
-                          onError={() => {
-                            console.log('❌ Erreur chargement logo');
-                            setLogoError(true);
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gray-200">
-                          <PhotoIcon className="h-12 w-12 text-gray-400" />
-                        </div>
-                      )}
+                      <img 
+                        src={getLogoUrl()}
+                        alt="Logo" 
+                        className="max-h-full max-w-full object-contain p-2"
+                        onError={() => {
+                          console.log('❌ Erreur chargement logo');
+                          setLogoError(true);
+                        }}
+                      />
                     </div>
-                    {isAdminClient() && (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute -bottom-2 -right-2 rounded-full bg-blue-600 p-1.5 text-white shadow-lg hover:bg-blue-700"
-                        disabled={uploadingLogo}
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`flex h-32 w-32 items-center justify-center rounded-full border-4 border-white shadow-lg ${avatarColor}`}>
-                    <span className="text-4xl font-bold text-white">{initials}</span>
-                  </div>
-                )}
+                  ) : (
+                    <div className={`flex h-32 w-32 items-center justify-center rounded-full border-4 border-white shadow-lg ${avatarColor}`}>
+                      <span className="text-4xl font-bold text-white">{initials}</span>
+                    </div>
+                  )}
+                  
+                  {/* ✅ Bouton d'édition - TOUJOURS visible pour ADMIN_CLIENT */}
+                  {canEditLogo() && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 rounded-full bg-blue-600 p-1.5 text-white shadow-lg hover:bg-blue-700 transition-all"
+                      disabled={uploadingLogo}
+                      title={copy.changeLogo}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-              
-              
               
               <input
                 ref={fileInputRef}

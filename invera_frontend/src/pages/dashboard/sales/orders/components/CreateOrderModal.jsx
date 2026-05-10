@@ -237,6 +237,15 @@ const CreateOrderModal = ({
   };
 
   const handleCreateOrder = () => {
+  
+  console.log('🔍 [CreateOrderModal] selectedClient VALUE:', selectedClient);
+  console.log('🔍 [CreateOrderModal] selectedClient TYPE:', typeof selectedClient);
+  
+  if (!selectedClient || selectedProducts.length === 0) {
+    showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
+    return;
+  }
+
     if (!selectedClient || selectedProducts.length === 0) {
       showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
       return;

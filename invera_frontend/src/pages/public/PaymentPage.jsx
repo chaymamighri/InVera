@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+/*import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Lock, AlertCircle, CheckCircle, Loader2, Building, Package, Calendar, CreditCard, User } from 'lucide-react';
@@ -128,10 +128,10 @@ const PaymentPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto">*/
 
         {/* Header */}
-        <div className="text-center mb-8">
+       /* <div className="text-center mb-8">
           <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
             <CreditCard className="w-8 h-8 text-blue-600" />
           </div>
@@ -139,10 +139,10 @@ const PaymentPage = () => {
           <p className="text-gray-600 mt-1">Veuillez vérifier vos informations</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">*/
 
           {/* Résumé de la commande */}
-          <div className="p-6 border-b border-gray-100">
+        /* <div className="p-6 border-b border-gray-100">
             <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Package className="w-5 h-5 text-blue-600" />
               Détails de l'abonnement
@@ -173,20 +173,20 @@ const PaymentPage = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>*/
 
           {/* Montant total */}
-          <div className="bg-gray-50 p-6 border-b border-gray-100">
+         /*<div className="bg-gray-50 p-6 border-b border-gray-100">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Montant total TTC</span>
               <span className="text-2xl font-bold text-blue-600">
                 {montant.toLocaleString()} TND
               </span>
             </div>
-          </div>
+          </div>*/
 
           {/* Paiement */}
-          <div className="p-6">
+          /*<div className="p-6">
             <div className="bg-green-50 rounded-xl p-4 mb-6">
               <div className="flex gap-3">
                 <Lock className="w-5 h-5 text-green-600 mt-1" />
@@ -231,4 +231,4 @@ const PaymentPage = () => {
   );
 };
 
-export default PaymentPage;
+export default PaymentPage;*/

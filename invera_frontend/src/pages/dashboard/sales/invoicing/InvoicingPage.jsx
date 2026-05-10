@@ -26,7 +26,6 @@ import { commandeService } from '../../../../services/commandeService';
 import InvoiceModal from './components/invoiceModal'; 
 import FacturesFilters from './components/FacturesFilters';
 import FacturesTable from './components/FacturesTable';
-import InvoiceTemplate from './components/InvoiceTemplate';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import html2pdf from 'html2pdf.js';
@@ -197,24 +196,29 @@ const InvoicingPage = () => {
     }
   };
 
-  const handleViewInvoice = (facture) => {
-    const factureDetaillee = {
-      ...facture,
-      invoiceNumber: facture.reference,
-      date: facture.dateFacture,
-      clientName: facture.client?.nomComplet,
-      clientEmail: facture.client?.email,
-      clientPhone: facture.client?.telephone,
-      clientAddress: facture.client?.adresse,
-      clientType: facture.client?.typeClient,
-      total: facture.montantTotal,
-      status: facture.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
-      statut: facture.statut 
-    };
-    
-    setSelectedFacture(factureDetaillee);
-    setIsInvoiceModalOpen(true);
+const handleViewInvoice = (facture) => {
+  const commandeId = facture.commande?.idCommandeClient || facture.commande?.id;
+  
+  console.log('🔍 Extraction commandeId:', commandeId, 'depuis facture:', facture);
+  
+  const factureDetaillee = {
+    ...facture,
+    invoiceNumber: facture.reference,
+    date: facture.dateFacture,
+    clientName: facture.client?.nomComplet,
+    clientEmail: facture.client?.email,
+    clientPhone: facture.client?.telephone,
+    clientAddress: facture.client?.adresse,
+    clientType: facture.client?.typeClient,
+    total: facture.montantTotal,
+    status: facture.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
+    statut: facture.statut,
+    commandeId: commandeId  // ✅ Ajouter l'ID extrait
   };
+  
+  setSelectedFacture(factureDetaillee);
+  setIsInvoiceModalOpen(true);
+};
 
   // ✅ CORRECTION: Gestionnaire de changement de statut pour InvoicingPage
   const handleStatusChange = useCallback(async (factureId, newStatus) => {
@@ -271,152 +275,37 @@ const InvoicingPage = () => {
   }, []); // Pas de dépendances car on utilise les setters
 
   // Version corrigée de handleDownloadInvoice
-  const handleDownloadInvoice = async (facture, e) => {
-    e?.stopPropagation();
-    const factureId = facture.id || facture;
-    setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
+// Remplacer la fonction handleDownloadInvoice existante par celle-ci
+const handleDownloadInvoice = async (facture, e) => {
+  e?.stopPropagation();
+  const factureId = facture.id;
+  setDownloadLoading(prev => ({ ...prev, [factureId]: true }));
+  
+  try {
+    console.log('📥 Téléchargement facture via backend:', factureId);
     
-    try {
-      console.log('📥 Téléchargement facture avec html2pdf:', facture);
-      
-      // 1. Récupérer la facture complète si on a reçu un ID ou une facture partielle
-      let factureComplete = facture;
-      if (typeof facture === 'string' || typeof facture === 'number') {
-        factureComplete = factures.find(f => f.id === facture);
-      }
-      
-      if (!factureComplete) {
-        throw new Error('Facture non trouvée');
-      }
-
-      // 2. Transformer les données pour correspondre au format attendu par InvoiceTemplate
-      const facturePourTemplate = {
-        // Format attendu par InvoiceTemplate
-        referenceFactureClient: factureComplete.reference,
-        dateFacture: factureComplete.dateFacture,
-        montantTotal: factureComplete.montantTotal,
-        statut: factureComplete.statut,
-        
-        // Client
-        client: factureComplete.client ? {
-          nomComplet: factureComplete.client.nomComplet,
-          entreprise: factureComplete.client.entreprise,
-          typeClient: factureComplete.client.typeClient,
-          telephone: factureComplete.client.telephone,
-          email: factureComplete.client.email,
-          adresse: factureComplete.client.adresse
-        } : null,
-        
-        // Commande
-        commande: factureComplete.commande ? {
-          referenceCommandeClient: factureComplete.commande.reference
-        } : null
-      };
-      
-      // 3. Récupérer les articles de la facture
-      let items = [];
-      try {
-        if (factureComplete?.commande?.id) {
-          const commandeDetails = await commandeService.getCommandeById(factureComplete.commande.id);
-          if (commandeDetails && commandeDetails.lignesCommande) {
-            items = commandeDetails.lignesCommande.map(ligne => {
-              const prixUnitaire = ligne.prix_unitaire || 
-                                  ligne.prixUnitaire || 
-                                  ligne.prix_vente ||
-                                  ligne.produit?.prix_vente ||
-                                  ligne.produit?.prix ||
-                                  0;
-              
-              const totalLigne = ligne.sous_total || 
-                                ligne.sousTotal || 
-                                ligne.total ||
-                                (ligne.quantite * prixUnitaire) || 
-                                0;
-              
-              return {
-                description: ligne.produit?.libelle || 
-                            ligne.produitLibelle || 
-                            ligne.libelle ||
-                            'Produit',
-                quantity: ligne.quantite || 0,
-                unitPrice: prixUnitaire,
-                total: totalLigne
-              };
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('⚠️ Erreur chargement articles:', err);
-      }
-      
-      // 4. Calculer les totaux
-      const sousTotal = items.reduce((acc, item) => acc + (item.total || 0), 0) || factureComplete.montantTotal || 0;
-      const tva = sousTotal * 0.19;
-      const totalTTC = sousTotal + tva;
-      
-      const totaux = { sousTotal, tva, totalTTC };
-      
-      // 5. Fonctions de formatage
-      const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        try {
-          return new Date(dateString).toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-          });
-        } catch {
-          return dateString;
-        }
-      };
-
-      const formatMontant = (montant) => {
-        if (montant === undefined || montant === null) return '0,000 DT';
-        return new Intl.NumberFormat('fr-TN', {
-          minimumFractionDigits: 3,
-          maximumFractionDigits: 3
-        }).format(montant) + ' DT';
-      };
-      
-      // 6. Créer un élément div temporaire avec le template
-      const element = document.createElement('div');
-      element.innerHTML = InvoiceTemplate({ 
-        facture: facturePourTemplate, 
-        items, 
-        totaux, 
-        formatDate, 
-        formatMontant 
-      });
-      
-      document.body.appendChild(element);
-      
-      // 7. Options pour html2pdf
-      const opt = {
-        margin:        [0.5, 0.5, 0.5, 0.5],
-        filename:     `facture_${factureComplete.reference || factureComplete.id}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, letterRendering: true },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
-      
-      // 8. Générer et télécharger le PDF
-      await html2pdf().from(element).set(opt).save();
-      console.log(' PDF généré avec succès');
-      
-      // 9. Nettoyer
-      setTimeout(() => {
-        if (document.body.contains(element)) {
-          document.body.removeChild(element);
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error(' Erreur génération PDF:', error);
-      alert('Erreur lors de la génération du PDF: ' + error.message);
-    } finally {
-      setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
-    }
-  };
+    // ✅ Appel à l'API backend au lieu de html2pdf
+    const response = await commandeService.downloadInvoicePDF(factureId);
+    
+    // Créer un blob et ouvrir dans un nouvel onglet
+    const blob = new Blob([response], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    
+    // Nettoyer
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log('✅ PDF généré avec succès');
+    
+  } catch (error) {
+    console.error('❌ Erreur génération PDF:', error);
+    alert('Erreur lors de la génération du PDF: ' + error.message);
+  } finally {
+    setDownloadLoading(prev => ({ ...prev, [factureId]: false }));
+  }
+};
 
 
   const formatDate = (dateString) => {

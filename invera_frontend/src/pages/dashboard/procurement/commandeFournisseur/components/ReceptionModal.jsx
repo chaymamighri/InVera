@@ -1,6 +1,6 @@
-// ReceptionModal.jsx - Version avec messages d'erreur sous les champs
+// ReceptionModal.jsx - Version clean sans logs
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
@@ -15,7 +15,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
   const [numeroBL, setNumeroBL] = useState('');
   const [produitsAReactiver, setProduitsAReactiver] = useState({});
   
-  // ✅ États pour les erreurs
   const [errors, setErrors] = useState({
     numeroBL: '',
     quantiteZero: '',
@@ -41,7 +40,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       setProduitsAReactiver(initialReactiver);
       setNotes('');
       setNumeroBL('');
-      // ✅ Réinitialiser les erreurs
       setErrors({
         numeroBL: '',
         quantiteZero: '',
@@ -58,7 +56,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       (l.idLigneCommandeFournisseur || l.id) === ligneId
     );
     
-    // ✅ Vérifier que la quantité ne dépasse pas la commande
     if (quantite > ligne.quantite) {
       setErrors(prev => ({
         ...prev,
@@ -83,7 +80,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       [ligneId]: quantite
     }));
     
-    // ✅ Vérifier si au moins un produit est reçu
     const aAuMoinsUnProduitRecu = Object.values({
       ...quantitesRecues,
       [ligneId]: quantite
@@ -141,7 +137,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     return { totalHT, totalTVA, totalTTC };
   };
 
-  // ✅ Vérifier si au moins un produit a une quantité > 0
   const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some(q => q > 0);
 
   const handleSubmit = () => {
@@ -152,19 +147,16 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       quantitesDepassees: {}
     };
     
-    // ✅ Vérification 1 : Numéro BL obligatoire
     if (!numeroBL.trim()) {
       newErrors.numeroBL = 'Le numéro de bon de livraison est obligatoire';
       hasError = true;
     }
     
-    // ✅ Vérification 2 : Au moins un produit reçu
     if (!aAuMoinsUnProduitRecu) {
       newErrors.quantiteZero = 'Veuillez saisir au moins un produit reçu (quantité > 0)';
       hasError = true;
     }
     
-    // ✅ Vérification 3 : Quantités ne dépassent pas les commandes
     commande.lignesCommande.forEach(ligne => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
       const qteRecue = quantitesRecues[ligneId] || 0;
@@ -179,7 +171,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       return;
     }
 
-    // ✅ Construire l'objet des produits à réactiver
     const produitsAReactiverMap = {};
     commande.lignesCommande.forEach(ligne => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
@@ -214,7 +205,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-green-600 to-green-700 sticky top-0 z-10">
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <CheckIcon className="w-5 h-5" />
-              Réception de Bon De Commande - {commande.numeroCommande}
+              Réception - {commande.numeroCommande}
             </h3>
             <button onClick={onClose} className="text-white hover:text-gray-200">
               <XMarkIcon className="w-6 h-6" />
@@ -229,7 +220,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               <p className="text-sm text-gray-600">{commande.fournisseur?.email}</p>
             </div>
 
-            {/* Numéro BL avec message d'erreur sous le champ */}
+            {/* Numéro BL */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Numéro de bon de livraison <span className="text-red-500">*</span>
@@ -242,7 +233,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                   errors.numeroBL ? 'border-red-500 bg-red-50' : ''
                 }`}
                 placeholder="Ex: BL-2024-001"
-                required
               />
               {errors.numeroBL && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -281,7 +271,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                       <tr key={ligneId} className={`hover:bg-gray-50 ${estInactifEtRecu ? 'bg-amber-50' : ''}`}>
                         <td className="px-4 py-3">
                           <div className="font-medium">{ligne.produitLibelle}</div>
-                          <div className="text-xs text-gray-500">Réf: {ligne.produitReference}</div>
                           {ligne.categorie && (
                             <div className="text-xs text-gray-400">{ligne.categorie}</div>
                           )}
@@ -304,10 +293,8 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {ecart !== 0 && (
-                            <span className={ecart > 0 ? 'text-orange-600' : 'text-blue-600'}>
-                              {ecart > 0 ? `-${ecart}` : `+${Math.abs(ecart)}`}
-                            </span>
+                          {ecart !== 0 && ecart > 0 && (
+                            <span className="text-orange-600">-{ecart}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -337,7 +324,6 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
               </table>
             </div>
 
-            {/* ✅ Message d'erreur global pour quantité zéro */}
             {errors.quantiteZero && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
@@ -348,38 +334,38 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
             {/* Notes */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes de réception (optionnel)
+                Notes de réception
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows="2"
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Ajouter des notes sur cette réception (retard, qualité, etc.)..."
+                placeholder="Ajouter des notes sur cette réception..."
               />
             </div>
 
             {/* Totaux */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Récapitulatif réception</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Récapitulatif</h4>
               <div className="flex justify-end">
                 <div className="w-80 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total HT reçu</span>
+                    <span className="text-gray-600">Total HT</span>
                     <span className="font-medium">{formatPrice(totauxRecus.totalHT)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total TVA</span>
+                    <span className="text-gray-600">TVA</span>
                     <span className="font-medium">{formatPrice(totauxRecus.totalTVA)}</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
-                    <span>Total TTC reçu</span>
+                    <span>Total TTC</span>
                     <span className="text-green-600">{formatPrice(totauxRecus.totalTTC)}</span>
                   </div>
                   {!toutesRecues && (
                     <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded mt-2">
                       <ExclamationTriangleIcon className="w-4 h-4" />
-                      <span>Réception partielle - certaines quantités sont différentes</span>
+                      <span>Réception partielle</span>
                     </div>
                   )}
                 </div>
@@ -406,7 +392,7 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                 }`}
               >
                 <CheckIcon className="w-4 h-4" />
-                Confirmer la réception
+                Confirmer
               </button>
             </div>
           </div>

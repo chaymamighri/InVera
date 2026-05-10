@@ -1,5 +1,5 @@
 // src/components/InvoiceTemplate.jsx
-import { logoBase64 } from '../../../../../assets/logoBase64';
+/*import { logoBase64 } from '../../../../../assets/logoBase64';
 
 const InvoiceTemplate = ({ facture, items, totaux, formatDate, formatMontant }) => {
   const isPaye = facture.statut === 'PAYE';
@@ -492,4 +492,4 @@ ${numeroCommande ? `
   `;
 };
 
-export default InvoiceTemplate;
+export default InvoiceTemplate;*/

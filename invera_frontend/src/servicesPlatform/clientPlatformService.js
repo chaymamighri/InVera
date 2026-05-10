@@ -36,14 +36,14 @@ export const clientPlatformService = {
     return response.data;
   },
 
-  /**
+ /**
    * Valider un client (EN_ATTENTE → VALIDE)
    * Envoie un email au client avec lien de paiement
    * Endpoint: PUT /api/super-admin/clients/{id}/validate
    */
   validateClient: async (id, comment = null) => {
     const payload = comment ? { comment } : {};
-    const response = await platformApi.put(`/super-admin/clients/${id}/validate`, payload);
+    const response = await platformApi.put(`/platform/clients/${id}/validate`, payload);
     return response.data;
   },
 

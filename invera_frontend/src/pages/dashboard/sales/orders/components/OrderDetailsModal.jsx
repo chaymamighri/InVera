@@ -131,6 +131,15 @@ const OrderDetailsModal = ({
   // ✅ CORRECTION: S'assurer que la commande a un ID valide
   useEffect(() => {
     if (initialCommande) {
+  
+    console.log('🔍 STRUCTURE COMPLÈTE DE LA COMMANDE:', initialCommande);
+    console.log('🔍 Clés disponibles:', Object.keys(initialCommande));
+        console.log('🔍 CLIENT DANS LA COMMANDE:', initialCommande.client);
+    console.log('🔍 produits?', initialCommande.produits);
+    console.log('🔍 lignesCommande?', initialCommande.lignesCommande);
+    console.log('🔍 lignes?', initialCommande.lignes);
+    console.log('🔍 details?', initialCommande.details);
+
       console.log('🔄 Mise à jour de la commande affichée:', {
         id: initialCommande.id,
         idCommandeClient: initialCommande.idCommandeClient,
@@ -258,18 +267,7 @@ const OrderDetailsModal = ({
             
             {/* GROUPE DE BOUTONS */}
             <div className="flex items-center gap-2">
-              {/* BOUTON RAFRAÎCHIR */}
-              {onRefresh && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
-                  title="Rafraîchir les données"
-                >
-                  <ArrowPathIcon className={`h-5 w-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
-                </button>
-              )}
-              
+            
               {/* BOUTON FERMER */}
               <button
                 onClick={onClose}
@@ -676,17 +674,7 @@ const OrderDetailsModal = ({
           {/* Section 5 : Actions */}
           <div className="pt-6 border-t border-gray-200">
             <div className="flex justify-end gap-3">
-              {commande.statut === 'EN_ATTENTE' && (
-                <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-lg hover:from-amber-700 hover:to-yellow-700 text-sm font-medium transition-colors flex items-center gap-2"
-                  title="Modifier la commande"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                  Modifier
-                </button>
-              )}
-              
+            
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"

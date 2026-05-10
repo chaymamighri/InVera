@@ -114,8 +114,8 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
 
   return (
     <div className="space-y-6">
-      {/* Cartes statistiques - Offres */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Cartes statistiques - Offres (3 cartes seulement) */}
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
@@ -127,6 +127,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
             </div>
           </div>
         </div>
+        
         <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
@@ -138,6 +139,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
             </div>
           </div>
         </div>
+        
         <div className="rounded-xl bg-gradient-to-br from-amber-50 to-white border border-amber-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
@@ -149,20 +151,9 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-gradient-to-br from-gray-50 to-white border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Supprimées</p>
-              <p className="text-2xl font-bold text-gray-500">{stats.deleted}</p>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-              <TrashIcon className="h-5 w-5 text-gray-500" />
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Contenu principal */}
+      {/* Contenu principal - reste identique */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Formulaire */}
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -260,6 +251,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                   <option value="TND">TND - Dinar Tunisien</option>
                   <option value="EUR">EUR - Euro</option>
                   <option value="USD">USD - Dollar US</option>
+                  <option value="XAF">XAF - Franc CFA</option>
                 </select>
               </div>
               
@@ -385,9 +377,9 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                         </div>
                       </div>
                       
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        {!offer.deleted && (
+                      {/* Actions - uniquement si l'offre n'est pas supprimée */}
+                      {!offer.deleted && (
+                        <div className="flex gap-2">
                           <button 
                             onClick={(e) => { e.stopPropagation(); fillOfferForm(offer); }} 
                             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 transition" 
@@ -396,30 +388,28 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                             <PencilSquareIcon className="h-4 w-4" />
                             Modifier
                           </button>
-                        )}
-                        
-                        {offer.active && !offer.deleted && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); runAction(`deactivate-offer-${offer.id}`, () => subscriptionPlatformService.deactivateOffer(offer.id), 'Offre désactivée avec succès'); }} 
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 transition" 
-                            title="Désactiver l'offre"
-                          >
-                            <PauseCircleIcon className="h-4 w-4" />
-                            Désactiver
-                          </button>
-                        )}
-                        
-                        {!offer.active && !offer.deleted && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); runAction(`activate-offer-${offer.id}`, () => subscriptionPlatformService.activateOffer(offer.id), 'Offre activée avec succès'); }} 
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 transition" 
-                            title="Activer l'offre"
-                          >
-                            <PlayCircleIcon className="h-4 w-4" />
-                            Activer
-                          </button>
-                        )}
-                      </div>
+                          
+                          {offer.active ? (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); runAction(`deactivate-offer-${offer.id}`, () => subscriptionPlatformService.deactivateOffer(offer.id), 'Offre désactivée avec succès'); }} 
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 transition" 
+                              title="Désactiver l'offre"
+                            >
+                              <PauseCircleIcon className="h-4 w-4" />
+                              Désactiver
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); runAction(`activate-offer-${offer.id}`, () => subscriptionPlatformService.activateOffer(offer.id), 'Offre activée avec succès'); }} 
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 transition" 
+                              title="Activer l'offre"
+                            >
+                              <PlayCircleIcon className="h-4 w-4" />
+                              Activer
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

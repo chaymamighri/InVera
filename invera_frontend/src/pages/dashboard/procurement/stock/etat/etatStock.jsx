@@ -6,7 +6,6 @@ import {
   XCircleIcon,
   ArrowDownTrayIcon as DownloadIcon,
   BellAlertIcon,
-  CurrencyDollarIcon,
   ShoppingBagIcon,
   ClockIcon,
   ChevronLeftIcon,
@@ -19,18 +18,14 @@ const EtatStock = () => {
   const [produitsFiltres, setProduitsFiltres] = useState([]);
   const [produitsPagines, setProduitsPagines] = useState([]);
   const [stats, setStats] = useState({
-    totalValeurStock: 0,
     totalProduits: 0,
     produitsAlerte: 0,
     produitsRupture: 0,
     produitsNormaux: 0,
     produitsCritique: 0,
     produitsFaible: 0,
-    valeurStockAlerte: 0,
-    valeurStockRupture: 0,
     pourcentageAlerte: 0,
-    pourcentageRupture: 0,
-    topProduitsValeur: []
+    pourcentageRupture: 0
   });
   const [loading, setLoading] = useState(true);
   const [filtres, setFiltres] = useState({
@@ -86,7 +81,7 @@ const EtatStock = () => {
     
     setProduitsFiltres(resultats);
     setCurrentPage(1);
-    calculerStatsAvancees(resultats);
+    calculerStats(resultats);
   };
 
   const paginerProduits = () => {
@@ -108,40 +103,22 @@ const EtatStock = () => {
     setCurrentPage(1);
   };
 
-  const calculerStatsAvancees = (produitsData) => {
-    let totalValeur = 0;
+  const calculerStats = (produitsData) => {
     let alerte = 0;
     let rupture = 0;
     let critique = 0;
     let faible = 0;
     let normal = 0;
-    let valeurAlerte = 0;
-    let valeurRupture = 0;
-    
-    const produitsAvecValeur = produitsData.map(p => ({
-      ...p,
-      valeurStock: p.valeurStock || 0
-    }));
-    
-    const topProduitsValeur = [...produitsAvecValeur]
-      .sort((a, b) => b.valeurStock - a.valeurStock)
-      .slice(0, 5);
     
     produitsData.forEach(produit => {
-      const valeur = produit.valeurStock || 0;
-      totalValeur += valeur;
-      
       if (produit.statutStock === 'RUPTURE') {
         rupture++;
-        valeurRupture += valeur;
       } else if (produit.statutStock === 'CRITIQUE') {
         critique++;
         alerte++;
-        valeurAlerte += valeur;
       } else if (produit.statutStock === 'FAIBLE') {
         faible++;
         alerte++;
-        valeurAlerte += valeur;
       } else {
         normal++;
       }
@@ -152,18 +129,14 @@ const EtatStock = () => {
     const pourcentageRupture = totalProduits > 0 ? (rupture / totalProduits) * 100 : 0;
     
     setStats({
-      totalValeurStock: totalValeur,
       totalProduits: totalProduits,
       produitsAlerte: alerte,
       produitsRupture: rupture,
       produitsNormaux: normal,
       produitsCritique: critique,
       produitsFaible: faible,
-      valeurStockAlerte: valeurAlerte,
-      valeurStockRupture: valeurRupture,
       pourcentageAlerte: pourcentageAlerte,
-      pourcentageRupture: pourcentageRupture,
-      topProduitsValeur: topProduitsValeur
+      pourcentageRupture: pourcentageRupture
     });
   };
 
@@ -180,8 +153,6 @@ const EtatStock = () => {
         'Catégorie',
         'Quantité',
         'Unité',
-        'Prix Unitaire (TND)',
-        'Valeur Stock (TND)',
         'Seuil Alerte',
         'Statut'
       ];
@@ -192,8 +163,6 @@ const EtatStock = () => {
         produit.categorieNom || '',
         produit.quantiteActuelle || 0,
         produit.unite || '',
-        produit.prixUnitaire || 0,
-        produit.valeurStock || 0,
         produit.seuilAlerte || '',
         produit.statutStock === 'EN_STOCK' ? 'En stock' :
         produit.statutStock === 'FAIBLE' ? 'Stock faible' :
@@ -205,7 +174,6 @@ const EtatStock = () => {
         [''],
         ['=== RÉSUMÉ ==='],
         [`Date d'export: ${date}`],
-        [`Valeur totale du stock: ${stats.totalValeurStock?.toLocaleString()} TND`],
         [`Nombre total de produits: ${stats.totalProduits}`],
         [`Produits en stock normal: ${stats.produitsNormaux}`],
         [`Produits en stock faible: ${stats.produitsFaible}`],
@@ -244,9 +212,8 @@ const EtatStock = () => {
     });
   };
 
-  // ✅ NOUVEAU COMPOSANT STATCARD AVEC EFFET GRIS
   const StatCard = ({ title, value, icon: Icon, color, subtitle, hasData }) => {
-    const isEmpty = !hasData && (value === 0 || value === '0 TND' || value === '0');
+    const isEmpty = !hasData && (value === 0 || value === '0');
     
     return (
       <div className={`rounded-lg shadow p-6 transition-shadow ${isEmpty ? 'bg-gray-50' : 'bg-white hover:shadow-lg'}`}>
@@ -291,11 +258,6 @@ const EtatStock = () => {
     return value.toLocaleString('fr-FR');
   };
 
-  const formatPrice = (value) => {
-    if (!value && value !== 0) return '0 TND';
-    return `${value.toLocaleString('fr-FR')} TND`;
-  };
-
   const Pagination = () => {
     const getPageNumbers = () => {
       const pages = [];
@@ -330,7 +292,6 @@ const EtatStock = () => {
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
-            <option value={100}>100</option>
           </select>
         </div>
         
@@ -413,15 +374,8 @@ const EtatStock = () => {
         </button>
       </div>
 
-      {/* Statistiques - Ligne 1 avec effet gris */}
+      {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          title="Valeur totale du stock"
-          value={formatPrice(stats.totalValeurStock)}
-          icon={CurrencyDollarIcon}
-          color="bg-blue-500"
-          hasData={stats.totalValeurStock > 0}
-        />
         <StatCard
           title="Total produits"
           value={formatNumber(stats.totalProduits)}
@@ -436,10 +390,6 @@ const EtatStock = () => {
           color="bg-green-500"
           hasData={stats.produitsNormaux > 0}
         />
-      </div>
-
-      {/* Statistiques - Ligne 2 avec effet gris */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Stock critique"
           value={formatNumber(stats.produitsCritique)}
@@ -448,6 +398,10 @@ const EtatStock = () => {
           subtitle="Action immédiate"
           hasData={stats.produitsCritique > 0}
         />
+      </div>
+
+      {/* Statistiques - Ligne 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Stock faible"
           value={formatNumber(stats.produitsFaible)}
@@ -463,6 +417,14 @@ const EtatStock = () => {
           color="bg-gray-500"
           subtitle={`${stats.pourcentageRupture.toFixed(1)}% du total`}
           hasData={stats.produitsRupture > 0}
+        />
+        <StatCard
+          title="Alertes totales"
+          value={formatNumber(stats.produitsAlerte)}
+          icon={BellAlertIcon}
+          color="bg-orange-500"
+          subtitle={`${stats.pourcentageAlerte.toFixed(1)}% du total`}
+          hasData={stats.produitsAlerte > 0}
         />
       </div>
 
@@ -526,7 +488,7 @@ const EtatStock = () => {
         </div>
       </div>
 
-      {/* Tableau */}
+      {/* Tableau - SANS PRIX */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -537,8 +499,6 @@ const EtatStock = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Catégorie</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qté</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unité</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Prix unit.</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valeur stock</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Statut</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Seuil</th>
               </tr>
@@ -546,7 +506,7 @@ const EtatStock = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {produitsPagines.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                     <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                     <p>Aucun produit ne correspond aux filtres sélectionnés</p>
                   </td>
@@ -570,12 +530,6 @@ const EtatStock = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {produit.unite || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                      {formatPrice(produit.prixUnitaire)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-blue-600">
-                      {formatPrice(produit.valeurStock)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <StatutBadge statut={produit.statutStock} />
