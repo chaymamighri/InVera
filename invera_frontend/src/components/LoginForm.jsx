@@ -219,7 +219,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
   const [step, setStep] = useState(1);
   const [internalLoading, setInternalLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [localMessage, setLocalMessage] = useState({ type: '', text: '' });
   const [showPassword, setShowPassword] = useState({
     password: false,
     newPassword: false,
@@ -227,11 +227,10 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
   });
   const [countdown, setCountdown] = useState(0);
 
-
+  // Nettoyer l'erreur serveur quand le mode change
   useEffect(() => {
-  console.log('🔍 LoginForm - serverError changed:', serverError);
-}, [serverError]);
-
+    if (onError) onError('');
+  }, [mode, onError]);
 
   useEffect(() => {
     const rememberMe = localStorage.getItem('rememberMe');
@@ -295,7 +294,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     if (fieldErrors[name]) {
       setFieldErrors((previous) => ({ ...previous, [name]: '' }));
     }
-    if (message.text) setMessage({ type: '', text: '' });
+    if (localMessage.text) setLocalMessage({ type: '', text: '' });
     // Effacer l'erreur serveur quand l'utilisateur modifie un champ
     if (onError) onError('');
   };
@@ -311,7 +310,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     setMode('login');
     setStep(1);
     setFieldErrors({});
-    setMessage({ type: '', text: '' });
+    setLocalMessage({ type: '', text: '' });
     setFormData((previous) => ({
       ...previous,
       resetCode: '',
@@ -332,67 +331,56 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     return Object.keys(errors).length === 0;
   };
 
- const handleSubmit = async (event) => {
-  event.preventDefault();
-   
-  console.log('🚀 handleSubmit - début');
-  
-  if (!validateLoginForm()) {
-    console.log('❌ Validation échouée');
-    return;
-  }
-  
-  if (!validateLoginForm()) {
-    return;
-  }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!validateLoginForm()) {
+      return;
+    }
 
-  setInternalLoading(true);
-  setFieldErrors({});
-  setMessage({ type: '', text: '' });
-  
-  // ⭐ IMPORTANT: Effacer l'erreur serveur au début
-  if (onError) onError('');
+    setInternalLoading(true);
+    setFieldErrors({});
+    setLocalMessage({ type: '', text: '' });
+    
+    // Effacer l'erreur serveur au début
+    if (onError) onError('');
 
-  try {
-    const result = await onSubmit(formData);
-    
-    if (formData.rememberMe) {
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + 30);
-      localStorage.setItem('rememberMe', 'true');
-      localStorage.setItem('savedEmail', formData.email);
-      localStorage.setItem('tokenExpiry', expiry.toISOString());
-    } else {
-      localStorage.removeItem('rememberMe');
-      localStorage.removeItem('savedEmail');
-      localStorage.removeItem('tokenExpiry');
+    try {
+      const result = await onSubmit(formData);
+      
+      if (formData.rememberMe) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 30);
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('savedEmail', formData.email);
+        localStorage.setItem('tokenExpiry', expiry.toISOString());
+      } else {
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        localStorage.removeItem('tokenExpiry');
+      }
+    } catch (error) {
+      let errorMessage = text.loginIncorrect;
+      
+      if (error?.userMessage) {
+        errorMessage = error.userMessage;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Stocker le message localement
+      setLocalMessage({ type: 'error', text: errorMessage });
+      
+      // Propager l'erreur au parent via onError
+      if (onError) {
+        onError(errorMessage);
+      }
+    } finally {
+      setInternalLoading(false);
     }
-  } catch (error) {
-    console.log('🔴 Erreur capturée dans handleSubmit:', error);
-    
-    let errorMessage = text.loginIncorrect;
-    
-    if (error?.userMessage) {
-      errorMessage = error.userMessage;
-    } else if (error?.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error?.message) {
-      errorMessage = error.message;
-    }
-    
-    console.log('📢 Message d\'erreur à afficher:', errorMessage);
-    
-    // ⭐ Mettre à jour le message local
-    setMessage({ type: 'error', text: errorMessage });
-    
-    // ⭐ Mettre à jour l'erreur serveur via onError
-    if (onError) {
-      onError(errorMessage);
-    }
-  } finally {
-    setInternalLoading(false);
-  }
-};
+  };
 
   const handleForgotPassword = async (event) => {
     event.preventDefault();
@@ -407,14 +395,14 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     setInternalLoading(true);
     try {
       await forgotPassword(formData.email);
-      setMessage({
+      setLocalMessage({
         type: 'success',
         text: text.resetSent.replace('{{email}}', formData.email),
       });
       setStep(2);
       setCountdown(60);
     } catch (error) {
-      setMessage({
+      setLocalMessage({
         type: 'error',
         text: error.message || text.resetSendError,
       });
@@ -437,7 +425,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     }
 
     setStep(3);
-    setMessage({ type: 'success', text: text.codeVerified });
+    setLocalMessage({ type: 'success', text: text.codeVerified });
   };
 
   const handleResetPassword = async (event) => {
@@ -458,12 +446,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     setInternalLoading(true);
     try {
       await resetPassword(formData.resetCode, formData.email, formData.newPassword);
-      setMessage({ type: 'success', text: text.passwordResetSuccess });
+      setLocalMessage({ type: 'success', text: text.passwordResetSuccess });
       setTimeout(() => {
         resetForgotFlow();
       }, 3000);
     } catch (error) {
-      setMessage({
+      setLocalMessage({
         type: 'error',
         text: error.response?.data?.message || error.message || text.invalidCode,
       });
@@ -478,9 +466,9 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     try {
       await forgotPassword(formData.email);
       setCountdown(60);
-      setMessage({ type: 'success', text: text.newCodeSent });
+      setLocalMessage({ type: 'success', text: text.newCodeSent });
     } catch {
-      setMessage({ type: 'error', text: text.resendFailed });
+      setLocalMessage({ type: 'error', text: text.resendFailed });
     } finally {
       setInternalLoading(false);
     }
@@ -522,163 +510,109 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
     </div>
   );
 
+  // ✅ VERSION CORRIGÉE - Évite l'affichage en double des erreurs
   const renderLoginForm = () => (
-  <form className="space-y-5" onSubmit={handleSubmit}>
-    {/* ✅ AFFICHAGE DES ERREURS SERVEUR (via prop serverError) - EN PRIORITÉ */}
-    {serverError && (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        <div className="flex items-start gap-2">
-          <svg className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span className="leading-relaxed">{serverError}</span>
-        </div>
-      </div>
-    )}
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      {/* AFFICHAGE UNIQUEMENT DE L'ERREUR SERVEUR (gérée par LoginPage) */}
+      {/* Pas d'affichage des erreurs locales car elles sont déjà dans serverError */}
 
-    {/* AFFICHAGE DES ERREURS LOCALES (uniquement si pas d'erreur serveur) */}
-    {message.text && message.type === 'error' && !serverError && (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        <div className="flex items-start gap-2">
-          <svg className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span className="leading-relaxed">{message.text}</span>
-        </div>
-      </div>
-    )}
-
-    {/* AFFICHAGE DES MESSAGES DE SUCCÈS */}
-    {message.text && message.type === 'success' && (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-        <div className="flex items-start gap-2">
-          <svg className="h-4 w-4 flex-shrink-0 text-green-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span className="leading-relaxed">{message.text}</span>
-        </div>
-      </div>
-    )}
-
-    <div>
-      <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
-        {text.emailLabel}
-      </label>
-      <div className="relative">
-        <FieldIcon isArabic={isArabic}>
-          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
-          </svg>
-        </FieldIcon>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          value={formData.email}
-          onChange={handleChange}
-          className={renderInputBaseClasses(Boolean(fieldErrors.email))}
-          placeholder={text.emailPlaceholder}
-          disabled={isLoading}
-        />
-      </div>
-      {fieldErrors.email && <p className="mt-2 text-sm text-red-600">{fieldErrors.email}</p>}
-    </div>
-
-    <div>
-      <div className={`mb-2 flex items-center justify-between ${isArabic ? 'flex-row-reverse' : ''}`}>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          {text.passwordLabel}
+      <div>
+        <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
+          {text.emailLabel}
         </label>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('forgot');
-            setStep(1);
-            setFieldErrors({});
-            setMessage({ type: '', text: '' });
-            // Nettoyer l'erreur serveur aussi
-            if (onError) onError('');
-          }}
-          className="text-sm font-medium text-blue-600 hover:text-blue-500"
-        >
-          {text.forgotPassword}
-        </button>
+        <div className="relative">
+          <FieldIcon isArabic={isArabic}>
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </FieldIcon>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={handleChange}
+            className={renderInputBaseClasses(Boolean(fieldErrors.email))}
+            placeholder={text.emailPlaceholder}
+            disabled={isLoading}
+          />
+        </div>
+        {fieldErrors.email && <p className="mt-2 text-sm text-red-600">{fieldErrors.email}</p>}
       </div>
-      <div className="relative">
-        <FieldIcon isArabic={isArabic}>
-          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-            />
-          </svg>
-        </FieldIcon>
+
+      <div>
+        <div className={`mb-2 flex items-center justify-between ${isArabic ? 'flex-row-reverse' : ''}`}>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            {text.passwordLabel}
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('forgot');
+              setStep(1);
+              setFieldErrors({});
+              setLocalMessage({ type: '', text: '' });
+              if (onError) onError('');
+            }}
+            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            {text.forgotPassword}
+          </button>
+        </div>
+        <div className="relative">
+          <FieldIcon isArabic={isArabic}>
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </FieldIcon>
+          <input
+            id="password"
+            name="password"
+            type={showPassword.password ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={formData.password}
+            onChange={handleChange}
+            className={renderInputBaseClasses(Boolean(fieldErrors.password), true)}
+            placeholder="••••••••"
+            disabled={isLoading}
+          />
+          <PasswordVisibilityButton
+            visible={showPassword.password}
+            onClick={() => togglePasswordVisibility('password')}
+            isArabic={isArabic}
+            text={text}
+          />
+        </div>
+        {fieldErrors.password && <p className="mt-2 text-sm text-red-600">{fieldErrors.password}</p>}
+      </div>
+
+      <div className={`flex items-center ${isArabic ? 'flex-row-reverse justify-end' : ''}`}>
         <input
-          id="password"
-          name="password"
-          type={showPassword.password ? 'text' : 'password'}
-          autoComplete="current-password"
-          value={formData.password}
+          id="remember-me"
+          name="rememberMe"
+          type="checkbox"
+          checked={formData.rememberMe}
           onChange={handleChange}
-          className={renderInputBaseClasses(Boolean(fieldErrors.password), true)}
-          placeholder="••••••••"
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           disabled={isLoading}
         />
-        <PasswordVisibilityButton
-          visible={showPassword.password}
-          onClick={() => togglePasswordVisibility('password')}
-          isArabic={isArabic}
-          text={text}
-        />
+        <label htmlFor="remember-me" className={`${isArabic ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>
+          {text.rememberMe}
+        </label>
       </div>
-      {fieldErrors.password && <p className="mt-2 text-sm text-red-600">{fieldErrors.password}</p>}
-    </div>
 
-    <div className={`flex items-center ${isArabic ? 'flex-row-reverse justify-end' : ''}`}>
-      <input
-        id="remember-me"
-        name="rememberMe"
-        type="checkbox"
-        checked={formData.rememberMe}
-        onChange={handleChange}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-        disabled={isLoading}
-      />
-      <label htmlFor="remember-me" className={`${isArabic ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>
-        {text.rememberMe}
-      </label>
-    </div>
-
-   <Button
-  type="submit"
-  fullWidth
-  size="lg"
-  className="bg-gradient-to-r from-blue-800 to-blue-600 text-white font-medium shadow-lg transition-all duration-200 hover:from-blue-900 hover:to-blue-900 hover:shadow-xl hover:scale-[1.02]"
->
-  {text.login}
-</Button>
-  </form>
-);
+      <Button
+        type="submit"
+        fullWidth
+        size="lg"
+        loading={isLoading}
+        className="bg-gradient-to-r from-blue-800 to-blue-600 text-white font-medium shadow-lg transition-all duration-200 hover:from-blue-900 hover:to-blue-900 hover:shadow-xl hover:scale-[1.02]"
+      >
+        {isLoading ? text.loggingIn : text.login}
+      </Button>
+    </form>
+  );
 
   const renderForgotForm = () => (
     <div className="space-y-5">
@@ -713,10 +647,10 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
 
       {renderStepIndicator()}
 
-      {message.text && (
+      {localMessage.text && (
         <div
           className={`rounded-lg p-3 ${
-            message.type === 'success'
+            localMessage.type === 'success'
               ? 'border border-green-200 bg-green-50 text-green-700'
               : 'border border-red-200 bg-red-50 text-red-700'
           }`}
@@ -724,12 +658,12 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
           <div className={`flex items-center text-sm ${isArabic ? 'flex-row-reverse' : ''}`}>
             <svg
               className={`${isArabic ? 'ml-2' : 'mr-2'} h-4 w-4 flex-shrink-0 ${
-                message.type === 'success' ? 'text-green-500' : 'text-red-500'
+                localMessage.type === 'success' ? 'text-green-500' : 'text-red-500'
               }`}
               fill="currentColor"
               viewBox="0 0 20 20"
             >
-              {message.type === 'success' ? (
+              {localMessage.type === 'success' ? (
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -743,7 +677,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
                 />
               )}
             </svg>
-            {message.text}
+            {localMessage.text}
           </div>
         </div>
       )}
@@ -757,12 +691,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
             <div className="relative">
               <FieldIcon isArabic={isArabic}>
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </FieldIcon>
               <input
@@ -799,12 +728,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
             <div className="relative">
               <FieldIcon isArabic={isArabic}>
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </FieldIcon>
               <input
@@ -864,12 +788,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
             <div className="relative">
               <FieldIcon isArabic={isArabic}>
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </FieldIcon>
               <input
@@ -899,12 +818,7 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
             <div className="relative">
               <FieldIcon isArabic={isArabic}>
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </FieldIcon>
               <input

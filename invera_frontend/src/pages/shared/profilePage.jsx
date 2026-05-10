@@ -205,35 +205,43 @@ const ProfilePage = () => {
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
-  const getLogoUrl = () => {
-    const clientId = userData.clientId;  
-    
-    if (!clientId) {
-      console.log('❌ Pas de clientId disponible');
-      return null;
-    }
-    
-    const baseURL = api.defaults.baseURL || 'http://localhost:8081/api';
-    const url = `${baseURL}/platform/clients/public/logo/${clientId}?t=${logoTimestamp}`;
-    
-    console.log('🔍 Génération URL logo:', { 
-      clientId, 
-      timestamp: logoTimestamp, 
-      url 
-    });
-    
-    return url;
-  };
+// getLogoUrl - utilise l'endpoint public
+const getLogoUrl = () => {
+  const clientId = userData.clientId;
+  
+  if (!clientId) {
+    console.log('❌ Pas de clientId');
+    return null;
+  }
+  
+  // URL directe vers l'endpoint public
+  const url = `http://localhost:8081/api/platform/clients/public/logo/${clientId}?t=${logoTimestamp}`;
+  
+  console.log('🔍 URL logo public:', url);
+  return url;
+};
 
-  const hasValidLogo = useCallback(() => {
-    const logo = userData.logoUrl || localStorage.getItem('logoUrl');
-    return logo && logo !== 'null' && logo !== '' && !logoError;
-  }, [userData.logoUrl, logoError]);
+// hasValidLogo - ne dépend pas de logoUrl stocké
+const hasValidLogo = () => {
+  // On tente toujours d'afficher via l'endpoint public
+  // Si l'utilisateur a un clientId, on essaie
+  const valid = userData.clientId && !logoError;
+  
+  console.log('🔍 hasValidLogo:', { 
+    clientId: userData.clientId, 
+    logoError, 
+    valid 
+  });
+  
+  return valid;
+};
 
-  const refreshLogo = () => {
-    setLogoTimestamp(Date.now());
-    setLogoError(false);
-  };
+// CORRECTION 3: refreshLogo
+const refreshLogo = () => {
+  setLogoTimestamp(Date.now());
+  setLogoError(false); // ← IMPORTANT: réinitialiser l'erreur
+};
+
 
   // Vérifier si l'utilisateur peut modifier le logo
   const canEditLogo = () => {

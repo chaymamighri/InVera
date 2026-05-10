@@ -42,6 +42,10 @@ const pageCopy = {
     invalidEmail: 'Veuillez saisir un email valide (exemple@domaine.com)',
     passwordRequired: 'Le mot de passe est requis',
     invalidPassword: 'Le mot de passe doit contenir au moins 8 caractères',
+    accountInactive: 'Votre compte est inactif. Veuillez contacter l\'administrateur.',
+    paymentPending: 'Vos documents ont été validés. Veuillez finaliser votre paiement.',
+    subscriptionExpired: 'Votre abonnement a expiré. Veuillez le renouveler.',
+    accountRejected: 'Votre inscription a été refusée. Contactez le support.',
   },
   en: {
     featureBadge: 'Next-generation experience',
@@ -79,6 +83,10 @@ const pageCopy = {
     invalidEmail: 'Please enter a valid email (example@domain.com)',
     passwordRequired: 'Password is required',
     invalidPassword: 'Password must be at least 8 characters',
+    accountInactive: 'Your account is inactive. Please contact the administrator.',
+    paymentPending: 'Your documents have been validated. Please complete your payment.',
+    subscriptionExpired: 'Your subscription has expired. Please renew it.',
+    accountRejected: 'Your registration has been rejected. Contact support.',
   },
   ar: {
     featureBadge: 'تجربة من الجيل الجديد',
@@ -116,6 +124,10 @@ const pageCopy = {
     invalidEmail: 'يرجى إدخال بريد إلكتروني صالح (example@domain.com)',
     passwordRequired: 'كلمة المرور مطلوبة',
     invalidPassword: 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل',
+    accountInactive: 'حسابك غير نشط. يرجى الاتصال بالمسؤول.',
+    paymentPending: 'تم التحقق من مستنداتك. يرجى إتمام الدفع.',
+    subscriptionExpired: 'اشتراكك منتهي. يرجى تجديده.',
+    accountRejected: 'تم رفض تسجيلك. اتصل بالدعم.',
   },
 };
 
@@ -137,8 +149,6 @@ const signalIcons = [
   ),
 ];
 
-// ==================== FONCTIONS DE VALIDATION ====================
-
 const validateEmail = (email) => {
   if (!email) return false;
   const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
@@ -156,17 +166,19 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  const [errorType, setErrorType] = useState(null);
 
   useEffect(() => {
     const message = sessionStorage.getItem('authError');
+    const type = sessionStorage.getItem('authErrorType');
     if (message) {
       setLoginError(message);
+      setErrorType(type);
       sessionStorage.removeItem('authError');
+      sessionStorage.removeItem('authErrorType');
     }
   }, []);
 
-  // ==================== VALIDATION UI ====================
-  
   const validateForm = (email, password) => {
     const errors = {};
     
@@ -186,73 +198,138 @@ const LoginPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-const handleSubmit = async (credentials) => {
-  // Validation UI
-  if (!validateForm(credentials.email, credentials.password)) {
-    const validationError = new Error('Validation failed');
-    validationError.userMessage = 'Veuillez vérifier vos identifiants';
-    throw validationError;
-  }
-  
-  // ⭐ Important: Effacer l'erreur avant la requête
-  setLoginError(null);
-  setValidationErrors({});
+  const getErrorMessage = (errorCode, serverMessage) => {
+    switch (errorCode) {
+      case 'ACCOUNT_INACTIVE':
+        return text.accountInactive;
+      case 'PAYMENT_PENDING':
+        return text.paymentPending;
+      case 'SUBSCRIPTION_EXPIRED':
+        return text.subscriptionExpired;
+      case 'ACCOUNT_REJECTED':
+        return text.accountRejected;
+      default:
+        return serverMessage || text.loginErrorFallback;
+    }
+  };
 
-  try {
-    const result = await login(credentials);
+  const handleSubmit = async (credentials) => {
+    if (!validateForm(credentials.email, credentials.password)) {
+      const validationError = new Error('Validation failed');
+      validationError.userMessage = 'Veuillez vérifier vos identifiants';
+      throw validationError;
+    }
+    
+    setLoginError(null);
+    setErrorType(null);
+    setValidationErrors({});
 
-    if (result?.success) {
-      const { data } = result;
+    try {
+      const result = await login(credentials);
 
-      if (data) {
-        if (data.connexionsRestantes !== undefined) localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
-        if (data.connexionsMax !== undefined) localStorage.setItem('connexionsMax', data.connexionsMax);
-        if (data.typeInscription) localStorage.setItem('typeInscription', data.typeInscription);
-        if (data.hasActiveSubscription !== undefined) localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
-        if (data.statut) localStorage.setItem('clientStatut', data.statut);
-        if (data.clientId) localStorage.setItem('clientId', data.clientId);
-        if (data.token) localStorage.setItem('token', data.token);
-        sessionStorage.setItem('justLoggedIn', 'true');
+      if (result?.success) {
+        const { data } = result;
+
+        if (data) {
+          if (data.connexionsRestantes !== undefined) localStorage.setItem('connexionsRestantes', data.connexionsRestantes);
+          if (data.connexionsMax !== undefined) localStorage.setItem('connexionsMax', data.connexionsMax);
+          if (data.typeInscription) localStorage.setItem('typeInscription', data.typeInscription);
+          if (data.hasActiveSubscription !== undefined) localStorage.setItem('hasActiveSubscription', data.hasActiveSubscription);
+          if (data.statut) localStorage.setItem('clientStatut', data.statut);
+          if (data.clientId) localStorage.setItem('clientId', data.clientId);
+          if (data.token) localStorage.setItem('token', data.token);
+          sessionStorage.setItem('justLoggedIn', 'true');
+        }
+
+        const userRole = localStorage.getItem('userRole');
+        let dashboardPath = '/dashboard';
+        if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
+        else if (userRole === 'ADMIN' || userRole === 'ADMIN_CLIENT') dashboardPath = '/dashboard/admin';
+        else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
+        else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
+
+        navigate(dashboardPath, { replace: true });
+        return;
+      } else {
+        throw new Error(result?.message || text.loginErrorFallback);
       }
-
-      const userRole = localStorage.getItem('userRole');
-      let dashboardPath = '/dashboard';
-      if (userRole === 'SUPER_ADMIN') dashboardPath = '/super-admin/dashboard';
-      else if (userRole === 'ADMIN' || userRole === 'ADMIN_CLIENT') dashboardPath = '/dashboard/admin';
-      else if (userRole === 'COMMERCIAL') dashboardPath = '/dashboard/sales/dashboard';
-      else if (userRole === 'RESPONSABLE_ACHAT') dashboardPath = '/dashboard/procurement';
-
-      navigate(dashboardPath, { replace: true });
-      return;
-    } else {
-      throw new Error(result?.message || text.loginErrorFallback);
+    } catch (error) {
+      console.error('🔴 LoginPage error:', error);
+      
+      let errorMessage = text.loginErrorFallback;
+      let errorCode = null;
+      
+      if (error.userMessage) {
+        errorMessage = error.userMessage;
+      } else if (error.response?.data?.error) {
+        errorCode = error.response.data.error;
+        errorMessage = getErrorMessage(errorCode, error.response.data.message);
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message && error.message !== 'Validation failed') {
+        errorMessage = error.message;
+      }
+      
+      console.log('📢 LoginPage - Setting error message:', errorMessage, 'Type:', errorCode);
+      
+      setLoginError(errorMessage);
+      setErrorType(errorCode);
+      
+      throw new Error(errorMessage);
     }
-  } catch (error) {
-    console.error('🔴 LoginPage error:', error);
-    
-    // ⭐ Récupérer le message d'erreur
-    let errorMessage = text.loginErrorFallback;
-    
-    if (error.userMessage) {
-      errorMessage = error.userMessage;
-    } else if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    } else if (error.message && error.message !== 'Validation failed') {
-      errorMessage = error.message;
-    }
-    
-    console.log('📢 LoginPage - Setting error message:', errorMessage);
-    
-    // ⭐ Mettre à jour l'état (ceci déclenchera le re-render de LoginForm avec serverError)
-    setLoginError(errorMessage);
-    
-    // ⭐ Propager l'erreur pour LoginForm
-    throw new Error(errorMessage);
-  }
-};
+  };
+
   const getSavedEmail = () => localStorage.getItem('savedEmail') || '';
+
+  const handleClearError = () => {
+    setLoginError(null);
+    setErrorType(null);
+  };
+
+  const renderErrorActions = () => {
+    if (!loginError) return null;
+    
+    switch (errorType) {
+      case 'PAYMENT_PENDING':
+        return (
+          <button 
+            onClick={() => window.location.href = '/paiement'}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            Finaliser mon paiement →
+          </button>
+        );
+      case 'SUBSCRIPTION_EXPIRED':
+        return (
+          <button 
+            onClick={() => window.location.href = '/abonnement'}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            Renouveler mon abonnement →
+          </button>
+        );
+      case 'ACCOUNT_INACTIVE':
+        return (
+          <button 
+            onClick={() => window.location.href = '/contact'}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            Contacter l'administrateur →
+          </button>
+        );
+      case 'ACCOUNT_REJECTED':
+        return (
+          <button 
+            onClick={() => window.location.href = '/support'}
+            className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            Contacter le support →
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f4fa] via-[#f8fafc] to-[#eef2f8]">
@@ -362,24 +439,38 @@ const handleSubmit = async (credentials) => {
                 </div>
               )}
 
-             <div className="rounded-xl bg-white p-1 md:p-2">
-  
-  {/* 🔴 ERREUR LOGIN (comme image 1) */}
-  {loginError && (
-    <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-700 text-sm">
-      {loginError}
-    </div>
-  )}
+              <div className="rounded-xl bg-white p-1 md:p-2">
+                {/* 🔴 ERREUR LOGIN AVEC ACTIONS */}
+                {loginError && (
+                  <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-red-800">{loginError}</p>
+                        {renderErrorActions()}
+                      </div>
+                      <button 
+                        onClick={handleClearError}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-  <LoginForm 
-    onSubmit={handleSubmit} 
-    loading={loading} 
-    savedEmail={getSavedEmail()}
-    serverError={null}   // ✅ IMPORTANT (évite doublon)
-    onError={setLoginError}
-  />
-  
-</div>
+                <LoginForm 
+                  onSubmit={handleSubmit} 
+                  loading={loading} 
+                  savedEmail={getSavedEmail()}
+                  serverError={loginError}
+                  onError={setLoginError}
+                />
+              </div>
 
               <div className={`mt-6 text-center ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
                 <p className="text-sm text-slate-500">
