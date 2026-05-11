@@ -106,17 +106,20 @@ public class SecurityConfig {
                                 "/api/platform/clients/login",
                                 "/api/platform/clients/request-otp",
                                 "/api/platform/clients/verify-otp",
+                                "/api/telegram/webhook",
                                 "/api/platform/clients/*/justificatifs",
                                 "/api/platform/clients/*/document/*",
                                 "/api/platform/clients/public/logo/*"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/api/platform/telegram-link").hasRole("ADMIN_CLIENT")
 
                         .requestMatchers(HttpMethod.PUT, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
 
 
                         .requestMatchers(
-                                "/api/platform/clients/update-company"
+                                "/api/platform/clients/update-company",
+                                "/api/platform/clients/telegram-chat"
                         ).hasRole("ADMIN_CLIENT")
 
 

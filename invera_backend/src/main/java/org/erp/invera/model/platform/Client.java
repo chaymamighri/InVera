@@ -83,6 +83,12 @@ public class Client {
     @Column(name = "nom_base_donnees")
     private String nomBaseDonnees;
 
+    @Column(name = "telegram_chat_id", unique = true)
+    private Long telegramChatId;
+
+    @Column(name = "telegram_link_token", unique = true)
+    private String telegramLinkToken;
+
     // ========== GESTION CONNEXIONS ==========
     @Column(name = "connexions_restantes")
     @Builder.Default

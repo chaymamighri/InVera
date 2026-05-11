@@ -97,7 +97,6 @@ const FALLBACK_TEXTS = {
   'salesPages.loyal': 'Fidèles',
   'salesPages.par': 'PAR',  // Particuliers
   'salesPages.ent': 'ENT',  // Entreprises
-  'salesPages.vip': 'VIP',
   'salesPages.fid': 'FID', 
 };
 

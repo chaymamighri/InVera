@@ -1,4 +1,5 @@
 // clientPlatformService.js
+import api from '../services/api';
 import platformApi from './platformApi';
 
 export const clientPlatformService = {
@@ -145,6 +146,25 @@ getDocument: async (clientId, documentType) => {
     const response = await platformApi.put(`/platform/clients/${clientId}/logo`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  getTelegramLink: async () => {
+    const sessionToken = sessionStorage.getItem('token');
+    const localToken = localStorage.getItem('token');
+    const rawToken = sessionToken || localToken;
+
+    if (!rawToken) {
+      throw new Error('No client token found');
+    }
+
+    const cleanedToken = rawToken.replace(/^"|"$/g, '').trim();
+
+    const response = await api.get('/platform/telegram-link', {
+      headers: {
+        Authorization: `Bearer ${cleanedToken}`,
       },
     });
     return response.data;
