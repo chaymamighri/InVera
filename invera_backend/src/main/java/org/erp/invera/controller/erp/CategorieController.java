@@ -1,6 +1,7 @@
 package org.erp.invera.controller.erp;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Categorie;
 import org.erp.invera.service.erp.CategorieService;
 import org.springframework.http.HttpStatus;
@@ -11,22 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Contrôleur de gestion des catégories de produits (multi-tenant).
- *
- * Endpoints :
- * - GET    /                    → Liste de toutes les catégories
- * - GET    /{id}                → Détail d'une catégorie
- * - POST   /                    → Créer une nouvelle catégorie
- * - PUT    /{id}                → Modifier une catégorie
- * - DELETE /{id}                → Supprimer (uniquement si aucun produit associé)
- * - GET    /search?keyword=     → Rechercher par mot-clé
- *
- * Règles :
- * - Le nom de la catégorie est unique
- * - TVA par défaut : 19%
- * - Impossible de supprimer une catégorie contenant des produits
- */
+@Slf4j
 @RestController
 @RequestMapping("/api/categories")
 public class CategorieController {
@@ -47,9 +33,34 @@ public class CategorieController {
         return null;
     }
 
+    private ResponseEntity<Map<String, Object>> successResponse(String message, Object data) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", message);
+        response.put("data", data);
+        return ResponseEntity.ok(response);
+    }
+
+    private ResponseEntity<Map<String, Object>> successResponse(String message) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", message);
+        return ResponseEntity.ok(response);
+    }
+
+    private ResponseEntity<Map<String, String>> errorResponse(String message, HttpStatus status) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("success", "false");
+        errorResponse.put("error", message);
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
     // ==================== ENDPOINTS ====================
 
-    // GET - Récupérer toutes les catégories
+    /**
+     * GET /api/categories
+     * Récupérer toutes les catégories
+     */
     @GetMapping
     public ResponseEntity<?> getAllCategories(HttpServletRequest request) {
         try {
@@ -65,7 +76,10 @@ public class CategorieController {
         }
     }
 
-    // GET - Récupérer une catégorie par ID
+    /**
+     * GET /api/categories/{id}
+     * Récupérer une catégorie par ID
+     */
     @GetMapping("/{id}")
     public ResponseEntity<?> getCategorieById(HttpServletRequest request, @PathVariable Integer id) {
         try {
@@ -83,25 +97,40 @@ public class CategorieController {
         }
     }
 
-    // POST - Créer une nouvelle catégorie
+    /**
+     * POST /api/categories
+     * Créer une nouvelle catégorie
+     * Body: { "nomCategorie": "Électronique", "description": "...", "tauxTVA": 19 }
+     */
+    // Dans CategorieController.java
     @PostMapping
     public ResponseEntity<?> createCategorie(HttpServletRequest request, @RequestBody Categorie categorie) {
         try {
+            log.info("🔵 CONTROLLER - Début création catégorie");
+
             String token = extractToken(request);
+            log.info("🔵 CONTROLLER - Token extrait: {}", token != null ? "PRESENT" : "NULL");
+
             if (token == null) {
                 return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
             }
 
+            log.info("🔵 CONTROLLER - Appel service save...");
             Categorie savedCategorie = categorieService.save(categorie, token);
+            log.info("🔵 CONTROLLER - Catégorie sauvegardée avec ID: {}", savedCategorie.getIdCategorie());
+
             return ResponseEntity.status(HttpStatus.CREATED).body(savedCategorie);
-        } catch (RuntimeException e) {
-            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
         } catch (Exception e) {
-            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            log.error("🔴 CONTROLLER - Erreur: {}", e.getMessage(), e);
+            return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
-    // PUT - Mettre à jour une catégorie
+    /**
+     * PUT /api/categories/{id}
+     * Mettre à jour une catégorie
+     */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateCategorie(HttpServletRequest request,
                                              @PathVariable Integer id,
@@ -112,8 +141,14 @@ public class CategorieController {
                 return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
             }
 
+            // Validation
+            if (categorie.getNomCategorie() == null || categorie.getNomCategorie().trim().isEmpty()) {
+                return errorResponse("Le nom de la catégorie est requis", HttpStatus.BAD_REQUEST);
+            }
+
             Categorie updatedCategorie = categorieService.update(id, categorie, token);
             return ResponseEntity.ok(updatedCategorie);
+
         } catch (RuntimeException e) {
             return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
@@ -121,7 +156,10 @@ public class CategorieController {
         }
     }
 
-    // DELETE - Supprimer une catégorie
+    /**
+     * DELETE /api/categories/{id}
+     * Supprimer une catégorie
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCategorie(HttpServletRequest request, @PathVariable Integer id) {
         try {
@@ -133,8 +171,10 @@ public class CategorieController {
             categorieService.deleteById(id, token);
 
             Map<String, String> response = new HashMap<>();
+            response.put("success", "true");
             response.put("message", "Catégorie supprimée avec succès");
             return ResponseEntity.ok(response);
+
         } catch (RuntimeException e) {
             return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
@@ -142,7 +182,10 @@ public class CategorieController {
         }
     }
 
-    // GET - Rechercher des catégories
+    /**
+     * GET /api/categories/search?keyword=xxx
+     * Rechercher des catégories par mot-clé
+     */
     @GetMapping("/search")
     public ResponseEntity<?> searchCategories(HttpServletRequest request,
                                               @RequestParam(required = false) String keyword) {
@@ -154,16 +197,9 @@ public class CategorieController {
 
             List<Categorie> categories = categorieService.search(keyword, token);
             return ResponseEntity.ok(categories);
+
         } catch (Exception e) {
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-    }
-
-    // ==================== METHODE D'ERREUR ====================
-
-    private ResponseEntity<Map<String, String>> errorResponse(String message, HttpStatus status) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", message);
-        return ResponseEntity.status(status).body(errorResponse);
     }
 }

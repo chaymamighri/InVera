@@ -14,13 +14,11 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.WeekFields;
+import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Service de statistiques pour le tableau de bord des achats et stocks - MULTI-TENANT.
- * Architecture : 1 base = 1 client → Pas besoin de tenant_id
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,16 +27,11 @@ public class StatsAchatService {
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // Cache simple pour éviter les doublons sur la même période
     private final Map<String, Map<String, Long>> statsCache = new HashMap<>();
-
-    // ==================== MÉTHODES MULTI-TENANT ====================
 
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
     }
-
-    // ==================== ROW MAPPER ====================
 
     private RowMapper<Produit> produitRowMapper() {
         return (rs, rowNum) -> {
@@ -53,11 +46,8 @@ public class StatsAchatService {
         };
     }
 
-    // ==================== MÉTHODE CACHÉE ====================
+    // ==================== MÉTHODES PRIVÉES CORRIGÉES ====================
 
-    /**
-     * Méthode utilitaire qui récupère entrées ET sorties en UNE SEULE requête
-     */
     private Map<String, Long> getEntreesAndSorties(LocalDateTime startDate, LocalDateTime endDate, String token) {
         if (startDate == null || endDate == null) {
             Map<String, Long> empty = new HashMap<>();
@@ -75,7 +65,6 @@ public class StatsAchatService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Requête pour entrées ET sorties
         String sql = """
             SELECT 
                 COALESCE(SUM(CASE WHEN type_mouvement = 'ENTREE' THEN quantite ELSE 0 END), 0) as entrees,
@@ -84,7 +73,7 @@ public class StatsAchatService {
             WHERE date_mouvement BETWEEN ? AND ?
             """;
 
-        Map<String, Long> stats = tenantRepo.queryForObject(sql, (rs, rowNum) -> {
+        Map<String, Long> stats = tenantRepo.queryForObjectAuth(sql, (rs, rowNum) -> {
             Map<String, Long> result = new HashMap<>();
             result.put("ENTREE", rs.getLong("entrees"));
             result.put("SORTIE", rs.getLong("sorties"));
@@ -101,27 +90,25 @@ public class StatsAchatService {
         return stats;
     }
 
-    // ==================== REQUÊTES COMMANDES ====================
-
     private Long countCommandesByDate(LocalDateTime debut, LocalDateTime fin, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM commandes_fournisseurs WHERE date_commande BETWEEN ? AND ?";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId, debut, fin);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, debut, fin);
     }
 
     private Long countCommandesByStatutAndDate(String statut, LocalDateTime debut, LocalDateTime fin, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM commandes_fournisseurs WHERE statut = ? AND date_commande BETWEEN ? AND ?";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId, statut, debut, fin);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, statut, debut, fin);
     }
 
     private Long countTotalCommandes(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM commandes_fournisseurs";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
     }
 
     private List<Object[]> findCommandesByMonth(int annee, String token) {
@@ -136,34 +123,32 @@ public class StatsAchatService {
             GROUP BY EXTRACT(MONTH FROM date_commande)
             ORDER BY month
             """;
-        return tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        return tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 rs.getInt("month"),
                 rs.getLong("count"),
                 rs.getDouble("total")
         }, clientId, authClientId, annee);
     }
 
-    // ==================== REQUÊTES PRODUITS ====================
-
     private Long countProduits(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM produit";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
     }
 
     private Long countProduitsActifs(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM produit WHERE is_active = true";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
     }
 
     private Long countProduitsRupture(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM produit WHERE quantite_stock = 0 OR quantite_stock IS NULL";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
     }
 
     private Long countProduitsCritique(String token) {
@@ -173,14 +158,14 @@ public class StatsAchatService {
             SELECT COUNT(*) FROM produit 
             WHERE quantite_stock > 0 AND quantite_stock <= seuil_minimum * 0.25
             """;
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
     }
 
     private Double sommeValeurStockTotale(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COALESCE(SUM(quantite_stock * prix_vente), 0) FROM produit";
-        BigDecimal result = tenantRepo.queryForObject(sql, BigDecimal.class, clientId, authClientId);
+        BigDecimal result = tenantRepo.queryForObjectAuth(sql, BigDecimal.class, clientId, authClientId);
         return result != null ? result.doubleValue() : 0.0;
     }
 
@@ -188,14 +173,14 @@ public class StatsAchatService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT AVG(quantite_stock) FROM produit WHERE quantite_stock IS NOT NULL";
-        return tenantRepo.queryForObject(sql, Double.class, clientId, authClientId);
+        return tenantRepo.queryForObjectAuth(sql, Double.class, clientId, authClientId);
     }
 
     private List<Produit> findProduitsEnRupture(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT * FROM produit WHERE quantite_stock = 0 OR quantite_stock IS NULL";
-        return tenantRepo.query(sql, produitRowMapper(), clientId, authClientId);
+        return tenantRepo.queryWithAuth(sql, produitRowMapper(), clientId, authClientId);
     }
 
     private List<Produit> findProduitsStockCritique(String token) {
@@ -205,19 +190,19 @@ public class StatsAchatService {
             SELECT * FROM produit 
             WHERE quantite_stock > 0 AND quantite_stock <= seuil_minimum * 0.25
             """;
-        return tenantRepo.query(sql, produitRowMapper(), clientId, authClientId);
+        return tenantRepo.queryWithAuth(sql, produitRowMapper(), clientId, authClientId);
     }
 
     private List<Object[]> countProduitsByCategorie(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = """
-            SELECT c.nom_categorie, COUNT(p.id_produit) as count
+            SELECT COALESCE(c.nom_categorie, 'Sans catégorie') as nom_categorie, COUNT(p.id_produit) as count
             FROM produit p
             LEFT JOIN categorie c ON p.categorie_id = c.id_categorie
             GROUP BY c.nom_categorie
             """;
-        return tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        return tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 rs.getString("nom_categorie"),
                 rs.getLong("count")
         }, clientId, authClientId);
@@ -227,25 +212,162 @@ public class StatsAchatService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = """
-            SELECT c.nom_categorie, 
+            SELECT COALESCE(c.nom_categorie, 'Sans catégorie') as nom_categorie, 
                    COALESCE(SUM(p.quantite_stock * p.prix_vente), 0) as valeur,
                    COUNT(p.id_produit) as count
             FROM produit p
             LEFT JOIN categorie c ON p.categorie_id = c.id_categorie
             GROUP BY c.nom_categorie
             """;
-        return tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        return tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 rs.getString("nom_categorie"),
                 rs.getDouble("valeur"),
                 rs.getInt("count")
         }, clientId, authClientId);
     }
 
+    private Long countProduitsPrecedent(String token) {
+        LocalDateTime debut = LocalDateTime.now().minusMonths(1);
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+        String sql = "SELECT COUNT(*) FROM produit WHERE created_at >= ?";
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, debut);
+    }
+
+    private Long getMouvementsMois(LocalDateTime start, LocalDateTime end, String token) {
+        if (start == null || end == null) return 0L;
+        Map<String, Long> stats = getEntreesAndSorties(start, end, token);
+        return stats.get("ENTREE") + stats.get("SORTIE");
+    }
+
+    private Double calculateRotationStock(String token) {
+        LocalDateTime startOfYear = LocalDateTime.now().withDayOfYear(1).withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime now = LocalDateTime.now();
+
+        Map<String, Long> stats = getEntreesAndSorties(startOfYear, now, token);
+        BigDecimal totalSorties = BigDecimal.valueOf(stats.get("SORTIE"));
+
+        Double stockMoyen = averageStock(token);
+        if (stockMoyen == null || stockMoyen == 0) return 0.0;
+
+        return BigDecimal.valueOf(totalSorties.doubleValue())
+                .divide(BigDecimal.valueOf(stockMoyen), 2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    private Double calculateTendanceCommandes(LocalDateTime startDateTime, LocalDateTime endDateTime, String token) {
+        if (startDateTime == null || endDateTime == null) return 0.0;
+
+        Long commandesActuelles = countCommandesByDate(startDateTime, endDateTime, token);
+
+        long duration = Duration.between(startDateTime, endDateTime).toMillis();
+        LocalDateTime periodPrecedenteStart = startDateTime.minus(duration, ChronoUnit.MILLIS);
+        LocalDateTime periodPrecedenteEnd = startDateTime;
+
+        Long commandesPrecedentes = countCommandesByDate(periodPrecedenteStart, periodPrecedenteEnd, token);
+
+        if (commandesPrecedentes == null || commandesPrecedentes == 0) return 0.0;
+
+        return ((commandesActuelles - commandesPrecedentes) * 100.0) / commandesPrecedentes;
+    }
+
+    private Double calculateTendanceProduits(String token) {
+        Long totalActuel = countProduits(token);
+        Long totalPrecedent = countProduitsPrecedent(token);
+
+        if (totalPrecedent == null || totalPrecedent == 0) return 0.0;
+        return ((totalActuel - totalPrecedent) * 100.0) / totalPrecedent;
+    }
+
+    private Double calculateTendanceStock(String token) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime monthAgo = now.minusMonths(1);
+
+        Map<String, Long> statsMois = getEntreesAndSorties(monthAgo, now, token);
+        Map<String, Long> statsMoisPrecedent = getEntreesAndSorties(monthAgo.minusMonths(1), monthAgo, token);
+
+        Long mouvementsMois = statsMois.get("ENTREE") + statsMois.get("SORTIE");
+        Long mouvementsPrecedent = statsMoisPrecedent.get("ENTREE") + statsMoisPrecedent.get("SORTIE");
+
+        if (mouvementsPrecedent == null || mouvementsPrecedent == 0) return 0.0;
+        return ((mouvementsMois - mouvementsPrecedent) * 100.0) / mouvementsPrecedent;
+    }
+
+    private Double calculateTauxService(String token) {
+        Long commandesLivrees = countCommandesByStatutAndDate("RECUE", null, null, token);
+        Long commandesTotales = countTotalCommandes(token);
+
+        if (commandesTotales == null || commandesTotales == 0) return 100.0;
+        return (commandesLivrees != null ? commandesLivrees : 0L) * 100.0 / commandesTotales;
+    }
+
+    private AlerteStockDTO buildAlerte(Produit produit, String type) {
+        return AlerteStockDTO.builder()
+                .produitId(Long.valueOf(produit.getIdProduit()))
+                .produitNom(produit.getLibelle())
+                .stockActuel(produit.getQuantiteStock())
+                .stockMin(produit.getSeuilMinimum())
+                .typeAlerte(type)
+                .build();
+    }
+
+    private List<MouvementStockPeriodDTO> getMouvementsParSemaine(LocalDateTime startDate, LocalDateTime endDate, String token) {
+        List<MouvementStockPeriodDTO> result = new ArrayList<>();
+
+        LocalDate start = startDate.toLocalDate();
+        LocalDate end = endDate.toLocalDate();
+        long weeksBetween = ChronoUnit.WEEKS.between(start, end);
+        int maxWeeks = (int) Math.min(weeksBetween + 1, 12);
+
+        for (int i = 0; i < maxWeeks; i++) {
+            LocalDate weekStart = start.plusWeeks(i).with(DayOfWeek.MONDAY);
+            LocalDate weekEnd = weekStart.plusDays(6);
+
+            if (weekStart.isAfter(end)) break;
+            if (weekEnd.isAfter(end)) weekEnd = end;
+
+            LocalDateTime weekStartDateTime = weekStart.atStartOfDay();
+            LocalDateTime weekEndDateTime = weekEnd.atTime(23, 59, 59);
+
+            Map<String, Long> stats = getEntreesAndSorties(weekStartDateTime, weekEndDateTime, token);
+
+            String weekLabel = String.format("Sem %d (%s/%s → %s/%s)",
+                    weekStart.get(WeekFields.ISO.weekOfWeekBasedYear()),
+                    weekStart.getDayOfMonth(), weekStart.getMonthValue(),
+                    weekEnd.getDayOfMonth(), weekEnd.getMonthValue());
+
+            result.add(MouvementStockPeriodDTO.builder()
+                    .label(weekLabel)
+                    .entrees(stats.get("ENTREE"))
+                    .sorties(stats.get("SORTIE"))
+                    .max(0L)
+                    .build());
+        }
+
+        long max = result.stream()
+                .mapToLong(dto -> Math.max(dto.getEntrees(), dto.getSorties()))
+                .max()
+                .orElse(100L);
+
+        for (MouvementStockPeriodDTO dto : result) {
+            dto.setMax(max != 0 ? max : 100L);
+        }
+
+        return result;
+    }
+
+    private String getMonthName(int month) {
+        String[] months = {"Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"};
+        return months[month - 1];
+    }
+
+    private String formatDateRange(LocalDate startDate, LocalDate endDate) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return startDate.format(formatter) + " → " + endDate.format(formatter);
+    }
+
     // ==================== MÉTHODES PUBLIQUES ====================
 
-    /**
-     * Statistiques principales du tableau de bord
-     */
     public DashboardStatsDTO getDashboardStats(LocalDate startDate, LocalDate endDate, String token) {
         LocalDateTime startDateTime;
         LocalDateTime endDateTime;
@@ -271,19 +393,17 @@ public class StatsAchatService {
                         .actifs(countProduitsActifs(token))
                         .rupture(countProduitsRupture(token))
                         .alerte(countProduitsCritique(token))
-                        .tendance(calculateTendanceProduits(token))  // ✅ Ajout token
+                        .tendance(calculateTendanceProduits(token))
                         .build())
                 .stock(DashboardStatsDTO.StockStats.builder()
                         .valeurTotale(sommeValeurStockTotale(token))
                         .mouvementsMois(getMouvementsMois(startDateTime, endDateTime, token))
                         .rotation(getRotationStock(token))
-                        .tendance(calculateTendanceStock(token))  // ✅ Ajout token
+                        .tendance(calculateTendanceStock(token))
                         .build())
                 .build();
     }
-    /**
-     * Récupère les statistiques des commandes sur une période
-     */
+
     public DashboardStatsDTO.CommandesStats getCommandesStats(LocalDate startDate, LocalDate endDate, String filtre, String token) {
         if (startDate == null) startDate = LocalDate.now().minusDays(30);
         if (endDate == null) endDate = LocalDate.now();
@@ -307,9 +427,6 @@ public class StatsAchatService {
                 .build();
     }
 
-    /**
-     * Évolution des commandes sur l'année
-     */
     public List<EvolutionCommandesDTO> getEvolutionCommandes(int annee, String token) {
         List<Object[]> results = findCommandesByMonth(annee, token);
         Map<Integer, EvolutionCommandesDTO> monthMap = new LinkedHashMap<>();
@@ -329,9 +446,6 @@ public class StatsAchatService {
         return new ArrayList<>(monthMap.values());
     }
 
-    /**
-     * Récupère les statistiques de mouvements de stock sur une période
-     */
     public DashboardStatsDTO.StockStats getStockStats(LocalDateTime startDate, LocalDateTime endDate, String token) {
         if (startDate == null) startDate = LocalDateTime.now().minusDays(30);
         if (endDate == null) endDate = LocalDateTime.now();
@@ -349,9 +463,6 @@ public class StatsAchatService {
                 .build();
     }
 
-    /**
-     * Récupère les mouvements de stock par période
-     */
     public List<MouvementStockPeriodDTO> getMouvementsStock(String periode, LocalDate startDate, LocalDate endDate, String token) {
         List<MouvementStockPeriodDTO> result = new ArrayList<>();
         String dateRangeLabel = "";
@@ -374,7 +485,7 @@ public class StatsAchatService {
 
                 Map<String, Long> stats = getEntreesAndSorties(monthStart, monthEnd, token);
 
-                String monthLabel = current.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.FRENCH)
+                String monthLabel = current.getMonth().getDisplayName(TextStyle.SHORT, Locale.FRENCH)
                         + " " + current.getYear();
 
                 result.add(MouvementStockPeriodDTO.builder()
@@ -403,7 +514,7 @@ public class StatsAchatService {
                 Map<String, Long> stats = getEntreesAndSorties(weekStartDateTime, weekEndDateTime, token);
 
                 String weekLabel = String.format("Sem %d (%s)",
-                        weekStart.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()),
+                        weekStart.get(WeekFields.ISO.weekOfWeekBasedYear()),
                         weekStart.getDayOfMonth() + "/" + weekStart.getMonthValue());
 
                 result.add(MouvementStockPeriodDTO.builder()
@@ -449,54 +560,6 @@ public class StatsAchatService {
         return result;
     }
 
-    private List<MouvementStockPeriodDTO> getMouvementsParSemaine(LocalDateTime startDate, LocalDateTime endDate, String token) {
-        List<MouvementStockPeriodDTO> result = new ArrayList<>();
-
-        LocalDate start = startDate.toLocalDate();
-        LocalDate end = endDate.toLocalDate();
-        long weeksBetween = java.time.temporal.ChronoUnit.WEEKS.between(start, end);
-        int maxWeeks = (int) Math.min(weeksBetween + 1, 12);
-
-        for (int i = 0; i < maxWeeks; i++) {
-            LocalDate weekStart = start.plusWeeks(i).with(DayOfWeek.MONDAY);
-            LocalDate weekEnd = weekStart.plusDays(6);
-
-            if (weekStart.isAfter(end)) break;
-            if (weekEnd.isAfter(end)) weekEnd = end;
-
-            LocalDateTime weekStartDateTime = weekStart.atStartOfDay();
-            LocalDateTime weekEndDateTime = weekEnd.atTime(23, 59, 59);
-
-            Map<String, Long> stats = getEntreesAndSorties(weekStartDateTime, weekEndDateTime, token);
-
-            String weekLabel = String.format("Sem %d (%s/%s → %s/%s)",
-                    weekStart.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()),
-                    weekStart.getDayOfMonth(), weekStart.getMonthValue(),
-                    weekEnd.getDayOfMonth(), weekEnd.getMonthValue());
-
-            result.add(MouvementStockPeriodDTO.builder()
-                    .label(weekLabel)
-                    .entrees(stats.get("ENTREE"))
-                    .sorties(stats.get("SORTIE"))
-                    .max(0L)
-                    .build());
-        }
-
-        long max = result.stream()
-                .mapToLong(dto -> Math.max(dto.getEntrees(), dto.getSorties()))
-                .max()
-                .orElse(100L);
-
-        for (MouvementStockPeriodDTO dto : result) {
-            dto.setMax(max != 0 ? max : 100L);
-        }
-
-        return result;
-    }
-
-    /**
-     * Répartition des produits par catégorie
-     */
     public List<CategorieRepartitionDTO> getRepartitionCategories(LocalDate startDate, LocalDate endDate, String token) {
         List<Object[]> results = countProduitsByCategorie(token);
         Long totalProduits = countProduits(token);
@@ -509,9 +572,6 @@ public class StatsAchatService {
                 }).collect(Collectors.toList());
     }
 
-    /**
-     * Alertes stock
-     */
     public List<AlerteStockDTO> getAlertesStock(LocalDate startDate, LocalDate endDate, String token) {
         List<Produit> produitsRupture = findProduitsEnRupture(token);
         List<Produit> produitsCritiques = findProduitsStockCritique(token);
@@ -523,19 +583,6 @@ public class StatsAchatService {
         return alertes;
     }
 
-    private AlerteStockDTO buildAlerte(Produit produit, String type) {
-        return AlerteStockDTO.builder()
-                .produitId(Long.valueOf(produit.getIdProduit()))
-                .produitNom(produit.getLibelle())
-                .stockActuel(produit.getQuantiteStock())
-                .stockMin(produit.getSeuilMinimum())
-                .typeAlerte(type)
-                .build();
-    }
-
-    /**
-     * Commandes en attente
-     */
     public Map<String, Object> getCommandesATraiter(String token) {
         Map<String, Object> result = new HashMap<>();
         result.put("enAttente", countCommandesByStatutAndDate("BROUILLON", null, null, token));
@@ -543,9 +590,6 @@ public class StatsAchatService {
         return result;
     }
 
-    /**
-     * KPIs principaux
-     */
     public KPIsDTO getKPIs(String token) {
         LocalDate now = LocalDate.now();
         LocalDateTime debutMois = now.withDayOfMonth(1).atStartOfDay();
@@ -567,18 +611,6 @@ public class StatsAchatService {
                 .build();
     }
 
-
-    private Double calculateTauxService(String token) {
-        Long commandesLivrees = countCommandesByStatutAndDate("RECUE", null, null, token);
-        Long commandesTotales = countTotalCommandes(token);
-
-        if (commandesTotales == null || commandesTotales == 0) return 100.0;
-        return (commandesLivrees != null ? commandesLivrees : 0L) * 100.0 / commandesTotales;
-    }
-
-    /**
-     * Valeur du stock par catégorie
-     */
     public List<StockValeurDTO> getValeurStockParCategorie(String token) {
         List<Object[]> results = sommeValeurStockByCategorie(token);
         return results.stream()
@@ -586,99 +618,10 @@ public class StatsAchatService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Rotation des stocks
-     */
     public Double getRotationStock(String token) {
         return calculateRotationStock(token);
     }
 
-    // ==================== MÉTHODES PRIVÉES ====================
-
-    private Long getMouvementsMois(LocalDateTime start, LocalDateTime end, String token) {
-        if (start == null || end == null) return 0L;
-        Map<String, Long> stats = getEntreesAndSorties(start, end, token);
-        return stats.get("ENTREE") + stats.get("SORTIE");
-    }
-
-    private Double calculateRotationStock(String token) {
-        LocalDateTime startOfYear = LocalDateTime.now().withDayOfYear(1).withHour(0).withMinute(0).withSecond(0);
-        LocalDateTime now = LocalDateTime.now();
-
-        Map<String, Long> stats = getEntreesAndSorties(startOfYear, now, token);
-        BigDecimal totalSorties = BigDecimal.valueOf(stats.get("SORTIE"));
-
-        Double stockMoyen = averageStock(token);
-        if (stockMoyen == null || stockMoyen == 0) return 0.0;
-
-        return BigDecimal.valueOf(totalSorties.doubleValue())
-                .divide(BigDecimal.valueOf(stockMoyen), 2, RoundingMode.HALF_UP)
-                .doubleValue();
-    }
-
-    private Double calculateTendanceCommandes(LocalDateTime startDateTime, LocalDateTime endDateTime, String token) {
-        if (startDateTime == null || endDateTime == null) return 0.0;
-
-        // Période actuelle
-        Long commandesActuelles = countCommandesByDate(startDateTime, endDateTime, token);
-
-        // Période précédente (même durée)
-        long duration = Duration.between(startDateTime, endDateTime).toMillis();
-        LocalDateTime periodPrecedenteStart = startDateTime.minus(duration, ChronoUnit.MILLIS);
-        LocalDateTime periodPrecedenteEnd = startDateTime;
-
-        Long commandesPrecedentes = countCommandesByDate(periodPrecedenteStart, periodPrecedenteEnd, token);
-
-        if (commandesPrecedentes == null || commandesPrecedentes == 0) return 0.0;
-
-        return ((commandesActuelles - commandesPrecedentes) * 100.0) / commandesPrecedentes;
-    }
-
-
-    private Double calculateTendanceProduits(String token) {
-        Long totalActuel = countProduits(token);
-        Long totalPrecedent = countProduitsPrecedent(token);
-
-        if (totalPrecedent == null || totalPrecedent == 0) return 0.0;
-        return ((totalActuel - totalPrecedent) * 100.0) / totalPrecedent;
-    }
-
-    private Long countProduitsPrecedent(String token) {
-        // Produits créés depuis 30 jours (exemple)
-        LocalDateTime debut = LocalDateTime.now().minusMonths(1);
-        Long clientId = getClientIdFromToken(token);
-        String authClientId = String.valueOf(clientId);
-        String sql = "SELECT COUNT(*) FROM produit WHERE created_at >= ?";
-        return tenantRepo.queryForObject(sql, Long.class, clientId, authClientId, debut);
-    }
-
-    private Double calculateTendanceStock(String token) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime monthAgo = now.minusMonths(1);
-
-        Map<String, Long> statsMois = getEntreesAndSorties(monthAgo, now, token);
-        Map<String, Long> statsMoisPrecedent = getEntreesAndSorties(monthAgo.minusMonths(1), monthAgo, token);
-
-        Long mouvementsMois = statsMois.get("ENTREE") + statsMois.get("SORTIE");
-        Long mouvementsPrecedent = statsMoisPrecedent.get("ENTREE") + statsMoisPrecedent.get("SORTIE");
-
-        if (mouvementsPrecedent == null || mouvementsPrecedent == 0) return 0.0;
-        return ((mouvementsMois - mouvementsPrecedent) * 100.0) / mouvementsPrecedent;
-    }
-
-    private String getMonthName(int month) {
-        String[] months = {"Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"};
-        return months[month - 1];
-    }
-
-    private String formatDateRange(LocalDate startDate, LocalDate endDate) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        return startDate.format(formatter) + " → " + endDate.format(formatter);
-    }
-
-    /**
-     * Nettoyage périodique du cache
-     */
     @org.springframework.scheduling.annotation.Scheduled(fixedRate = 3600000)
     public void clearCache() {
         statsCache.clear();

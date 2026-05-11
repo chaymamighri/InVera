@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -16,18 +17,16 @@ public class TenantAwareRepository {
 
     private final TenantDatabaseService tenantDatabaseService;
 
-    // ===== MÉTHODES AVEC authenticatedClientId (existant) =====
+    // ============================================================
+    // MÉTHODES POUR L'AUTHENTIFICATION (avec authenticatedClientId)
+    // ============================================================
 
     public JdbcTemplate getClientJdbcTemplate(Long clientId, String authenticatedClientId) {
         return tenantDatabaseService.getClientJdbcTemplate(clientId, authenticatedClientId);
     }
 
-    public <T> List<T> query(String sql, RowMapper<T> rowMapper, Long clientId, String authenticatedClientId, Object... args) {
-        JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
-        return jdbc.query(sql, rowMapper, args);
-    }
-
-    public <T> T queryForObject(String sql, RowMapper<T> rowMapper, Long clientId, String authenticatedClientId, Object... args) {
+    // ✅ Pour l'authentification - RowMapper (RENOMMÉE pour éviter ambiguïté)
+    public <T> T queryForObjectAuth(String sql, RowMapper<T> rowMapper, Long clientId, String authenticatedClientId, Object... args) {
         JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
         try {
             return jdbc.queryForObject(sql, rowMapper, args);
@@ -37,22 +36,26 @@ public class TenantAwareRepository {
         }
     }
 
-    // Méthode pour les requêtes avec authenticatedClientId explicite
-    public <T> T queryForObjectWithAuth(String sql, RowMapper<T> rowMapper, Long clientId, String authenticatedClientId, Object... args) {
-        JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, authenticatedClientId);
-        try {
-            return jdbc.queryForObject(sql, rowMapper, args);
-        } catch (Exception e) {
-            return null;
-        }
+    // Dans TenantAwareRepository.java, ajoutez cette méthode après updateAuth :
+
+    // ✅ Pour l'authentification - Query avec RowMapper (pour les listes)
+    public <T> List<T> queryWithAuth(String sql, RowMapper<T> rowMapper, Long clientId, String authenticatedClientId, Object... args) {
+        JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
+        log.info("🔧 [queryWithAuth] clientId: {}, sql: {}", clientId, sql);
+        return jdbc.query(sql, rowMapper, args);
     }
 
-    // Méthode pour les requêtes sans authenticatedClientId
-    public <T> T queryForObjectSimple(String sql, RowMapper<T> rowMapper, Long clientId, Object... args) {
-        return queryForObjectWithAuth(sql, rowMapper, clientId, String.valueOf(clientId), args);
+    // Dans TenantAwareRepository.java, ajoutez cette méthode :
+
+    // ✅ Pour l'authentification - UPDATE (pour les opérations d'écriture)
+    public int updateWithAuth(String sql, Long clientId, String authenticatedClientId, Object... args) {
+        JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
+        log.info("🔧 [updateWithAuth] clientId: {}, sql: {}", clientId, sql);
+        return jdbc.update(sql, args);
     }
 
-    public <T> T queryForObject(String sql, Class<T> requiredType, Long clientId, String authenticatedClientId, Object... args) {
+    // ✅ Pour l'authentification - Class (RENOMMÉE)
+    public <T> T queryForObjectAuth(String sql, Class<T> requiredType, Long clientId, String authenticatedClientId, Object... args) {
         JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
         try {
             return jdbc.queryForObject(sql, requiredType, args);
@@ -62,27 +65,22 @@ public class TenantAwareRepository {
         }
     }
 
-    public int update(String sql, Long clientId, String authenticatedClientId, Object... args) {
+    // ✅ Pour l'authentification - UPDATE (RENOMMÉE)
+    public int updateAuth(String sql, Long clientId, String authenticatedClientId, Object... args) {
         JdbcTemplate jdbc = getClientJdbcTemplate(clientId, authenticatedClientId);
+        log.info("🔧 [updateAuth] clientId: {}, sql: {}", clientId, sql);
         return jdbc.update(sql, args);
     }
 
-    // ===== NOUVELLES MÉTHODES SANS authenticatedClientId (utilise le contexte) =====
-    // À utiliser quand on a déjà le clientId dans le contexte (token JWT)
+    // ============================================================
+    // MÉTHODES POUR LES SERVICES MULTI-TENANT (sans authenticatedClientId)
+    // ============================================================
 
-    /**
-     * Exécute une requête SELECT et retourne une liste d'objets
-     * Utilise le clientId du contexte (token JWT)
-     */
     public <T> List<T> query(String sql, RowMapper<T> rowMapper, Long clientId, Object... args) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         return jdbc.query(sql, rowMapper, args);
     }
 
-    /**
-     * Exécute une requête SELECT et retourne un seul objet (ou null si non trouvé)
-     * Utilise le clientId du contexte (token JWT)
-     */
     public <T> T queryForObject(String sql, RowMapper<T> rowMapper, Long clientId, Object... args) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         try {
@@ -93,10 +91,6 @@ public class TenantAwareRepository {
         }
     }
 
-    /**
-     * Exécute une requête SELECT et retourne un seul objet d'un type simple (String, Integer, etc.)
-     * Utilise le clientId du contexte (token JWT)
-     */
     public <T> T queryForObject(String sql, Class<T> requiredType, Long clientId, Object... args) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         try {
@@ -107,35 +101,24 @@ public class TenantAwareRepository {
         }
     }
 
-    /**
-     * Exécute une requête UPDATE/INSERT/DELETE
-     * Utilise le clientId du contexte (token JWT)
-     */
     public int update(String sql, Long clientId, Object... args) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
+        log.info("🔧 [UPDATE] clientId: {}, sql: {}", clientId, sql);
+        log.info("🔧 [UPDATE] args: {}", Arrays.toString(args));
         return jdbc.update(sql, args);
     }
 
-    /**
-     * Exécute une requête et retourne le nombre de lignes affectées
-     */
     public int execute(String sql, Long clientId) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         jdbc.execute(sql);
         return 1;
     }
 
-    /**
-     * Exécute une requête batch (plusieurs updates)
-     */
     public int[] batchUpdate(String sql, Long clientId, List<Object[]> batchArgs) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         return jdbc.batchUpdate(sql, batchArgs);
     }
 
-    /**
-     * Vérifie si une table existe
-     */
     public boolean tableExists(Long clientId, String tableName) {
         String sql = """
             SELECT COUNT(*) FROM information_schema.tables 
@@ -145,17 +128,11 @@ public class TenantAwareRepository {
         return count != null && count > 0;
     }
 
-    /**
-     * Récupère le prochain ID d'une séquence (pour les insertions manuelles)
-     */
     public Long getNextSequenceValue(Long clientId, String sequenceName) {
         String sql = "SELECT nextval('" + sequenceName + "')";
         return queryForObject(sql, Long.class, clientId);
     }
 
-    /**
-     * Exécute une requête avec gestion de pagination
-     */
     public <T> List<T> queryWithPagination(String sql, RowMapper<T> rowMapper, Long clientId,
                                            int page, int size, Object... args) {
         int offset = page * size;
@@ -169,9 +146,6 @@ public class TenantAwareRepository {
         return query(paginatedSql, rowMapper, clientId, newArgs);
     }
 
-    /**
-     * Compte le nombre de lignes d'une requête
-     */
     public int count(String sql, Long clientId, Object... args) {
         JdbcTemplate jdbc = tenantDatabaseService.getClientJdbcTemplate(clientId, String.valueOf(clientId));
         try {
@@ -182,9 +156,6 @@ public class TenantAwareRepository {
         }
     }
 
-    /**
-     * Vérifie si une ligne existe
-     */
     public boolean exists(String sql, Long clientId, Object... args) {
         Integer count = queryForObject(sql, Integer.class, clientId, args);
         return count != null && count > 0;

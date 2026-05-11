@@ -7,7 +7,6 @@ import org.erp.invera.model.erp.client.CommandeClient;
 import org.erp.invera.model.erp.client.FactureClient;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,7 +31,7 @@ public class ReportService {
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // ==================== MÉTHODES MULTI-TENANT ====================
+    // ==================== MÉTHODES D'AUTHENTIFICATION ====================
 
     private Long getClientIdFromToken(HttpServletRequest request) {
         String token = extractToken(request);
@@ -58,7 +57,7 @@ public class ReportService {
             HttpServletRequest request) {
 
         Long clientId = getClientIdFromToken(request);
-        String authClientId = String.valueOf(clientId);
+        String authenticatedClientId = String.valueOf(clientId);
 
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
@@ -95,7 +94,8 @@ public class ReportService {
 
         sql.append(" ORDER BY c.date_commande DESC");
 
-        List<CommandeClient> commandes = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+        // ✅ Correction: Utiliser queryWithAuth au lieu de query
+        List<CommandeClient> commandes = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             CommandeClient cmd = new CommandeClient();
             cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
             cmd.setReferenceCommandeClient(rs.getString("reference_commande_client"));
@@ -112,7 +112,7 @@ public class ReportService {
             cmd.setClient(client);
 
             return cmd;
-        }, clientId, authClientId, params.toArray());
+        }, clientId, authenticatedClientId, params.toArray());
 
         Map<String, Object> report = new HashMap<>();
 
@@ -164,7 +164,7 @@ public class ReportService {
             HttpServletRequest request) {
 
         Long clientId = getClientIdFromToken(request);
-        String authClientId = String.valueOf(clientId);
+        String authenticatedClientId = String.valueOf(clientId);
 
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
@@ -200,7 +200,8 @@ public class ReportService {
 
         sql.append(" ORDER BY f.date_facture DESC");
 
-        List<FactureClient> factures = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+        // ✅ Correction: Utiliser queryWithAuth
+        List<FactureClient> factures = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             FactureClient facture = new FactureClient();
             facture.setIdFactureClient(rs.getInt("id_facture_client"));
             facture.setReferenceFactureClient(rs.getString("reference_facture_client"));
@@ -216,7 +217,7 @@ public class ReportService {
             facture.setClient(client);
 
             return facture;
-        }, clientId, authClientId, params.toArray());
+        }, clientId, authenticatedClientId, params.toArray());
 
         Map<String, Object> report = new HashMap<>();
 
@@ -283,11 +284,10 @@ public class ReportService {
             HttpServletRequest request) {
 
         Long clientId = getClientIdFromToken(request);
-        String authClientId = String.valueOf(clientId);
+        String authenticatedClientId = String.valueOf(clientId);
 
         DateRange dateRange = calculateDateRange(period, startDate, endDate);
 
-        // ✅ Version SANS est_actif (colonne inexistante)
         StringBuilder sql = new StringBuilder("""
         SELECT 
             cl.id_client,
@@ -314,7 +314,8 @@ public class ReportService {
 
         sql.append(" GROUP BY cl.id_client ORDER BY ca DESC LIMIT 50");
 
-        List<Map<String, Object>> topClients = tenantRepo.query(sql.toString(), (rs, rowNum) -> {
+        // ✅ Correction: Utiliser queryWithAuth
+        List<Map<String, Object>> topClients = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("id_client", rs.getInt("id_client"));
             row.put("nom", rs.getString("nom"));
@@ -324,7 +325,7 @@ public class ReportService {
             row.put("commandes", rs.getLong("commandes"));
             row.put("ca", rs.getBigDecimal("ca"));
             return row;
-        }, clientId, authClientId, params.toArray());
+        }, clientId, authenticatedClientId, params.toArray());
 
         // Répartition par type de client
         String repartitionSql = """
@@ -338,15 +339,16 @@ public class ReportService {
         GROUP BY cl.type_client
         """;
 
-        List<Map<String, Object>> repartition = tenantRepo.query(repartitionSql, (rs, rowNum) -> {
+        // ✅ Correction: Utiliser queryWithAuth
+        List<Map<String, Object>> repartition = tenantRepo.queryWithAuth(repartitionSql, (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("type_client", rs.getString("type_client"));
             row.put("nombre", rs.getLong("nombre"));
             row.put("ca", rs.getBigDecimal("ca"));
             return row;
-        }, clientId, authClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
+        }, clientId, authenticatedClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
 
-        // ✅ Résumé sans est_actif (calcul basé sur les commandes)
+        // Résumé
         String summarySql = """
         SELECT 
             COUNT(*) as total,
@@ -357,18 +359,19 @@ public class ReportService {
             AND c.date_commande BETWEEN ? AND ?
         """;
 
-        Map<String, Object> summary = tenantRepo.queryForObject(summarySql, (rs, rowNum) -> {
+        // ✅ Correction: Utiliser queryForObjectAuth
+        Map<String, Object> summary = tenantRepo.queryForObjectAuth(summarySql, (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("totalClients", rs.getLong("total"));
             row.put("clientsActifs", rs.getLong("actifs"));
             row.put("clientsInactifs", rs.getLong("inactifs"));
             return row;
-        }, clientId, authClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
+        }, clientId, authenticatedClientId, dateRange.getStartDateTime(), dateRange.getEndDateTime());
 
         Map<String, Object> report = new HashMap<>();
         report.put("topClients", topClients);
         report.put("repartitionParType", repartition);
-        report.put("summary", summary);
+        report.put("summary", summary != null ? summary : new HashMap<>());
         report.put("period", period);
 
         if (startDate != null && endDate != null) {

@@ -1,6 +1,7 @@
 package org.erp.invera.controller.erp;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.erp.Produitdto.ProduitDTO;
 import org.erp.invera.model.erp.Categorie;
 import org.erp.invera.model.erp.Produit;
@@ -22,18 +23,16 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/produits")
-@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
 public class ProduitController {
 
     private final ProduitService produitService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private static final String UPLOAD_DIR = "uploads/produits";
+    private static final String UPLOAD_DIR = "uploads";
 
-    public ProduitController(ProduitService produitService, JwtTokenProvider jwtTokenProvider) {
+    public ProduitController(ProduitService produitService) {
         this.produitService = produitService;
-        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     // ==================== METHODE UTILITAIRE ====================
@@ -45,7 +44,6 @@ public class ProduitController {
         }
         return null;
     }
-
     private String saveImage(MultipartFile image) throws IOException {
         if (image == null || image.isEmpty()) {
             return null;
@@ -57,7 +55,11 @@ public class ProduitController {
         }
 
         Path uploadPath = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();
-        Files.createDirectories(uploadPath);
+        Path produitsPath = uploadPath.resolve("produits");
+
+        if (!Files.exists(produitsPath)) {
+            Files.createDirectories(produitsPath);
+        }
 
         String originalFileName = StringUtils.cleanPath(
                 Objects.requireNonNull(image.getOriginalFilename())
@@ -70,10 +72,11 @@ public class ProduitController {
         }
 
         String fileName = UUID.randomUUID().toString() + extension;
-        Path filePath = uploadPath.resolve(fileName);
+        Path filePath = produitsPath.resolve(fileName);
         Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        return "/uploads/produits/" + fileName;
+        // ✅ Stocker le chemin complet
+        return "uploads/produits/" + fileName;
     }
 
     private ResponseEntity<Map<String, Object>> errorResponse(String message, HttpStatus status) {
@@ -236,13 +239,45 @@ public class ProduitController {
             produitMap.put("uniteMesure", produit.getUniteMesure() != null ? produit.getUniteMesure().name() : null);
             produitMap.put("active", produit.getActive());
             produitMap.put("seuilMinimum", produit.getSeuilMinimum());
-            produitMap.put("imageUrl", produit.getImageUrl());
+
+            // ✅ Construction de l'URL de l'image
+            String baseUrl = "http://localhost:8081";
+            if (produit.getImageUrl() != null && !produit.getImageUrl().isEmpty()) {
+                String imageFullUrl;
+
+                if (produit.getImageUrl().startsWith("http")) {
+                    // Déjà une URL complète
+                    imageFullUrl = produit.getImageUrl();
+                }
+                else if (produit.getImageUrl().startsWith("uploads/produits/")) {
+                    // ✅ CORRECTION: extraire le nom et utiliser le bon endpoint
+                    String filename = produit.getImageUrl().substring(produit.getImageUrl().lastIndexOf("/") + 1);
+                    imageFullUrl = baseUrl + "/api/produits/uploads/produits/" + filename;
+                }
+                else {
+                    // Juste le nom du fichier
+                    imageFullUrl = baseUrl + "/api/produits/uploads/produits/" + produit.getImageUrl();
+                }
+                produitMap.put("imageUrl", imageFullUrl);
+            } else {
+                produitMap.put("imageUrl", null);
+            }
+
             produitMap.put("remiseTemporaire", produit.getRemiseTemporaire());
             produitMap.put("status", produit.getStatus() != null ? produit.getStatus().name() : null);
 
+            // Catégorie
             if (produit.getCategorie() != null) {
                 produitMap.put("categorieId", produit.getCategorie().getIdCategorie());
                 produitMap.put("categorieNom", produit.getCategorie().getNomCategorie());
+            }
+
+            // Fournisseur
+            if (produit.getFournisseur() != null) {
+                produitMap.put("fournisseurId", produit.getFournisseur().getIdFournisseur());
+                produitMap.put("fournisseurNom", produit.getFournisseur().getNomFournisseur());
+                produitMap.put("fournisseurEmail", produit.getFournisseur().getEmail());
+                produitMap.put("fournisseurTelephone", produit.getFournisseur().getTelephone());
             }
 
             response.put("produit", produitMap);
@@ -363,13 +398,22 @@ public class ProduitController {
                 produit.setImageUrl(imageUrl);
             }
 
-            Produit updatedProduit = produitService.updateProduit(id, produit, fournisseurId, prixAchat, token);
+            // ✅ CORRECTION: Passer categorieId en 4ème paramètre
+            Produit updatedProduit = produitService.updateProduit(
+                    id,                    // 1. Integer id
+                    produit,               // 2. Produit produitDetails
+                    fournisseurId,         // 3. Integer fournisseurId
+                    categorieId,           // 4. Integer categorieId (AJOUTÉ)
+                    prixAchat,            // 5. BigDecimal prixAchat
+                    token                 // 6. String token
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit mis à jour avec succès");
             response.put("produit", updatedProduit);
             response.put("fournisseurId", fournisseurId);
+            response.put("categorieId", categorieId);
             response.put("prixAchat", prixAchat);
 
             return ResponseEntity.ok(response);
@@ -616,4 +660,38 @@ public class ProduitController {
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    /**
+     * Endpoint public pour servir les images des produits (sans authentification)
+     * URL: /api/produits/uploads/produits/{filename}
+     */
+    @GetMapping(value = "/uploads/produits/{filename}", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getProductImage(@PathVariable String filename) {
+        try {
+            Path imagePath = Paths.get("uploads/produits").toAbsolutePath().normalize().resolve(filename);
+
+            // Vérifier aussi dans le dossier uploads/produits
+            if (!Files.exists(imagePath)) {
+                // Essayer avec le chemin relatif
+                imagePath = Paths.get("uploads/produits").resolve(filename);
+            }
+
+            if (!Files.exists(imagePath)) {
+                log.warn("❌ Image non trouvée: {}", imagePath);
+                return ResponseEntity.notFound().build();
+            }
+
+            byte[] imageBytes = Files.readAllBytes(imagePath);
+            String contentType = Files.probeContentType(imagePath);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : "image/jpeg"))
+                    .body(imageBytes);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur chargement image: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 }

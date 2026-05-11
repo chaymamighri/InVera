@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -15,13 +17,20 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
     @EntityGraph(attributePaths = {"abonnement", "abonnement.client", "abonnement.offreAbonnement"})
     Optional<Paiement> findWithDetailsById(Long id);
 
-    // Ou utiliser @Query
+    // Récupérer tous les paiements avec les relations chargées
+    @Query("SELECT DISTINCT p FROM Paiement p " +
+            "LEFT JOIN FETCH p.abonnement a " +
+            "LEFT JOIN FETCH a.client c " +
+            "LEFT JOIN FETCH a.offreAbonnement o " +
+            "ORDER BY p.dateDemande DESC")
+    List<Paiement> findAllWithRelations();
+
     @Query("SELECT p FROM Paiement p " +
             "LEFT JOIN FETCH p.abonnement a " +
-            "LEFT JOIN FETCH a.client " +
-            "LEFT JOIN FETCH a.offreAbonnement " +
+            "LEFT JOIN FETCH a.client c " +
+            "LEFT JOIN FETCH a.offreAbonnement o " +
             "WHERE p.id = :id")
-    Optional<Paiement> findByIdWithDetails(@Param("id") Long id);
+    Optional<Paiement> findByIdWithAllRelations(@Param("id") Long id);
 
     // Recherche par KonnectPaymentId avec chargement des relations (✅ celle-ci est bonne)
     @EntityGraph(attributePaths = {"abonnement", "abonnement.client", "abonnement.offreAbonnement"})

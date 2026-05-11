@@ -19,6 +19,7 @@ import org.erp.invera.model.erp.Fournisseurs.CommandeFournisseur;
 import org.erp.invera.model.erp.Fournisseurs.Fournisseur;
 import org.erp.invera.model.erp.Fournisseurs.LigneCommandeFournisseur;
 import org.erp.invera.model.erp.Produit;
+import org.erp.invera.model.platform.Client;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -26,17 +27,6 @@ import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-/**
- * Service de génération de PDF pour les Bons de Commande fournisseurs.
- *
- * Le PDF contient :
- * 1. EN-TÊTE : Coordonnées du fournisseur + Titre "BON DE COMMANDE"
- * 2. INFORMATIONS COMMANDE : N°, date, date livraison, adresse livraison
- * 3. DESTINATAIRE : Coordonnées InVera
- * 4. TABLEAU DES PRODUITS : Désignation, quantité, prix HT, TVA, total TTC
- * 5. TOTAUX : Total HT, TVA, TTC
- * 6. CONDITIONS : Délai, règlement, signature
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -45,191 +35,170 @@ public class BonCommandePdfService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    // Couleurs professionnelles
-    private static final Color COLOR_PRIMARY = new DeviceRgb(0, 112, 192);    // Bleu Invera
-    private static final Color COLOR_SECONDARY = new DeviceRgb(100, 100, 100); // Gris
-    private static final Color COLOR_BORDER = new DeviceRgb(220, 220, 220);     // Gris clair
-    private static final Color COLOR_HEADER_BG = new DeviceRgb(240, 248, 255);  // Bleu très clair
+    private static final Color COLOR_PRIMARY = new DeviceRgb(0, 112, 192);
+    private static final Color COLOR_SECONDARY = new DeviceRgb(100, 100, 100);
+    private static final Color COLOR_BORDER = new DeviceRgb(220, 220, 220);
+    private static final Color COLOR_HEADER_BG = new DeviceRgb(240, 248, 255);
 
-    /**
-     * Générer un Bon de Commande fournisseur professionnel
-     * ✅ Récupère le fournisseur à partir des produits de la commande
-     */
-    public byte[] genererBonCommandePdf(CommandeFournisseur commande) {
+    public byte[] genererBonCommandePdf(CommandeFournisseur commande, Client clientConnecte) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfWriter writer = new PdfWriter(baos);
             PdfDocument pdfDoc = new PdfDocument(writer);
             Document document = new Document(pdfDoc);
 
-            // Charger les polices
             PdfFont boldFont = PdfFontFactory.createFont();
             PdfFont regularFont = PdfFontFactory.createFont();
 
-            // ✅ Récupérer le fournisseur à partir des produits de la commande
             Fournisseur fournisseur = getFournisseurFromCommande(commande);
+            boolean hasLogo = clientConnecte != null && clientConnecte.getLogoUrl() != null && !clientConnecte.getLogoUrl().isEmpty();
 
-            // ==================== 1. EN-TÊTE ====================
+            // Infos émetteur (client connecté)
+            String entrepriseNom = "";
+            String telephone = "";
+            String email = "";
+            String matriculeFiscal = "";
+            String adresse = "";
+            boolean isEntreprise = false;
+
+            if (clientConnecte != null) {
+                isEntreprise = clientConnecte.getTypeCompte() == Client.TypeCompte.ENTREPRISE;
+                if (isEntreprise) {
+                    entrepriseNom = clientConnecte.getRaisonSociale() != null ? clientConnecte.getRaisonSociale() : "";
+                    matriculeFiscal = clientConnecte.getMatriculeFiscal() != null ? clientConnecte.getMatriculeFiscal() : "";
+                } else {
+                    String nom = clientConnecte.getNom() != null ? clientConnecte.getNom() : "";
+                    String prenom = clientConnecte.getPrenom() != null ? clientConnecte.getPrenom() : "";
+                    entrepriseNom = (nom + " " + prenom).trim();
+                }
+                telephone = clientConnecte.getTelephone() != null ? clientConnecte.getTelephone() : "";
+                email = clientConnecte.getEmail() != null ? clientConnecte.getEmail() : "";
+            }
+
+            // ==================== EN-TÊTE ====================
             Table headerTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}));
             headerTable.setWidth(UnitValue.createPercentValue(100));
             headerTable.setMarginBottom(20);
 
-            // Colonne gauche - FOURNISSEUR
+            // Gauche : ÉMETTEUR (client connecté)
             Cell leftHeader = new Cell();
             leftHeader.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
             leftHeader.setPadding(8);
 
-            if (fournisseur != null) {
-                leftHeader.add(new Paragraph(fournisseur.getNomFournisseur())
-                        .setFont(boldFont)
-                        .setFontSize(14)
-                        .setBold()
-                        .setFontColor(COLOR_PRIMARY));
-                if (fournisseur.getAdresse() != null && !fournisseur.getAdresse().isEmpty()) {
-                    leftHeader.add(new Paragraph(fournisseur.getAdresse())
-                            .setFontSize(8));
-                }
-                if (fournisseur.getVille() != null && !fournisseur.getVille().isEmpty()) {
-                    leftHeader.add(new Paragraph(fournisseur.getVille())
-                            .setFontSize(8));
-                }
-                if (fournisseur.getTelephone() != null && !fournisseur.getTelephone().isEmpty()) {
-                    leftHeader.add(new Paragraph("Tél: " + fournisseur.getTelephone())
-                            .setFontSize(8));
-                }
-                if (fournisseur.getEmail() != null && !fournisseur.getEmail().isEmpty()) {
-                    leftHeader.add(new Paragraph("Email: " + fournisseur.getEmail())
-                            .setFontSize(8));
-                }
-            } else {
-                leftHeader.add(new Paragraph("FOURNISSEUR NON RENSEIGNÉ")
-                        .setFont(boldFont)
-                        .setFontSize(10)
-                        .setFontColor(COLOR_SECONDARY));
+            if (hasLogo && clientConnecte.getLogoUrl() != null) {
+                // TODO: Ajouter le logo si possible avec iText
+                leftHeader.add(new Paragraph("ÉMETTEUR")
+                        .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
+            }
+            leftHeader.add(new Paragraph(entrepriseNom.isEmpty() ? "Client non renseigné" : entrepriseNom)
+                    .setFont(boldFont).setFontSize(12).setBold());
+            if (isEntreprise && !matriculeFiscal.isEmpty()) {
+                leftHeader.add(new Paragraph("MF: " + matriculeFiscal).setFontSize(8));
+            }
+            if (!telephone.isEmpty()) {
+                leftHeader.add(new Paragraph("Tél: " + telephone).setFontSize(8));
+            }
+            if (!email.isEmpty()) {
+                leftHeader.add(new Paragraph("Email: " + email).setFontSize(8));
             }
             headerTable.addCell(leftHeader);
 
-            // Colonne droite - Titre BON DE COMMANDE + N° + Date
+            // Droite : Titre + N° commande
             Cell rightHeader = new Cell()
                     .add(new Paragraph("BON DE COMMANDE")
-                            .setFont(boldFont)
-                            .setFontSize(18)
-                            .setBold()
-                            .setFontColor(COLOR_PRIMARY)
+                            .setFont(boldFont).setFontSize(18).setBold().setFontColor(COLOR_PRIMARY)
                             .setTextAlignment(TextAlignment.RIGHT))
                     .add(new Paragraph("N° " + commande.getNumeroCommande())
-                            .setFontSize(12)
-                            .setTextAlignment(TextAlignment.RIGHT))
+                            .setFontSize(12).setTextAlignment(TextAlignment.RIGHT))
                     .add(new Paragraph("Date: " + commande.getDateCommande().format(DATETIME_FORMATTER))
-                            .setFontSize(10)
-                            .setTextAlignment(TextAlignment.RIGHT));
+                            .setFontSize(10).setTextAlignment(TextAlignment.RIGHT));
             rightHeader.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
             rightHeader.setTextAlignment(TextAlignment.RIGHT);
             rightHeader.setPadding(8);
             headerTable.addCell(rightHeader);
-
             document.add(headerTable);
 
-            // ==================== 2. INFORMATIONS COMMANDE ====================
-            Table infoTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}));
+            // ==================== FOURNISSEUR (destinataire) ====================
+            Table destTable = new Table(UnitValue.createPercentArray(new float[]{100}));
+            destTable.setWidth(UnitValue.createPercentValue(100));
+            destTable.setMarginBottom(15);
+
+            Cell destCell = new Cell();
+            destCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
+            destCell.setPadding(8);
+            destCell.add(new Paragraph("DESTINATAIRE")
+                    .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
+
+            if (fournisseur != null) {
+                destCell.add(new Paragraph(fournisseur.getNomFournisseur())
+                        .setFont(boldFont).setFontSize(11));
+                if (fournisseur.getAdresse() != null && !fournisseur.getAdresse().isEmpty()) {
+                    destCell.add(new Paragraph(fournisseur.getAdresse()).setFontSize(8));
+                }
+                if (fournisseur.getVille() != null && !fournisseur.getVille().isEmpty()) {
+                    destCell.add(new Paragraph(fournisseur.getVille()).setFontSize(8));
+                }
+                if (fournisseur.getTelephone() != null && !fournisseur.getTelephone().isEmpty()) {
+                    destCell.add(new Paragraph("Tél: " + fournisseur.getTelephone()).setFontSize(8));
+                }
+                if (fournisseur.getEmail() != null && !fournisseur.getEmail().isEmpty()) {
+                    destCell.add(new Paragraph("Email: " + fournisseur.getEmail()).setFontSize(8));
+                }
+            } else {
+                destCell.add(new Paragraph("Fournisseur non renseigné")
+                        .setFontSize(9).setFontColor(COLOR_SECONDARY));
+            }
+            destTable.addCell(destCell);
+            document.add(destTable);
+
+            // ==================== INFORMATIONS COMMANDE ====================
+            Table infoTable = new Table(UnitValue.createPercentArray(new float[]{100}));
             infoTable.setWidth(UnitValue.createPercentValue(100));
             infoTable.setMarginBottom(15);
 
-            // Colonne gauche - Infos commande
-            Cell leftInfo = new Cell();
-            leftInfo.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            leftInfo.setPadding(8);
-            leftInfo.add(new Paragraph("INFORMATIONS COMMANDE")
-                    .setFont(boldFont)
-                    .setFontSize(10)
-                    .setFontColor(COLOR_PRIMARY));
-            leftInfo.add(new Paragraph("Date livraison prévue: " +
+            Cell infoCell = new Cell();
+            infoCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
+            infoCell.setPadding(8);
+            infoCell.add(new Paragraph("DÉTAILS DE LA COMMANDE")
+                    .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
+            infoCell.add(new Paragraph("Date livraison prévue: " +
                     (commande.getDateLivraisonPrevue() != null ?
                             commande.getDateLivraisonPrevue().format(DATE_FORMATTER) : "Non spécifiée"))
                     .setFontSize(9));
-
             if (commande.getAdresseLivraison() != null && !commande.getAdresseLivraison().isEmpty()) {
-                leftInfo.add(new Paragraph("Adresse livraison: " + commande.getAdresseLivraison())
+                infoCell.add(new Paragraph("Adresse livraison: " + commande.getAdresseLivraison())
                         .setFontSize(9));
             }
-            infoTable.addCell(leftInfo);
-
-            // Colonne droite - Statut
-            Cell rightInfo = new Cell();
-            rightInfo.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            rightInfo.setPadding(8);
-            rightInfo.add(new Paragraph("STATUT")
-                    .setFont(boldFont)
-                    .setFontSize(10)
-                    .setFontColor(COLOR_PRIMARY));
-            rightInfo.add(new Paragraph(commande.getStatut().toString())
-                    .setFontSize(9)
-                    .setFontColor(getStatusColor(commande.getStatut())));
-            infoTable.addCell(rightInfo);
-
+            infoTable.addCell(infoCell);
             document.add(infoTable);
 
-            // ==================== 3. DESTINATAIRE (InVera) ====================
-            Table clientTable = new Table(UnitValue.createPercentArray(new float[]{100}));
-            clientTable.setWidth(UnitValue.createPercentValue(100));
-            clientTable.setMarginBottom(15);
-
-            Cell clientCell = new Cell();
-            clientCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            clientCell.setPadding(8);
-            clientCell.add(new Paragraph("DESTINATAIRE")
-                    .setFont(boldFont)
-                    .setFontSize(10)
-                    .setFontColor(COLOR_PRIMARY));
-            clientCell.add(new Paragraph("INVERA")
-                    .setFont(boldFont)
-                    .setFontSize(10));
-            clientCell.add(new Paragraph("123 Avenue de la République")
-                    .setFontSize(8));
-            clientCell.add(new Paragraph("1000 Tunis, Tunisie")
-                    .setFontSize(8));
-            clientCell.add(new Paragraph("Tél: +216 71 123 456")
-                    .setFontSize(8));
-            clientCell.add(new Paragraph("Email: contact@invera.com")
-                    .setFontSize(8));
-            clientTable.addCell(clientCell);
-
-            document.add(clientTable);
-
-            // ==================== 4. RÉFÉRENCES ====================
+            // ==================== RÉFÉRENCES ====================
             if (commande.getNumeroBonLivraison() != null && !commande.getNumeroBonLivraison().isEmpty()) {
                 Table refTable = new Table(UnitValue.createPercentArray(new float[]{30, 70}));
                 refTable.setWidth(UnitValue.createPercentValue(100));
                 refTable.setMarginBottom(15);
 
-                Cell blLabelCell = new Cell().add(
-                        new Paragraph("Bon de livraison:")
-                                .setFont(boldFont)
-                                .setFontSize(9)
-                );
+                Cell blLabelCell = new Cell().add(new Paragraph("Bon de livraison:")
+                        .setFont(boldFont).setFontSize(9));
                 blLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
                 blLabelCell.setPadding(6);
                 refTable.addCell(blLabelCell);
 
-                Cell blValueCell = new Cell().add(
-                        new Paragraph(commande.getNumeroBonLivraison())
-                                .setFontSize(9)
-                );
+                Cell blValueCell = new Cell().add(new Paragraph(commande.getNumeroBonLivraison())
+                        .setFontSize(9));
                 blValueCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
                 blValueCell.setPadding(6);
                 refTable.addCell(blValueCell);
-
                 document.add(refTable);
             }
 
-            // ==================== 5. TABLEAU DES PRODUITS ====================
-            float[] columnWidths = {40, 15, 18, 12, 15};
+            // ==================== TABLEAU DES PRODUITS ====================
+            float[] columnWidths = {45, 15, 15, 10, 15};
             Table productTable = new Table(UnitValue.createPercentArray(columnWidths));
             productTable.setWidth(UnitValue.createPercentValue(100));
             productTable.setMarginBottom(15);
 
-            // En-têtes
-            String[] headers = {"Désignation", "Quantité", "Prix HT", "TVA", "Total TTC"};
+            String[] headers = {"Désignation", "Qté", "Prix HT", "TVA", "Total TTC"};
             for (String header : headers) {
                 Cell headerCell = new Cell()
                         .add(new Paragraph(header).setFont(boldFont).setFontSize(9))
@@ -239,36 +208,29 @@ public class BonCommandePdfService {
                 productTable.addCell(headerCell);
             }
 
-            // Lignes de produits
             BigDecimal totalHT = BigDecimal.ZERO;
-            BigDecimal totalTVA = BigDecimal.ZERO;
             BigDecimal totalTTC = BigDecimal.ZERO;
 
             if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
                 for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
-                    // Désignation
                     String designation = ligne.getProduit() != null ? ligne.getProduit().getLibelle() : "Produit non défini";
                     productTable.addCell(new Cell().add(new Paragraph(designation).setFontSize(8))
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
-                    // Quantité
                     productTable.addCell(new Cell().add(new Paragraph(String.valueOf(ligne.getQuantite())).setFontSize(8))
                             .setTextAlignment(TextAlignment.CENTER)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
-                    // Prix HT
                     BigDecimal prixHT = ligne.getPrixUnitaire();
                     productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", prixHT)).setFontSize(8))
                             .setTextAlignment(TextAlignment.RIGHT)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
-                    // TVA (utiliser le taux stocké dans la ligne)
                     BigDecimal tauxTVA = ligne.getTauxTVA() != null ? ligne.getTauxTVA() : BigDecimal.valueOf(19);
                     productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.0f%%", tauxTVA)).setFontSize(8))
                             .setTextAlignment(TextAlignment.CENTER)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
-                    // Total TTC
                     BigDecimal ligneTTC = ligne.getSousTotalTTC() != null ? ligne.getSousTotalTTC() :
                             prixHT.multiply(BigDecimal.valueOf(ligne.getQuantite()))
                                     .multiply(BigDecimal.ONE.add(tauxTVA.divide(BigDecimal.valueOf(100))));
@@ -276,10 +238,8 @@ public class BonCommandePdfService {
                             .setTextAlignment(TextAlignment.RIGHT)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
-                    // Cumuls
                     totalHT = totalHT.add(ligne.getSousTotalHT() != null ? ligne.getSousTotalHT() :
                             prixHT.multiply(BigDecimal.valueOf(ligne.getQuantite())));
-                    totalTVA = totalTVA.add(ligne.getMontantTVA() != null ? ligne.getMontantTVA() : BigDecimal.ZERO);
                     totalTTC = totalTTC.add(ligneTTC);
                 }
             } else {
@@ -290,10 +250,9 @@ public class BonCommandePdfService {
                 emptyCell.setPadding(20);
                 productTable.addCell(emptyCell);
             }
-
             document.add(productTable);
 
-            // ==================== 6. TOTAUX ====================
+            // ==================== TOTAUX ====================
             Table totalsTable = new Table(UnitValue.createPercentArray(new float[]{70, 30}));
             totalsTable.setWidth(UnitValue.createPercentValue(100));
             totalsTable.setMarginBottom(20);
@@ -309,52 +268,29 @@ public class BonCommandePdfService {
 
             totalsCell.add(new Paragraph("Total HT:")
                     .setFont(boldFont).setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
-            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT",
-                    commande.getTotalHT() != null ? commande.getTotalHT() : totalHT))
+            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", totalHT))
                     .setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
 
+            BigDecimal totalTVA = totalTTC.subtract(totalHT);
             totalsCell.add(new Paragraph("Total TVA:")
                     .setFont(boldFont).setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
-            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT",
-                    commande.getTotalTVA() != null ? commande.getTotalTVA() : totalTVA))
+            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", totalTVA))
                     .setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
 
             totalsCell.add(new Paragraph("\nTOTAL TTC:")
                     .setFont(boldFont).setFontSize(12).setBold().setTextAlignment(TextAlignment.RIGHT)
                     .setFontColor(COLOR_PRIMARY));
-            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT",
-                    commande.getTotalTTC() != null ? commande.getTotalTTC() : totalTTC))
+            totalsCell.add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", totalTTC))
                     .setFont(boldFont).setFontSize(12).setBold().setTextAlignment(TextAlignment.RIGHT)
                     .setFontColor(COLOR_PRIMARY));
 
             totalsTable.addCell(totalsCell);
             document.add(totalsTable);
 
-            // ==================== 7. CONDITIONS ====================
-            Table conditionsTable = new Table(UnitValue.createPercentArray(new float[]{100}));
-            conditionsTable.setWidth(UnitValue.createPercentValue(100));
-            conditionsTable.setMarginBottom(15);
-
-            Cell conditionsCell = new Cell();
-            conditionsCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            conditionsCell.setPadding(8);
-            conditionsCell.add(new Paragraph("CONDITIONS")
-                    .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
-            conditionsCell.add(new Paragraph("• Délai de livraison: " +
-                    (commande.getDateLivraisonPrevue() != null ?
-                            commande.getDateLivraisonPrevue().format(DATE_FORMATTER) : "À convenir"))
-                    .setFontSize(8));
-            conditionsCell.add(new Paragraph("• Mode de règlement: À réception de facture")
-                    .setFontSize(8));
-            conditionsCell.add(new Paragraph("• Cette commande engage la responsabilité de l'acheteur")
-                    .setFontSize(8));
-            conditionsTable.addCell(conditionsCell);
-
-            document.add(conditionsTable);
-
-            // ==================== 8. SIGNATURE ====================
+            // ==================== SIGNATURES ====================
             Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}));
             signatureTable.setWidth(UnitValue.createPercentValue(100));
+            signatureTable.setMarginBottom(15);
 
             Cell signatureLeft = new Cell();
             signatureLeft.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
@@ -366,10 +302,9 @@ public class BonCommandePdfService {
             Cell signatureRight = new Cell();
             signatureRight.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
             signatureRight.setPadding(8);
-            signatureRight.add(new Paragraph("Signature InVera")
+            signatureRight.add(new Paragraph("Signature de l'acheteur")
                     .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
             signatureTable.addCell(signatureRight);
-
             document.add(signatureTable);
 
             document.close();
@@ -383,42 +318,11 @@ public class BonCommandePdfService {
         }
     }
 
-    /**
-     * Récupère le fournisseur à partir des produits de la commande
-     */
     private Fournisseur getFournisseurFromCommande(CommandeFournisseur commande) {
         if (commande.getLignesCommande() == null || commande.getLignesCommande().isEmpty()) {
             return null;
         }
-
-        // Prendre le fournisseur du premier produit
         Produit premierProduit = commande.getLignesCommande().get(0).getProduit();
-        if (premierProduit == null) {
-            return null;
-        }
-
-        return premierProduit.getFournisseur();
-    }
-    /**
-     * Couleur du statut pour le PDF
-     */
-    private Color getStatusColor(CommandeFournisseur.StatutCommande statut) {
-        switch (statut) {
-            case BROUILLON:
-                return new DeviceRgb(128, 128, 128); // Gris
-            case VALIDEE:
-                return new DeviceRgb(0, 112, 192);   // Bleu
-            case ENVOYEE:
-                return new DeviceRgb(255, 193, 7);   // Orange
-            case RECUE:
-                return new DeviceRgb(40, 167, 69);   // Vert
-            case FACTUREE:
-                return new DeviceRgb(111, 66, 193);  // Violet
-            // Rouge
-            case REJETEE:
-                return new DeviceRgb(255, 87, 34);   // Orange-rouge (Deep Orange)
-            default:
-                return COLOR_SECONDARY;
-        }
+        return premierProduit != null ? premierProduit.getFournisseur() : null;
     }
 }

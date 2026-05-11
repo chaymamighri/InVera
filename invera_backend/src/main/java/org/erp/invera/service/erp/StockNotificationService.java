@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,11 +30,6 @@ public class StockNotificationService {
 
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
-    }
-
-    private JdbcTemplate getTenantJdbcTemplate(String token) {
-        Long clientId = getClientIdFromToken(token);
-        return tenantRepo.getClientJdbcTemplate(clientId, String.valueOf(clientId));
     }
 
     /**
@@ -99,15 +93,16 @@ public class StockNotificationService {
      */
     private void saveNotification(String message, String produitLibelle, String token) {
         try {
-            JdbcTemplate jdbc = getTenantJdbcTemplate(token);
             Long clientId = getClientIdFromToken(token);
+            String authClientId = String.valueOf(clientId);
 
             String sql = """
                 INSERT INTO notifications (tenant_id, created_at, message, read, type, user_name, target_role)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
 
-            jdbc.update(sql,
+            // ✅ Utiliser updateWithAuth
+            int result = tenantRepo.updateWithAuth(sql, clientId, authClientId,
                     String.valueOf(clientId),
                     LocalDateTime.now(),
                     message,
@@ -117,7 +112,11 @@ public class StockNotificationService {
                     PROCUREMENT_ROLE
             );
 
-            log.info("✅ Notification stock créée: {}", message);
+            if (result > 0) {
+                log.info("✅ Notification stock créée: {}", message);
+            } else {
+                log.warn("⚠️ Aucune notification stock créée");
+            }
 
         } catch (Exception e) {
             log.error("❌ Erreur création notification stock: {}", e.getMessage());

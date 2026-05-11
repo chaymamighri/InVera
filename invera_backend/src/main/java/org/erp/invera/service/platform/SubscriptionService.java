@@ -9,6 +9,7 @@ import org.erp.invera.model.platform.OffreAbonnement;
 import org.erp.invera.repository.platform.AbonnementRepository;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.service.erp.EmailService;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -336,8 +337,13 @@ public class SubscriptionService {
      */
     @Transactional
     public AbonnementResponse activateAfterPayment(Long abonnementId) {
-        // 1. Récupérer l'abonnement
-        Abonnement abonnement = getSubscriptionEntity(abonnementId);
+        // 1. Récupérer l'abonnement avec ses relations chargées
+        Abonnement abonnement = abonnementRepository.findByIdWithOffre(abonnementId)
+                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
+
+        // ✅ Force le chargement des relations si nécessaire
+        Hibernate.initialize(abonnement.getOffreAbonnement());
+        Hibernate.initialize(abonnement.getClient());
 
         // 2. Vérifier qu'il est bien en attente de validation
         if (abonnement.getStatut() != Abonnement.StatutAbonnement.EN_ATTENTE_VALIDATION) {
@@ -359,7 +365,7 @@ public class SubscriptionService {
         Abonnement saved = abonnementRepository.save(abonnement);
 
         // 6. Mettre à jour le client
-        Client client = abonnement.getClient();
+        Client client = saved.getClient();
         client.setAbonnementActif(saved);
         client.setStatut(Client.StatutClient.ACTIF);
         client.setIsActive(true);

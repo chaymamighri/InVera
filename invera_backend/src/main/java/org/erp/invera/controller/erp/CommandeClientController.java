@@ -6,8 +6,7 @@ import org.erp.invera.dto.erp.commandeClientdto.CommandeRequestDTO;
 import org.erp.invera.dto.erp.commandeClientdto.CommandeResponseDTO;
 import org.erp.invera.dto.erp.commandeClientdto.CommandeUpdateRequestDTO;
 import org.erp.invera.model.erp.client.CommandeClient;
-import org.erp.invera.repository.tenant.TenantAwareRepository;
-import org.erp.invera.repository.tenant.TenantRowMapper;
+import org.erp.invera.model.erp.client.LigneCommandeClient;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.CommandeClientService;
 import org.erp.invera.service.erp.ClientService;
@@ -27,21 +26,15 @@ public class CommandeClientController {
     private final ClientService clientService;
     private final ProduitService produitService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final TenantAwareRepository tenantRepo;
-    private final TenantRowMapper rowMapper;  // ← AJOUTER CETTE LIGNE
 
     public CommandeClientController(CommandeClientService commandeService,
                                     ClientService clientService,
                                     ProduitService produitService,
-                                    JwtTokenProvider jwtTokenProvider,
-                                    TenantAwareRepository tenantRepo,
-                                    TenantRowMapper rowMapper) {  // ← AJOUTER DANS LE CONSTRUCTEUR
+                                    JwtTokenProvider jwtTokenProvider) {
         this.commandeService = commandeService;
         this.clientService = clientService;
         this.produitService = produitService;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.tenantRepo = tenantRepo;
-        this.rowMapper = rowMapper;  // ← AJOUTER CETTE LIGNE
     }
 
     private String extractToken(HttpServletRequest request) {
@@ -59,33 +52,25 @@ public class CommandeClientController {
             @RequestParam(required = false) Integer clientId) {
         try {
             String token = extractToken(request);
-            Long tenantId = jwtTokenProvider.getClientIdFromToken(token);
-            String authClientId = String.valueOf(tenantId);
 
-            String sql;
-            List<CommandeClient> commandes;
+            List<CommandeResponseDTO> commandesDTO;
 
-            if (statut != null && clientId != null) {
-                sql = "SELECT * FROM commande_client WHERE statut = ? AND client_id = ?";
-                commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId, statut, clientId);
-            } else if (statut != null) {
-                sql = "SELECT * FROM commande_client WHERE statut = ?";
-                commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId, statut);
-            } else if (clientId != null) {
-                sql = "SELECT * FROM commande_client WHERE client_id = ?";
-                commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId, clientId);
-            } else {
-                sql = "SELECT * FROM commande_client ORDER BY date_commande DESC";
-                commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId);
+            // Utiliser le service pour récupérer toutes les commandes
+            commandesDTO = commandeService.getAllCommandes(token);
+
+            // Filtrer par statut si nécessaire
+            if (statut != null) {
+                commandesDTO = commandesDTO.stream()
+                        .filter(c -> statut.equals(c.getStatut()))
+                        .collect(Collectors.toList());
             }
 
-            List<CommandeResponseDTO> commandesDTO = commandes.stream()
-                    .map(commande -> CommandeResponseDTO.fromEntity(
-                            commande,
-                            clientService,
-                            produitService
-                    ))
-                    .collect(Collectors.toList());
+            // Filtrer par clientId si nécessaire
+            if (clientId != null) {
+                commandesDTO = commandesDTO.stream()
+                        .filter(c -> c.getClient() != null && clientId.equals(c.getClient().getIdClient()))
+                        .collect(Collectors.toList());
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -108,25 +93,17 @@ public class CommandeClientController {
     public ResponseEntity<Map<String, Object>> getCommandesValidees(HttpServletRequest request) {
         try {
             String token = extractToken(request);
-            Long tenantId = jwtTokenProvider.getClientIdFromToken(token);
-            String authClientId = String.valueOf(tenantId);
 
-            String sql = "SELECT * FROM commande_client WHERE statut = 'CONFIRMEE' ORDER BY date_commande DESC";
-            List<CommandeClient> commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId);
-
-            List<CommandeResponseDTO> commandesDTO = commandes.stream()
-                    .map(commande -> CommandeResponseDTO.fromEntity(
-                            commande,
-                            clientService,
-                            produitService
-                    ))
+            List<CommandeResponseDTO> allCommandes = commandeService.getAllCommandes(token);
+            List<CommandeResponseDTO> commandesValidees = allCommandes.stream()
+                    .filter(c -> "CONFIRMEE".equals(c.getStatut()))
                     .collect(Collectors.toList());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("commandes", commandesDTO);
-            response.put("total", commandesDTO.size());
-            response.put("message", commandesDTO.size() + " commande(s) validée(s) récupérée(s)");
+            response.put("commandes", commandesValidees);
+            response.put("total", commandesValidees.size());
+            response.put("message", commandesValidees.size() + " commande(s) validée(s) récupérée(s)");
 
             return ResponseEntity.ok(response);
 
@@ -174,26 +151,17 @@ public class CommandeClientController {
     public ResponseEntity<Map<String, Object>> getCommandeById(HttpServletRequest request, @PathVariable Integer id) {
         try {
             String token = extractToken(request);
-            Long tenantId = jwtTokenProvider.getClientIdFromToken(token);
-            String authClientId = String.valueOf(tenantId);
 
-            String sql = "SELECT * FROM commande_client WHERE id_commande_client = ?";
-            CommandeClient commande = tenantRepo.queryForObject(sql, rowMapper.commandeRowMapper(), tenantId, authClientId, id);
+            // ✅ Utiliser la bonne méthode du service : getCommandeById
+            CommandeResponseDTO commandeDTO = commandeService.getCommandeById(id, token);
 
-            if (commande == null) {
-                throw new RuntimeException("Commande non trouvée avec l'ID: " + id);
+            if (commandeDTO == null) {
+                throw new RuntimeException("Commande non trouvée");
             }
-
-            CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commande,
-                    clientService,
-                    produitService
-            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("commande", commandeDTO);
-            response.put("message", "Commande récupérée avec succès");
 
             return ResponseEntity.ok(response);
 
@@ -202,6 +170,11 @@ public class CommandeClientController {
             errorResponse.put("success", false);
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
@@ -209,6 +182,19 @@ public class CommandeClientController {
     public ResponseEntity<Map<String, Object>> creerCommande(HttpServletRequest request, @RequestBody CommandeRequestDTO commandeRequest) {
         try {
             String token = extractToken(request);
+
+            System.out.println("========================================");
+            System.out.println("📦 CommandeRequest reçu:");
+            System.out.println("   - ClientId: " + commandeRequest.getClientId());
+            System.out.println("   - Produits: " + commandeRequest.getProduits());
+            System.out.println("   - RemiseTotale: " + commandeRequest.getRemiseTotale());
+
+            if (commandeRequest.getClientId() == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "ID client requis");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
 
             if (commandeRequest.getProduits() == null || commandeRequest.getProduits().isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -254,6 +240,12 @@ public class CommandeClientController {
             errorResponse.put("message", e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur interne: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
@@ -352,7 +344,7 @@ public class CommandeClientController {
             @PathVariable String typeClient,
             HttpServletRequest request) {
         try {
-            String token = extractToken(request);  // ← Ajouter l'extraction du token
+            String token = extractToken(request);
             Double remise = clientService.getRemiseForClientType(typeClient, token);
 
             Map<String, Object> response = new HashMap<>();
@@ -374,24 +366,16 @@ public class CommandeClientController {
     public ResponseEntity<Map<String, Object>> getCommandesByClient(HttpServletRequest request, @PathVariable Integer clientId) {
         try {
             String token = extractToken(request);
-            Long tenantId = jwtTokenProvider.getClientIdFromToken(token);
-            String authClientId = String.valueOf(tenantId);
 
-            String sql = "SELECT * FROM commande_client WHERE client_id = ? ORDER BY date_commande DESC";
-            List<CommandeClient> commandes = tenantRepo.query(sql, rowMapper.commandeRowMapper(), tenantId, authClientId, clientId);
-
-            List<CommandeResponseDTO> commandesDTO = commandes.stream()
-                    .map(commande -> CommandeResponseDTO.fromEntity(
-                            commande,
-                            clientService,
-                            produitService
-                    ))
+            List<CommandeResponseDTO> allCommandes = commandeService.getAllCommandes(token);
+            List<CommandeResponseDTO> commandesClient = allCommandes.stream()
+                    .filter(c -> c.getClient() != null && clientId.equals(c.getClient().getIdClient()))
                     .collect(Collectors.toList());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("commandes", commandesDTO);
-            response.put("count", commandesDTO.size());
+            response.put("commandes", commandesClient);
+            response.put("count", commandesClient.size());
             response.put("message", "Commandes récupérées avec succès");
 
             return ResponseEntity.ok(response);

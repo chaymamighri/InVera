@@ -19,7 +19,7 @@ public class SubscriptionScheduler {
      * Vérification quotidienne des abonnements expirés
      * Exécuté tous les jours à 01:00
      */
-    @Scheduled(cron = "0 0 1 * * *")
+    @Scheduled(cron = "0 0 1,13 * * *")
     public void checkExpiredSubscriptions() {
         log.info("🔍 Vérification des abonnements expirés...");
         subscriptionService.checkAndExpireSubscriptions();  // ← CORRIGÉ

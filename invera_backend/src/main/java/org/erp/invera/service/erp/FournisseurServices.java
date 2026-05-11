@@ -63,9 +63,9 @@ public class FournisseurServices {
 
         log.info("Récupération de tous les fournisseurs pour client: {}", clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "SELECT * FROM fournisseurs ORDER BY nom_fournisseur ASC";
-        List<Fournisseur> fournisseurs = tenantRepo.query(sql, fournisseurRowMapper(), clientId, authClientId);
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
                 .map(FournisseurDTO::new)
@@ -82,9 +82,9 @@ public class FournisseurServices {
 
         log.info("Récupération des fournisseurs actifs pour client: {}", clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "SELECT * FROM fournisseurs WHERE actif = true ORDER BY nom_fournisseur ASC";
-        List<Fournisseur> fournisseurs = tenantRepo.query(sql, fournisseurRowMapper(), clientId, authClientId);
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
                 .map(FournisseurDTO::new)
@@ -101,9 +101,9 @@ public class FournisseurServices {
 
         log.info("Récupération des fournisseurs inactifs pour client: {}", clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "SELECT * FROM fournisseurs WHERE actif = false ORDER BY nom_fournisseur ASC";
-        List<Fournisseur> fournisseurs = tenantRepo.query(sql, fournisseurRowMapper(), clientId, authClientId);
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
                 .map(FournisseurDTO::new)
@@ -120,9 +120,9 @@ public class FournisseurServices {
 
         log.info("Récupération du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ? AND actif = true";
-        Fournisseur fournisseur = tenantRepo.queryForObject(sql, fournisseurRowMapper(), clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (fournisseur == null) {
             throw new RuntimeException(String.format("Fournisseur actif non trouvé avec l'id: %d", id));
@@ -140,9 +140,9 @@ public class FournisseurServices {
 
         log.info("Récupération admin du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        Fournisseur fournisseur = tenantRepo.queryForObject(sql, fournisseurRowMapper(), clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (fournisseur == null) {
             throw new RuntimeException(String.format("Fournisseur non trouvé avec l'id: %d", id));
@@ -169,37 +169,33 @@ public class FournisseurServices {
 
         // Vérifier si l'email existe déjà
         if (email != null && !email.isEmpty()) {
-            // ✅ CORRIGÉ: fournisseurs (avec s)
             String checkSql = "SELECT COUNT(*) FROM fournisseurs WHERE email = ?";
-            Integer count = tenantRepo.queryForObject(checkSql, Integer.class, clientId, authClientId, email);
+            // ✅ CORRECTION: Utiliser queryForObjectAuth
+            Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, authClientId, email);
 
             if (count != null && count > 0) {
                 throw new RuntimeException(String.format("Un fournisseur avec l'email '%s' existe déjà", email));
             }
         }
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String insertSql = """
             INSERT INTO fournisseurs (nom_fournisseur, email, adresse, telephone, ville, pays, actif)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id_fournisseur
             """;
 
-        int affectedRows = tenantRepo.update(insertSql, clientId, authClientId,
+        // ✅ CORRECTION: Utiliser queryForObjectAuth pour récupérer l'ID
+        Integer id = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
                 nomFournisseur, email, adresse, telephone, ville, pays, true);
 
-        if (affectedRows == 0) {
+        if (id == null) {
             throw new RuntimeException("Erreur lors de l'insertion du fournisseur");
         }
 
-        // ✅ Récupérer par email
-        String selectSql = "SELECT * FROM fournisseurs WHERE email = ?";
-        Fournisseur saved = tenantRepo.queryForObject(selectSql, fournisseurRowMapper(), clientId, authClientId, email);
-
-        if (saved == null) {
-            // Fallback: récupérer par nom
-            selectSql = "SELECT * FROM fournisseurs WHERE nom_fournisseur = ?";
-            saved = tenantRepo.queryForObject(selectSql, fournisseurRowMapper(), clientId, authClientId, nomFournisseur);
-        }
+        // Récupérer par ID
+        String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur saved = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (saved == null) {
             throw new RuntimeException("Erreur: Fournisseur non trouvé après création");
@@ -229,9 +225,9 @@ public class FournisseurServices {
         log.info("Mise à jour du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
         // Vérifier si le fournisseur existe
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String checkExistSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        Fournisseur existing = tenantRepo.queryForObject(checkExistSql, fournisseurRowMapper(), clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur existing = tenantRepo.queryForObjectAuth(checkExistSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (existing == null) {
             throw new RuntimeException(String.format("Fournisseur non trouvé avec l'id: %d", id));
@@ -239,9 +235,9 @@ public class FournisseurServices {
 
         // Vérifier si l'email est modifié et n'existe pas déjà
         if (email != null && !email.isEmpty() && !email.equals(existing.getEmail())) {
-            // ✅ CORRIGÉ: fournisseurs (avec s)
             String checkEmailSql = "SELECT COUNT(*) FROM fournisseurs WHERE email = ? AND id_fournisseur != ?";
-            Integer count = tenantRepo.queryForObject(checkEmailSql, Integer.class, clientId, authClientId, email, id);
+            // ✅ CORRECTION: Utiliser queryForObjectAuth
+            Integer count = tenantRepo.queryForObjectAuth(checkEmailSql, Integer.class, clientId, authClientId, email, id);
 
             if (count != null && count > 0) {
                 throw new RuntimeException(String.format("Un autre fournisseur avec l'email '%s' existe déjà", email));
@@ -249,7 +245,6 @@ public class FournisseurServices {
         }
 
         // Construction de la requête de mise à jour dynamique
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         StringBuilder updateSql = new StringBuilder("UPDATE fournisseurs SET ");
         List<Object> params = new java.util.ArrayList<>();
 
@@ -291,12 +286,13 @@ public class FournisseurServices {
         updateSql.append(" WHERE id_fournisseur = ?");
         params.add(id);
 
-        tenantRepo.update(updateSql.toString(), clientId, authClientId, params.toArray());
+        // ✅ CORRECTION: Utiliser updateWithAuth
+        tenantRepo.updateWithAuth(updateSql.toString(), clientId, authClientId, params.toArray());
 
         // Récupérer le fournisseur mis à jour
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        Fournisseur updated = tenantRepo.queryForObject(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur updated = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         log.info("Fournisseur mis à jour avec succès");
         return new FournisseurDTO(updated);
@@ -311,9 +307,9 @@ public class FournisseurServices {
 
         log.info("Soft delete (désactivation) du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "UPDATE fournisseurs SET actif = false WHERE id_fournisseur = ? AND actif = true";
-        int updated = tenantRepo.update(sql, clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser updateWithAuth
+        int updated = tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
 
         if (updated == 0) {
             throw new RuntimeException(String.format("Fournisseur non trouvé ou déjà désactivé avec l'id: %d", id));
@@ -331,9 +327,9 @@ public class FournisseurServices {
 
         log.warn("⚠️ HARD DELETE du fournisseur avec l'id: {} pour client: {} - Action réservée admin", id, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = "DELETE FROM fournisseurs WHERE id_fournisseur = ?";
-        int deleted = tenantRepo.update(sql, clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser updateWithAuth
+        int deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
 
         if (deleted == 0) {
             throw new RuntimeException(String.format("Fournisseur non trouvé avec l'id: %d", id));
@@ -351,17 +347,17 @@ public class FournisseurServices {
 
         log.info("Réactivation du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String updateSql = "UPDATE fournisseurs SET actif = true WHERE id_fournisseur = ? AND actif = false";
-        int updated = tenantRepo.update(updateSql, clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser updateWithAuth
+        int updated = tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
 
         if (updated == 0) {
             throw new RuntimeException(String.format("Fournisseur non trouvé ou déjà actif avec l'id: %d", id));
         }
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        Fournisseur reactivated = tenantRepo.queryForObject(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Fournisseur reactivated = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         log.info("Fournisseur réactivé avec succès");
         return new FournisseurDTO(reactivated);
@@ -377,12 +373,11 @@ public class FournisseurServices {
 
         log.info("Recherche de fournisseurs actifs avec le terme: '{}' pour client: {}", searchTerm, clientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String countSql = "SELECT COUNT(*) FROM fournisseurs WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ?)";
         String searchPattern = "%" + searchTerm + "%";
-        Integer total = tenantRepo.queryForObject(countSql, Integer.class, clientId, authClientId, searchPattern, searchPattern);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Integer total = tenantRepo.queryForObjectAuth(countSql, Integer.class, clientId, authClientId, searchPattern, searchPattern);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String sql = """
             SELECT * FROM fournisseurs 
             WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ?) 
@@ -390,7 +385,8 @@ public class FournisseurServices {
             LIMIT ? OFFSET ?
             """;
 
-        List<Fournisseur> fournisseurs = tenantRepo.query(sql, fournisseurRowMapper(), clientId, authClientId,
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId,
                 searchPattern, searchPattern, pageable.getPageSize(), pageable.getOffset());
 
         List<FournisseurDTO> dtos = fournisseurs.stream().map(FournisseurDTO::new).collect(Collectors.toList());
@@ -410,21 +406,21 @@ public class FournisseurServices {
 
         Map<String, Object> stats = new HashMap<>();
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String totalSql = "SELECT COUNT(*) FROM fournisseurs";
-        Long total = tenantRepo.queryForObject(totalSql, Long.class, clientId, authClientId);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Long total = tenantRepo.queryForObjectAuth(totalSql, Long.class, clientId, authClientId);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String actifsSql = "SELECT COUNT(*) FROM fournisseurs WHERE actif = true";
-        Long actifs = tenantRepo.queryForObject(actifsSql, Long.class, clientId, authClientId);
+        // ✅ CORRECTION: Utiliser queryForObjectAuth
+        Long actifs = tenantRepo.queryForObjectAuth(actifsSql, Long.class, clientId, authClientId);
 
         stats.put("total", total != null ? total : 0);
         stats.put("actifs", actifs != null ? actifs : 0);
         stats.put("inactifs", (total != null ? total : 0) - (actifs != null ? actifs : 0));
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String villeStatsSql = "SELECT ville, COUNT(*) FROM fournisseurs WHERE ville IS NOT NULL GROUP BY ville";
-        List<Map<String, Object>> villeResults = tenantRepo.query(villeStatsSql,
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Map<String, Object>> villeResults = tenantRepo.queryWithAuth(villeStatsSql,
                 (rs, rowNum) -> Map.of("ville", rs.getString("ville"), "count", rs.getLong("count")),
                 clientId, authClientId);
 
@@ -434,9 +430,9 @@ public class FournisseurServices {
         }
         stats.put("parVille", villeMap);
 
-        // ✅ CORRIGÉ: fournisseurs (avec s)
         String paysStatsSql = "SELECT pays, COUNT(*) FROM fournisseurs WHERE pays IS NOT NULL GROUP BY pays";
-        List<Map<String, Object>> paysResults = tenantRepo.query(paysStatsSql,
+        // ✅ CORRECTION: Utiliser queryWithAuth
+        List<Map<String, Object>> paysResults = tenantRepo.queryWithAuth(paysStatsSql,
                 (rs, rowNum) -> Map.of("pays", rs.getString("pays"), "count", rs.getLong("count")),
                 clientId, authClientId);
 

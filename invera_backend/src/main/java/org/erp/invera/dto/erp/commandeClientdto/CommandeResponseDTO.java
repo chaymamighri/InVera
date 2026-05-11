@@ -1,23 +1,26 @@
 package org.erp.invera.dto.erp.commandeClientdto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.erp.invera.dto.erp.clientdto.ClientDTO;
 import org.erp.invera.dto.erp.Produitdto.ProduitCommandeDetailDTO;
 import org.erp.invera.model.erp.client.CommandeClient;
+import org.erp.invera.model.erp.client.LigneCommandeClient;
 import org.erp.invera.service.erp.ClientService;
 import org.erp.invera.service.erp.ProduitService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public class CommandeResponseDTO {
 
     // Informations de base
@@ -60,8 +63,12 @@ public class CommandeResponseDTO {
                                                  ClientService clientService,
                                                  ProduitService produitService) {
         if (commande == null) {
+            System.out.println("⚠️ [fromEntity] commande est null");
             return null;
         }
+
+        System.out.println("🔍 [fromEntity] Début conversion - Lignes dans commande: " +
+                (commande.getLignesCommande() != null ? commande.getLignesCommande().size() : 0));
 
         CommandeResponseDTO dto = new CommandeResponseDTO();
 
@@ -93,25 +100,60 @@ public class CommandeResponseDTO {
         dto.setTauxRemise(commande.getTauxRemise());
         dto.setTotal(commande.getTotal());
 
-        // Lignes de commande
-        if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
-            dto.setLignesCommande(
-                    commande.getLignesCommande()
-                            .stream()
-                            .map(ligne -> LigneCommandeClientDTO.fromEntity(ligne, produitService))
-                            .collect(Collectors.toList()
-                            )
-            );
+        // ✅ CONVERSION MANUELLE DES LIGNES (plus fiable)
+        List<LigneCommandeClientDTO> lignesDTO = new ArrayList<>();
+        List<ProduitCommandeDetailDTO> produitsDTO = new ArrayList<>();
 
-            // Pour compatibilité avec l'ancien code qui utilise "produits"
-            dto.setProduits(
-                    commande.getLignesCommande()
-                            .stream()
-                            .map(ligne -> ProduitCommandeDetailDTO.fromLigne(ligne, produitService))
-                            .collect(Collectors.toList()
-                            )
-            );
+        if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
+            System.out.println("🔍 [fromEntity] Conversion de " + commande.getLignesCommande().size() + " lignes");
+
+            for (LigneCommandeClient ligne : commande.getLignesCommande()) {
+                // Créer le DTO de ligne
+                LigneCommandeClientDTO ligneDTO = new LigneCommandeClientDTO();
+                ligneDTO.setIdLigneCommandeClient(ligne.getIdLigneCommandeClient());
+                ligneDTO.setQuantite(ligne.getQuantite());
+                ligneDTO.setPrixUnitaire(ligne.getPrixUnitaire());
+                ligneDTO.setSousTotal(ligne.getSousTotal());
+
+                // Ajouter les infos produit
+                if (ligne.getProduit() != null) {
+                    ligneDTO.setProduitId(ligne.getProduit().getIdProduit());
+                    ligneDTO.setProduitLibelle(ligne.getProduit().getLibelle());
+                    ligneDTO.setPrixVente(BigDecimal.valueOf(ligne.getProduit().getPrixVente()));
+                    ligneDTO.setImageUrl(ligne.getProduit().getImageUrl());
+
+                    if (ligne.getProduit().getCategorie() != null) {
+                        ligneDTO.setCategorieNom(ligne.getProduit().getCategorie().getNomCategorie());
+                    }
+                }
+                lignesDTO.add(ligneDTO);
+
+                // Créer le DTO produit (pour compatibilité)
+                ProduitCommandeDetailDTO produitDTO = new ProduitCommandeDetailDTO();
+                produitDTO.setId(ligne.getProduit().getIdProduit());
+                produitDTO.setLibelle(ligne.getProduit().getLibelle());
+                produitDTO.setQuantite(ligne.getQuantite());
+                produitDTO.setPrixUnitaire(ligne.getPrixUnitaire());
+                produitDTO.setSousTotal(ligne.getSousTotal());
+                produitDTO.setImageUrl(ligne.getProduit().getImageUrl());
+
+                if (ligne.getProduit().getCategorie() != null) {
+                    produitDTO.setCategorieNom(ligne.getProduit().getCategorie().getNomCategorie());
+                }
+                produitsDTO.add(produitDTO);
+
+                System.out.println("   ✅ Ligne convertie: " + ligne.getProduit().getLibelle() +
+                        " x" + ligne.getQuantite());
+            }
+        } else {
+            System.out.println("⚠️ [fromEntity] Aucune ligne à convertir");
         }
+
+        dto.setLignesCommande(lignesDTO);
+        dto.setProduits(produitsDTO);
+
+        System.out.println("🔍 [fromEntity] Final - LignesDTO: " + lignesDTO.size() +
+                ", ProduitsDTO: " + produitsDTO.size());
 
         return dto;
     }

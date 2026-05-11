@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,10 +30,17 @@ public class StockMovementService {
             StockMovement movement = new StockMovement();
             movement.setId(rs.getLong("id"));
 
-            // ✅ Créer et remplir l'objet Produit
             Produit produit = new Produit();
             produit.setIdProduit(rs.getInt("produit_id"));
-            produit.setLibelle(rs.getString("produit_libelle"));
+            // Lire libellé depuis la jointure (peut être null si pas de jointure)
+            try {
+                String produitLibelle = rs.getString("produit_libelle");
+                if (produitLibelle != null) {
+                    produit.setLibelle(produitLibelle);
+                }
+            } catch (Exception e) {
+                // Ignorer si la colonne n'existe pas
+            }
             movement.setProduit(produit);
 
             movement.setTypeMouvement(StockMovement.MovementType.valueOf(rs.getString("type_mouvement")));
@@ -42,7 +50,12 @@ public class StockMovementService {
             movement.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
             movement.setValeurTotale(rs.getBigDecimal("valeur_totale"));
             movement.setTypeDocument(rs.getString("type_document"));
-            movement.setCommentaire(rs.getString("commentaire"));
+
+            String commentaire = rs.getString("commentaire");
+            if (commentaire != null) {
+                movement.setCommentaire(commentaire);
+            }
+
             movement.setDateMouvement(rs.getTimestamp("date_mouvement").toLocalDateTime());
             movement.setCreatedBy(rs.getString("created_by"));
 
@@ -66,25 +79,30 @@ public class StockMovementService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM stock_movement WHERE 1=1");
+        StringBuilder sql = new StringBuilder("""
+            SELECT sm.*, p.libelle as produit_libelle 
+            FROM stock_movement sm
+            LEFT JOIN produit p ON sm.produit_id = p.id_produit
+            WHERE 1=1
+        """);
+
+        List<Object> params = new ArrayList<>();
 
         if (debut != null) {
-            sql.append(" AND date_mouvement >= ?");
+            sql.append(" AND sm.date_mouvement >= ?");
+            params.add(Timestamp.valueOf(debut));
         }
         if (fin != null) {
-            sql.append(" AND date_mouvement <= ?");
+            sql.append(" AND sm.date_mouvement <= ?");
+            params.add(Timestamp.valueOf(fin));
         }
         if (type != null && !type.isEmpty()) {
-            sql.append(" AND type_mouvement = ?");
+            sql.append(" AND sm.type_mouvement = ?");
+            params.add(type);
         }
-        sql.append(" ORDER BY date_mouvement DESC");
+        sql.append(" ORDER BY sm.date_mouvement DESC");
 
-        List<Object> params = new java.util.ArrayList<>();
-        if (debut != null) params.add(Timestamp.valueOf(debut));
-        if (fin != null) params.add(Timestamp.valueOf(fin));
-        if (type != null && !type.isEmpty()) params.add(type);
-
-        return tenantRepo.query(sql.toString(), stockMovementRowMapper(), clientId, authClientId, params.toArray());
+        return tenantRepo.queryWithAuth(sql.toString(), stockMovementRowMapper(), clientId, authClientId, params.toArray());
     }
 
     /**
@@ -94,8 +112,15 @@ public class StockMovementService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        String sql = "SELECT * FROM stock_movement ORDER BY date_mouvement DESC";
-        return tenantRepo.query(sql, stockMovementRowMapper(), clientId, authClientId);
+        // ✅ CORRECTION : Utiliser la requête avec jointure
+        String sql = """
+            SELECT sm.*, p.libelle as produit_libelle 
+            FROM stock_movement sm
+            LEFT JOIN produit p ON sm.produit_id = p.id_produit
+            ORDER BY sm.date_mouvement DESC
+        """;
+
+        return tenantRepo.queryWithAuth(sql, stockMovementRowMapper(), clientId, authClientId);
     }
 
     /**
@@ -112,8 +137,16 @@ public class StockMovementService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        String sql = "SELECT * FROM stock_movement WHERE produit_id = ? ORDER BY date_mouvement DESC";
-        return tenantRepo.query(sql, stockMovementRowMapper(), clientId, authClientId, produitId);
+        // ✅ CORRECTION : Utiliser la requête avec jointure pour l'historique aussi
+        String sql = """
+            SELECT sm.*, p.libelle as produit_libelle 
+            FROM stock_movement sm
+            LEFT JOIN produit p ON sm.produit_id = p.id_produit
+            WHERE sm.produit_id = ?
+            ORDER BY sm.date_mouvement DESC
+        """;
+
+        return tenantRepo.queryWithAuth(sql, stockMovementRowMapper(), clientId, authClientId, produitId);
     }
 
     /**
@@ -124,10 +157,10 @@ public class StockMovementService {
         String authClientId = String.valueOf(clientId);
 
         String entreesSql = "SELECT COALESCE(SUM(quantite), 0) FROM stock_movement WHERE produit_id = ? AND type_mouvement = 'ENTREE'";
-        Integer entrees = tenantRepo.queryForObject(entreesSql, Integer.class, clientId, authClientId, produitId);
+        Integer entrees = tenantRepo.queryForObjectAuth(entreesSql, Integer.class, clientId, authClientId, produitId);
 
         String sortiesSql = "SELECT COALESCE(SUM(quantite), 0) FROM stock_movement WHERE produit_id = ? AND type_mouvement = 'SORTIE'";
-        Integer sorties = tenantRepo.queryForObject(sortiesSql, Integer.class, clientId, authClientId, produitId);
+        Integer sorties = tenantRepo.queryForObjectAuth(sortiesSql, Integer.class, clientId, authClientId, produitId);
 
         return (entrees != null ? entrees : 0) - (sorties != null ? sorties : 0);
     }

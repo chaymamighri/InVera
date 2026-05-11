@@ -1,112 +1,133 @@
 package org.erp.invera.dto.erp.commandeClientdto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.erp.invera.model.erp.client.LigneCommandeClient;
-import org.erp.invera.model.erp.Produit;
-import org.erp.invera.service.erp.ProduitService;
-
 import java.math.BigDecimal;
-import java.util.Optional;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class LigneCommandeClientDTO {
 
+    // Champs de base
     private Integer idLigneCommandeClient;
-    private Integer commandeClientId;
+    private Integer quantite;
+    private Double prixUnitaire;
+    private Double sousTotal;
+
+    // Champs produit
     private Integer produitId;
     private String produitLibelle;
-    private String produitImageUrl;
-    private String produitCategorie;
-    private Integer quantite;
-    private BigDecimal prixUnitaire;
-    private BigDecimal sousTotal;
+    private Double prixVente;
+    private String imageUrl;
+    private String categorieNom;
 
-    // ==================== ANCIENNES MÉTHODES (DÉPRÉCIÉES) ====================
+    // Constructeurs
+    public LigneCommandeClientDTO() {}
 
-    /**
-     * @deprecated Utilisez fromEntity(ligne, produitService, token) à la place
-     */
-    @Deprecated
-    public static LigneCommandeClientDTO fromEntity(LigneCommandeClient ligne) {
-        return fromEntity(ligne, null, null);
+    public LigneCommandeClientDTO(Integer idLigneCommandeClient, Integer quantite,
+                                  Double prixUnitaire, Double sousTotal,
+                                  Integer produitId, String produitLibelle,
+                                  Double prixVente, String imageUrl, String categorieNom) {
+        this.idLigneCommandeClient = idLigneCommandeClient;
+        this.quantite = quantite;
+        this.prixUnitaire = prixUnitaire;
+        this.sousTotal = sousTotal;
+        this.produitId = produitId;
+        this.produitLibelle = produitLibelle;
+        this.prixVente = prixVente;
+        this.imageUrl = imageUrl;
+        this.categorieNom = categorieNom;
     }
 
-    /**
-     * @deprecated Utilisez fromEntity(ligne, produitService, token) à la place
-     */
-    @Deprecated
-    public static LigneCommandeClientDTO fromEntity(LigneCommandeClient ligne, ProduitService produitService) {
-        return fromEntity(ligne, produitService, null);
+    // Getters et Setters pour idLigneCommandeClient
+    public Integer getIdLigneCommandeClient() {
+        return idLigneCommandeClient;
     }
 
-    // ==================== NOUVELLES MÉTHODES (AVEC TOKEN) ====================
-
-    /**
-     * Convertit une ligne de commande en DTO (AVEC TOKEN)
-     */
-    public static LigneCommandeClientDTO fromEntity(LigneCommandeClient ligne,
-                                                    ProduitService produitService,
-                                                    String token) {
-        if (ligne == null) {
-            return null;
-        }
-
-        LigneCommandeClientDTO dto = new LigneCommandeClientDTO();
-
-        dto.setIdLigneCommandeClient(ligne.getIdLigneCommandeClient());
-
-        if (ligne.getCommandeClient() != null) {
-            dto.setCommandeClientId(ligne.getCommandeClient().getIdCommandeClient());
-        }
-
-        if (ligne.getProduit() != null) {
-            dto.setProduitId(ligne.getProduit().getIdProduit());
-            dto.setProduitLibelle(ligne.getProduit().getLibelle());
-            dto.setProduitImageUrl(ligne.getProduit().getImageUrl());
-
-            if (ligne.getProduit().getCategorie() != null) {
-                dto.setProduitCategorie(ligne.getProduit().getCategorie().getNomCategorie());
-            }
-        } else if (produitService != null && dto.getProduitId() != null) {
-            // ✅ Passer le token
-            Optional<Produit> produitOpt = produitService.getProduitById(dto.getProduitId(), token);
-
-            if (produitOpt.isPresent()) {
-                Produit produit = produitOpt.get();
-                dto.setProduitLibelle(produit.getLibelle());
-                dto.setProduitImageUrl(produit.getImageUrl());
-                if (produit.getCategorie() != null) {
-                    dto.setProduitCategorie(produit.getCategorie().getNomCategorie());
-                }
-            }
-        }
-
-        dto.setQuantite(ligne.getQuantite());
-        dto.setPrixUnitaire(ligne.getPrixUnitaire());
-        dto.setSousTotal(ligne.getSousTotal());
-
-        return dto;
+    public void setIdLigneCommandeClient(Integer idLigneCommandeClient) {
+        this.idLigneCommandeClient = idLigneCommandeClient;
     }
 
-    /**
-     * Convertit une ligne de commande en DTO avec ID produit uniquement
-     */
-    public static LigneCommandeClientDTO fromEntitySimple(LigneCommandeClient ligne) {
-        if (ligne == null) {
-            return null;
-        }
+    // Getters et Setters pour quantite
+    public Integer getQuantite() {
+        return quantite;
+    }
 
-        LigneCommandeClientDTO dto = new LigneCommandeClientDTO();
-        dto.setIdLigneCommandeClient(ligne.getIdLigneCommandeClient());
-        dto.setProduitId(ligne.getProduit() != null ? ligne.getProduit().getIdProduit() : null);
-        dto.setQuantite(ligne.getQuantite());
-        dto.setPrixUnitaire(ligne.getPrixUnitaire());
-        dto.setSousTotal(ligne.getSousTotal());
+    public void setQuantite(Integer quantite) {
+        this.quantite = quantite;
+    }
 
-        return dto;
+    // ✅ CORRECTION : Setter pour prixUnitaire avec conversion BigDecimal → Double
+    public Double getPrixUnitaire() {
+        return prixUnitaire;
+    }
+
+    public void setPrixUnitaire(BigDecimal prixUnitaire) {
+        this.prixUnitaire = prixUnitaire != null ? prixUnitaire.doubleValue() : null;
+    }
+
+    // Overload pour accepter Double directement
+    public void setPrixUnitaire(Double prixUnitaire) {
+        this.prixUnitaire = prixUnitaire;
+    }
+
+    // ✅ CORRECTION : Setter pour sousTotal avec conversion BigDecimal → Double
+    public Double getSousTotal() {
+        return sousTotal;
+    }
+
+    public void setSousTotal(BigDecimal sousTotal) {
+        this.sousTotal = sousTotal != null ? sousTotal.doubleValue() : null;
+    }
+
+    // Overload pour accepter Double directement
+    public void setSousTotal(Double sousTotal) {
+        this.sousTotal = sousTotal;
+    }
+
+    // Getters et Setters pour produitId
+    public Integer getProduitId() {
+        return produitId;
+    }
+
+    public void setProduitId(Integer produitId) {
+        this.produitId = produitId;
+    }
+
+    // Getters et Setters pour produitLibelle
+    public String getProduitLibelle() {
+        return produitLibelle;
+    }
+
+    public void setProduitLibelle(String produitLibelle) {
+        this.produitLibelle = produitLibelle;
+    }
+
+    // ✅ CORRECTION : Setter pour prixVente avec conversion BigDecimal → Double
+    public Double getPrixVente() {
+        return prixVente;
+    }
+
+    public void setPrixVente(BigDecimal prixVente) {
+        this.prixVente = prixVente != null ? prixVente.doubleValue() : null;
+    }
+
+    // Overload pour accepter Double directement
+    public void setPrixVente(Double prixVente) {
+        this.prixVente = prixVente;
+    }
+
+    // Getters et Setters pour imageUrl
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    // Getters et Setters pour categorieNom
+    public String getCategorieNom() {
+        return categorieNom;
+    }
+
+    public void setCategorieNom(String categorieNom) {
+        this.categorieNom = categorieNom;
     }
 }

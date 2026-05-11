@@ -678,7 +678,8 @@ public class PlatformClientController {
         }
     }
 
-    // ========== 3. VALIDATION ADMIN ==========
+    // ========== 3. VALIDATION super ADMIN ==========
+
     @PutMapping("/{id}/validate")
     public ResponseEntity<?> validateClient(@PathVariable Long id,
                                             @RequestBody(required = false) Map<String, String> body) {
@@ -727,6 +728,7 @@ public class PlatformClientController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
 
     @PutMapping("/{id}/refuse")
     public ResponseEntity<?> refuseClient(
@@ -821,8 +823,6 @@ public class PlatformClientController {
         }
     }
 
-
-
     /**
      * Récupérer le logo du client connecté
      */
@@ -832,35 +832,18 @@ public class PlatformClientController {
             Long clientId = getClientIdFromToken(token);
             log.info("🔍 getLogo - clientId: {}", clientId);
 
-            Client client = clientPlatformService.getClientById(clientId);
-            log.info("🔍 logoUrl de la base: {}", client.getLogoUrl());
+            // ✅ Utiliser LogoUploadService pour récupérer le logo
+            byte[] imageBytes = logoUploadService.getLogo(clientId);
 
-            if (client.getLogoUrl() == null) {
-                log.warn("⚠️ Logo URL est null");
+            if (imageBytes == null) {
+                log.warn("⚠️ Aucun logo trouvé pour client {}", clientId);
                 return ResponseEntity.notFound().build();
             }
 
-            Path logoPath = Paths.get(client.getLogoUrl());
-            log.info("📁 Chemin testé: {}", logoPath.toAbsolutePath());
-
-            if (!Files.exists(logoPath)) {
-                // Essayer depuis le répertoire de travail
-                Path altPath = Paths.get(System.getProperty("user.dir"), client.getLogoUrl());
-                log.info("📁 Chemin alternatif: {}", altPath.toAbsolutePath());
-                if (Files.exists(altPath)) {
-                    logoPath = altPath;
-                } else {
-                    log.error("❌ Fichier non trouvé aux deux emplacements");
-                    return ResponseEntity.notFound().build();
-                }
-            }
-
-            byte[] imageBytes = Files.readAllBytes(logoPath);
-            String contentType = Files.probeContentType(logoPath);
-            log.info("✅ Logo trouvé - taille: {} bytes, type: {}", imageBytes.length, contentType);
+            log.info("✅ Logo trouvé - taille: {} bytes", imageBytes.length);
 
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : "image/jpeg"))
+                    .contentType(MediaType.IMAGE_PNG)
                     .body(imageBytes);
 
         } catch (Exception e) {
@@ -882,25 +865,17 @@ public class PlatformClientController {
                 return ResponseEntity.notFound().build();
             }
 
-            Path logoPath = Paths.get(client.getLogoUrl());
+            // ✅ Utiliser LOGOUPLOADSERVICE pour récupérer le logo
+            byte[] imageBytes = logoUploadService.getLogo(clientId);
 
-            // Si le chemin relatif ne fonctionne pas, essayer depuis le répertoire courant
-            if (!Files.exists(logoPath)) {
-                logoPath = Paths.get(System.getProperty("user.dir"), client.getLogoUrl());
-            }
-
-            if (!Files.exists(logoPath)) {
-                log.error("❌ Fichier logo non trouvé: {}", client.getLogoUrl());
+            if (imageBytes == null) {
                 return ResponseEntity.notFound().build();
             }
-
-            byte[] imageBytes = Files.readAllBytes(logoPath);
-            String contentType = Files.probeContentType(logoPath);
 
             log.info("✅ Logo public récupéré pour client ID: {}, taille: {} bytes", clientId, imageBytes.length);
 
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : "image/jpeg"))
+                    .contentType(MediaType.IMAGE_PNG)
                     .header("Cache-Control", "public, max-age=3600")
                     .body(imageBytes);
 
