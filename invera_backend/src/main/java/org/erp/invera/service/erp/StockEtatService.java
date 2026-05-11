@@ -81,17 +81,30 @@ public class StockEtatService {
             WHERE p.is_active = true
             """);
 
+        // ❌ ATTENTION: Injection SQL potentielle avec concaténation directe
+        // ✅ Correction: Utiliser des paramètres préparés
+        List<Object> params = new ArrayList<>();
+
         if (categorieId != null) {
-            sql.append(" AND p.categorie_id = ").append(categorieId);
+            sql.append(" AND p.categorie_id = ?");
+            params.add(categorieId);
         }
         sql.append(" ORDER BY p.libelle");
 
-        List<Produit> produits = tenantRepo.query(sql.toString(), produitRowMapper(), clientId, authClientId);
+        // ✅ Utiliser queryWithAuth avec RowMapper
+        List<Produit> produits = tenantRepo.queryWithAuth(sql.toString(), produitRowMapper(),
+                clientId, authClientId, params.toArray());
+
+        // Calcul du statut pour chaque produit
+        for (Produit produit : produits) {
+            Integer quantiteActuelle = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
+            produit.setStatus(determinerStatut(produit, quantiteActuelle));
+        }
 
         return produits.stream()
                 .map(produit -> {
                     Integer quantiteActuelle = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
-                    String statutStock = determinerStatut(produit, quantiteActuelle).name();
+                    String statutStock = produit.getStatus().name();
                     return convertToDTO(produit, quantiteActuelle, statutStock);
                 })
                 .filter(dto -> appliquerFiltres(dto, categorieId, seuilAlerte, rupture))

@@ -17,10 +17,6 @@ import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Service du tableau de bord (Dashboard) - MULTI-TENANT.
- * Architecture : 1 base = 1 client
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,13 +25,9 @@ public class DashboardService {
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // ==================== MÉTHODES MULTI-TENANT ====================
-
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
     }
-
-    // ==================== MÉTHODES PUBLIQUES ====================
 
     public DashboardDTO getSummary(String period, String token) {
         Periode periode = calculerPeriode(period);
@@ -87,7 +79,8 @@ public class DashboardService {
             GROUP BY statut
             """;
 
-        List<Object[]> results = tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        // ✅ Utiliser queryWithAuth
+        List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 CommandeClient.StatutCommande.valueOf(rs.getString("statut")),
                 rs.getLong("count"),
                 rs.getBigDecimal("total")
@@ -140,7 +133,8 @@ public class DashboardService {
             ORDER BY date
             """;
 
-        List<Object[]> results = tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        // ✅ Utiliser queryWithAuth
+        List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 rs.getDate("date").toLocalDate(),
                 rs.getLong("commandes"),
                 rs.getBigDecimal("ca")
@@ -175,7 +169,8 @@ public class DashboardService {
             GROUP BY c.type_client
             """;
 
-        List<Object[]> results = tenantRepo.query(sql, (rs, rowNum) -> new Object[]{
+        // ✅ Utiliser queryWithAuth
+        List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 Client.TypeClient.valueOf(rs.getString("type_client")),
                 rs.getLong("nombre"),
                 rs.getBigDecimal("montant")
@@ -279,8 +274,9 @@ public class DashboardService {
         String sumSql = "SELECT COALESCE(SUM(total), 0) FROM commande_client WHERE date_commande BETWEEN ? AND ?";
         String countSql = "SELECT COUNT(*) FROM commande_client WHERE date_commande BETWEEN ? AND ?";
 
-        BigDecimal caActuel = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutDateTime, finDateTime);
-        Long cmdActuel = tenantRepo.queryForObject(countSql, Long.class, clientId, authClientId, debutDateTime, finDateTime);
+        // ✅ Utiliser queryForObjectAuth
+        BigDecimal caActuel = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutDateTime, finDateTime);
+        Long cmdActuel = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutDateTime, finDateTime);
         if (cmdActuel == null) cmdActuel = 0L;
 
         // Période précédente
@@ -290,45 +286,45 @@ public class DashboardService {
         BigDecimal caPrecedent = BigDecimal.ZERO;
         Long cmdPrecedent = 0L;
         if (debutCompareDateTime != null && finCompareDateTime != null) {
-            caPrecedent = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutCompareDateTime, finCompareDateTime);
-            cmdPrecedent = tenantRepo.queryForObject(countSql, Long.class, clientId, authClientId, debutCompareDateTime, finCompareDateTime);
+            caPrecedent = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutCompareDateTime, finCompareDateTime);
+            cmdPrecedent = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutCompareDateTime, finCompareDateTime);
             if (cmdPrecedent == null) cmdPrecedent = 0L;
         }
 
         // Semaine
         LocalDateTime debutSemaine = p.getDebut().with(DayOfWeek.MONDAY).atStartOfDay();
         LocalDateTime finSemaine = p.getFin().with(DayOfWeek.SUNDAY).atTime(23, 59, 59);
-        BigDecimal caSemaine = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutSemaine, finSemaine);
-        Long commandesSemaine = tenantRepo.queryForObject(countSql, Long.class, clientId, authClientId, debutSemaine, finSemaine);
+        BigDecimal caSemaine = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutSemaine, finSemaine);
+        Long commandesSemaine = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutSemaine, finSemaine);
         if (commandesSemaine == null) commandesSemaine = 0L;
 
         LocalDateTime debutSemaineDerniere = debutSemaine.minusWeeks(1);
         LocalDateTime finSemaineDerniere = finSemaine.minusWeeks(1);
-        BigDecimal caSemaineDerniere = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutSemaineDerniere, finSemaineDerniere);
+        BigDecimal caSemaineDerniere = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutSemaineDerniere, finSemaineDerniere);
         BigDecimal variationSemaine = calculerVariation(caSemaine, caSemaineDerniere);
 
         // Mois
         LocalDateTime debutMois = p.getDebut().withDayOfMonth(1).atStartOfDay();
         LocalDateTime finMois = p.getFin().withDayOfMonth(p.getFin().lengthOfMonth()).atTime(23, 59, 59);
-        BigDecimal caMois = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutMois, finMois);
-        Long commandesMois = tenantRepo.queryForObject(countSql, Long.class, clientId, authClientId, debutMois, finMois);
+        BigDecimal caMois = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutMois, finMois);
+        Long commandesMois = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutMois, finMois);
         if (commandesMois == null) commandesMois = 0L;
 
         LocalDateTime debutMoisDernier = debutMois.minusMonths(1);
         LocalDateTime finMoisDernier = finMois.minusMonths(1);
-        BigDecimal caMoisDernier = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutMoisDernier, finMoisDernier);
+        BigDecimal caMoisDernier = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutMoisDernier, finMoisDernier);
         BigDecimal variationMois = calculerVariation(caMois, caMoisDernier);
 
         // Année
         LocalDateTime debutAnnee = LocalDate.now().withDayOfYear(1).atStartOfDay();
         LocalDateTime finAnnee = LocalDate.now().withMonth(12).withDayOfMonth(31).atTime(23, 59, 59);
-        BigDecimal caAnnee = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutAnnee, finAnnee);
-        Long commandesAnnee = tenantRepo.queryForObject(countSql, Long.class, clientId, authClientId, debutAnnee, finAnnee);
+        BigDecimal caAnnee = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutAnnee, finAnnee);
+        Long commandesAnnee = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutAnnee, finAnnee);
         if (commandesAnnee == null) commandesAnnee = 0L;
 
         LocalDateTime debutAnneeDerniere = debutAnnee.minusYears(1);
         LocalDateTime finAnneeDerniere = finAnnee.minusYears(1);
-        BigDecimal caAnneeDerniere = tenantRepo.queryForObject(sumSql, BigDecimal.class, clientId, authClientId, debutAnneeDerniere, finAnneeDerniere);
+        BigDecimal caAnneeDerniere = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutAnneeDerniere, finAnneeDerniere);
         BigDecimal variationAnnee = calculerVariation(caAnnee, caAnneeDerniere);
 
         // Panier moyen
@@ -344,10 +340,11 @@ public class DashboardService {
         String factureCountSql = "SELECT COUNT(*) FROM facture_client WHERE statut = 'NON_PAYE'";
         String factureRetardSql = "SELECT COUNT(*) FROM facture_client WHERE statut = 'NON_PAYE' AND date_facture < ?";
 
-        BigDecimal creancesTotal = tenantRepo.queryForObject(factureSumSql, BigDecimal.class, clientId, authClientId);
-        Long creancesNombre = tenantRepo.queryForObject(factureCountSql, Long.class, clientId, authClientId);
+        // ✅ Utiliser queryForObjectAuth
+        BigDecimal creancesTotal = tenantRepo.queryForObjectAuth(factureSumSql, BigDecimal.class, clientId, authClientId);
+        Long creancesNombre = tenantRepo.queryForObjectAuth(factureCountSql, Long.class, clientId, authClientId);
         LocalDateTime dateRetard = LocalDate.now().minusDays(30).atStartOfDay();
-        Long facturesRetard = tenantRepo.queryForObject(factureRetardSql, Long.class, clientId, authClientId, dateRetard);
+        Long facturesRetard = tenantRepo.queryForObjectAuth(factureRetardSql, Long.class, clientId, authClientId, dateRetard);
 
         if (creancesTotal == null) creancesTotal = BigDecimal.ZERO;
         if (creancesNombre == null) creancesNombre = 0L;
@@ -376,7 +373,8 @@ public class DashboardService {
                 NULLIF((SELECT COUNT(*) FROM commande_client WHERE date_commande BETWEEN ? AND ?), 0), 0)
             """;
 
-        return tenantRepo.queryForObject(sql, BigDecimal.class, clientId, authClientId, debut, fin, debut, fin);
+        // ✅ Utiliser queryForObjectAuth
+        return tenantRepo.queryForObjectAuth(sql, BigDecimal.class, clientId, authClientId, debut, fin, debut, fin);
     }
 
     // ========================
@@ -392,7 +390,8 @@ public class DashboardService {
         String daySql = "SELECT COALESCE(SUM(total), 0) FROM commande_client WHERE DATE(date_commande) = ?";
 
         while (!currentDate.isAfter(endDate)) {
-            BigDecimal caDuJour = tenantRepo.queryForObject(daySql, BigDecimal.class, clientId, authClientId, currentDate);
+            // ✅ Utiliser queryForObjectAuth
+            BigDecimal caDuJour = tenantRepo.queryForObjectAuth(daySql, BigDecimal.class, clientId, authClientId, currentDate);
 
             if (caDuJour != null && caDuJour.compareTo(BigDecimal.ZERO) > 0) {
                 evolution.add(new DashboardDTO.Point(
@@ -406,31 +405,32 @@ public class DashboardService {
         LocalDateTime debut = p.getDebut().atStartOfDay();
         LocalDateTime fin = p.getFin().atTime(23, 59, 59);
 
-        // ✅ Utiliser les bons types : Integer, String, Long, BigDecimal, String
         String topSql = """
-        SELECT p.id_produit as id,
-               p.libelle as nom,
-               COALESCE(SUM(lc.quantite), 0) as quantite,
-               COALESCE(SUM(lc.sous_total), 0) as montant,
-               p.image_url as image
-        FROM ligne_commande_client lc
-        JOIN produit p ON lc.produit_id = p.id_produit
-        JOIN commande_client cmd ON lc.commande_client_id = cmd.id_commande_client
-        WHERE cmd.date_commande BETWEEN ? AND ?
-        GROUP BY p.id_produit, p.libelle, p.image_url
-        ORDER BY quantite DESC
-        LIMIT 5
-        """;
+            SELECT p.id_produit as id,
+                   p.libelle as nom,
+                   COALESCE(SUM(lc.quantite), 0) as quantite,
+                   COALESCE(SUM(lc.sous_total), 0) as montant,
+                   p.image_url as image
+            FROM ligne_commande_client lc
+            JOIN produit p ON lc.produit_id = p.id_produit
+            JOIN commande_client cmd ON lc.commande_client_id = cmd.id_commande_client
+            WHERE cmd.date_commande BETWEEN ? AND ?
+            GROUP BY p.id_produit, p.libelle, p.image_url
+            ORDER BY quantite DESC
+            LIMIT 5
+            """;
 
-        List<DashboardDTO.ProduitVente> topProduits = tenantRepo.query(topSql, (rs, rowNum) -> {
-            Integer id = Integer.valueOf(rs.getInt("id"));           // int → Integer explicit
+        // ✅ Utiliser queryWithAuth
+        List<DashboardDTO.ProduitVente> topProduits = tenantRepo.queryWithAuth(topSql, (rs, rowNum) -> {
+            Integer id = Integer.valueOf(rs.getInt("id"));
             String nom = rs.getString("nom");
-            Long quantite = Long.valueOf(rs.getLong("quantite"));    // long → Long explicit
+            Long quantite = Long.valueOf(rs.getLong("quantite"));
             BigDecimal montant = rs.getBigDecimal("montant");
             String image = rs.getString("image");
 
             return new DashboardDTO.ProduitVente(id, nom, quantite, montant, image);
         }, clientId, authClientId, debut, fin);
+
         return new DashboardDTO.Charts(
                 evolution,
                 topProduits,

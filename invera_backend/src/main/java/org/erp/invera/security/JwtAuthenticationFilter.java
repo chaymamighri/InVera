@@ -6,8 +6,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.model.erp.Utilisateur;
+import org.erp.invera.service.platform.ClientPlatformService;
 import org.erp.invera.service.platform.SessionManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,6 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
+    private ClientPlatformService clientPlatformService;
+
+    @Autowired
     private SessionManagementService sessionManagementService;
 
     // LISTE DES ENDPOINTS PUBLICS (sans authentification)
@@ -43,27 +48,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/auth/activation-link",
             "/api/auth/activation-link-info",
             "/api/auth/activate-account",
+
+            "/uploads/",
+            "/uploads/logos/**",
+            "/uploads/produits/",
+            "/images/",
+
             "/api/auth/create-admin-temp",
+
             "/api/super-admin/login",
             "/api/super-admin/register",
+
             "/api/otp/request",
             "/api/otp/verify",
             "/api/otp/login",
+
             "/api/platform/clients/register",
             "/api/platform/clients/login",
             "/api/platform/clients/request-otp",
             "/api/platform/clients/verify-otp",
             "/api/public/offres",
+
+            "/api/platform/clients/public/logo",
+            "/api/platform/clients/public/logo/",
+
             // AJOUTER LES ENDPOINTS DE PAIEMENT ICI
-            "/api/abonnement/",
-            "/api/abonnement/*/paiement/initier",
-            "/api/paiement/",
-            "/api/paiement/*/konnect",
-            "/paiement/checkout",
-            "/webhook/konnect",
-            "/paiement/succes",
-            "/paiement/echec",
-            "/paiement/annuler"
+            "/api/abonnement/**",
+            "/api/paiement/**",
+            "/paiement/**",
+            "/webhook/**",
+
+            "/api/factures/public/",
+            "/api/public/factures/",
+            "/api/produits/uploads/"
     );
 
     public JwtAuthenticationFilter() {
@@ -80,18 +97,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
+        // ✅ Log pour voir toutes les requêtes
+        System.out.println("🔍 shouldNotFilter: " + path);
+
         for (String endpoint : PUBLIC_ENDPOINTS) {
             if (path.startsWith(endpoint)) {
                 System.out.println("🔓 [PUBLIC] " + path);
                 return true;
             }
         }
-        if (path.startsWith("/api/platform/clients/public/logo/")) {
+
+        if (path.matches("/api/platform/clients/public/logo/\\d+")) {
             System.out.println("🔓 [PUBLIC LOGO] " + path);
-            return true;  // Ne pas appliquer le filtre JWT
+            return true;
         }
 
-        // ✅ AJOUTER CETTE CONDITION AU DÉBUT
         if (path.matches("/api/paiement/\\d+/konnect")) {
             System.out.println("🔓 [PUBLIC - KONNECT] " + path);
             return true;
@@ -130,6 +150,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
+
+        // ✅ AJOUT : BYPASS POUR LES ROUTES DE PAIEMENT (PUBLIQUES)
+        if (path.startsWith("/paiement/") ||
+                path.startsWith("/api/paiement/") ||
+                path.startsWith("/webhook/")) {
+            System.out.println("🔓 [PUBLIC PAYMENT] " + path + " - bypass JWT");
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (path.startsWith("/api/public/")) {
             System.out.println("🔓 FORCE PUBLIC BYPASS: " + path);
@@ -193,6 +222,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("=== END JWT FILTER ===\n");
         filterChain.doFilter(request, response);
     }
+
 
     private void handleSuperAdmin(HttpServletRequest request,
                                   HttpServletResponse response,
@@ -263,12 +293,92 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - Role: " + role);
         System.out.println("   - ClientId: " + clientId);
 
-        if (role == null || email == null) {
-            System.out.println("❌ Missing email or role in client token");
+        if (role == null || email == null || clientId == null) {
+            System.out.println("❌ Missing email, role or clientId in client token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"INVALID_TOKEN\",\"message\":\"Token invalide\"}");
             return false;
         }
 
+        // ✅ CRITICAL: Vérifier le statut du client AVANT toute authentification
+        try {
+            // Vous devez injecter ClientPlatformService ici
+            // Si vous ne l'avez pas, ajoutez:
+            // @Autowired private ClientPlatformService clientPlatformService;
+
+            Client client = clientPlatformService.getClientById(clientId);
+
+            // 1. Vérifier si le client existe et est actif
+            if (client.getStatut() == Client.StatutClient.INACTIF) {
+                System.out.println("❌ Client INACTIF - Accès refusé: " + email);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Votre compte est inactif. Veuillez contacter l'administrateur.\"}");
+                return false;
+            }
+
+            // 2. Vérifier si le client est refusé
+            if (client.getStatut() == Client.StatutClient.REFUSE) {
+                System.out.println("❌ Client REFUSE - Accès refusé: " + email);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"ACCOUNT_REJECTED\",\"message\":\"Votre inscription a été refusée.\"}");
+                return false;
+            }
+
+            // 3. Vérifier si le client est en attente de paiement (VALIDE)
+            if (client.getStatut() == Client.StatutClient.VALIDE) {
+                System.out.println("❌ Client VALIDE (en attente paiement) - Accès refusé: " + email);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"PAYMENT_PENDING\",\"message\":\"Veuillez finaliser votre paiement pour accéder à la plateforme.\"}");
+                return false;
+            }
+
+            // 4. Pour les clients DEFINITIF, vérifier l'abonnement
+            if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
+                // Vérifier si un abonnement actif existe
+                if (client.getAbonnementActif() == null) {
+                    System.out.println("❌ Client DEFINITIF sans abonnement - Accès refusé: " + email);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"NO_SUBSCRIPTION\",\"message\":\"Vous n'avez pas d'abonnement actif.\"}");
+                    return false;
+                }
+
+                // Vérifier si l'abonnement est expiré
+                if (client.getAbonnementActif().getDateFin() != null &&
+                        client.getAbonnementActif().getDateFin().isBefore(java.time.LocalDateTime.now())) {
+                    System.out.println("❌ Abonnement expiré pour client: " + email);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"SUBSCRIPTION_EXPIRED\",\"message\":\"Votre abonnement a expiré. Veuillez le renouveler.\"}");
+                    return false;
+                }
+
+                // Vérifier le statut de l'abonnement
+                if (client.getAbonnementActif().getStatut() != Abonnement.StatutAbonnement.ACTIF) {
+                    System.out.println("❌ Abonnement non actif pour client: " + email);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"SUBSCRIPTION_INACTIVE\",\"message\":\"Votre abonnement n'est pas actif.\"}");
+                    return false;
+                }
+            }
+
+            // 5. Vérifier si le compte utilisateur est actif (dans la base du client)
+            // Cette vérification se fera dans recordLogin()
+
+        } catch (Exception e) {
+            System.out.println("❌ Erreur vérification client: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"CLIENT_NOT_FOUND\",\"message\":\"Client non trouvé\"}");
+            return false;
+        }
+
+        // Si toutes les vérifications passent, continuer avec l'authentification
         sessionManagementService.registerSession(email, jwt);
 
         if (!sessionManagementService.isSessionValid(email, jwt)) {
@@ -295,6 +405,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (clientRole == null) {
             System.out.println("❌ Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\":\"INVALID_ROLE\",\"message\":\"Rôle invalide\"}");
             return false;
         }
 
@@ -304,12 +415,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         utilisateur.setPrenom(prenom);
         utilisateur.setRole(clientRole);
         utilisateur.setActive(true);
-
-        if (clientId != null) {
-            Client client = new Client();
-            client.setId(clientId);
-            utilisateur.setClientId(client.getId());
-        }
+        utilisateur.setClientId(clientId);
 
         List<GrantedAuthority> authorities = Collections.singletonList(
                 new SimpleGrantedAuthority("ROLE_" + utilisateur.getRole().name())

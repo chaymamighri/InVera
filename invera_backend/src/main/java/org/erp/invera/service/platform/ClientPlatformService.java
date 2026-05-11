@@ -163,20 +163,53 @@ public class ClientPlatformService {
      * - VALIDE : Accès refusé (en attente de paiement)
      * - REFUSE : Accès refusé
      * - INACTIF : Accès refusé
+     *
+     * @param clientId - L'ID du client (provenant de la base ERP)
+     * @param email - L'email de l'utilisateur (pour création automatique si besoin)
      */
     @Transactional
-    public Client recordLogin(String email) {
+    public Client recordLogin(Long clientId, String email) {
         log.info("========== RECORD LOGIN ==========");
-        log.info(" Tentative de connexion pour: {}", email);
+        log.info(" Tentative de connexion pour clientId: {}, email: {}", clientId, email);
 
         // ============================================================
-        // ÉTAPE 1 : Récupérer le client
+        // ÉTAPE 1 : Récupérer ou créer le client
         // ============================================================
-        Client client = clientRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé pour cet email: " + email));
+        Client client = clientRepository.findById(clientId).orElse(null);
 
-        log.info(" Client trouvé: ID={}, Statut={}, TypeInscription={}, Connexions restantes={}/{}",
-                client.getId(), client.getStatut(), client.getTypeInscription(),
+        if (client == null && email != null) {
+            // Client non trouvé dans la plateforme → le créer automatiquement
+            log.info(" Client non trouvé avec ID: {}, création automatique avec email: {}", clientId, email);
+
+            client = new Client();
+            client.setId(clientId);
+            client.setEmail(email);
+
+            // Déterminer le nom à partir de l'email
+            String nom = email.split("@")[0];
+            client.setNom(nom);
+            client.setPrenom("");
+
+            // Valeurs par défaut
+            client.setTypeCompte(Client.TypeCompte.ENTREPRISE);
+            client.setTypeInscription(Client.TypeInscription.ESSAI);
+            client.setStatut(Client.StatutClient.ACTIF);
+            client.setIsActive(true);
+            client.setConnexionsRestantes(30);
+            client.setConnexionsMax(30);
+            client.setDateInscription(LocalDateTime.now());
+
+            client = clientRepository.save(client);
+            log.info("✅ Client créé automatiquement: ID={}, Email={}", client.getId(), client.getEmail());
+        }
+
+        if (client == null) {
+            log.error("❌ Client non trouvé pour clientId: {} et impossible de le créer", clientId);
+            throw new RuntimeException("Client non trouvé pour cet ID: " + clientId);
+        }
+
+        log.info(" Client trouvé: ID={}, Email={}, Statut={}, TypeInscription={}, Connexions restantes={}/{}",
+                client.getId(), client.getEmail(), client.getStatut(), client.getTypeInscription(),
                 client.getConnexionsRestantes(), client.getConnexionsMax());
 
         // ============================================================

@@ -38,7 +38,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/clients")
-public class ClientController {
+public class   ClientController {
 
     private final ClientService clientService;
     private final JwtTokenProvider jwtTokenProvider;

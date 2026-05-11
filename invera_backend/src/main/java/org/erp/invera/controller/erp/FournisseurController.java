@@ -123,12 +123,28 @@ public class FournisseurController {
                                                @Valid @RequestBody FournisseurDTO fournisseurDTO) {
         log.info("POST /api/fournisseurs/add - Création du fournisseur: {}", fournisseurDTO.getNomFournisseur());
 
+        // ✅ Log détaillé de ce qui est reçu
+        System.out.println("========== REQUÊTE CRÉATION FOURNISSEUR ==========");
+        System.out.println("nomFournisseur: '" + fournisseurDTO.getNomFournisseur() + "'");
+        System.out.println("email: '" + fournisseurDTO.getEmail() + "'");
+        System.out.println("telephone: '" + fournisseurDTO.getTelephone() + "'");
+        System.out.println("adresse: '" + fournisseurDTO.getAdresse() + "'");
+        System.out.println("ville: '" + fournisseurDTO.getVille() + "'");
+        System.out.println("pays: '" + fournisseurDTO.getPays() + "'");
+        System.out.println("actif: " + fournisseurDTO.getActif());
+        System.out.println("=================================================");
+
         String token = extractToken(request);
         if (token == null) {
             return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
         }
 
         try {
+            // ✅ Vérification des champs obligatoires
+            if (fournisseurDTO.getNomFournisseur() == null || fournisseurDTO.getNomFournisseur().trim().isEmpty()) {
+                return errorResponse("Le nom du fournisseur est obligatoire", HttpStatus.BAD_REQUEST);
+            }
+
             FournisseurDTO created = fournisseurServices.createFournisseur(
                     fournisseurDTO.getNomFournisseur(),
                     fournisseurDTO.getEmail(),
@@ -140,12 +156,13 @@ public class FournisseurController {
             );
             return new ResponseEntity<>(created, HttpStatus.CREATED);
         } catch (RuntimeException e) {
+            log.error("Erreur métier: {}", e.getMessage());
             return errorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
+            log.error("Erreur technique: ", e);
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
     /**
      * Récupère un fournisseur par son ID
      */

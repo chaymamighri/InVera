@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.model.platform.Client;
+import org.erp.invera.model.platform.UserEmail;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
+import org.erp.invera.repository.platform.UserEmailRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.erp.UtilisateurService;
@@ -30,6 +32,7 @@ public class AuthController {
     private final SessionManagementService sessionManagementService;
     private final EmailService emailService;
     private final ClientPlatformService clientPlatformService;
+    private final UserEmailRepository userEmailRepository;
 
     // ==================== LOGIN ====================
     @PostMapping("/login")
@@ -37,78 +40,105 @@ public class AuthController {
         String email = request.get("email");
         String password = request.get("password");
 
-        log.info(" Tentative de login: {}", email);
+        log.info("🔐 Tentative de login: {}", email);
 
         try {
-            Long clientId = null;
-            Map<String, Object> authResult = null;
+            // ✅ 1. Chercher l'utilisateur dans user_emails (tous les utilisateurs)
             Client client = null;
-            String dbName = null;
+            String userRole = null;
+            String userNom = null;
+            String userPrenom = null;
+            Long userId = null;
 
-            // 1. Recherche du client
-            client = findClientByUserEmail(email);
+            Optional<UserEmail> userEmailOpt = userEmailRepository.findByEmail(email);
 
-            if (client != null) {
-                clientId = client.getId();
-                dbName = client.getNomBaseDonnees();
-
-                if (dbName == null || dbName.isEmpty()) {
-                    return ResponseEntity.status(401).body(Map.of("error", "Configuration base de données manquante"));
-                }
-
-                authResult = utilisateurService.authenticate(clientId, email, password);
-
+            if (userEmailOpt.isPresent()) {
+                UserEmail userEmail = userEmailOpt.get();
+                client = clientRepository.findById(userEmail.getClientId())
+                        .orElseThrow(() -> new RuntimeException("Client non trouvé"));
+                userRole = userEmail.getRole();
+                userNom = userEmail.getNom();
+                userPrenom = userEmail.getPrenom();
+                userId = userEmail.getUserId();
+                log.info("✅ Utilisateur trouvé dans user_emails: {} -> client ID={}, rôle={}", email, client.getId(), userRole);
             } else {
-                // 2. Recherche dans toutes les bases ERP
-                List<Client> allClients = clientRepository.findAll();
-
-                for (Client c : allClients) {
-                    try {
-                        Map<String, Object> result = utilisateurService.authenticate(c.getId(), email, password);
-                        if (result != null && !result.isEmpty()) {
-                            client = c;
-                            clientId = c.getId();
-                            dbName = c.getNomBaseDonnees();
-                            authResult = result;
-                            break;
-                        }
-                    } catch (Exception e) {
-                        // Silencieux
-                    }
-                }
+                // Fallback: chercher dans clients (email principal)
+                client = clientRepository.findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("Aucun compte associé à cet email"));
+                userRole = "ADMIN_CLIENT";
+                userNom = client.getNom();
+                userPrenom = client.getPrenom();
+                log.info("✅ Client principal trouvé: {} -> ID={}", email, client.getId());
             }
 
-            if (authResult == null || client == null) {
-                log.warn(" Login échoué: {}", email);
+            Long clientId = client.getId();
+            String dbName = client.getNomBaseDonnees();
+
+            if (dbName == null || dbName.isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Configuration base de données manquante"));
+            }
+
+            // ✅ 2. Vérifier le statut du client AVANT l'authentification
+            if (client.getStatut() == Client.StatutClient.INACTIF) {
+                log.warn("❌ Login refusé: {} - Client INACTIF", email);
+                return ResponseEntity.status(403).body(Map.of(
+                        "error", "ACCOUNT_INACTIVE",
+                        "message", "Votre compte est inactif. Veuillez contacter l'administrateur."
+                ));
+            }
+
+            if (client.getStatut() == Client.StatutClient.VALIDE) {
+                log.warn("❌ Login refusé: {} - En attente de paiement", email);
+                return ResponseEntity.status(403).body(Map.of(
+                        "error", "PAYMENT_PENDING",
+                        "message", "Vos documents ont été validés. Veuillez finaliser votre paiement."
+                ));
+            }
+
+            if (client.getStatut() == Client.StatutClient.REFUSE) {
+                log.warn("❌ Login refusé: {} - Client REFUSE", email);
+                return ResponseEntity.status(403).body(Map.of(
+                        "error", "ACCOUNT_REJECTED",
+                        "message", "Votre inscription a été refusée."
+                ));
+            }
+
+            // ✅ 3. Authentification UNIQUEMENT dans la base de ce client
+            Map<String, Object> authResult = utilisateurService.authenticate(clientId, email, password);
+
+            if (authResult == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
             }
 
-            // 3. Enregistrer la connexion (recordLogin gère tout)
-            Client updatedClient = clientPlatformService.recordLogin(email);
-            client = updatedClient;
+            // ✅ 4. Enregistrer la connexion
+            client = clientPlatformService.recordLogin(clientId, email);
 
+            // ✅ 5. Vérifier les connexions restantes
             boolean hasActiveSubscription = client.getAbonnementActif() != null;
 
-            // 4. Génération du token
-            String token = jwtTokenProvider.generateToken(email, (String) authResult.get("role"), clientId, dbName);
-
-            if (token == null || token.isEmpty()) {
-                return ResponseEntity.status(500).body(Map.of("error", "Erreur lors de la génération du token"));
+            if (!hasActiveSubscription && client.getConnexionsRestantes() <= 0) {
+                return ResponseEntity.status(403).body(Map.of(
+                        "error", "TRIAL_EXPIRED",
+                        "message", "Votre période d'essai est expirée. Veuillez souscrire un abonnement."
+                ));
             }
 
-            // 5. Gestion de session
-            boolean wasOtherSessionActive = sessionManagementService.registerSession(email, token);
+            // ✅ 6. Générer le token (utiliser le rôle depuis user_emails)
+            String token = jwtTokenProvider.generateToken(email, userRole, clientId, dbName);
 
-            // 6. Construction de la réponse
+            // ✅ 7. Gestion de session
+            sessionManagementService.registerSession(email, token);
+
+            // ✅ 8. Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
             response.put("email", email);
-            response.put("role", authResult.get("role"));
+            response.put("role", userRole);
             response.put("type", "CLIENT");
             response.put("clientId", clientId);
-            response.put("clientName", client.getNom());
-            response.put("nom", authResult.get("nom"));
-            response.put("prenom", authResult.get("prenom"));
+            response.put("clientName", client.getNom() != null ? client.getNom() : "");
+            response.put("nom", userNom);
+            response.put("prenom", userPrenom);
             response.put("database", dbName);
             response.put("tenantId", clientId);
             response.put("connexionsRestantes", client.getConnexionsRestantes());
@@ -117,17 +147,7 @@ public class AuthController {
             response.put("statut", client.getStatut().getLabel());
             response.put("hasActiveSubscription", hasActiveSubscription);
 
-            // Avertissement si connexions faibles
-            if (!hasActiveSubscription && client.getConnexionsRestantes() <= 5 && client.getConnexionsRestantes() > 0) {
-                response.put("warning", " Il vous reste " + client.getConnexionsRestantes() +
-                        " connexion(s) avant la fin de votre période d'essai.");
-            }
-
-            if (!wasOtherSessionActive) {
-                response.put("sessionWarning", "Une autre session a été fermée suite à cette connexion");
-            }
-
-            log.info("✅ Login réussi: {} - Rôle: {}", email, authResult.get("role"));
+            log.info("✅ Login réussi: {} - Rôle: {}", email, userRole);
 
             return ResponseEntity.ok(response);
 
@@ -139,11 +159,24 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
         }
     }
-    // ==================== UTILITAIRE ====================
+
+    // ==================== MÉTHODE POUR TROUVER LE CLIENT ====================
 
     private Client findClientByUserEmail(String email) {
-        return clientRepository.findByEmail(email).orElse(null);
+        // ✅ 1. Chercher directement par email (devrait fonctionner)
+        Optional<Client> clientOpt = clientRepository.findByEmail(email);
+        if (clientOpt.isPresent()) {
+            log.info("✅ Client trouvé par email: {}", email);
+            return clientOpt.get();
+        }
+
+        // ✅ 2. Si non trouvé, vérifier si l'utilisateur existe dans les bases clients
+        // Cette partie devrait être évitée - le client DOIT exister dans la base centrale
+
+        log.warn("⚠️ Aucun client trouvé avec l'email: {} dans la base centrale", email);
+        return null;
     }
+
 
     private String generateTempPassword() {
         return UUID.randomUUID().toString().substring(0, 12);

@@ -94,18 +94,13 @@ public class NotificationController {
         String sql;
         if (ADMIN_ROLE.equals(role)) {
             sql = "SELECT * FROM notifications ORDER BY created_at DESC";
+            List<Notification> notifications = tenantRepo.queryWithAuth(sql, this::mapRow, clientId, authClientId);
+            return ResponseEntity.ok(notifications);
         } else {
             sql = "SELECT * FROM notifications WHERE target_role = ? ORDER BY created_at DESC";
+            List<Notification> notifications = tenantRepo.queryWithAuth(sql, this::mapRow, clientId, authClientId, role);
+            return ResponseEntity.ok(notifications);
         }
-
-        List<Notification> notifications;
-        if (ADMIN_ROLE.equals(role)) {
-            notifications = tenantRepo.query(sql, this::mapRow, clientId, authClientId);
-        } else {
-            notifications = tenantRepo.query(sql, this::mapRow, clientId, authClientId, role);
-        }
-
-        return ResponseEntity.ok(notifications);
     }
 
     @GetMapping("/unread-count")
@@ -115,18 +110,13 @@ public class NotificationController {
         String authClientId = String.valueOf(clientId);
         String role = getCurrentRole(authentication);
 
-        String sql;
-        if (ADMIN_ROLE.equals(role)) {
-            sql = "SELECT COUNT(*) FROM notifications WHERE read = false";
-        } else {
-            sql = "SELECT COUNT(*) FROM notifications WHERE target_role = ? AND read = false";
-        }
-
         Long unread;
         if (ADMIN_ROLE.equals(role)) {
-            unread = tenantRepo.queryForObject(sql, Long.class, clientId, authClientId);
+            String sql = "SELECT COUNT(*) FROM notifications WHERE read = false";
+            unread = tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId);
         } else {
-            unread = tenantRepo.queryForObject(sql, Long.class, clientId, authClientId, role);
+            String sql = "SELECT COUNT(*) FROM notifications WHERE target_role = ? AND read = false";
+            unread = tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, role);
         }
 
         return ResponseEntity.ok(unread != null ? unread : 0);
@@ -141,7 +131,7 @@ public class NotificationController {
 
         // Vérifier l'existence et l'accès
         String checkSql = "SELECT * FROM notifications WHERE id = ?";
-        Notification notification = tenantRepo.queryForObject(checkSql, this::mapRow, clientId, authClientId, id);
+        Notification notification = tenantRepo.queryForObjectAuth(checkSql, this::mapRow, clientId, authClientId, id);
 
         if (notification == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -155,7 +145,7 @@ public class NotificationController {
         }
 
         String updateSql = "UPDATE notifications SET read = true WHERE id = ?";
-        tenantRepo.update(updateSql, clientId, authClientId, id);
+        tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
 
         return ResponseEntity.ok(new MessageResponse("OK"));
     }
@@ -167,18 +157,13 @@ public class NotificationController {
         String authClientId = String.valueOf(clientId);
         String role = getCurrentRole(authentication);
 
-        String sql;
-        if (ADMIN_ROLE.equals(role)) {
-            sql = "UPDATE notifications SET read = true WHERE read = false";
-        } else {
-            sql = "UPDATE notifications SET read = true WHERE target_role = ? AND read = false";
-        }
-
         int updated;
         if (ADMIN_ROLE.equals(role)) {
-            updated = tenantRepo.update(sql, clientId, authClientId);
+            String sql = "UPDATE notifications SET read = true WHERE read = false";
+            updated = tenantRepo.updateWithAuth(sql, clientId, authClientId);
         } else {
-            updated = tenantRepo.update(sql, clientId, authClientId, role);
+            String sql = "UPDATE notifications SET read = true WHERE target_role = ? AND read = false";
+            updated = tenantRepo.updateWithAuth(sql, clientId, authClientId, role);
         }
 
         return ResponseEntity.ok(new MessageResponse(updated + " notification(s) marquée(s) comme lues"));
@@ -193,7 +178,7 @@ public class NotificationController {
 
         // Vérifier l'existence et l'accès
         String checkSql = "SELECT * FROM notifications WHERE id = ?";
-        Notification notification = tenantRepo.queryForObject(checkSql, this::mapRow, clientId, authClientId, id);
+        Notification notification = tenantRepo.queryForObjectAuth(checkSql, this::mapRow, clientId, authClientId, id);
 
         if (notification == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -206,7 +191,7 @@ public class NotificationController {
         }
 
         String deleteSql = "DELETE FROM notifications WHERE id = ?";
-        tenantRepo.update(deleteSql, clientId, authClientId, id);
+        tenantRepo.updateWithAuth(deleteSql, clientId, authClientId, id);
 
         return ResponseEntity.ok(new MessageResponse("Notification supprimée"));
     }
@@ -218,18 +203,13 @@ public class NotificationController {
         String authClientId = String.valueOf(clientId);
         String role = getCurrentRole(authentication);
 
-        String sql;
-        if (ADMIN_ROLE.equals(role)) {
-            sql = "DELETE FROM notifications";
-        } else {
-            sql = "DELETE FROM notifications WHERE target_role = ?";
-        }
-
         int deleted;
         if (ADMIN_ROLE.equals(role)) {
-            deleted = tenantRepo.update(sql, clientId, authClientId);
+            String sql = "DELETE FROM notifications";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId);
         } else {
-            deleted = tenantRepo.update(sql, clientId, authClientId, role);
+            String sql = "DELETE FROM notifications WHERE target_role = ?";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, role);
         }
 
         return ResponseEntity.ok(Map.of("deleted", deleted));
@@ -253,18 +233,13 @@ public class NotificationController {
             return ResponseEntity.badRequest().body(new MessageResponse("range must be week or month"));
         }
 
-        String sql;
-        if (ADMIN_ROLE.equals(role)) {
-            sql = "DELETE FROM notifications WHERE created_at >= ?";
-        } else {
-            sql = "DELETE FROM notifications WHERE target_role = ? AND created_at >= ?";
-        }
-
         int deleted;
         if (ADMIN_ROLE.equals(role)) {
-            deleted = tenantRepo.update(sql, clientId, authClientId, from);
+            String sql = "DELETE FROM notifications WHERE created_at >= ?";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, from);
         } else {
-            deleted = tenantRepo.update(sql, clientId, authClientId, role, from);
+            String sql = "DELETE FROM notifications WHERE target_role = ? AND created_at >= ?";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, role, from);
         }
 
         return ResponseEntity.ok(Map.of("deleted", deleted));
@@ -287,18 +262,13 @@ public class NotificationController {
         LocalDateTime from = ym.atDay(1).atStartOfDay();
         LocalDateTime to = ym.plusMonths(1).atDay(1).atStartOfDay();
 
-        String sql;
-        if (ADMIN_ROLE.equals(role)) {
-            sql = "DELETE FROM notifications WHERE created_at >= ? AND created_at < ?";
-        } else {
-            sql = "DELETE FROM notifications WHERE target_role = ? AND created_at >= ? AND created_at < ?";
-        }
-
         int deleted;
         if (ADMIN_ROLE.equals(role)) {
-            deleted = tenantRepo.update(sql, clientId, authClientId, from, to);
+            String sql = "DELETE FROM notifications WHERE created_at >= ? AND created_at < ?";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, from, to);
         } else {
-            deleted = tenantRepo.update(sql, clientId, authClientId, role, from, to);
+            String sql = "DELETE FROM notifications WHERE target_role = ? AND created_at >= ? AND created_at < ?";
+            deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, role, from, to);
         }
 
         return ResponseEntity.ok(Map.of("deleted", deleted));

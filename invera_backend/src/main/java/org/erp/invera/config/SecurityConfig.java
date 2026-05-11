@@ -75,20 +75,37 @@ public class SecurityConfig {
                 .userDetailsService(unifiedUserDetailsService)
 
                 .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers("/webhook/**").permitAll()
+                        .requestMatchers("/webhook/konnect").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ========== PUBLIC API ==========
-                        .requestMatchers("/api/public/**").permitAll()
 
                         // ==========  NOUVEAU : PAIEMENT PUBLIC ==========
+                        // ✅ 2. TOUTES les URLs publiques (AJOUTER /uploads/** ICI)
                         .requestMatchers(
+                                "/uploads/**",
+                                "/uploads/logos/**",
+                                "/uploads/clients/**",
+                                "/uploads/produits/**",
+                                "/images/**",
+                                "/api/public/**",
+                                "/api/produits/uploads/**",
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/activate-account",
+                                "/api/auth/activation-link",
+                                "/api/auth/activation-link-info",
+                                "/api/auth/create-password",
                                 "/paiement/checkout",
+                                "/api/paiement/checkout",
                                 "/webhook/konnect",
+                                "/webhook/**",
                                 "/paiement/succes",
                                 "/paiement/echec",
-                                "/paiement/annuler",
-                                "/api/abonnement/*/paiement/initier",
-                                "/api/paiement/*/konnect"
+                                "/paiement/annuler"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/api/paiement/**").permitAll()
@@ -108,7 +125,9 @@ public class SecurityConfig {
                                 "/api/platform/clients/verify-otp",
                                 "/api/platform/clients/*/justificatifs",
                                 "/api/platform/clients/*/document/*",
-                                "/api/platform/clients/public/logo/*"
+                                "/api/platform/clients/public/logo/*",
+                                "/api/factures/*/pdf",
+                                "/api/factures/public/*/pdf"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
 

@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.erp.FactureDTO;
 import org.erp.invera.model.erp.client.FactureClient;
 import org.erp.invera.service.erp.FactureClientService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.erp.invera.service.erp.FacturePdfService;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class FactureClientController {
 
     private final FactureClientService factureService;
+    private final FacturePdfService facturePdfService;
 
     private String extractToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
@@ -32,6 +33,57 @@ public class FactureClientController {
         }
         throw new RuntimeException("Token JWT manquant ou invalide");
     }
+
+
+    @GetMapping("/public/{id}/pdf")
+    public ResponseEntity<byte[]> viewPublicInvoice(@PathVariable Integer id) {
+        try {
+            byte[] pdfContent = facturePdfService.genererFacturePdfPublic(id);
+
+            if (pdfContent == null || pdfContent.length == 0) {
+                return ResponseEntity.notFound().build();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            // ✅ "inline" = afficher dans le navigateur, pas télécharger
+            headers.setContentDisposition(ContentDisposition.inline().build());
+            // Ou plus simplement :
+            // headers.setContentDispositionFormData("inline", "facture_" + id + ".pdf");
+
+            return ResponseEntity.ok().headers(headers).body(pdfContent);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur génération PDF public: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    /**
+     * Endpoint pour générer l'image du QR code (optionnel)
+     * URL: http://192.168.X.X:8081/api/factures/{id}/qrcode
+     */
+    @GetMapping("/{id}/qrcode")
+    public ResponseEntity<byte[]> generateQRCode(@PathVariable Integer id, HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            byte[] qrCodeImage = facturePdfService.genererQRCodeImage(id, token);
+
+            if (qrCodeImage == null || qrCodeImage.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.IMAGE_PNG);
+
+            return new ResponseEntity<>(qrCodeImage, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur génération QR code: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+
 
     @PreAuthorize("hasRole('COMMERCIAL')")
     @GetMapping("/all")
@@ -148,4 +200,38 @@ public class FactureClientController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadInvoicePdf(
+            @PathVariable Integer id,
+            HttpServletRequest request,
+            @RequestParam(required = false) String token) {
+
+        try {
+            String authToken = token != null ? token : extractToken(request);
+
+            if (authToken == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            // ✅ Utiliser FacturePdfService au lieu de generateInvoicePdf
+            byte[] pdfContent = facturePdfService.genererFacturePdf(id, authToken);
+
+            if (pdfContent == null || pdfContent.length == 0) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("inline", "facture_" + id + ".pdf");
+
+            return new ResponseEntity<>(pdfContent, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            log.error("Erreur génération PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+
 }

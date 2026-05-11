@@ -13,11 +13,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Service de gestion des clients (MULTI-TENANT)
- *
- * Toutes les opérations sont filtrées par tenant via clientId
- */
 @Service
 @Transactional
 public class ClientService {
@@ -43,13 +38,11 @@ public class ClientService {
             client.setTelephone(rs.getString("telephone"));
             client.setAdresse(rs.getString("adresse"));
 
-            // Type client (enum)
             String typeClient = rs.getString("type_client");
             if (typeClient != null) {
                 client.setTypeClient(Client.TypeClient.valueOf(typeClient));
             }
 
-            // Remises (peuvent être null)
             double remiseFidele = rs.getDouble("remise_client_fidele");
             if (!rs.wasNull()) {
                 client.setRemiseClientFidele(remiseFidele);
@@ -85,19 +78,21 @@ public class ClientService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Vérifier unicité du téléphone dans le tenant
+        // Vérifier unicité du téléphone
         String checkTelSql = "SELECT COUNT(*) FROM client WHERE telephone = ?";
-        Integer telCount = tenantRepo.queryForObject(checkTelSql, Integer.class, clientId, authClientId,
+        // ✅ Utiliser queryForObjectAuth
+        Integer telCount = tenantRepo.queryForObjectAuth(checkTelSql, Integer.class, clientId, authClientId,
                 clientDTO.getTelephone());
 
         if (telCount != null && telCount > 0) {
             throw new RuntimeException("Un client avec ce numéro de téléphone existe déjà");
         }
 
-        // Vérifier unicité de l'email dans le tenant (si fourni)
+        // Vérifier unicité de l'email
         if (clientDTO.getEmail() != null && !clientDTO.getEmail().isEmpty()) {
             String checkEmailSql = "SELECT COUNT(*) FROM client WHERE email = ?";
-            Integer emailCount = tenantRepo.queryForObject(checkEmailSql, Integer.class, clientId, authClientId,
+            // ✅ Utiliser queryForObjectAuth
+            Integer emailCount = tenantRepo.queryForObjectAuth(checkEmailSql, Integer.class, clientId, authClientId,
                     clientDTO.getEmail());
 
             if (emailCount != null && emailCount > 0) {
@@ -105,10 +100,8 @@ public class ClientService {
             }
         }
 
-        // Normaliser le type
         Client.TypeClient clientType = normalizeClientType(clientDTO.getType());
 
-        // Calculer la remise selon le type
         Double remiseFidele = null;
         Double remiseVip = null;
         Double remisePro = null;
@@ -124,16 +117,14 @@ public class ClientService {
                 remisePro = getRemiseForClientType("ENTREPRISE", token);
                 break;
             default:
-                // PARTICULIER = pas de remise
                 break;
         }
 
-        // Récupérer l'utilisateur connecté
         String currentUser = jwtTokenProvider.getEmailFromToken(token);
         if (currentUser == null || currentUser.isBlank()) {
             currentUser = "SYSTEM";
         }
-        // Insertion
+
         String insertSql = """
             INSERT INTO client (nom, prenom, telephone, email, adresse, type_client, 
                                 remise_client_fidele, remise_client_vip, remise_client_professionnelle,
@@ -142,7 +133,8 @@ public class ClientService {
             RETURNING id_client
             """;
 
-        Integer id = tenantRepo.queryForObject(insertSql, Integer.class, clientId, authClientId,
+        // ✅ Utiliser queryForObjectAuth
+        Integer id = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
                 clientDTO.getNom(),
                 clientDTO.getPrenom(),
                 clientDTO.getTelephone(),
@@ -155,7 +147,6 @@ public class ClientService {
                 currentUser,
                 LocalDateTime.now());
 
-        // Retourner le client créé
         return findById(id, token);
     }
 
@@ -164,7 +155,8 @@ public class ClientService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT * FROM client ORDER BY nom ASC, prenom ASC";
-        return tenantRepo.query(sql, clientRowMapper(), clientId, authClientId);
+        // ✅ Utiliser queryWithAuth
+        return tenantRepo.queryWithAuth(sql, clientRowMapper(), clientId, authClientId);
     }
 
     public List<Client> searchClients(String keyword, String token) {
@@ -186,7 +178,8 @@ public class ClientService {
 
         String searchPattern = "%" + keyword.toLowerCase().trim() + "%";
 
-        return tenantRepo.query(sql, clientRowMapper(), clientId, authClientId,
+        // ✅ Utiliser queryWithAuth
+        return tenantRepo.queryWithAuth(sql, clientRowMapper(), clientId, authClientId,
                 searchPattern, searchPattern, searchPattern, searchPattern);
     }
 
@@ -195,7 +188,8 @@ public class ClientService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT * FROM client WHERE id_client = ?";
-        Client client = tenantRepo.queryForObject(sql, clientRowMapper(), clientId, authClientId, id);
+        // ✅ Utiliser queryForObjectAuth
+        Client client = tenantRepo.queryForObjectAuth(sql, clientRowMapper(), clientId, authClientId, id);
 
         if (client == null) {
             throw new RuntimeException("Client non trouvé avec l'ID: " + id);
@@ -207,13 +201,12 @@ public class ClientService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Vérifier existance
         Client existing = findById(id, token);
 
-        // Vérifier unicité téléphone (si changé)
         if (!existing.getTelephone().equals(clientDTO.getTelephone())) {
             String checkTelSql = "SELECT COUNT(*) FROM client WHERE telephone = ? AND id_client != ?";
-            Integer telCount = tenantRepo.queryForObject(checkTelSql, Integer.class, clientId, authClientId,
+            // ✅ Utiliser queryForObjectAuth
+            Integer telCount = tenantRepo.queryForObjectAuth(checkTelSql, Integer.class, clientId, authClientId,
                     clientDTO.getTelephone(), id);
 
             if (telCount != null && telCount > 0) {
@@ -221,11 +214,11 @@ public class ClientService {
             }
         }
 
-        // Vérifier unicité email (si changé et non null)
         if (clientDTO.getEmail() != null && !clientDTO.getEmail().isEmpty() &&
                 (existing.getEmail() == null || !existing.getEmail().equals(clientDTO.getEmail()))) {
             String checkEmailSql = "SELECT COUNT(*) FROM client WHERE email = ? AND id_client != ?";
-            Integer emailCount = tenantRepo.queryForObject(checkEmailSql, Integer.class, clientId, authClientId,
+            // ✅ Utiliser queryForObjectAuth
+            Integer emailCount = tenantRepo.queryForObjectAuth(checkEmailSql, Integer.class, clientId, authClientId,
                     clientDTO.getEmail(), id);
 
             if (emailCount != null && emailCount > 0) {
@@ -233,7 +226,6 @@ public class ClientService {
             }
         }
 
-        // Calculer les nouvelles remises si le type change
         Client.TypeClient nouveauType = null;
         Double remiseFidele = existing.getRemiseClientFidele();
         Double remiseVip = existing.getRemiseClientVIP();
@@ -242,7 +234,6 @@ public class ClientService {
         if (clientDTO.getType() != null) {
             nouveauType = normalizeClientType(clientDTO.getType());
 
-            // Réinitialiser les remises selon le nouveau type
             remiseFidele = null;
             remiseVip = null;
             remisePro = null;
@@ -262,7 +253,6 @@ public class ClientService {
             }
         }
 
-        // Mise à jour
         String updateSql = """
             UPDATE client 
             SET nom = ?, prenom = ?, telephone = ?, email = ?, adresse = ?, 
@@ -272,7 +262,8 @@ public class ClientService {
 
         String typeStr = (nouveauType != null) ? nouveauType.name() : existing.getTypeClient().name();
 
-        tenantRepo.update(updateSql, clientId, authClientId,
+        // ✅ Utiliser updateWithAuth
+        tenantRepo.updateWithAuth(updateSql, clientId, authClientId,
                 clientDTO.getNom(),
                 clientDTO.getPrenom(),
                 clientDTO.getTelephone(),
@@ -291,19 +282,19 @@ public class ClientService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Vérifier que le client existe
-        findById(id, token); // Lève exception si non trouvé
+        findById(id, token);
 
-        // Vérifier si le client a des commandes (optionnel)
         String checkCommandesSql = "SELECT COUNT(*) FROM commande_client WHERE client_id = ?";
-        Integer commandesCount = tenantRepo.queryForObject(checkCommandesSql, Integer.class, clientId, authClientId, id);
+        // ✅ Utiliser queryForObjectAuth
+        Integer commandesCount = tenantRepo.queryForObjectAuth(checkCommandesSql, Integer.class, clientId, authClientId, id);
 
         if (commandesCount != null && commandesCount > 0) {
             throw new RuntimeException("Impossible de supprimer ce client car il a " + commandesCount + " commande(s)");
         }
 
         String deleteSql = "DELETE FROM client WHERE id_client = ?";
-        int deleted = tenantRepo.update(deleteSql, clientId, authClientId, id);
+        // ✅ Utiliser updateWithAuth
+        int deleted = tenantRepo.updateWithAuth(deleteSql, clientId, authClientId, id);
 
         if (deleted == 0) {
             throw new RuntimeException("Erreur lors de la suppression du client");
@@ -315,7 +306,8 @@ public class ClientService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT COUNT(*) FROM client WHERE telephone = ?";
-        Integer count = tenantRepo.queryForObject(sql, Integer.class, clientId, authClientId, telephone);
+        // ✅ Utiliser queryForObjectAuth
+        Integer count = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, authClientId, telephone);
 
         return count != null && count > 0;
     }
@@ -330,11 +322,11 @@ public class ClientService {
     }
 
     // ==================== Gestion des remises par type ====================
+
     public Double getRemiseForClientType(String typeClient, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Récupérer tenant_id
         String tenantId = getTenantIdFromToken(token);
 
         if (typeClient == null) return null;
@@ -346,9 +338,9 @@ public class ClientService {
                 return 0.0;
             }
 
-            // ✅ AJOUTER tenant_id dans la requête
             String sql = "SELECT remise FROM client_type_discount WHERE tenant_id = ? AND type_client = ?";
-            Double configuredRemise = tenantRepo.queryForObject(sql, Double.class, clientId, authClientId, tenantId, type.name());
+            // ✅ Utiliser queryForObjectAuth
+            Double configuredRemise = tenantRepo.queryForObjectAuth(sql, Double.class, clientId, authClientId, tenantId, type.name());
 
             if (configuredRemise != null) {
                 return configuredRemise;
@@ -363,8 +355,10 @@ public class ClientService {
 
     private String getTenantIdFromToken(String token) {
         Long clientAdminId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientAdminId);
         String sql = "SELECT tenant_id FROM client_admin WHERE id = ?";
-        return tenantRepo.queryForObject(sql, String.class, clientAdminId, String.valueOf(clientAdminId), clientAdminId);
+        // ✅ Utiliser queryForObjectAuth
+        return tenantRepo.queryForObjectAuth(sql, String.class, clientAdminId, authClientId, clientAdminId);
     }
 
     public Double updateRemiseForClientType(String typeClient, Double remise, String token) {
@@ -380,7 +374,6 @@ public class ClientService {
 
         Client.TypeClient type = normalizeClientType(typeClient);
 
-        // PARTICULIER : interdiction de modifier
         if (type == Client.TypeClient.PARTICULIER) {
             if (Double.compare(remise, 0.0) != 0) {
                 throw new IllegalArgumentException("Le type PARTICULIER doit conserver une remise de 0%");
@@ -388,19 +381,20 @@ public class ClientService {
             return 0.0;
         }
 
-        // UPSERT : remplacer si existe, insérer sinon
         String checkSql = "SELECT COUNT(*) FROM client_type_discount WHERE type_client = ?";
-        Integer count = tenantRepo.queryForObject(checkSql, Integer.class, clientId, authClientId, type.name());
+        // ✅ Utiliser queryForObjectAuth
+        Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, authClientId, type.name());
 
         if (count != null && count > 0) {
             String updateSql = "UPDATE client_type_discount SET remise = ? WHERE type_client = ?";
-            tenantRepo.update(updateSql, clientId, authClientId, remise, type.name());
+            // ✅ Utiliser updateWithAuth
+            tenantRepo.updateWithAuth(updateSql, clientId, authClientId, remise, type.name());
         } else {
             String insertSql = "INSERT INTO client_type_discount (type_client, remise) VALUES (?, ?)";
-            tenantRepo.update(insertSql, clientId, authClientId, type.name(), remise);
+            // ✅ Utiliser updateWithAuth
+            tenantRepo.updateWithAuth(insertSql, clientId, authClientId, type.name(), remise);
         }
 
-        // Mettre à jour tous les clients de ce type avec la nouvelle remise
         String updateClientsSql = "";
         switch (type) {
             case FIDELE:
@@ -417,7 +411,8 @@ public class ClientService {
         }
 
         if (!updateClientsSql.isEmpty()) {
-            tenantRepo.update(updateClientsSql, clientId, authClientId, remise, type.name());
+            // ✅ Utiliser updateWithAuth
+            tenantRepo.updateWithAuth(updateClientsSql, clientId, authClientId, remise, type.name());
         }
 
         return remise;
@@ -451,6 +446,7 @@ public class ClientService {
                 return null;
         }
 
-        return tenantRepo.queryForObject(sql, Double.class, clientId, authClientId);
+        // ✅ Utiliser queryForObjectAuth
+        return tenantRepo.queryForObjectAuth(sql, Double.class, clientId, authClientId);
     }
 }
