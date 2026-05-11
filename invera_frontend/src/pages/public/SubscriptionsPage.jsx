@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PublicHeader from '../../components/PublicHeader';
 import { useLanguage } from '../../context/LanguageContext';
 
 const SubscriptionsPage = () => {
@@ -81,19 +80,7 @@ const SubscriptionsPage = () => {
   return (
     <div className="min-h-screen bg-[#f6f9fc] text-slate-900">
       <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
-        <PublicHeader
-          title={t('subscriptions.pageTitle')}
-          backTo="/welcome"
-          backLabel={t('common.backToWelcome')}
-          actions={
-            <Link
-              to="/login"
-              className="inline-flex rounded-full bg-[#0b2f6b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0b4ea2]"
-            >
-              {t('common.login')}
-            </Link>
-          }
-        />
+        
 
         <main className="mt-8">
           <section className="mb-8 rounded-[30px] border border-sky-100 bg-white p-8 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
