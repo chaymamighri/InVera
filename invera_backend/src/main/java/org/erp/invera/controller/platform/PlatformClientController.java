@@ -567,6 +567,7 @@ public class PlatformClientController {
                         .isActive(client.getIsActive())
                         .connexionsRestantes(client.getConnexionsRestantes())
                         .connexionsMax(client.getConnexionsMax())
+                        .telegramChatId(client.getTelegramChatId())
                         .build();
 
                 // Récupérer tous les abonnements du client triés par date de début DESC
@@ -661,6 +662,7 @@ public class PlatformClientController {
         map.put("gerantCinUrl", client.getGerantCinUrl());
         map.put("patenteUrl", client.getPatenteUrl());
         map.put("rneUrl", client.getRneUrl());
+        map.put("telegramChatId", client.getTelegramChatId());
         return map;
     }
 
@@ -953,6 +955,36 @@ public class PlatformClientController {
     }
 
 // ========== MÉTHODES PRIVÉES ==========
+
+    @PutMapping("/telegram-chat")
+    public ResponseEntity<?> updateTelegramChat(
+            @RequestBody Map<String, Long> request,
+            @RequestHeader("Authorization") String token) {
+        try {
+            Long clientId = getClientIdFromToken(token);
+            Long telegramChatId = request.get("telegramChatId");
+
+            if (clientId == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Utilisateur non authentifie"));
+            }
+
+            if (telegramChatId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "telegramChatId est requis"));
+            }
+
+            Client client = clientPlatformService.updateTelegramChatId(clientId, telegramChatId);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "clientId", client.getId(),
+                    "telegramChatId", client.getTelegramChatId(),
+                    "message", "Telegram chat id enregistre avec succes"
+            ));
+        } catch (Exception e) {
+            log.error("Erreur mise a jour telegramChatId: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
     /**
      * Extraire le clientId du token JWT

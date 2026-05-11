@@ -63,6 +63,8 @@ export const translations = {
       salesManager: 'Responsable Ventes',
       administrator: 'Administrateur',
       user: 'Utilisateur',
+      telegramAssistant: 'Assistant AI',
+      telegramOpenError: "Impossible d'ouvrir Telegram",
     },
     welcome: {
       heroTitle: 'Gestion intelligente des operations',
@@ -552,6 +554,8 @@ export const translations = {
       salesManager: 'Sales Manager',
       administrator: 'Administrator',
       user: 'User',
+      telegramAssistant: 'AI Assistant',
+      telegramOpenError: 'Unable to open Telegram',
     },
     welcome: {
       heroTitle: 'Smart operations management',
@@ -1038,6 +1042,8 @@ export const translations = {
       salesManager: 'مسؤول المبيعات',
       administrator: 'المدير',
       user: 'مستخدم',
+      telegramAssistant: 'المساعد الذكي',
+      telegramOpenError: 'تعذر فتح تيليجرام',
     },
     welcome: {
       heroTitle: 'إدارة ذكية للعمليات',
