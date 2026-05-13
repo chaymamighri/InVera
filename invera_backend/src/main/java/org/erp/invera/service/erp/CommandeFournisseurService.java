@@ -323,9 +323,17 @@ public class CommandeFournisseurService {
             lignesDTO.add(ligneDTO);
         }
 
-        BigDecimal totalHT = lignesDTO.stream().map(LigneCommandeDTO::getSousTotalHT).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalTVA = lignesDTO.stream().map(LigneCommandeDTO::getMontantTVA).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalTTC = lignesDTO.stream().map(LigneCommandeDTO::getSousTotalTTC).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalHT = lignesDTO.stream()
+                .map(LigneCommandeDTO::getSousTotalHT)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTVA = lignesDTO.stream()
+                .map(LigneCommandeDTO::getMontantTVA)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTTC = lignesDTO.stream()
+                .map(LigneCommandeDTO::getSousTotalTTC)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         String updateTotauxSql = "UPDATE commandes_fournisseurs SET totalht = ?, totaltva = ?, totalttc = ? WHERE id_commande_fournisseur = ?";
         tenantRepo.updateWithAuth(updateTotauxSql, clientId, authClientId, totalHT, totalTVA, totalTTC, commandeId);

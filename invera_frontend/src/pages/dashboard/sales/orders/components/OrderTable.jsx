@@ -1,10 +1,10 @@
 // src/pages/dashboard/sales/orders/components/OrderTable.jsx
 import React, { useState } from 'react';
-import { 
-  ChevronDownIcon, 
-  ChevronUpIcon, 
-  EyeIcon, 
-  CheckCircleIcon, 
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EyeIcon,
+  CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
   CheckBadgeIcon,
@@ -19,55 +19,55 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
+const DEFAULT_TRANSLATIONS = {
+  'salesPages.orderNumber': 'N° commande',
+  'salesPages.client': 'Client',
+  'salesPages.creationDate': 'Date de création',
+  'salesPages.products': 'Produits',
+  'salesPages.finalAmount': 'Montant total',
+  'salesPages.status': 'Statut',
+  'salesPages.actions': 'Actions',
+  'salesPages.pending': 'En attente',
+  'salesPages.confirmed': 'Confirmé',
+  'salesPages.rejected': 'Refusé',
+  'salesPages.view': 'Voir détails',
+  'salesPages.validate': 'Valider',
+  'salesPages.reject': 'Rejeter',
+  'salesPages.noOrdersFound': 'Aucune commande trouvée',
+  'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
+  'salesPages.processed': 'Traitée'
+};
+
 const OrderTable = ({
-  commandes,
+  commandes = [],
   sortField,
   sortDirection,
-  onSort,
-  onValider,
-  onRejeter,
-  onVoirDetails,
-  toNumber,
+  onSort = () => {},
+  onValider = () => {},
+  onRejeter = () => {},
+  onVoirDetails = () => {},
+  toNumber = (value) => Number(value) || 0,
   validationError,
-  setValidationError,
+  setValidationError = () => {},
   t
 }) => {
-  // ✅ Fonction de traduction sécurisée (fallback)
   const safeT = (key) => {
-    if (!t) return key;
-    const translated = t(key);
-    if (!translated || translated === key) {
-      const fallbacks = {
-        'salesPages.orderNumber': 'N° commande',
-        'salesPages.client': 'Client',
-        'salesPages.creationDate': 'Date de création',
-        'salesPages.products': 'Produits',
-        'salesPages.finalAmount': 'Montant total',
-        'salesPages.status': 'Statut',
-        'salesPages.actions': 'Actions',
-        'salesPages.pending': 'En attente',
-        'salesPages.confirmed': 'Confirmé',
-        'salesPages.rejected': 'Refusé',
-        'salesPages.view': 'Voir détails',
-        'salesPages.validate': 'Valider',
-        'salesPages.reject': 'Rejeter',
-        'salesPages.noOrdersFound': 'Aucune commande trouvée',
-        'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
-        'salesPages.processed': 'Traitée'
-      };
-      return fallbacks[key] || key;
+    if (typeof t !== 'function') {
+      return DEFAULT_TRANSLATIONS[key] || key;
     }
-    return translated;
+
+    const translated = t(key);
+    return !translated || translated === key
+      ? (DEFAULT_TRANSLATIONS[key] || key)
+      : translated;
   };
 
-  // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Fonction pour formater la date
   const formatDate = (dateString) => {
     if (!dateString) return 'Date inconnue';
-    
+
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('fr-FR', {
@@ -82,7 +82,6 @@ const OrderTable = ({
     }
   };
 
-  // Fonction pour formater le montant
   const formatMontant = (montant) => {
     return toNumber(montant).toLocaleString('fr-TN', {
       minimumFractionDigits: 2,
@@ -90,35 +89,29 @@ const OrderTable = ({
     }) + ' dt';
   };
 
-  // Fonction pour calculer le pourcentage de remise
   const calculerPourcentageRemise = (sousTotal, remise) => {
     if (toNumber(sousTotal) === 0 || toNumber(remise) === 0) return 0;
     return Math.round((toNumber(remise) / toNumber(sousTotal)) * 100);
   };
 
-  // Fonction pour obtenir la couleur selon le type de client
   const getClientTypeColor = (type) => {
-    switch(type?.toUpperCase()) {
+    switch (type?.toUpperCase()) {
       case 'VIP':
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'FIDELE':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'ENTREPRISE':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'PROFESSIONNEL':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'STANDARD':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  // Fonction pour obtenir l'icône selon le type de client
   const getClientTypeIcon = (type) => {
-    switch(type?.toUpperCase()) {
+    switch (type?.toUpperCase()) {
       case 'ENTREPRISE':
-        return <BuildingOfficeIcon className="h-3 w-3 mr-1" />;
       case 'PROFESSIONNEL':
         return <BuildingOfficeIcon className="h-3 w-3 mr-1" />;
       default:
@@ -126,76 +119,69 @@ const OrderTable = ({
     }
   };
 
-  // Calculs de pagination
   const totalPages = Math.max(1, Math.ceil(commandes.length / itemsPerPage));
   const startIndex = Math.min((currentPage - 1) * itemsPerPage, commandes.length);
   const endIndex = Math.min(startIndex + itemsPerPage, commandes.length);
   const currentCommandes = commandes.slice(startIndex, endIndex);
 
-  // Navigation de pagination
   const goToPage = (page) => {
     const newPage = Math.max(1, Math.min(page, totalPages));
     setCurrentPage(newPage);
   };
 
-  // Gestion du changement d'items par page
   const handleItemsPerPageChange = (e) => {
-    const newItemsPerPage = parseInt(e.target.value);
+    const newItemsPerPage = parseInt(e.target.value, 10);
     setItemsPerPage(newItemsPerPage);
-    
+
     const newTotalPages = Math.ceil(commandes.length / newItemsPerPage);
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages || 1);
     }
   };
 
-  // Générer les numéros de page
   const getPageNumbers = () => {
     if (totalPages <= 1) return [1];
-    
+
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      
+
       let start = Math.max(2, currentPage - 1);
       let end = Math.min(totalPages - 1, currentPage + 1);
-      
+
       if (currentPage <= 3) {
         end = Math.min(4, totalPages - 1);
       }
+
       if (currentPage >= totalPages - 2) {
         start = Math.max(totalPages - 3, 2);
       }
-      
+
       if (start > 2) pages.push('...');
-      
+
       for (let i = start; i <= end; i++) pages.push(i);
-      
+
       if (end < totalPages - 1) pages.push('...');
       if (totalPages > 1) pages.push(totalPages);
     }
-    
+
     return pages;
   };
 
-  // Réinitialiser à la première page si les données changent
   React.useEffect(() => {
     setCurrentPage(1);
   }, [commandes.length]);
 
-  // Fermer le popup d'erreur
   const closeErrorPopup = () => {
     setValidationError(null);
   };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      
-      {/* Popup d'erreur stock insuffisant */}
       {validationError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -209,7 +195,7 @@ const OrderTable = ({
                 </h3>
               </div>
             </div>
-            
+
             <div className="p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-full">
@@ -224,14 +210,15 @@ const OrderTable = ({
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-red-700">
                   <span className="font-medium">💡 Solution :</span> Rapprovisionnez le stock avant de valider la commande.
                 </p>
               </div>
-              
+
               <button
+                type="button"
                 onClick={closeErrorPopup}
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
@@ -242,7 +229,6 @@ const OrderTable = ({
         </div>
       )}
 
-      {/* En-tête avec statistiques */}
       <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
@@ -254,12 +240,11 @@ const OrderTable = ({
         </div>
       </div>
 
-      {/* Tableau */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th 
+              <th
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => onSort('numero')}
               >
@@ -267,55 +252,55 @@ const OrderTable = ({
                   <ShoppingBagIcon className="h-3 w-3 mr-1.5 text-gray-500" />
                   {safeT('salesPages.orderNumber')}
                   {sortField === 'numero' && (
-                    sortDirection === 'asc' ? 
-                      <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
-                      <ChevronDownIcon className="ml-1 h-3 w-3" />
-                  )}
-                </div>
-              </th>
-          
-              <th 
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => onSort('clientNom')} 
-              >
-                <div className="flex items-center">
-                  <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
-                  {safeT('salesPages.client')}
-                  {sortField === 'clientNom' && (  
-                    sortDirection === 'asc' ? 
-                      <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
-                      <ChevronDownIcon className="ml-1 h-3 w-3" />
+                    sortDirection === 'asc'
+                      ? <ChevronUpIcon className="ml-1 h-3 w-3" />
+                      : <ChevronDownIcon className="ml-1 h-3 w-3" />
                   )}
                 </div>
               </th>
 
-              <th 
+              <th
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => onSort('dateCommande')} 
+                onClick={() => onSort('clientNom')}
+              >
+                <div className="flex items-center">
+                  <UserCircleIcon className="h-3 w-3 mr-1.5 text-gray-500" />
+                  {safeT('salesPages.client')}
+                  {sortField === 'clientNom' && (
+                    sortDirection === 'asc'
+                      ? <ChevronUpIcon className="ml-1 h-3 w-3" />
+                      : <ChevronDownIcon className="ml-1 h-3 w-3" />
+                  )}
+                </div>
+              </th>
+
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => onSort('dateCommande')}
               >
                 <div className="flex items-center">
                   <CalendarIcon className="h-3 w-3 mr-1.5 text-gray-500" />
                   {safeT('salesPages.creationDate')}
-                  {sortField === 'dateCommande' && ( 
-                    sortDirection === 'desc' ? 
-                      <ChevronUpIcon className="ml-1 h-3 w-3" /> : 
-                      <ChevronDownIcon className="ml-1 h-3 w-3" />
+                  {sortField === 'dateCommande' && (
+                    sortDirection === 'desc'
+                      ? <ChevronUpIcon className="ml-1 h-3 w-3" />
+                      : <ChevronDownIcon className="ml-1 h-3 w-3" />
                   )}
                 </div>
               </th>
-              
+
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {safeT('salesPages.products')}
               </th>
-              
+
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {safeT('salesPages.finalAmount')}
               </th>
-              
+
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {safeT('salesPages.status')}
               </th>
-              
+
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 {safeT('salesPages.actions')}
               </th>
@@ -324,10 +309,9 @@ const OrderTable = ({
           <tbody className="bg-white divide-y divide-gray-100">
             {currentCommandes.map((commande) => {
               const pourcentageRemise = calculerPourcentageRemise(commande.sousTotal, commande.remise);
-              
+
               return (
                 <tr key={commande.id} className="hover:bg-gray-50 transition-colors">
-                  {/* N° Commande */}
                   <td className="px-4 py-3">
                     <div className="space-y-1">
                       <div className="font-semibold text-blue-600 text-sm">
@@ -340,7 +324,6 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                  {/* Client */}
                   <td className="px-4 py-3">
                     <div className="space-y-1">
                       <div className="font-medium text-gray-900 text-sm flex items-center">
@@ -360,14 +343,12 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                  {/* Date de création */}
                   <td className="px-4 py-3">
                     <div className="text-sm text-gray-900">
                       {formatDate(commande.dateCommande)}
                     </div>
                   </td>
 
-                  {/* Produits */}
                   <td className="px-4 py-3">
                     <div>
                       <div className="text-sm font-medium text-gray-900 flex items-center">
@@ -376,22 +357,22 @@ const OrderTable = ({
                         </span>
                         produit{commande.produits?.length !== 1 ? 's' : ''}
                       </div>
-                      
+
                       <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
                         {(() => {
                           if (!commande.produits || commande.produits.length === 0) {
                             return <span className="text-gray-400 italic">Aucun produit</span>;
                           }
-                          
+
                           const produitsAAfficher = commande.produits
-                            .filter(p => p && p.libelle)
+                            .filter((p) => p && p.libelle)
                             .slice(0, 2);
-                          
+
                           if (produitsAAfficher.length === 0) {
                             return `${commande.produits.length} produit(s)`;
                           }
 
-                          const affichage = produitsAAfficher.map(p => {
+                          const affichage = produitsAAfficher.map((p) => {
                             const quantite = p.quantite ? `x${p.quantite}` : '';
                             return quantite ? `${p.libelle} (${quantite})` : p.libelle;
                           }).join(', ');
@@ -406,13 +387,12 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                  {/* Montant Final avec Remise */}
                   <td className="px-4 py-3 text-right">
                     <div>
                       <div className="font-bold text-gray-900 text-lg">
                         {formatMontant(commande.total)}
                       </div>
-                      
+
                       {pourcentageRemise > 0 && (
                         <div className="flex items-center justify-end mt-1">
                           <div className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium border border-green-200">
@@ -427,50 +407,58 @@ const OrderTable = ({
                     </div>
                   </td>
 
-                  {/* Statut */}
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
-                      <button className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center justify-center w-32 ${
-                        commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente'
-                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300' 
-                          : commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé'
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
-                          : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
-                      } transition-colors`}>
+                      <button
+                        type="button"
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center justify-center w-32 ${
+                          commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente'
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
+                            : commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé'
+                              ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
+                              : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
+                        } transition-colors`}
+                      >
                         {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && <ClockIcon className="h-3.5 w-3.5 mr-1.5" />}
                         {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
                         {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
                         <span className="font-semibold">
-                          {commande.statut === 'EN_ATTENTE' ? safeT('salesPages.pending') : 
-                           commande.statut === 'CONFIRMEE' ? safeT('salesPages.confirmed') : 
-                           commande.statut === 'ANNULEE' ? safeT('salesPages.rejected') : commande.statut}
+                          {commande.statut === 'EN_ATTENTE'
+                            ? safeT('salesPages.pending')
+                            : commande.statut === 'CONFIRMEE'
+                              ? safeT('salesPages.confirmed')
+                              : commande.statut === 'ANNULEE'
+                                ? safeT('salesPages.rejected')
+                                : commande.statut}
                         </span>
                       </button>
                     </div>
                   </td>
 
-                  {/* Actions */}
                   <td className="px-4 py-3">
                     <div className="flex items-center space-x-2">
                       <button
+                        type="button"
                         onClick={() => onVoirDetails(commande)}
                         className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200"
                         title={safeT('salesPages.view')}
                       >
                         <EyeIcon className="h-4 w-4" />
                       </button>
-                      
+
                       {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && (
                         <>
                           <button
+                            type="button"
                             onClick={() => onValider(commande.id)}
                             className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 rounded-lg transition-all duration-200"
                             title={safeT('salesPages.validate')}
                           >
                             <CheckCircleIcon className="h-4 w-4" />
                           </button>
-                          
+
                           <button
+                            type="button"
                             onClick={() => onRejeter(commande.id)}
                             className="p-1.5 text-red-600 hover:text-white hover:bg-red-600 rounded-lg transition-all duration-200"
                             title={safeT('salesPages.reject')}
@@ -480,7 +468,7 @@ const OrderTable = ({
                         </>
                       )}
 
-                      {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' || 
+                      {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' ||
                         commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
                         <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300">
                           {safeT('salesPages.processed')}
@@ -495,7 +483,6 @@ const OrderTable = ({
         </table>
       </div>
 
-      {/* État vide */}
       {commandes.length === 0 && (
         <div className="text-center py-12 px-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
@@ -508,11 +495,9 @@ const OrderTable = ({
         </div>
       )}
 
-      {/* Pagination */}
       {commandes.length > 0 && (
         <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            {/* Informations de pagination */}
             <div className="text-sm text-gray-700">
               Affichage de <span className="font-medium">{startIndex + 1}</span> à{' '}
               <span className="font-medium">{endIndex}</span> sur{' '}
@@ -520,7 +505,6 @@ const OrderTable = ({
             </div>
 
             <div className="flex flex-col md:flex-row items-center gap-4">
-              {/* Sélection du nombre d'éléments par page */}
               <div className="text-sm text-gray-700 flex items-center">
                 <span className="mr-2">Afficher :</span>
                 <select
@@ -537,9 +521,9 @@ const OrderTable = ({
                 <span className="ml-2">par page</span>
               </div>
 
-              {/* Contrôles de pagination */}
               <div className="flex items-center space-x-2">
                 <button
+                  type="button"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
                   className={`p-2 rounded-lg border ${
@@ -554,29 +538,33 @@ const OrderTable = ({
 
                 <div className="flex items-center space-x-1">
                   {getPageNumbers().map((page, index) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                          currentPage === page
-                            ? 'bg-blue-600 text-white border border-blue-700'
-                            : 'text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400'
-                        } transition-colors`}
-                        aria-label={`Page ${page}`}
-                        aria-current={currentPage === page ? 'page' : undefined}
-                      >
-                        {page}
-                      </button>
-                    )
+                    page === '...'
+                      ? (
+                        <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-500">
+                          ...
+                        </span>
+                      )
+                      : (
+                        <button
+                          type="button"
+                          key={page}
+                          onClick={() => goToPage(page)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white border border-blue-700'
+                              : 'text-gray-700 border border-gray-300 hover:bg-gray-100 hover:border-gray-400'
+                          } transition-colors`}
+                          aria-label={`Page ${page}`}
+                          aria-current={currentPage === page ? 'page' : undefined}
+                        >
+                          {page}
+                        </button>
+                      )
                   ))}
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className={`p-2 rounded-lg border ${

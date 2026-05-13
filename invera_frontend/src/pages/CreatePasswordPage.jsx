@@ -295,7 +295,7 @@ const CreatePasswordPage = () => {
                     type="email"
                     value={activationInfo?.email || ''}
                     disabled
-                    className="block w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-3 text-sm text-gray-500 shadow-sm outline-none"
+                    className="block w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-900 shadow-sm outline-none cursor-not-allowed"
                     placeholder={copy.emailPlaceholder}
                   />
                 </div>
