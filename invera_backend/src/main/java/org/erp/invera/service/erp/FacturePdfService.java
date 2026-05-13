@@ -5,13 +5,6 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.itextpdf.html2pdf.HtmlConverter;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.AreaBreak;
-import com.itextpdf.layout.element.IBlockElement;
-import com.itextpdf.layout.element.IElement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Produit;
@@ -34,8 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -365,48 +357,52 @@ public class FacturePdfService {
     }
     private List<LigneCommandeDTO> getLignesCommandeByFactureId(Integer factureId, Long clientId, String authClientId) {
         String sql = """
-        SELECT 
-            l.quantite,
-            l.prix_unitaire,
-            l.sous_total,
-            COALESCE(p.libelle, 'Article') as produit_libelle
-        FROM facture_client f
-        JOIN commande_client c ON f.commande_id = c.id_commande_client
-        JOIN ligne_commande_client l ON c.id_commande_client = l.commande_client_id
-        LEFT JOIN produit p ON l.produit_id = p.id_produit
-        WHERE f.id_facture_client = ?
-        ORDER BY l.id_ligne_commande_client
-        """;
+    SELECT 
+        l.quantite,
+        l.prix_unitaire,
+        l.sous_total as sous_total_ht,
+        COALESCE(p.libelle, 'Article') as produit_libelle,
+        COALESCE(c.taux_tva, 0) as taux_tva
+    FROM facture_client f
+    JOIN commande_client cde ON f.commande_id = cde.id_commande_client
+    JOIN ligne_commande_client l ON cde.id_commande_client = l.commande_client_id
+    LEFT JOIN produit p ON l.produit_id = p.id_produit
+    LEFT JOIN categorie c ON p.categorie_id = c.id_categorie
+    WHERE f.id_facture_client = ?
+    ORDER BY l.id_ligne_commande_client
+    """;
 
-        log.info("🔍 Exécution requête lignes facture: {}", sql);
+        log.info("🔍 Exécution requête lignes facture avec TVA catégorie");
 
         return tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
             LigneCommandeDTO ligne = new LigneCommandeDTO();
             ligne.setQuantite(rs.getInt("quantite"));
             ligne.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
-            ligne.setSousTotalHT(rs.getBigDecimal("sous_total"));
-            ligne.setSousTotalTTC(rs.getBigDecimal("sous_total"));
-            ligne.setTauxTVA(BigDecimal.valueOf(19)); // TVA par défaut
+
+            // ✅ Montant HT (sous-total sans TVA)
+            BigDecimal montantHT = rs.getBigDecimal("sous_total_ht");
+            ligne.setSousTotalHT(montantHT);
+
+            // ✅ Récupérer le taux TVA depuis la catégorie
+            BigDecimal tauxTVA = rs.getBigDecimal("taux_tva");
+            if (tauxTVA == null) {
+                tauxTVA = BigDecimal.ZERO;
+            }
+            ligne.setTauxTVA(tauxTVA);
+
+            // ✅ Calculer le TTC = HT * (1 + TVA/100)
+            BigDecimal montantTTC = montantHT.multiply(
+                    BigDecimal.ONE.add(tauxTVA.divide(BigDecimal.valueOf(100)))
+            );
+            ligne.setSousTotalTTC(montantTTC);
+
             ligne.setDescription(rs.getString("produit_libelle"));
+
+            log.debug("Produit: {}, HT: {}, TVA: {}%, TTC: {}",
+                    ligne.getDescription(), montantHT, tauxTVA, montantTTC);
+
             return ligne;
         }, clientId, authClientId, factureId);
-    }
-
-    /**
-     * RowMapper pour LigneCommandeDTO
-     */
-    private class LigneCommandeRowMapper implements RowMapper<LigneCommandeDTO> {
-        @Override
-        public LigneCommandeDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
-            LigneCommandeDTO ligne = new LigneCommandeDTO();
-            ligne.setQuantite(rs.getInt("quantite"));
-            ligne.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
-            ligne.setSousTotalHT(rs.getBigDecimal("sous_total_ht"));
-            ligne.setSousTotalTTC(rs.getBigDecimal("sous_total_ttc"));
-            ligne.setTauxTVA(rs.getBigDecimal("taux_tva"));
-            ligne.setDescription(rs.getString("produit_libelle"));
-            return ligne;
-        }
     }
     /**
      * Récupère un client de la plateforme par son ID
@@ -535,18 +531,19 @@ public class FacturePdfService {
     }
 
     /**
-     * Calcule les totaux
+     * Calcule les totaux à partir des lignes (avec TVA par produit)
      */
     private TotauxDTO calculerTotaux(List<LigneCommandeDTO> lignes) {
         TotauxDTO totaux = new TotauxDTO();
 
-        BigDecimal sousTotal = BigDecimal.ZERO;
+        BigDecimal totalHT = BigDecimal.ZERO;
         BigDecimal totalTTC = BigDecimal.ZERO;
+        BigDecimal tvaParProduit = BigDecimal.ZERO;
 
         if (lignes != null && !lignes.isEmpty()) {
             for (LigneCommandeDTO ligne : lignes) {
                 if (ligne.getSousTotalHT() != null) {
-                    sousTotal = sousTotal.add(ligne.getSousTotalHT());
+                    totalHT = totalHT.add(ligne.getSousTotalHT());
                 }
                 if (ligne.getSousTotalTTC() != null) {
                     totalTTC = totalTTC.add(ligne.getSousTotalTTC());
@@ -554,18 +551,68 @@ public class FacturePdfService {
             }
         }
 
-        totaux.setSousTotal(sousTotal);
+        // Calcul de la TVA totale (TTC - HT)
+        BigDecimal tvaTotale = totalTTC.subtract(totalHT);
+
+        // Taux TVA moyen (pour affichage)
+        BigDecimal tvaTauxMoyen = BigDecimal.ZERO;
+        if (totalHT.compareTo(BigDecimal.ZERO) > 0) {
+            tvaTauxMoyen = tvaTotale.multiply(BigDecimal.valueOf(100))
+                    .divide(totalHT, 2, BigDecimal.ROUND_HALF_UP);
+        }
+
+        totaux.setSousTotal(totalHT);
         totaux.setTotalTTC(totalTTC);
         totaux.setRemise(BigDecimal.ZERO);
         totaux.setRemiseTaux(BigDecimal.ZERO);
+        totaux.setTva(tvaTotale);
+        totaux.setTvaTaux(tvaTauxMoyen);
 
-        BigDecimal tva = totalTTC.subtract(sousTotal);
-        totaux.setTva(tva);
-        totaux.setTvaTaux(BigDecimal.valueOf(19));
+        log.info("📊 Totaux calculés - HT: {}, TVA: {} ({}%), TTC: {}",
+                totalHT, tvaTotale, tvaTauxMoyen, totalTTC);
 
         return totaux;
     }
 
+    /**
+     * Obtient le détail de la TVA par taux pour une facture
+     * Retourne une Map: taux -> montant TVA
+     */
+    public Map<BigDecimal, BigDecimal> getDetailTVA(Integer factureId, String token) {
+        Long clientId = jwtTokenProvider.getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        String sql = """
+    SELECT 
+        COALESCE(c.taux_tva, 0) as taux_tva,
+        SUM(l.sous_total) as montant_ht
+    FROM facture_client f
+    JOIN commande_client cde ON f.commande_id = cde.id_commande_client
+    JOIN ligne_commande_client l ON cde.id_commande_client = l.commande_client_id
+    LEFT JOIN produit p ON l.produit_id = p.id_produit
+    LEFT JOIN categorie c ON p.categorie_id = c.id_categorie
+    WHERE f.id_facture_client = ?
+    GROUP BY c.taux_tva
+    ORDER BY c.taux_tva
+    """;
+
+        List<Map<String, Object>> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("taux", rs.getBigDecimal("taux_tva"));
+            detail.put("montantHT", rs.getBigDecimal("montant_ht"));
+            return detail;
+        }, clientId, authClientId, factureId);
+
+        Map<BigDecimal, BigDecimal> detailTVA = new HashMap<>();
+        for (Map<String, Object> result : results) {
+            BigDecimal taux = (BigDecimal) result.get("taux");
+            BigDecimal montantHT = (BigDecimal) result.get("montantHT");
+            BigDecimal montantTVA = montantHT.multiply(taux).divide(BigDecimal.valueOf(100));
+            detailTVA.put(taux, montantTVA);
+        }
+
+        return detailTVA;
+    }
 
     /**
      * Formate un montant
@@ -587,414 +634,273 @@ public class FacturePdfService {
                 .replace("'", "&#39;")
                .replace("%", "%%");
     }
-
-
     /**
-     * Génère le HTML de la facture
+     * Génère le HTML de la facture - Version finale corrigée
      */
     private String generateInvoiceHtml(FactureClient facture, Client clientConnecte,
                                        List<LigneCommandeDTO> lignes, TotauxDTO totaux,
                                        String qrCodeBase64) {
-        boolean hasRemise = totaux.getRemise() != null && totaux.getRemise().compareTo(BigDecimal.ZERO) > 0;
 
-        String numeroCommande = null;
-        if (facture.getCommande() != null) {
+        // ========== DONNÉES DYNAMIQUES ==========
+        String dateFacture = "";
+        if (facture.getDateFacture() != null) {
+            dateFacture = facture.getDateFacture().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        }
+
+        String referenceFacture = facture.getReferenceFactureClient() != null ?
+                facture.getReferenceFactureClient() : "N/A";
+
+        String numeroCommande = "";
+        if (facture.getCommande() != null && facture.getCommande().getReferenceCommandeClient() != null) {
             numeroCommande = facture.getCommande().getReferenceCommandeClient();
         }
 
-        // Vérifier si le client a un logo
-        boolean hasLogo = clientConnecte != null && clientConnecte.getLogoUrl() != null && !clientConnecte.getLogoUrl().isEmpty();
-
-        // Générer les lignes HTML
-        StringBuilder itemsHtml = new StringBuilder();
-        if (lignes != null && !lignes.isEmpty()) {
-            for (LigneCommandeDTO ligne : lignes) {
-                itemsHtml.append("<tr>");
-                itemsHtml.append("<td>").append(escapeHtml(ligne.getDescription())).append("</td>");
-                itemsHtml.append("<td class=\"text-center\">").append(ligne.getQuantite()).append("</td>");
-                itemsHtml.append("<td class=\"text-right\">").append(formatMontant(ligne.getPrixUnitaire())).append("</td>");
-                itemsHtml.append("<td class=\"text-right\">").append(formatMontant(ligne.getSousTotalTTC())).append("</td>");
-                itemsHtml.append("</tr>\n");
-            }
-        } else {
-            itemsHtml.append("<tr><td colspan=\"4\" class=\"text-center\" style=\"padding: 30px;\">Aucun article</td></tr>");
-        }
-
-        // Infos entreprise émettrice (client connecté)
-        String entrepriseNom = "";
-        String telephone = "";
-        String email = "";
-        String matriculeFiscal = "";
-        boolean isEntreprise = false;
+        // ========== INFOS ÉMETTEUR ==========
+        String emetteurNom = "";
+        String emetteurTel = "";
+        String emetteurEmail = "";
+        String emetteurMatriculeFiscal = "";
+        String emetteurLogo = "";
+        boolean hasLogo = false;
 
         if (clientConnecte != null) {
-            isEntreprise = clientConnecte.getTypeCompte() == Client.TypeCompte.ENTREPRISE;
-
-            if (isEntreprise) {
-                entrepriseNom = clientConnecte.getRaisonSociale() != null && !clientConnecte.getRaisonSociale().isEmpty()
-                        ? clientConnecte.getRaisonSociale() : "";
-                matriculeFiscal = clientConnecte.getMatriculeFiscal() != null ? clientConnecte.getMatriculeFiscal() : "";
+            if (clientConnecte.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+                emetteurNom = clientConnecte.getRaisonSociale() != null ? clientConnecte.getRaisonSociale() : "";
             } else {
-                String nom = clientConnecte.getNom() != null ? clientConnecte.getNom() : "";
                 String prenom = clientConnecte.getPrenom() != null ? clientConnecte.getPrenom() : "";
-                entrepriseNom = (nom + " " + prenom).trim();
+                String nom = clientConnecte.getNom() != null ? clientConnecte.getNom() : "";
+                emetteurNom = (prenom + " " + nom).trim();
             }
-            telephone = clientConnecte.getTelephone() != null ? clientConnecte.getTelephone() : "";
-            email = clientConnecte.getEmail() != null ? clientConnecte.getEmail() : "";
+            emetteurEmail = clientConnecte.getEmail() != null ? clientConnecte.getEmail() : "";
+            emetteurTel = clientConnecte.getTelephone() != null ? clientConnecte.getTelephone() : "";
+            emetteurMatriculeFiscal = clientConnecte.getMatriculeFiscal() != null ? clientConnecte.getMatriculeFiscal() : "";
+
+            if (clientConnecte.getLogoUrl() != null && !clientConnecte.getLogoUrl().isEmpty()) {
+                emetteurLogo = clientConnecte.getLogoUrl();
+                hasLogo = true;
+            }
         }
 
-        // Infos client destinataire
-        String clientNom = "Non renseigné";
-        String clientEmail = "Non renseigné";
-        String clientTelephone = "Non renseigné";
+        // ========== INFOS DESTINATAIRE ==========
+        String destinataireNom = "Non renseigné";
+        String destinataireAdresse = "";
+        String destinataireEmail = "Non renseigné";
+        String destinataireTelephone = "Non renseigné";
 
         if (facture.getClient() != null) {
-            clientNom = (facture.getClient().getNom() != null ? facture.getClient().getNom() : "") +
-                    " " + (facture.getClient().getPrenom() != null ? facture.getClient().getPrenom() : "");
-            clientNom = clientNom.trim().isEmpty() ? "Non renseigné" : clientNom;
-            clientEmail = facture.getClient().getEmail() != null ? facture.getClient().getEmail() : "Non renseigné";
-            clientTelephone = facture.getClient().getTelephone() != null ? facture.getClient().getTelephone() : "Non renseigné";
+            org.erp.invera.model.erp.client.Client erpClient = facture.getClient();
+            String prenom = erpClient.getPrenom() != null ? erpClient.getPrenom() : "";
+            String nom = erpClient.getNom() != null ? erpClient.getNom() : "";
+            destinataireNom = (prenom + " " + nom).trim();
+            if (destinataireNom.isEmpty()) destinataireNom = "Non renseigné";
+            destinataireAdresse = erpClient.getAdresse() != null ? erpClient.getAdresse() : "";
+            destinataireEmail = erpClient.getEmail() != null ? erpClient.getEmail() : "Non renseigné";
+            destinataireTelephone = erpClient.getTelephone() != null ? erpClient.getTelephone() : "Non renseigné";
         }
 
-        String primaryColor = "#2563eb";
+        // ========== GÉNÉRATION LIGNES TVA ==========
+        StringBuilder itemsHtml = new StringBuilder();
+        Map<BigDecimal, BigDecimal> tvaParTaux = new LinkedHashMap<>();
+        BigDecimal totalHTLignes = BigDecimal.ZERO;
 
-        // Convertir le montant total en toutes lettres
-        String totalEnLettres = convertMontantToWords(totaux.getTotalTTC());
+        if (lignes != null && !lignes.isEmpty()) {
+            int index = 1;
+            for (LigneCommandeDTO ligne : lignes) {
+                BigDecimal prixHT = ligne.getPrixUnitaire();
+                BigDecimal quantite = new BigDecimal(ligne.getQuantite());
+                BigDecimal montantHT = prixHT.multiply(quantite);
+                BigDecimal tauxTVA = ligne.getTauxTVA() != null ? ligne.getTauxTVA() : BigDecimal.ZERO;
+                BigDecimal montantTVA = montantHT.multiply(tauxTVA).divide(BigDecimal.valueOf(100), 3, BigDecimal.ROUND_HALF_UP);
+                BigDecimal montantTTC = montantHT.add(montantTVA);
 
-        // Construction du HTML
+                totalHTLignes = totalHTLignes.add(montantHT);
+                tvaParTaux.merge(tauxTVA, montantTVA, BigDecimal::add);
+
+                // TABLEAU CORRIGÉ - 7 colonnes bien formées
+                itemsHtml.append("   <tr>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center;\">").append(index++).append("</td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: left;\"><strong>").append(escapeHtml(ligne.getDescription())).append("</strong></td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center;\">").append(ligne.getQuantite()).append("</td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: right;\">").append(formatMontant(prixHT)).append("</td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center;\"><span class=\"tva-badge\">").append(tauxTVA).append("%</span></td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: right;\">").append(formatMontant(montantTVA)).append("</td>\n");
+                itemsHtml.append("       <td style=\"padding: 10px 8px; border: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #f59e0b;\">").append(formatMontant(montantTTC)).append("</td>\n");
+                itemsHtml.append("   </tr>\n");
+            }
+        } else {
+            itemsHtml.append("   <tr><td colspan=\"7\" style=\"padding: 30px; text-align: center;\">Aucun article</td></tr>\n");
+        }
+
+        BigDecimal totalHT = totaux.getSousTotal() != null ? totaux.getSousTotal() : totalHTLignes;
+        BigDecimal totalTTC = totaux.getTotalTTC() != null ? totaux.getTotalTTC() : BigDecimal.ZERO;
+        BigDecimal totalTVA = totalTTC.subtract(totalHT);
+
+        String totalEnLettres = convertMontantToWords(totalTTC);
+
+        // ========== CONSTRUCTION HTML ==========
         StringBuilder html = new StringBuilder();
 
         html.append("<!DOCTYPE html>\n");
         html.append("<html>\n");
         html.append("<head>\n");
         html.append("    <meta charset=\"UTF-8\">\n");
-        html.append("    <title>Facture ").append(facture.getReferenceFactureClient()).append("</title>\n");
+        html.append("    <title>Facture ").append(referenceFacture).append("</title>\n");
         html.append("    <style>\n");
         html.append("        * { margin: 0; padding: 0; box-sizing: border-box; }\n");
-        html.append("        body {\n");
-        html.append("            font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;\n");
-        html.append("            background: #f0f2f5;\n");
-        html.append("            padding: 40px 20px;\n");
-        html.append("        }\n");
-        html.append("        .invoice-container {\n");
-        html.append("            max-width: 1000px;\n");
-        html.append("            margin: 0 auto;\n");
-        html.append("            background: white;\n");
-        html.append("            border-radius: 16px;\n");
-        html.append("            box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1);\n");
-        html.append("            overflow: hidden;\n");
-        html.append("        }\n");
-        html.append("        /* ========== HEADER ========== */\n");
-        html.append("        .header {\n");
-        html.append("            padding: 20px 35px;\n");
-        html.append("            display: flex;\n");
-        html.append("            justify-content: space-between;\n");
-        html.append("            align-items: center;\n");
-        html.append("            border-bottom: 1px solid #e9ecef;\n");
-        html.append("            background: white;\n");
-        html.append("            min-height: 130px;\n");
-        html.append("        }\n");
-        html.append("        .left-section {\n");
-        html.append("            display: flex;\n");
-        html.append("            flex-direction: column;\n");
-        html.append("            align-items: flex-start;\n");
-        html.append("            gap: 6px;\n");
-        html.append("            flex: 1;\n");
-        html.append("        }\n");
-        html.append("        .center-section {\n");
-        html.append("            text-align: center;\n");
-        html.append("            flex: 1;\n");
-        html.append("        }\n");
-        html.append("        .right-section {\n");
-        html.append("            display: flex;\n");
-        html.append("            justify-content: flex-end;\n");
-        html.append("            flex: 1;\n");
-        html.append("        }\n");
-        html.append("        .logo {\n");
-        html.append("            max-width: 70px;\n");
-        html.append("            max-height: 55px;\n");
-        html.append("            object-fit: contain;\n");
-        html.append("        }\n");
-        html.append("        .company-details {\n");
-        html.append("            text-align: left;\n");
-        html.append("        }\n");
-        html.append("        .company-name {\n");
-        html.append("            font-size: 13px;\n");
-        html.append("            font-weight: 700;\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            margin-bottom: 3px;\n");
-        html.append("        }\n");
-        html.append("        .company-details p {\n");
-        html.append("            margin: 2px 0;\n");
-        html.append("            font-size: 9px;\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("        }\n");
-        html.append("        .invoice-title {\n");
-        html.append("            font-size: 22px;\n");
-        html.append("            font-weight: 800;\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            letter-spacing: 3px;\n");
-        html.append("            margin-bottom: 4px;\n");
-        html.append("        }\n");
-        html.append("        .invoice-ref {\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("            font-size: 11px;\n");
-        html.append("            font-family: monospace;\n");
-        html.append("        }\n");
-        html.append("        .qr-code-section {\n");
-        html.append("            display: flex;\n");
-        html.append("            flex-direction: column;\n");
-        html.append("            align-items: center;\n");
-        html.append("        }\n");
-        html.append("        .qr-code {\n");
-        html.append("            width: 75px;\n");
-        html.append("            height: 75px;\n");
-        html.append("        }\n");
-        html.append("        .qr-text {\n");
-        html.append("            font-size: 7px;\n");
-        html.append("            color: #8b9bb0;\n");
-        html.append("            margin-top: 5px;\n");
-        html.append("            text-align: center;\n");
-        html.append("            line-height: 1.2;\n");
-        html.append("        }\n");
-        html.append("        /* ========== INFO GRID ========== */\n");
-        html.append("        .info-grid {\n");
-        html.append("            padding: 25px 30px;\n");
-        html.append("            display: flex;\n");
-        html.append("            flex-direction: row;\n");
-        html.append("            gap: 30px;\n");
-        html.append("            background: #f8fafc;\n");
-        html.append("        }\n");
-        html.append("        .info-card {\n");
-        html.append("            background: white;\n");
-        html.append("            border-radius: 10px;\n");
-        html.append("            padding: 15px 20px;\n");
-        html.append("            border: 1px solid #e9ecef;\n");
-        html.append("            flex: 1;\n");
-        html.append("        }\n");
-        html.append("        .info-card h3 {\n");
-        html.append("            font-size: 10px;\n");
-        html.append("            font-weight: 700;\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("            text-transform: uppercase;\n");
-        html.append("            letter-spacing: 1px;\n");
-        html.append("            margin-bottom: 12px;\n");
-        html.append("        }\n");
-        html.append("        .info-row {\n");
-        html.append("            display: flex;\n");
-        html.append("            margin-bottom: 8px;\n");
-        html.append("        }\n");
-        html.append("        .info-label {\n");
-        html.append("            width: 80px;\n");
-        html.append("            font-size: 10px;\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("        }\n");
-        html.append("        .info-value {\n");
-        html.append("            font-size: 11px;\n");
-        html.append("            font-weight: 500;\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("        }\n");
-        html.append("        .montant-highlight .info-value {\n");
-        html.append("            font-size: 18px;\n");
-        html.append("            font-weight: 800;\n");
-        html.append("            color: ").append(primaryColor).append(";\n");
-        html.append("        }\n");
-        html.append("        /* ========== ARTICLES ========== */\n");
-        html.append("        .articles-section {\n");
-        html.append("            padding: 20px 30px;\n");
-        html.append("        }\n");
-        html.append("        .section-title {\n");
-        html.append("            font-size: 12px;\n");
-        html.append("            font-weight: 700;\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            margin-bottom: 15px;\n");
-        html.append("            text-transform: uppercase;\n");
-        html.append("            letter-spacing: 1px;\n");
-        html.append("        }\n");
-        html.append("        table {\n");
-        html.append("            width: 100%;\n");
-        html.append("            border-collapse: collapse;\n");
-        html.append("        }\n");
-        html.append("        th {\n");
-        html.append("            background: #f8fafc;\n");
-        html.append("            padding: 10px 8px;\n");
-        html.append("            text-align: left;\n");
-        html.append("            font-size: 10px;\n");
-        html.append("            font-weight: 600;\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("            text-transform: uppercase;\n");
-        html.append("            border-bottom: 1px solid #e9ecef;\n");
-        html.append("        }\n");
-        html.append("        td {\n");
-        html.append("            padding: 10px 8px;\n");
-        html.append("            text-align: left;\n");
-        html.append("            font-size: 11px;\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            border-bottom: 1px solid #e9ecef;\n");
-        html.append("        }\n");
-        html.append("        .text-center { text-align: center; }\n");
-        html.append("        .text-right { text-align: right; }\n");
-        // ==================== TOTAUX ====================
-        html.append("        /* ========== TOTAUX ========== */\n");
-        html.append("        .totaux-section {\n");
-        html.append("            padding: 15px 30px 25px 30px;\n");
-        html.append("        }\n");
-        html.append("        .totaux-container {\n");
-        html.append("            max-width: 350px;\n");
-        html.append("            margin-left: auto;\n");
-        html.append("            background: #f8fafc;\n");
-        html.append("            border-radius: 10px;\n");
-        html.append("            padding: 15px 25px;\n");
-        html.append("        }\n");
-        html.append("        .total-row {\n");
-        html.append("            display: flex;\n");
-        html.append("            justify-content: space-between;\n");
-        html.append("            align-items: center;\n");
-        html.append("            padding: 8px 0;\n");
-        html.append("        }\n");
-        html.append("        .total-label {\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("            font-size: 12px;\n");
-        html.append("            font-weight: 500;\n");
-        html.append("            width: 120px;\n");
-        html.append("            text-align: left;\n");
-        html.append("        }\n");
-        html.append("        .total-value {\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            font-size: 12px;\n");
-        html.append("            font-weight: 600;\n");
-        html.append("            font-family: monospace;\n");
-        html.append("            text-align: right;\n");
-        html.append("            width: 110px;\n");
-        html.append("        }\n");
-        html.append("        .grand-total-row {\n");
-        html.append("            border-top: 2px solid #e9ecef;\n");
-        html.append("            margin-top: 8px;\n");
-        html.append("            padding-top: 12px;\n");
-        html.append("        }\n");
-        html.append("        .grand-total-label {\n");
-        html.append("            color: #1a1f36;\n");
-        html.append("            font-size: 14px;\n");
-        html.append("            font-weight: 800;\n");
-        html.append("            width: 120px;\n");
-        html.append("            text-align: left;\n");
-        html.append("        }\n");
-        html.append("        .grand-total-value {\n");
-        html.append("            color: ").append(primaryColor).append(";\n");
-        html.append("            font-size: 16px;\n");
-        html.append("            font-weight: 800;\n");
-        html.append("            font-family: monospace;\n");
-        html.append("            text-align: right;\n");
-        html.append("            width: 110px;\n");
-        html.append("        }\n");
-        html.append("        .total-letters-title {\n");
-        html.append("            text-align: right;\n");
-        html.append("            font-size: 9px;\n");
-        html.append("            font-weight: 600;\n");
-        html.append("            color: #5c6f87;\n");
-        html.append("            margin-top: 12px;\n");
-        html.append("            padding-top: 8px;\n");
-        html.append("            border-top: 1px dashed #e9ecef;\n");
-        html.append("            text-transform: uppercase;\n");
-        html.append("            letter-spacing: 0.5px;\n");
-        html.append("        }\n");
-        html.append("        .total-letters {\n");
-        html.append("            text-align: right;\n");
-        html.append("            font-size: 9px;\n");
-        html.append("            color: #8b9bb0;\n");
-        html.append("            margin-top: 4px;\n");
-        html.append("            font-style: italic;\n");
-        html.append("        }\n");
-        html.append("        /* ========== FOOTER ========== */\n");
-        html.append("        .footer {\n");
-        html.append("            padding: 15px 30px;\n");
-        html.append("            text-align: center;\n");
-        html.append("            border-top: 1px solid #e9ecef;\n");
-        html.append("            background: #fefefe;\n");
-        html.append("        }\n");
-        html.append("        .footer p {\n");
-        html.append("            font-size: 9px;\n");
-        html.append("            color: #8b9bb0;\n");
-        html.append("            margin: 2px 0;\n");
-        html.append("        }\n");
-        html.append("        @media print {\n");
-        html.append("            body { background: white; padding: 0; }\n");
-        html.append("            .invoice-container { box-shadow: none; border-radius: 0; }\n");
-        html.append("        }\n");
+        html.append("        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f5; padding: 20px; }\n");
+        html.append("        .invoice { max-width: 1000px; margin: 0 auto; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }\n");
+        html.append("        \n");
+        html.append("        /* HEADER */\n");
+        html.append("        .header { background: linear-gradient(135deg, #0a2a5e, #1a4d8c, #2c6eb0); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }\n");
+        html.append("        .header-left { width: 200px; text-align: center; }\n");
+        html.append("        .logo { max-height: 55px; max-width: 110px; background: white; padding: 5px; border-radius: 6px; }\n");
+        html.append("        .company-name { font-size: 12px; font-weight: bold; color: white; margin-top: 6px; }\n");
+        html.append("        .header-center { flex: 1; text-align: center; }\n");
+        html.append("        .invoice-title { font-size: 24px; font-weight: bold; letter-spacing: 3px; color: white; margin-bottom: 5px; }\n");
+        html.append("        .invoice-ref { font-size: 12px; font-family: monospace; color: rgba(255,255,255,0.85); margin-bottom: 3px; }\n");
+        html.append("        .invoice-date { font-size: 11px; color: rgba(255,255,255,0.7); }\n");
+        html.append("        .header-right { width: 100px; text-align: center; }\n");
+        html.append("        .qr-code { width: 55px; height: 55px; background: white; border-radius: 8px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }\n");
+        html.append("        .qr-code img { width: 100%; height: 100%; object-fit: contain; }\n");
+        html.append("        .qr-text { font-size: 8px; color: rgba(255,255,255,0.7); margin-top: 4px; }\n");
+        html.append("        \n");
+        html.append("        /* SECTION INFOS */\n");
+        html.append("        .info-section { padding: 20px 25px; display: flex; gap: 30px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }\n");
+        html.append("        .info-card { flex: 1; background: white; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; }\n");
+        html.append("        .info-card-header { padding: 10px 15px; font-size: 12px; font-weight: bold; background: #f1f5f9; border-bottom: 2px solid; }\n");
+        html.append("        .info-card-header.emetteur { color: #1a4d8c; border-bottom-color: #1a4d8c; }\n");
+        html.append("        .info-card-header.destinataire { color: #f59e0b; border-bottom-color: #f59e0b; }\n");
+        html.append("        .info-card-body { padding: 12px 15px; }\n");
+        html.append("        .info-row { margin-bottom: 8px; }\n");
+        html.append("        .info-label { font-size: 9px; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px; }\n");
+        html.append("        .info-value { font-size: 12px; font-weight: 500; color: #1e293b; }\n");
+        html.append("        \n");
+        html.append("        /* CARTES COMMANDE */\n");
+        html.append("        .order-cards { padding: 20px 25px; display: flex; justify-content: center; gap: 30px; background: white; border-bottom: 1px solid #e2e8f0; }\n");
+        html.append("        .order-card { width: 250px; background: #f8fafc; border-radius: 10px; padding: 12px; border: 1px solid #e2e8f0; text-align: center; }\n");
+        html.append("        .order-card-label { font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase; }\n");
+        html.append("        .order-card-value { font-size: 13px; font-weight: bold; color: #1a4d8c; margin-top: 4px; }\n");
+        html.append("        \n");
+        html.append("        /* TABLEAU */\n");
+        html.append("        .table-section { padding: 20px 25px; }\n");
+        html.append("        .section-title { font-size: 12px; font-weight: bold; color: #1e293b; margin-bottom: 12px; }\n");
+        html.append("        table { width: 100%; border-collapse: collapse; font-size: 11px; }\n");
+        html.append("        th { background: #1a4d8c; color: white; padding: 10px 8px; border: 1px solid #2a5d9c; text-align: center; }\n");
+        html.append("        td { padding: 10px 8px; border: 1px solid #e2e8f0; }\n");
+        html.append("        .tva-badge { background: #eef2ff; padding: 2px 8px; border-radius: 12px; font-size: 9px; font-weight: 600; color: #1a4d8c; }\n");
+        html.append("        \n");
+        html.append("        /* TOTAUX A DROITE */\n");
+        html.append("        .totaux-section { padding: 15px 25px; display: flex; justify-content: flex-end; }\n");
+        html.append("        .totaux-card { width: 320px; border: 1px solid #1a4d8c; border-radius: 10px; padding: 12px 20px; }\n");
+        html.append("        .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 12px; }\n");
+        html.append("        .total-label { color: #64748b; font-weight: 500; }\n");
+        html.append("        .total-value { font-weight: 600; color: #1e293b; font-family: monospace; }\n");
+        html.append("        .grand-total { border-top: 1px solid #e2e8f0; margin-top: 8px; padding-top: 10px; }\n");
+        html.append("        .grand-total-label, .grand-total-value { font-weight: 700; color: #1a4d8c; font-size: 14px; }\n");
+        html.append("        \n");
+        html.append("        /* MONTANT EN LETTRES */\n");
+        html.append("        .amount-letters { margin: 0 25px 20px 25px; padding: 12px 18px; background: #fefce8; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; }\n");
+        html.append("        .amount-title { font-size: 10px; font-weight: 600; color: #1a4d8c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }\n");
+        html.append("        .amount-text { font-size: 12px; font-style: italic; color: #475569; font-weight: 500; line-height: 1.4; }\n");
+        html.append("        \n");
+        html.append("        /* SIGNATURE */\n");
+        html.append("        .signature-section { padding: 15px 25px 25px; display: flex; gap: 30px; }\n");
+        html.append("        .signature-item { flex: 1; text-align: center; }\n");
+        html.append("        .signature-item span { font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 8px; }\n");
+        html.append("        .signature-line { border-top: 1px solid #cbd5e1; width: 70%; margin: 8px auto 0; }\n");
+        html.append("        .signature-space { height: 35px; }\n");
+        html.append("        \n");
+        html.append("        @media print { body { background: white; } .invoice { box-shadow: none; } }\n");
+        html.append("        @media (max-width: 700px) { .header { flex-direction: column; gap: 10px; } .info-section, .order-cards, .signature-section { flex-direction: column; } .totaux-card { width: 100%; } }\n");
         html.append("    </style>\n");
         html.append("</head>\n");
         html.append("<body>\n");
-        html.append("<div class=\"invoice-container\">\n");
+        html.append("<div class=\"invoice\">\n");
 
-        // ==================== HEADER ====================
+        // ========== HEADER ==========
         html.append("<div class=\"header\">\n");
-
-        // SECTION GAUCHE - Logo et infos entreprise
-        html.append("    <div class=\"left-section\">\n");
+        html.append("    <div class=\"header-left\">\n");
         if (hasLogo) {
-            html.append("        <img src=\"").append(clientConnecte.getLogoUrl()).append("\" class=\"logo\" alt=\"Logo\" />\n");
+            html.append("        <img src=\"").append(emetteurLogo).append("\" class=\"logo\" alt=\"Logo\">\n");
         }
-        if (!entrepriseNom.isEmpty() || !telephone.isEmpty() || !email.isEmpty() || (isEntreprise && !matriculeFiscal.isEmpty())) {
-            html.append("        <div class=\"company-details\">\n");
-            if (!entrepriseNom.isEmpty()) {
-                html.append("            <div class=\"company-name\">").append(escapeHtml(entrepriseNom)).append("</div>\n");
-            }
-            if (isEntreprise && !matriculeFiscal.isEmpty()) {
-                html.append("            <p>🆔 MF: ").append(escapeHtml(matriculeFiscal)).append("</p>\n");
-            }
-            if (!telephone.isEmpty()) {
-                html.append("            <p>📞 ").append(escapeHtml(telephone)).append("</p>\n");
-            }
-            if (!email.isEmpty()) {
-                html.append("            <p>✉️ ").append(escapeHtml(email)).append("</p>\n");
-            }
-            html.append("        </div>\n");
-        }
+        html.append("        <div class=\"company-name\">").append(escapeHtml(emetteurNom)).append("</div>\n");
         html.append("    </div>\n");
-
-        // SECTION CENTRALE - FACTURE et référence
-        html.append("    <div class=\"center-section\">\n");
+        html.append("    <div class=\"header-center\">\n");
         html.append("        <div class=\"invoice-title\">FACTURE</div>\n");
-        html.append("        <div class=\"invoice-ref\">").append(facture.getReferenceFactureClient()).append("</div>\n");
+        html.append("        <div class=\"invoice-ref\"># ").append(referenceFacture).append("</div>\n");
+        html.append("        <div class=\"invoice-date\">Date : ").append(dateFacture).append("</div>\n");
         html.append("    </div>\n");
-
-        // SECTION DROITE - QR Code
-        html.append("    <div class=\"right-section\">\n");
-        html.append("        <div class=\"qr-code-section\">\n");
+        html.append("    <div class=\"header-right\">\n");
+        html.append("        <div class=\"qr-code\">\n");
         if (qrCodeBase64 != null && !qrCodeBase64.isEmpty()) {
-            html.append("            <img src=\"data:image/png;base64,").append(qrCodeBase64).append("\" class=\"qr-code\" alt=\"QR Code\" />\n");
+            html.append("            <img src=\"data:image/png;base64,").append(qrCodeBase64).append("\" alt=\"QR\">\n");
+        } else {
+            html.append("            <div style=\"width:45px;height:45px;background:#eee;border-radius:6px;\"></div>\n");
         }
-        html.append("            <span class=\"qr-text\">Scanner pour voir<br>le détail de la facture</span>\n");
+        html.append("        </div>\n");
+        html.append("        <div class=\"qr-text\">SCANNER</div>\n");
+        html.append("    </div>\n");
+        html.append("</div>\n");
+
+        // ========== ÉMETTEUR / DESTINATAIRE ==========
+        html.append("<div class=\"info-section\">\n");
+        html.append("    <div class=\"info-card\">\n");
+        html.append("        <div class=\"info-card-header emetteur\">ÉMETTEUR</div>\n");
+        html.append("        <div class=\"info-card-body\">\n");
+        html.append("            <div class=\"info-row\"><div class=\"info-label\">Nom / Raison sociale</div><div class=\"info-value\">").append(escapeHtml(emetteurNom)).append("</div></div>\n");
+        if (!emetteurTel.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Téléphone</div><div class=\"info-value\">").append(escapeHtml(emetteurTel)).append("</div></div>\n");
+        }
+        if (!emetteurEmail.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Email</div><div class=\"info-value\">").append(escapeHtml(emetteurEmail)).append("</div></div>\n");
+        }
+        if (!emetteurMatriculeFiscal.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Matricule Fiscal</div><div class=\"info-value\">").append(escapeHtml(emetteurMatriculeFiscal)).append("</div></div>\n");
+        }
+        html.append("        </div>\n");
+        html.append("    </div>\n");
+        html.append("    <div class=\"info-card\">\n");
+        html.append("        <div class=\"info-card-header destinataire\">DESTINATAIRE</div>\n");
+        html.append("        <div class=\"info-card-body\">\n");
+        html.append("            <div class=\"info-row\"><div class=\"info-label\">Nom / Prénom</div><div class=\"info-value\">").append(escapeHtml(destinataireNom)).append("</div></div>\n");
+        if (!destinataireAdresse.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Adresse</div><div class=\"info-value\">").append(escapeHtml(destinataireAdresse)).append("</div></div>\n");
+        }
+        if (!destinataireTelephone.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Téléphone</div><div class=\"info-value\">").append(escapeHtml(destinataireTelephone)).append("</div></div>\n");
+        }
+        if (!destinataireEmail.isEmpty()) {
+            html.append("            <div class=\"info-row\"><div class=\"info-label\">Email</div><div class=\"info-value\">").append(escapeHtml(destinataireEmail)).append("</div></div>\n");
+        }
         html.append("        </div>\n");
         html.append("    </div>\n");
         html.append("</div>\n");
 
-        // ==================== INFO GRID ====================
-        html.append("<div class=\"info-grid\">\n");
-        html.append("    <div class=\"info-card\">\n");
-        html.append("        <h3>👤 FACTURÉ À</h3>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">Client</span><span class=\"info-value\">").append(escapeHtml(clientNom)).append("</span></div>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">Email</span><span class=\"info-value\">").append(escapeHtml(clientEmail)).append("</span></div>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">Téléphone</span><span class=\"info-value\">").append(escapeHtml(clientTelephone)).append("</span></div>\n");
+        // ========== CARTES COMMANDE ==========
+        html.append("<div class=\"order-cards\">\n");
+        html.append("    <div class=\"order-card\">\n");
+        html.append("        <div class=\"order-card-label\">N° BON DE COMMANDE</div>\n");
+        html.append("        <div class=\"order-card-value\">").append(numeroCommande.isEmpty() ? "N/A" : numeroCommande).append("</div>\n");
         html.append("    </div>\n");
-        html.append("    <div class=\"info-card\">\n");
-        html.append("        <h3>📄 DÉTAILS FACTURE</h3>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">Date</span><span class=\"info-value\">").append(formatLocalDateTime(facture.getDateFacture())).append("</span></div>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">N° Facture</span><span class=\"info-value\">").append(facture.getReferenceFactureClient()).append("</span></div>\n");
-        html.append("        <div class=\"info-row\"><span class=\"info-label\">N° Commande</span><span class=\"info-value\">").append(numeroCommande != null ? numeroCommande : "Non renseigné").append("</span></div>\n");
+        html.append("    <div class=\"order-card\">\n");
+        html.append("        <div class=\"order-card-label\">DATE COMMANDE</div>\n");
+        html.append("        <div class=\"order-card-value\">").append(dateFacture).append("</div>\n");
         html.append("    </div>\n");
         html.append("</div>\n");
 
-        // ==================== ARTICLES ====================
-        html.append("<div class=\"articles-section\">\n");
-        html.append("    <div class=\"section-title\">📦 DÉTAILS DES ARTICLES</div>\n");
+        // ========== TABLEAU CORRIGÉ ==========
+        html.append("<div class=\"table-section\">\n");
+        html.append("    <div class=\"section-title\">DÉTAIL DES ARTICLES</div>\n");
         html.append("    <table>\n");
         html.append("        <thead>\n");
         html.append("            <tr>\n");
-        html.append("                <th style=\"width: 50%;\">Description</th>\n");
-        html.append("                <th style=\"width: 15%;\" class=\"text-center\">Quantité</th>\n");
-        html.append("                <th style=\"width: 20%;\" class=\"text-right\">Prix unitaire</th>\n");
-        html.append("                <th style=\"width: 15%;\" class=\"text-right\">Total TTC</th>\n");
+        html.append("                <th style=\"width:5%\">#</th>\n");
+        html.append("                <th style=\"width:38%\">DÉSIGNATION</th>\n");
+        html.append("                <th style=\"width:7%\">QTÉ</th>\n");
+        html.append("                <th style=\"width:12%\">PRIX HT</th>\n");
+        html.append("                <th style=\"width:8%\">TVA</th>\n");
+        html.append("                <th style=\"width:15%\">MONTANT TVA</th>\n");
+        html.append("                <th style=\"width:15%\">TOTAL TTC</th>\n");
         html.append("            </tr>\n");
         html.append("        </thead>\n");
         html.append("        <tbody>\n");
@@ -1003,46 +909,63 @@ public class FacturePdfService {
         html.append("    </table>\n");
         html.append("</div>\n");
 
-        // ==================== TOTAUX ====================
-        // ==================== TOTAUX ====================
+        // ========== TOTAUX A DROITE ==========
         html.append("<div class=\"totaux-section\">\n");
-        html.append("    <div class=\"totaux-container\">\n");
-
-// Total HT
+        html.append("    <div class=\"totaux-card\">\n");
         html.append("        <div class=\"total-row\">\n");
         html.append("            <span class=\"total-label\">Total HT</span>\n");
-        html.append("            <span class=\"total-value\">").append(formatMontant(totaux.getSousTotal())).append("</span>\n");
+        html.append("            <span class=\"total-value\">").append(formatMontant(totalHT)).append("</span>\n");
         html.append("        </div>\n");
 
-// TVA - Afficher uniquement le taux, pas le montant
-        html.append("        <div class=\"total-row\">\n");
-        html.append("            <span class=\"total-label\">TVA</span>\n");
-        html.append("            <span class=\"total-value\">").append(totaux.getTvaTaux()).append("%</span>\n");
-        html.append("        </div>\n");
-
-// TOTAL TTC
-        html.append("        <div class=\"total-row grand-total-row\">\n");
-        html.append("            <span class=\"grand-total-label\">TOTAL TTC</span>\n");
-        html.append("            <span class=\"grand-total-value\">").append(formatMontant(totaux.getTotalTTC())).append("</span>\n");
-        html.append("        </div>\n");
-
-// Montant en toutes lettres
-        if (!totalEnLettres.isEmpty()) {
-            html.append("        <div class=\"total-letters-title\">Montant en toutes lettres</div>\n");
-            html.append("        <div class=\"total-letters\">").append(totalEnLettres).append("</div>\n");
+        if (tvaParTaux.isEmpty()) {
+            html.append("        <div class=\"total-row\">\n");
+            html.append("            <span class=\"total-label\">TVA (0%)</span>\n");
+            html.append("            <span class=\"total-value\">0,000 DT</span>\n");
+            html.append("        </div>\n");
+        } else if (tvaParTaux.size() == 1) {
+            BigDecimal taux = tvaParTaux.keySet().iterator().next();
+            html.append("        <div class=\"total-row\">\n");
+            html.append("            <span class=\"total-label\">TVA (").append(taux).append("%)</span>\n");
+            html.append("            <span class=\"total-value\">").append(formatMontant(tvaParTaux.get(taux))).append("</span>\n");
+            html.append("        </div>\n");
+        } else {
+            for (Map.Entry<BigDecimal, BigDecimal> entry : tvaParTaux.entrySet()) {
+                if (entry.getKey().compareTo(BigDecimal.ZERO) > 0) {
+                    html.append("        <div class=\"total-row\">\n");
+                    html.append("            <span class=\"total-label\">TVA (").append(String.format("%.2f", entry.getKey())).append("%)</span>\n");
+                    html.append("            <span class=\"total-value\">").append(formatMontant(entry.getValue())).append("</span>\n");
+                    html.append("        </div>\n");
+                }
+            }
         }
 
+        html.append("        <div class=\"total-row grand-total\">\n");
+        html.append("            <span class=\"grand-total-label\">TOTAL TTC</span>\n");
+        html.append("            <span class=\"grand-total-value\" style=\"color: #f59e0b;\">").append(formatMontant(totalTTC)).append("</span>\n");
+        html.append("        </div>\n");
         html.append("    </div>\n");
         html.append("</div>\n");
 
-        // ==================== FOOTER ====================
-        html.append("<div class=\"footer\">\n");
-        if (!entrepriseNom.isEmpty()) {
-            html.append("    <p>🔗 Facture générée par ").append(escapeHtml(entrepriseNom)).append("</p>\n");
+        // ========== MONTANT EN LETTRES ==========
+        if (!totalEnLettres.isEmpty()) {
+            html.append("<div class=\"amount-letters\">\n");
+            html.append("    <div class=\"amount-title\">ARRÊTÉE LA PRÉSENTE FACTURE À LA SOMME DE :</div>\n");
+            html.append("    <div class=\"amount-text\">").append(totalEnLettres).append("</div>\n");
+            html.append("</div>\n");
         }
+
+        // ========== SIGNATURE ==========
+        html.append("<div class=\"signature-section\">\n");
+        html.append("    <div class=\"signature-item\">\n");
+        html.append("        <span>Cachet de l'entreprise</span>\n");
+        html.append("        <div class=\"signature-space\"></div>\n");
+        html.append("    </div>\n");
+        html.append("    <div class=\"signature-item\">\n");
+        html.append("        <span>Signature du client</span>\n");
+        html.append("        <div class=\"signature-space\"></div>\n");
+        html.append("    </div>\n");
         html.append("</div>\n");
 
-        html.append("</div>\n");
         html.append("</body>\n");
         html.append("</html>");
 
