@@ -20,6 +20,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { notificationService } from '../services/notificationService';
 import commandeFournisseurService from '../services/commandeFournisseurService';
 import procurementReminderService from '../services/procurementReminderService';
+import clientPlatformService from '../servicesPlatform/clientPlatformService';
 import { useLanguage } from '../context/LanguageContext';
 import { useSidebar } from '../context/SidebarContext';
 import { decorateNotification } from '../utils/notificationRouting';
@@ -31,6 +32,23 @@ import { decorateNotification } from '../utils/notificationRouting';
  */
 
 const normalizeRole = (value) => String(value || '').trim().toUpperCase().replace(/^ROLE_/, '');
+
+const TelegramAssistantIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+    <circle cx="12" cy="12" r="10" fill="url(#telegramGradient)" />
+    <path
+      d="M17.86 7.34 6.98 11.54c-.74.3-.73.72-.13.9l2.79.87 1.08 3.49c.13.37.07.52.45.52.29 0 .42-.13.58-.29l1.35-1.31 2.81 2.08c.52.29.89.14 1.02-.48l1.86-8.77c.19-.76-.29-1.1-.93-.81Z"
+      fill="#fff"
+    />
+    <path d="M10.18 13.06 15.78 9.53c.28-.17.54-.08.33.11l-4.62 4.17-.18 1.92-.96-2.67Z" fill="#DFF3FF" />
+    <defs>
+      <linearGradient id="telegramGradient" x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#37BDF8" />
+        <stop offset="1" stopColor="#1D8FE3" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 const Header = ({ userRole }) => {
   const { t, language } = useLanguage();
@@ -242,6 +260,22 @@ const Header = ({ userRole }) => {
       localStorage.removeItem(item);
     });
     navigate('/login');
+  };
+
+  const openTelegramAssistant = async () => {
+    try {
+      const data = await clientPlatformService.getTelegramLink();
+      const url = data?.telegramUrl;
+
+      if (!url) {
+        throw new Error('Missing Telegram URL');
+      }
+
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Erreur ouverture Telegram assistant:', error);
+      toast.error(error?.message || t('header.telegramOpenError'));
+    }
   };
 
   /**
@@ -817,6 +851,26 @@ const Header = ({ userRole }) => {
                     </div>
                   )}
                 </div>
+              )}
+
+              {user.normalizedRole === 'ADMIN_CLIENT' && (
+                <button
+                  onClick={openTelegramAssistant}
+                  className="group inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left text-blue-50 shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#54C7FF] hover:bg-white/16 hover:text-white"
+                  title={t('header.telegramAssistant')}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-inner shadow-cyan-100/80">
+                    <TelegramAssistantIcon />
+                  </span>
+                  <span className="hidden xl:block leading-tight">
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/90">
+                      Telegram
+                    </span>
+                    <span className="block text-sm font-semibold text-white">
+                      {t('header.telegramAssistant')}
+                    </span>
+                  </span>
+                </button>
               )}
 
               <div className="hidden lg:block h-6 w-px bg-white/20"></div>

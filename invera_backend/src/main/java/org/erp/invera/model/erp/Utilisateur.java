@@ -54,7 +54,7 @@ public class Utilisateur implements UserDetails {
     private String nom;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "preferred_language", nullable = false, length = 5)
+    @Column(name = "preferred_language", length = 5)
     @Builder.Default
     private PreferredLanguage preferredLanguage = PreferredLanguage.FR;
 

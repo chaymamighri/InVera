@@ -71,6 +71,10 @@ public class CommandeFournisseur {
     @JsonIgnore
     private List<LigneCommandeFournisseur> lignesCommande = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fournisseur_id", nullable = false)
+    private Fournisseur fournisseur;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

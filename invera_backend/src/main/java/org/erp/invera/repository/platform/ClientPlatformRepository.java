@@ -16,8 +16,13 @@ public interface ClientPlatformRepository extends JpaRepository<Client, Long> {
     // ========== RECHERCHES DE BASE ==========
     Optional<Client> findByEmail(String email);
 
+    Optional<Client> findByTelegramChatId(Long telegramChatId);
+
+    Optional<Client> findByTelegramLinkToken(String telegramLinkToken);
 
     boolean existsByEmail(String email);
+
+    boolean existsByTelegramChatId(Long telegramChatId);
 
 
     // ========== RECHERCHES PAR STATUT (avec ENUM) ==========

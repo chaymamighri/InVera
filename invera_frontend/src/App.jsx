@@ -10,11 +10,10 @@ import { SidebarProvider } from './context/SidebarContext';
 import LoginPage from './pages/auth/loginPage';
 import CreatePasswordPage from './pages/CreatePasswordPage';
 import AdminLogin from './pages/superAdmin/AdminLogin';
+
 import WelcomePage from './pages/public/WelcomePage';
 import MoreInformationPage from './pages/public/MoreInformationPage';
-import SubscriptionsPage from './pages/public/SubscriptionsPage';
 
-// IMPORTS POUR L'INSCRIPTION
 import RegisterPage from './pages/Register/RegisterPage';
 
 import ProfilePage from './pages/shared/profilePage';
@@ -50,13 +49,16 @@ import SuperAdminDashboard from './pages/superAdmin/SuperAdminDashboard';
 import ClientsManagementPage from './pages/superAdmin/clients/ClientsManagementPage';
 import SubscriptionsManagementPage from './pages/superAdmin/abonnements/SubscriptionsManagementPage';
 
-// === IMPORT DU COMPOSANT TOAST DE CONNEXION ===
 import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 import ConditionsInvera from './pages/public/ConditionsInvera';
+<<<<<<< HEAD
 import PaymentsView from './pages/superAdmin/paiement/PaymentsView';
+=======
+import ContactUsPage from './pages/public/ContactUsPage';
 
-
+import PaymentPage from './pages/public/PaymentPage';
+>>>>>>> 4e82e05480b48ed27e6890249acbbc7185fdc51d
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -86,12 +88,20 @@ const getUserData = () => {
   }
 
   const normalizedRole = normalizeBackendRole(userRole);
+
   if (!normalizedRole) {
     return null;
   }
 
-  const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || 'Utilisateur';
-  const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
+  const userName =
+    localStorage.getItem('userName') ||
+    sessionStorage.getItem('userName') ||
+    'Utilisateur';
+
+  const userEmail =
+    localStorage.getItem('userEmail') ||
+    sessionStorage.getItem('userEmail') ||
+    '';
 
   return {
     token,
@@ -99,7 +109,9 @@ const getUserData = () => {
     originalRole: userRole,
     name: userName,
     email: userEmail,
-    type: normalizedRole === 'super_admin' ? 'super_admin' : 'normal_user',
+    type: normalizedRole === 'super_admin'
+      ? 'super_admin'
+      : 'normal_user',
   };
 };
 
@@ -120,25 +132,45 @@ const DashboardRedirect = () => {
   switch (userData.role) {
     case 'super_admin':
       return <Navigate to="/super-admin/dashboard/clients" replace />;
+
     case 'admin':
       return <Navigate to="/dashboard/admin" replace />;
+
     case 'sales':
       return <Navigate to="/dashboard/sales/dashboard" replace />;
+
     case 'procurement':
       return <Navigate to="/dashboard/procurement" replace />;
+
     default:
       return <Navigate to="/login" replace />;
   }
 };
 
-const ProtectedRoute = ({ children, allowedRoles = [], useLayout = true }) => {
+const ProtectedRoute = ({
+  children,
+  allowedRoles = [],
+  useLayout = true,
+}) => {
   const userData = getUserData();
 
-  if (!userData) return <Navigate to="/login" replace />;
-  if (!allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
-  if (!useLayout) return children;
+  if (!userData) {
+    return <Navigate to="/login" replace />;
+  }
 
-  return <Layout userRole={userData.originalRole}>{children}</Layout>;
+  if (!allowedRoles.includes(userData.role)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (!useLayout) {
+    return children;
+  }
+
+  return (
+    <Layout userRole={userData.originalRole}>
+      {children}
+    </Layout>
+  );
 };
 
 const UnauthorizedPage = () => {
@@ -147,11 +179,18 @@ const UnauthorizedPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-red-600">403</h1>
-        <h2 className="text-2xl font-semibold mt-4">{t('app.unauthorizedTitle')}</h2>
+        <h1 className="text-4xl font-bold text-red-600">
+          403
+        </h1>
+
+        <h2 className="text-2xl font-semibold mt-4">
+          {t('app.unauthorizedTitle')}
+        </h2>
+
         <p className="mt-2 text-gray-600">
           {t('app.unauthorizedDescription')}
         </p>
+
         <div className="mt-6 space-x-4">
           <button
             onClick={() => window.history.back()}
@@ -159,6 +198,7 @@ const UnauthorizedPage = () => {
           >
             {t('app.back')}
           </button>
+
           <button
             onClick={() => {
               window.location.href = '/login';
@@ -180,47 +220,20 @@ function App() {
     <Router>
       <AuthProvider>
         <SidebarProvider>
-          {/* Toaster pour les notifications */}
+
           <Toaster
             position="top-right"
             containerStyle={{ top: 80, right: 24 }}
-            toastOptions={{
-              duration: 5000,
-              closeButton: true,
-              style: {
-                borderRadius: '10px',
-                background: '#ffffff',
-                color: '#0f172a',
-                padding: '14px 18px',
-                fontSize: '14px',
-                fontWeight: '500',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-                border: '1px solid #e2e8f0',
-                maxWidth: '360px',
-              },
-              success: {
-                icon: '✓',
-                duration: 5000,
-                style: { borderLeft: '4px solid #22c55e' },
-              },
-              error: {
-                icon: '✕',
-                duration: 7000,
-                style: { borderLeft: '4px solid #ef4444' },
-              },
-              loading: {
-                icon: '⏳',
-                duration: Infinity,
-                style: { borderLeft: '4px solid #3b82f6' },
-              },
-            }}
           />
 
-          {/* =====> COMPOSANT TOAST DE CONNEXION - S'AFFICHE SUR TOUTES LES PAGES  <==== */}
           <ConnexionInfoToast />
 
           <Routes>
-            {/* Routes publiques */}
+
+            {/* ================================= */}
+            {/* SINGLE PUBLIC LANDING PAGE */}
+            {/* ================================= */}
+
             <Route
               path="/"
               element={
@@ -229,6 +242,7 @@ function App() {
                 </PublicLayout>
               }
             />
+
             <Route
               path="/welcome"
               element={
@@ -237,8 +251,30 @@ function App() {
                 </PublicLayout>
               }
             />
-            
-            {/* Routes d'inscription */}
+
+            {/* REDIRECT OLD ROUTES TO HOME */}
+
+            <Route
+              path="/more-information"
+              element={<Navigate to="/features/documents" replace />}
+            />
+
+            <Route
+              path="/features/:featureId"
+              element={
+                <PublicLayout>
+                  <MoreInformationPage />
+                </PublicLayout>
+              }
+            />
+
+            <Route
+              path="/subscriptions"
+              element={<Navigate to="/" replace />}
+            />
+
+            {/* REGISTER */}
+
             <Route
               path="/register"
               element={
@@ -247,21 +283,23 @@ function App() {
                 </PublicLayout>
               }
             />
-          
-            
+
+            {/* PAYMENT */}
+
             <Route
-              path="/more-information"
+              path="/paiement/checkout"
               element={
                 <PublicLayout>
-                  <MoreInformationPage />
+                  <PaymentPage />
                 </PublicLayout>
               }
             />
+
             <Route
-              path="/subscriptions"
+              path="/paiement/succes"
               element={
                 <PublicLayout>
-                  <SubscriptionsPage />
+                  <PaymentPage />
                 </PublicLayout>
               }
             />
@@ -291,10 +329,26 @@ function App() {
   }
 />*/}
 
-            <Route path="/support" element={<Navigate to="/more-information" replace />} />
-            <Route path="/about" element={<Navigate to="/more-information" replace />} />
+            <Route
+              path="/paiement/echec"
+              element={
+                <PublicLayout>
+                  <PaymentPage />
+                </PublicLayout>
+              }
+            />
 
-            {/* Routes d'authentification */}
+            <Route
+              path="/paiement/annuler"
+              element={
+                <PublicLayout>
+                  <PaymentPage />
+                </PublicLayout>
+              }
+            />
+
+            {/* AUTH */}
+
             <Route
               path="/login"
               element={
@@ -303,6 +357,7 @@ function App() {
                 </PublicLayout>
               }
             />
+
             <Route
               path="/create-password"
               element={
@@ -311,16 +366,25 @@ function App() {
                 </PublicLayout>
               }
             />
-             {/* Routes de condition general de confidentialité de notre systeme */}
 
-                    <Route
-  path="/conditions-invera"
-  element={
-    <PublicLayout>
-      <ConditionsInvera />
-    </PublicLayout>
-  }
-/>
+            <Route
+              path="/conditions-invera"
+              element={
+                <PublicLayout>
+                  <ConditionsInvera />
+                </PublicLayout>
+              }
+            />
+
+            <Route
+              path="/contact"
+              element={
+                <PublicLayout>
+                  <ContactUsPage />
+                </PublicLayout>
+              }
+            />
+
             <Route
               path="/super-admin/login"
               element={
@@ -330,13 +394,15 @@ function App() {
               }
             />
 
-    
+            {/* SUPER ADMIN */}
 
-            {/* Routes Super Admin */}
             <Route
               path="/super-admin/dashboard"
               element={
-                <ProtectedRoute allowedRoles={['super_admin']} useLayout={false}>
+                <ProtectedRoute
+                  allowedRoles={['super_admin']}
+                  useLayout={false}
+                >
                   <SuperAdminDashboard />
                 </ProtectedRoute>
               }
@@ -347,92 +413,240 @@ function App() {
               <Route path="paiements" element={<PaymentsView />} /> 
               <Route path="profile" element={<SuperAdminProfilePage />} />
               <Route path="settings" element={<SuperAdminSettingsPage />} />
+              <Route
+                index
+                element={<Navigate to="clients" replace />}
+              />
+
+              <Route
+                path="clients"
+                element={<ClientsManagementPage />}
+              />
+
+              <Route
+                path="abonnements"
+                element={<SubscriptionsManagementPage />}
+              />
+
+              <Route
+                path="profile"
+                element={<SuperAdminProfilePage />}
+              />
+
+              <Route
+                path="settings"
+                element={<SuperAdminSettingsPage />}
+              />
             </Route>
 
-            {/* Routes Admin Client */}
+            {/* ADMIN */}
+
             <Route
               path="/dashboard/admin"
               element={
-                <ProtectedRoute allowedRoles={['admin']} useLayout>
+                <ProtectedRoute
+                  allowedRoles={['admin']}
+                  useLayout
+                >
                   <AdminDashboard />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="stats" replace />} />
-              <Route path="stats" element={<Statistiques />} />
-              <Route path="validation-commandes" element={<ValidationCommande />} />
-              <Route path="users" element={<GestionUsers />} />
-              <Route path="remises" element={<Remise />} />
-              <Route path="fournisseurs" element={<FournisseurManagement />} />
+              <Route
+                index
+                element={<Navigate to="stats" replace />}
+              />
+
+              <Route
+                path="stats"
+                element={<Statistiques />}
+              />
+
+              <Route
+                path="validation-commandes"
+                element={<ValidationCommande />}
+              />
+
+              <Route
+                path="users"
+                element={<GestionUsers />}
+              />
+
+              <Route
+                path="remises"
+                element={<Remise />}
+              />
+
+              <Route
+                path="fournisseurs"
+                element={<FournisseurManagement />}
+              />
             </Route>
 
-            {/* Routes Procurement */}
+            {/* PROCUREMENT */}
+
             <Route
               path="/dashboard/procurement/*"
               element={
-                <ProtectedRoute allowedRoles={['procurement']} useLayout>
+                <ProtectedRoute
+                  allowedRoles={['procurement']}
+                  useLayout
+                >
                   <ProcurementDashboard />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="stats" replace />} />
-              <Route path="stats" element={<StatsAchats />} />
-              <Route path="produits" element={<Produits />} />
-              <Route path="categories" element={<GestionCategories />} />
-              <Route path="commandes" element={<CommandesFournisseurs />} />
-              <Route path="mouvements" element={<StockMovementsPage />} />
-              <Route path="etat_stock" element={<EtatStock />} />
+              <Route
+                index
+                element={<Navigate to="stats" replace />}
+              />
+
+              <Route
+                path="stats"
+                element={<StatsAchats />}
+              />
+
+              <Route
+                path="produits"
+                element={<Produits />}
+              />
+
+              <Route
+                path="categories"
+                element={<GestionCategories />}
+              />
+
+              <Route
+                path="commandes"
+                element={<CommandesFournisseurs />}
+              />
+
+              <Route
+                path="mouvements"
+                element={<StockMovementsPage />}
+              />
+
+              <Route
+                path="etat_stock"
+                element={<EtatStock />}
+              />
             </Route>
 
-            {/* Routes Sales */}
+            {/* SALES */}
+
             <Route
               path="/dashboard/sales/*"
               element={
-                <ProtectedRoute allowedRoles={['sales']} useLayout>
+                <ProtectedRoute
+                  allowedRoles={['sales']}
+                  useLayout
+                >
                   <SalesDashboard />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="sales" element={<SalesPage />} />
-              <Route path="invoices" element={<InvoicingPage />} />
-              <Route path="clients" element={<ClientManagePage />} />
-              <Route path="sales-table" element={<SalesTable />} />
+              <Route
+                index
+                element={<Navigate to="dashboard" replace />}
+              />
+
+              <Route
+                path="dashboard"
+                element={<DashboardPage />}
+              />
+
+              <Route
+                path="products"
+                element={<ProductsPage />}
+              />
+
+              <Route
+                path="orders"
+                element={<OrdersPage />}
+              />
+
+              <Route
+                path="sales"
+                element={<SalesPage />}
+              />
+
+              <Route
+                path="invoices"
+                element={<InvoicingPage />}
+              />
+
+              <Route
+                path="clients"
+                element={<ClientManagePage />}
+              />
+
+              <Route
+                path="sales-table"
+                element={<SalesTable />}
+              />
             </Route>
 
-            {/* Routes partagées */}
+            {/* PROFILE */}
+
             <Route
               path="/profile"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute
+                  allowedRoles={[
+                    'admin',
+                    'sales',
+                    'procurement',
+                  ]}
+                  useLayout={false}
+                >
                   <ProfilePage />
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/settings"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'sales', 'procurement']} useLayout={false}>
+                <ProtectedRoute
+                  allowedRoles={[
+                    'admin',
+                    'sales',
+                    'procurement',
+                  ]}
+                  useLayout={false}
+                >
                   <SettingsPage />
                 </ProtectedRoute>
               }
             />
 
-            {/* Redirections */}
-            <Route path="/dashboard" element={<DashboardRedirect />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            {/* REDIRECT */}
 
-            {/* Route 404 */}
+            <Route
+              path="/dashboard"
+              element={<DashboardRedirect />}
+            />
+
+            <Route
+              path="/unauthorized"
+              element={<UnauthorizedPage />}
+            />
+
+            {/* 404 */}
+
             <Route
               path="*"
               element={
                 <div className="min-h-screen flex items-center justify-center bg-gray-50">
                   <div className="text-center">
-                    <h1 className="text-4xl font-bold text-gray-700">404</h1>
-                    <h2 className="text-2xl font-semibold mt-4">{t('app.notFoundTitle')}</h2>
+                    <h1 className="text-4xl font-bold text-gray-700">
+                      404
+                    </h1>
+
+                    <h2 className="text-2xl font-semibold mt-4">
+                      {t('app.notFoundTitle')}
+                    </h2>
+
                     <button
                       onClick={() => {
                         window.location.href = '/login';
@@ -445,6 +659,7 @@ function App() {
                 </div>
               }
             />
+
           </Routes>
         </SidebarProvider>
       </AuthProvider>

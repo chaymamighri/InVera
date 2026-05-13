@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,8 +31,16 @@ public class DatabaseCreationService {
     private final CredentialService credentialService;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${PLATFORM_DB_URL}")
+    private String platformDbUrl;
+
+    @Value("${PLATFORM_DB_USERNAME}")
+    private String platformDbUsername;
+
+    @Value("${PLATFORM_DB_PASSWORD}")
+    private String platformDbPassword;
+
     private static final String TEMPLATE_DB = "template_invera";
-    private static final String POSTGRES_PASSWORD = "chayma";
     private static final SecureRandom random = new SecureRandom();
 
     private static final String CHECK_DB_EXISTS = "SELECT 1 FROM pg_database WHERE datname = ?";
@@ -130,7 +139,20 @@ public class DatabaseCreationService {
         String url = getConnectionUrl(dbName);
         String encodedPassword = passwordEncoder.encode(plainPassword);
 
-        // ✅ SQL corrigé : retiré created_at car NOW() et la colonne a une valeur par défaut
+        String insertClientSql = """
+            INSERT INTO client (
+                id_client, nom, prenom, email, telephone, adresse, type_client, created_at, created_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+            ON CONFLICT (id_client) DO UPDATE SET
+                nom = EXCLUDED.nom,
+                prenom = EXCLUDED.prenom,
+                email = EXCLUDED.email,
+                telephone = EXCLUDED.telephone,
+                adresse = EXCLUDED.adresse,
+                type_client = EXCLUDED.type_client
+            """;
+
         String sql = """
             INSERT INTO users (active, client_id, email, mot_de_passe, nom, prenom, role, preferred_language)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -138,7 +160,20 @@ public class DatabaseCreationService {
 
         log.info("👤 Création utilisateur admin dans la base {} pour {}", dbName, client.getEmail());
 
-        try (Connection conn = DriverManager.getConnection(url, "postgres", POSTGRES_PASSWORD)) {
+        try (Connection conn = DriverManager.getConnection(url, platformDbUsername, platformDbPassword)) {
+            try (PreparedStatement pstmtClient = conn.prepareStatement(insertClientSql)) {
+                pstmtClient.setLong(1, client.getId());
+                pstmtClient.setString(2, client.getNom() != null ? client.getNom() : "");
+                pstmtClient.setString(3, client.getPrenom() != null ? client.getPrenom() : "");
+                pstmtClient.setString(4, client.getEmail());
+                pstmtClient.setString(5, client.getTelephone() != null ? client.getTelephone() : "");
+                pstmtClient.setString(6, "Adresse non renseignee");
+                pstmtClient.setString(7, mapTenantClientType(client));
+                pstmtClient.setObject(8, null);
+                pstmtClient.executeUpdate();
+                log.info("✅ Ligne client créée dans la base {}: {}", dbName, client.getId());
+            }
+
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setBoolean(1, true);
                 pstmt.setLong(2, client.getId());
@@ -193,7 +228,7 @@ public class DatabaseCreationService {
     private void grantSchemaPrivileges(String dbName, String userName) {
         log.info("🔐 Configuration des droits sur le schéma public pour {}", userName);
 
-        try (var conn = DriverManager.getConnection(getConnectionUrl(dbName), "postgres", POSTGRES_PASSWORD)) {
+        try (var conn = DriverManager.getConnection(getConnectionUrl(dbName), platformDbUsername, platformDbPassword)) {
             try (var stmt = conn.createStatement()) {
                 stmt.execute(String.format("GRANT ALL ON SCHEMA public TO %s", userName));
                 stmt.execute(String.format("GRANT ALL ON ALL TABLES IN SCHEMA public TO %s", userName));
@@ -223,15 +258,15 @@ public class DatabaseCreationService {
         log.info("🧹 Nettoyage après échec - Base: {}, User: {}", dbName, userName);
 
         try {
-            if (userExists(userName)) {
-                platformJdbcTemplate.execute(String.format("DROP USER IF EXISTS %s", sanitizeIdentifier(userName)));
-                log.info("✅ Utilisateur {} supprimé", userName);
-            }
-
             if (databaseExists(dbName)) {
                 terminateConnections(dbName);
                 platformJdbcTemplate.execute(String.format("DROP DATABASE IF EXISTS %s", sanitizeIdentifier(dbName)));
                 log.info("✅ Base {} supprimée", dbName);
+            }
+
+            if (userExists(userName)) {
+                platformJdbcTemplate.execute(String.format("DROP USER IF EXISTS %s", sanitizeIdentifier(userName)));
+                log.info("✅ Utilisateur {} supprimé", userName);
             }
         } catch (Exception e) {
             log.error("❌ Erreur lors du nettoyage: {}", e.getMessage());
@@ -260,7 +295,18 @@ public class DatabaseCreationService {
     }
 
     private String getConnectionUrl(String dbName) {
-        return String.format("jdbc:postgresql://localhost:5432/%s", dbName);
+        int lastSlashIndex = platformDbUrl.lastIndexOf('/');
+        if (lastSlashIndex < 0) {
+            throw new IllegalStateException("PLATFORM_DB_URL invalide: " + platformDbUrl);
+        }
+        return platformDbUrl.substring(0, lastSlashIndex + 1) + dbName;
+    }
+
+    private String mapTenantClientType(Client client) {
+        if (client.getTypeCompte() == Client.TypeCompte.ENTREPRISE) {
+            return "ENTREPRISE";
+        }
+        return "PARTICULIER";
     }
 
     private void updateClientWithDatabaseInfo(Long clientId, String dbName) {
