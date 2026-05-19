@@ -15,7 +15,8 @@ const NewClientForm = ({
   setSelectedClient,
   setNewClientMode,
   applyRemiseByClientType,
-  loadClients
+  loadClients,
+  t = (key) => key
 }) => {
   const [loadingNewClient, setLoadingNewClient] = useState(false);
   const [phoneError, setPhoneError] = useState('');
@@ -79,33 +80,33 @@ const NewClientForm = ({
     
     // Validation du nom
     if (!nouveauClient.nom || !nouveauClient.nom.trim()) {
-      errors.nom = 'Le nom est obligatoire';
+      errors.nom = t('nameRequired');
     } else if (nouveauClient.nom.trim().length < 2) {
-      errors.nom = 'Le nom doit contenir au moins 2 caractères';
+      errors.nom = t('nameMinLength');
     }
     
     // Validation du téléphone
     if (!nouveauClient.telephone || !nouveauClient.telephone.trim()) {
-      errors.telephone = 'Le téléphone est obligatoire';
+      errors.telephone = t('phoneRequired');
     } else if (!/^[0-9\s\-\+\(\)]{8,15}$/.test(nouveauClient.telephone.replace(/\s/g, ''))) {
-      errors.telephone = 'Format de téléphone invalide';
+      errors.telephone = t('invalidPhoneFormat');
     }
     
     // Validation de l'adresse
     if (!nouveauClient.adresse || !nouveauClient.adresse.trim()) {
-      errors.adresse = 'L\'adresse est obligatoire';
+      errors.adresse = t('addressRequired');
     } else if (nouveauClient.adresse.trim().length < 5) {
-      errors.adresse = 'L\'adresse doit contenir au moins 5 caractères';
+      errors.adresse = t('addressMinLength');
     }
     
     // Validation de l'email si fourni
     if (nouveauClient.email && nouveauClient.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nouveauClient.email)) {
-      errors.email = 'Format d\'email invalide';
+      errors.email = t('invalidEmailFormat');
     }
     
     // Validation du type de client
     if (!nouveauClient.typeClient) {
-      errors.typeClient = 'Le type de client est obligatoire';
+      errors.typeClient = t('clientTypeRequired');
     }
     
     setFormErrors(errors);
@@ -124,7 +125,7 @@ const NewClientForm = ({
       if (clientService.verifyPhone) {
         const response = await clientService.verifyPhone(phone);
         if (response.exists) {
-          setPhoneError('Ce numéro de téléphone est déjà utilisé');
+          setPhoneError(t('phoneAlreadyUsed'));
         } else {
           setPhoneError('');
         }
@@ -148,7 +149,7 @@ const NewClientForm = ({
       if (clientService.verifyEmail) {
         const response = await clientService.verifyEmail(email);
         if (response.exists) {
-          setEmailError('Cet email est déjà utilisé');
+          setEmailError(t('emailAlreadyUsed'));
         } else {
           setEmailError('');
         }
@@ -269,18 +270,18 @@ const NewClientForm = ({
         }, 3000);
         
       } else {
-        alert(response.message || 'Erreur lors de la création du client');
+        alert(response.message || t('clientCreateError'));
       }
     } catch (error) {
       console.error('Erreur création client:', error);
-      const errorMsg = error.response?.data?.message || 'Erreur lors de la création du client';
+      const errorMsg = error.response?.data?.message || t('clientCreateError');
       setFormErrors(prev => ({ ...prev, _global: errorMsg }));
       
       // Message d'erreur spécifique
       if (error.response?.status === 400) {
-        setFormErrors(prev => ({ ...prev, _global: 'Données invalides. Vérifiez les informations saisies.' }));
+        setFormErrors(prev => ({ ...prev, _global: t('invalidDataCheckFields') }));
       } else if (error.response?.status === 409) {
-        setFormErrors(prev => ({ ...prev, _global: 'Un client avec ce numéro de téléphone ou cet email existe déjà.' }));
+        setFormErrors(prev => ({ ...prev, _global: t('clientPhoneOrEmailExists') }));
       }
     } finally {
       setLoadingNewClient(false);
@@ -316,7 +317,7 @@ const NewClientForm = ({
   return (
     <div className="space-y-6 p-6 border border-gray-200 rounded-xl bg-gray-50">
       <div className="flex justify-between items-center">
-        <h4 className="font-bold text-gray-800">Nouveau Client</h4>
+        <h4 className="font-bold text-gray-800">{t('newClient')}</h4>
     
       </div>
       
@@ -327,7 +328,7 @@ const NewClientForm = ({
             <span className="text-green-700 font-medium">{successMessage}</span>
           </div>
           <p className="text-xs text-green-600 mt-2">
-            Le client a été enregistré dans la base de données et est maintenant sélectionné.
+            {t('clientSavedAndSelected')}
           </p>
         </div>
       )}
@@ -344,7 +345,7 @@ const NewClientForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nom <span className="text-red-500">*</span>
+            {t('name')} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -353,7 +354,7 @@ const NewClientForm = ({
             } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             value={nouveauClient.nom || ''}
             onChange={(e) => handleInputChange('nom', e.target.value)}
-            placeholder="Nom"
+            placeholder={t('name')}
             required
           />
           {formErrors.nom && (
@@ -362,14 +363,14 @@ const NewClientForm = ({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Prénom  <span className="text-red-500">*</span>
+            {t('firstName')} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             value={nouveauClient.prenom || ''}
             onChange={(e) => handleInputChange('prenom', e.target.value)}
-            placeholder="Prénom"
+            placeholder={t('firstName')}
           />
         </div>
       </div>
@@ -377,7 +378,7 @@ const NewClientForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Type de client <span className="text-red-500">*</span>
+            {t('clientType')} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <select
@@ -390,12 +391,12 @@ const NewClientForm = ({
               required
             >
               {loadingClientTypes ? (
-                <option value="">Chargement des types...</option>
+                <option value="">{t('loadingTypes')}</option>
               ) : availableClientTypes.length === 0 ? (
-                <option value="">Aucun type disponible</option>
+                <option value="">{t('noTypeAvailable')}</option>
               ) : (
                 <>
-                  <option value="">Sélectionner un type</option>
+                  <option value="">{t('selectType')}</option>
                   {availableClientTypes.map(type => (
                     <option key={type} value={type}>
                       {displayTypeName(type)}
@@ -417,12 +418,12 @@ const NewClientForm = ({
             <p className="mt-1 text-sm text-red-600">{formErrors.typeClient}</p>
           )}
           <p className="text-xs text-gray-500 mt-1">
-            Types chargés depuis la base de données
+            {t('typesLoadedFromDatabase')}
           </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Téléphone <span className="text-red-500">*</span>
+            {t('phone')} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
@@ -494,7 +495,7 @@ const NewClientForm = ({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Adresse <span className="text-red-500">*</span>
+          {t('address')} <span className="text-red-500">*</span>
         </label>
         <textarea
           className={`w-full px-4 py-2.5 border ${
@@ -503,7 +504,7 @@ const NewClientForm = ({
           rows="3"
           value={nouveauClient.adresse || ''}
           onChange={(e) => handleInputChange('adresse', e.target.value)}
-          placeholder="Numéro, rue, ville, code postal..."
+          placeholder={t('addressPlaceholder')}
           required
         />
         {formErrors.adresse && (
@@ -530,19 +531,19 @@ const NewClientForm = ({
           {loadingNewClient ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              Ajout au système en cours...
+              {t('addingToSystem')}
             </>
           ) : (
             <>
               <UserPlusIcon className="h-5 w-5 mr-2" />
-              Ajouter Client
+              {t('addClient')}
             </>
           )}
         </button>
         
         <div className="mt-3 text-xs text-gray-500 text-center">
     
-          <p>Le client est automatiquement sélectionné </p>
+          <p>{t('clientAutomaticallySelected')}</p>
         
         </div>
       </div>

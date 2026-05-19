@@ -1,6 +1,30 @@
 // src/pages/dashboard/sales/orders/OrdersPage.jsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+/**
+ * OrdersPage - Gestion des commandes clients
+ * 
+ * RÔLE : Gérer toutes les commandes clients (consultation, validation, rejet, création)
+ * ROUTE : /dashboard/sales/orders
+ * 
+ * FONCTIONNALITÉS :
+ * - Liste des commandes avec filtres (recherche, statut, client, type client)
+ * - Tri des colonnes (client, date, montant)
+ * - Création de commande (client + produits)
+ * - Validation/rejet de commande
+ * - Consultation des détails
+ * - Statistiques (total, en attente, confirmées, refusées)
+ * 
+ * COMPOSANTS UTILISÉS :
+ * - OrderFilters : Barre de filtres
+ * - OrderTable : Tableau des commandes
+ * - CreateOrderModal : Modal création commande
+ * - OrderDetailsModal : Modal détails commande
+ * 
+ * HOOK UTILISÉ : useOrders()
+ * SERVICES : clientService, commandeService
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import OrderFilters from './components/OrderFilters';
 import OrderTable from './components/OrderTable';
 import toast from 'react-hot-toast';
@@ -19,7 +43,9 @@ import clientService from '../../../../services/clientService';
 import { commandeService } from '../../../../services/commandeService';
 import { useLanguage } from '../../../../context/LanguageContext';
 
+// ✅ Textes de fallback pour les traductions manquantes
 const FALLBACK_TEXTS = {
+  // Gestion des commandes
   'salesPages.orderManagementTitle': 'Gestion des commandes',
   'salesPages.orderManagementDescription': 'Consultez et gérez toutes les commandes clients',
   'salesPages.newOrder': 'Nouvelle commande',
@@ -29,6 +55,8 @@ const FALLBACK_TEXTS = {
   'salesPages.pendingOrders': 'En attente',
   'salesPages.confirmedOrders': 'Confirmées',
   'salesPages.rejectedOrders': 'Rejetées',
+  
+  // ✅ Clés pour le tableau des commandes
   'salesPages.orderNumber': 'N° commande',
   'salesPages.client': 'Client',
   'salesPages.creationDate': 'Date de création',
@@ -36,6 +64,8 @@ const FALLBACK_TEXTS = {
   'salesPages.finalAmount': 'Montant total',
   'salesPages.status': 'Statut',
   'salesPages.actions': 'Actions',
+  
+  // Autres clés
   'salesPages.noOrdersFound': 'Aucune commande trouvée',
   'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
   'salesPages.pending': 'En attente',
@@ -67,17 +97,26 @@ const FALLBACK_TEXTS = {
   'salesPages.orderId': 'N° Commande'
 };
 
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
+
 const OrdersPage = () => {
-  const { t } = useLanguage();
+  const { t, language, isArabic } = useLanguage();
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
   
-  const safeT = (key) => {
-    const translated = t(key);
+  // ✅ Fonction de traduction avec fallback
+  const safeT = useCallback((key, params) => {
+    const translated = t(key, params);
     if (!translated || translated === key) {
       return FALLBACK_TEXTS[key] || key;
     }
     return translated;
-  };
+  }, [t]);
   
+  // Utiliser le hook personnalisé
   const {
     commandes,
     setCommandes, 
@@ -96,33 +135,57 @@ const OrdersPage = () => {
     resetSelection
   } = useOrders();
 
+  // États locaux pour le composant
+  const [filteredCommandes, setFilteredCommandes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('Tous');
   const [selectedClientId, setSelectedClientId] = useState('Tous');
   const [selectedClientType, setSelectedClientType] = useState('Tous');
   const [clientTypes, setClientTypes] = useState([]);
-  const [sortField, setSortField] = useState(null);
+  const [sortField, setSortField] = useState('null');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
-  // Charger les données initiales UNE SEULE FOIS
+  // Charger les données initiales
   useEffect(() => {
     const init = async () => {
-      if (!initialized) {
-        console.log('🚀 Initialisation OrdersPage...');
-        await chargerDonnees();
-        await chargerTypesClient();
-        setInitialized(true);
-      }
+      console.log('🚀 Initialisation OrdersPage...');
+      await chargerDonnees();
+      await chargerTypesClient();
     };
     
     init();
-  }, [chargerDonnees, initialized]);
+  }, [chargerDonnees]);
 
+  // ✅ Fonction pour ajouter la nouvelle commande en PREMIÈRE position
+  const ajouterNouvelleCommande = (nouvelleCommande) => {
+    setCommandes(prevCommandes => {
+      // Ajoute la nouvelle commande en PREMIÈRE position
+      return [nouvelleCommande, ...prevCommandes];
+    });
+  };
+
+  const handleOrderUpdated = useCallback(async (updatedCommande) => {
+  console.log(' Mise à jour reçue:', updatedCommande);
+  
+  //  Mettre à jour la commande dans la liste
+  setCommandes(prev => prev.map(c => 
+    c.id === updatedCommande?.id ? { ...c, ...updatedCommande } : c
+  ));
+  
+  // Mettre à jour la commande sélectionnée si le modal est ouvert
+  if (selectedCommande && updatedCommande?.id === selectedCommande.id) {
+    setSelectedCommande(updatedCommande);
+  }
+  
+  toast.success(safeT('salesPages.orderUpdated'));
+}, [selectedCommande, setCommandes, safeT]);
+
+
+  // Fonction pour charger les types de client
   const chargerTypesClient = useCallback(async () => {
     try {
       const response = await clientService.getClientTypes();
@@ -137,8 +200,9 @@ const OrdersPage = () => {
     }
   }, []);
 
-  // ✅ CORRECTION: Utiliser useMemo pour le filtrage (pas de setState)
-  const filteredCommandes = useMemo(() => {
+  // Filtrer les commandes
+  useEffect(() => {
+    
     const filtered = commandes.filter(commande => {
       const matchesSearch = searchTerm === '' || 
         (commande.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,9 +211,9 @@ const OrdersPage = () => {
       
       const matchesStatus = selectedStatus === 'Tous' || 
         commande.statut === selectedStatus ||
-        (selectedStatus === safeT('salesPages.pending') && commande.statut === 'EN_ATTENTE') ||
-        (selectedStatus === safeT('salesPages.confirmed') && commande.statut === 'CONFIRMEE') ||
-        (selectedStatus === safeT('salesPages.rejected') && commande.statut === 'ANNULEE');
+        (selectedStatus === 'EN_ATTENTE' && (commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente')) ||
+        (selectedStatus === 'CONFIRMEE' && (commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé')) ||
+        (selectedStatus === 'ANNULEE' && (commande.statut === 'ANNULEE' || commande.statut === 'Refusé'));
       
       const matchesClient = selectedClientId === 'Tous' || 
         commande.client?.id === parseInt(selectedClientId);
@@ -161,6 +225,7 @@ const OrdersPage = () => {
       return matchesSearch && matchesStatus && matchesClient && matchesClientType;
     });
 
+    // Appliquer le tri si nécessaire
     if (sortField) {
       filtered.sort((a, b) => {
         let aValue, bValue;
@@ -170,23 +235,28 @@ const OrdersPage = () => {
             aValue = `${a.client?.nom || ''} ${a.client?.prenom || ''}`.trim().toLowerCase();
             bValue = `${b.client?.nom || ''} ${b.client?.prenom || ''}`.trim().toLowerCase();
             break;
+            
           case 'dateCommande':
             aValue = a.dateCommande ? new Date(a.dateCommande).getTime() : 0;
             bValue = b.dateCommande ? new Date(b.dateCommande).getTime() : 0;
             break;
+            
           case 'total':
             aValue = toNumber(a.total);
             bValue = toNumber(b.total);
             break;
+            
           case 'sousTotal':
             aValue = toNumber(a.sousTotal);
             bValue = toNumber(b.sousTotal);
             break;
+            
           case 'numero':
           case 'referenceCommandeClient':
             aValue = a.numero || '';
             bValue = b.numero || '';
             break;
+            
           default:
             aValue = a[sortField] || '';
             bValue = b[sortField] || '';
@@ -203,9 +273,10 @@ const OrdersPage = () => {
       });
     }
     
-    return filtered;
+    setFilteredCommandes(filtered);
   }, [commandes, searchTerm, selectedStatus, selectedClientId, selectedClientType, sortField, sortDirection, toNumber, safeT]);
 
+  // Fonction de réinitialisation des filtres
   const handleResetFilters = useCallback(() => {
     setSearchTerm('');
     setSelectedStatus('Tous');
@@ -213,6 +284,7 @@ const OrdersPage = () => {
     setSelectedClientType('Tous');
   }, []);
 
+  // Fonctions stabilisées avec useCallback
   const handleSort = useCallback((field) => {
     const fieldMap = {
       'client': 'clientNom',        
@@ -221,42 +293,23 @@ const OrdersPage = () => {
     
     const actualField = fieldMap[field] || field;
     
-    setSortField(prevSortField => {
-      if (prevSortField === actualField) {
-        if (sortDirection === 'desc') {
-          setSortDirection('asc');
-        } else if (sortDirection === 'asc') {
-          return null;
-        }
-        return prevSortField;
-      } else {
+    if (sortField === actualField) {
+      if (sortDirection === 'desc') {
         setSortDirection('asc');
-        return actualField;
+      } else if (sortDirection === 'asc') {
+        setSortField(null);
+        setSortDirection('desc');
       }
-    });
-  }, [sortDirection]);
-
-  const ajouterNouvelleCommande = useCallback((nouvelleCommande) => {
-    setCommandes(prevCommandes => [nouvelleCommande, ...prevCommandes]);
-  }, []);
-
-  const handleOrderUpdated = useCallback(async (updatedCommande) => {
-    console.log('📝 Mise à jour reçue:', updatedCommande);
-    
-    setCommandes(prev => prev.map(c => 
-      c.id === updatedCommande?.id ? { ...c, ...updatedCommande } : c
-    ));
-    
-    if (selectedCommande && updatedCommande?.id === selectedCommande.id) {
-      setSelectedCommande(updatedCommande);
+    } else {
+      setSortField(actualField);
+      setSortDirection('asc');
     }
-    
-    toast.success('Commande mise à jour');
-  }, [selectedCommande]);
+  }, [sortField, sortDirection]);
 
+  // Fonctions pour gérer les produits sélectionnés
   const handleSelectProduct = useCallback((produit) => {
     setSelectedProducts(prev => [...prev, produit]);
-  }, []);
+  }, [setSelectedProducts]);
 
   const handleModifierQuantite = useCallback((produitId, nouvelleQuantite) => {
     setSelectedProducts(prev =>
@@ -264,15 +317,18 @@ const OrdersPage = () => {
         p.id === produitId ? { ...p, quantite: Math.max(1, nouvelleQuantite) } : p
       )
     );
-  }, []);
+  }, [setSelectedProducts]);
 
   const handleSupprimerProduit = useCallback((produitId) => {
     setSelectedProducts(prev => prev.filter(p => p.id !== produitId));
-  }, []);
+  }, [setSelectedProducts]);
 
+  // Fonction pour créer la commande
   const handleCreerCommandeAPI = useCallback(async (clientId, notes) => {
+    console.log('🔴 handleCreerCommandeAPI DÉBUT');
+
     if (!clientId || selectedProducts.length === 0) {
-      alert('Veuillez sélectionner un client et ajouter au moins un produit');
+      alert(safeT('salesPages.selectClientAndProduct'));
       return;
     }
 
@@ -288,6 +344,8 @@ const OrdersPage = () => {
       const commandeData = {
         clientId: parsedClientId,  
         produits: selectedProducts.map(p => {
+          console.log('📦 Préparation produit:', p.id, p.libelle);
+          
           const produitId = parseInt(p.id, 10);
           if (isNaN(produitId) || produitId <= 0) {
             throw new Error(`ID produit invalide pour "${p.libelle}": ${p.id}`);
@@ -304,46 +362,69 @@ const OrdersPage = () => {
         statut: 'EN_ATTENTE'
       };
 
+      console.log('📤 Données envoyées:', JSON.stringify(commandeData, null, 2));
+      
       const response = await commandeService.createCommande(commandeData);
+      console.log('📥 Réponse brute:', response);
       
       if (response.success) {
-        toast.success('✅ Commande créée avec succès !');
+        toast.success(safeT('salesPages.orderCreatedSuccess'));
+        
+        // Recharger les données pour avoir la dernière version
         await chargerDonnees();
+        
+        // Réinitialiser la sélection
         resetSelection();
+        
+        // Fermer le modal
         setShowCreateModal(false);
+        
       } else {
-        toast.error('❌ Erreur: ' + (response.message || 'Impossible de créer la commande'));
+        toast.error(`${safeT('salesPages.errorPrefix')} ${response.message || safeT('salesPages.orderCreateImpossible')}`);
       }
     } catch (error) {
-      let errorMessage = 'Erreur lors de la création de la commande';
+      console.error('❌ ERREUR DÉTAILLÉE:', error);
+      
+      let errorMessage = safeT('salesPages.orderCreateError');
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      toast.error('❌ Erreur: ' + errorMessage);
+      
+      toast.error(`${safeT('salesPages.errorPrefix')} ${errorMessage}`);
     } finally {
       setIsCreating(false);
     }
   }, [selectedProducts, toNumber, resetSelection, chargerDonnees]);
 
+  // Fonction pour valider une commande
   const handleValiderCommandeAPI = useCallback(async (commandeId) => {
     try {
+      console.log('Validation commande:', commandeId);
+      
       await handleValiderCommande(commandeId);
-      toast.success(safeT('salesPages.orderValidated') || 'Commande validée avec succès !');
+      
+      toast.success(safeT('salesPages.orderValidated'));
       await chargerDonnees();
     } catch (error) {
-      toast.error('Erreur lors de la validation de la commande: ' + error.message);
+      console.error('Erreur lors de la validation:', error);
+      toast.error(`${safeT('salesPages.orderValidationError')}: ${error.message}`);
     }
   }, [handleValiderCommande, chargerDonnees, safeT]);
 
+  // Fonction pour rejeter une commande
   const handleRejeterCommandeAPI = useCallback(async (commandeId) => {
     try {
+      console.log(' Rejet commande:', commandeId);
+      
       await handleRejeterCommande(commandeId);
-      toast.success(safeT('salesPages.orderRejected') || 'Commande rejetée avec succès !');
+      
+      toast.success(safeT('salesPages.orderRejected'));
       await chargerDonnees();
     } catch (error) {
-      toast.error('Erreur lors du rejet de la commande: ' + error.message);
+      console.error('Erreur lors du rejet:', error);
+      toast.error(`${safeT('salesPages.orderRejectionError')}: ${error.message}`);
     }
   }, [handleRejeterCommande, chargerDonnees, safeT]);
 
@@ -357,6 +438,18 @@ const OrdersPage = () => {
     resetSelection();
   }, [resetSelection]);
 
+  const [modalProduits, setModalProduits] = useState([]);
+  const [modalClients, setModalClients] = useState([]);
+
+  // Charger les données pour le modal de création
+  useEffect(() => {
+    if (showCreateModal) {
+      setModalProduits(produits || []);
+      setModalClients(clients || []);
+    }
+  }, [showCreateModal, produits, clients]);
+
+  // Afficher un loader pendant le chargement
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -368,19 +461,20 @@ const OrdersPage = () => {
     );
   }
 
+  // Afficher une erreur si nécessaire
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-6">
         <div className="flex items-center">
           <XCircleIcon className="h-8 w-8 text-red-600 mr-3" />
           <div>
-            <h3 className="text-lg font-medium text-red-800">Erreur de chargement</h3>
+            <h3 className="text-lg font-medium text-red-800">{safeT('salesPages.loadingError')}</h3>
             <p className="text-red-600 mt-1">{error}</p>
             <button
               onClick={chargerDonnees}
               className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
-              Réessayer
+              {safeT('salesPages.retry')}
             </button>
           </div>
         </div>
@@ -389,7 +483,8 @@ const OrdersPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
+      {/* En-tête */}
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
@@ -400,14 +495,23 @@ const OrdersPage = () => {
           <div className="mt-4 md:mt-0 flex space-x-3">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              {safeT('salesPages.newOrder')}
+              className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium flex items-center"            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {safeT('salesPages.loading')}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  {safeT('salesPages.newOrder')}
+                </>
+              )}
             </button>
           </div>
         </div>
 
+        {/* Filtres */}
         <OrderFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -421,6 +525,7 @@ const OrdersPage = () => {
           clientTypes={clientTypes}
           onReset={handleResetFilters}
           t={safeT}
+          isArabic={isArabic}
         />
       </div>
 
@@ -473,7 +578,7 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      {/* Tableau - Utilisation directe de filteredCommandes */}
+      {/* Tableau */}
       <OrderTable
         commandes={filteredCommandes}
         sortField={sortField}
@@ -484,6 +589,8 @@ const OrdersPage = () => {
         onVoirDetails={handleVoirDetails}
         toNumber={toNumber}
         t={safeT}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {/* Modal de création */}
@@ -491,10 +598,13 @@ const OrdersPage = () => {
         <CreateOrderModal
           show={showCreateModal}
           onClose={handleCloseCreateModal}
-          clients={clients}
-          produits={produits}
+          clients={modalClients}
+          produits={modalProduits}
           selectedProducts={selectedProducts}
           selectedClient={selectedClient}
+          onValider={handleValiderCommandeAPI}  
+          onRejeter={handleRejeterCommandeAPI}  
+          onVoirDetails={handleVoirDetails} 
           onSelectClient={setSelectedClient}
           onSelectProduct={handleSelectProduct}
           onModifierQuantite={handleModifierQuantite}
@@ -504,6 +614,7 @@ const OrdersPage = () => {
           onOrderCreated={ajouterNouvelleCommande}
           isCreating={isCreating}
           t={safeT}
+          isArabic={isArabic}
         />
       )}
 
@@ -514,12 +625,15 @@ const OrdersPage = () => {
           onClose={() => setShowDetailModal(false)}
           commande={selectedCommande}
           toNumber={toNumber}
-          onUpdateSuccess={handleOrderUpdated}
+          onUpdateSuccess={handleOrderUpdated} 
           onRefresh={async (commandeId) => {
-            const refreshed = await commandeService.getCommandeById(commandeId);
-            return refreshed;
-          }}
+    // Logique pour recharger la commande
+    const refreshed = await commandeService.getCommandeById(commandeId);
+    return refreshed;
+           }}
           t={safeT}
+          locale={locale}
+          isArabic={isArabic}
         />
       )}
     </div>

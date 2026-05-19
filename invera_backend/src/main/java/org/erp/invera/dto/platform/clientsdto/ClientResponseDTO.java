@@ -34,6 +34,4 @@ public class ClientResponseDTO {
     private Boolean isActive;
     private Integer connexionsRestantes;
     private Integer connexionsMax;
-    private Long telegramChatId;
-    private String telegramLinkToken;
 }

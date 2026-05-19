@@ -1,113 +1,53 @@
-// components/commandeModal.jsx - Version avec toasts
-import React, { useState, useEffect, useMemo } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, ExclamationTriangleIcon, CheckIcon } from '@heroicons/react/24/outline';
+// components/CommandeModal.jsx
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  CheckIcon,
+  ExclamationTriangleIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 import { useFournisseur } from '../../../../../hooks/useFournisseur';
 import useProducts from '../../../../../hooks/useProducts';
-import toast from 'react-hot-toast';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR', {
+const getLocale = (language) => (language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR');
+
+const formatPrice = (price, language) => {
+  const amount = Number(price);
+
+  return new Intl.NumberFormat(getLocale(language), {
     style: 'currency',
     currency: 'TND',
     minimumFractionDigits: 3,
-    maximumFractionDigits: 3
-  }).format(price);
-};
-
-const getTauxTVA = (produit) => {
-  if (!produit) return 19;
-  if (produit.categorie?.tauxTVA) return produit.categorie.tauxTVA;
-  return 19;
+    maximumFractionDigits: 3,
+  }).format(Number.isFinite(amount) ? amount : 0);
 };
 
 const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
-  const { 
-    activeFournisseurs,
-    loading: loadingFournisseurs,
-    fetchActiveFournisseurs
-  } = useFournisseur();
-  
-  const { 
-    getProductsByFournisseur,
-    loading: loadingProducts,
-  } = useProducts();
+  const { t, language, isArabic } = useLanguage();
+  const { activeFournisseurs, loading: loadingFournisseurs, fetchActiveFournisseurs } = useFournisseur();
+  const { getProductsByFournisseur, loading: loadingProducts } = useProducts();
 
   const [formData, setFormData] = useState({
     fournisseurId: '',
     dateLivraisonPrevue: '',
     adresseLivraison: '',
   });
-
   const [lignes, setLignes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedFournisseur, setSelectedFournisseur] = useState(null);
   const [produitsDisponibles, setProduitsDisponibles] = useState([]);
   const [loadingProduitsFiltres, setLoadingProduitsFiltres] = useState(false);
-  
-  // États pour la modale de sélection des produits
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [produitSelectionneTemp, setProduitSelectionneTemp] = useState(null);
   const [quantiteTemp, setQuantiteTemp] = useState(1);
-
-  // State pour l'ID de la commande en cours d'édition
   const [currentCommandeId, setCurrentCommandeId] = useState(null);
 
   useEffect(() => {
-    fetchActiveFournisseurs(); 
+    fetchActiveFournisseurs();
   }, [fetchActiveFournisseurs]);
-
-  useEffect(() => {
-    if (isOpen) {
-      if (commande) {
-        const fournisseurId = commande.fournisseur?.idFournisseur || 
-                              commande.fournisseurId || 
-                              '';
-        
-        const commandeId = commande.idCommandeFournisseur || commande.id;
-        
-        setSelectedFournisseur(fournisseurId);
-        setCurrentCommandeId(commandeId);
-        setFormData({
-          fournisseurId: fournisseurId,
-          dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
-          adresseLivraison: commande.adresseLivraison || '',
-        });
-        
-        if (fournisseurId) {
-          chargerProduitsDuFournisseur(fournisseurId);
-        }
-        
-        const lignesExistantes = (commande.lignesCommande || []).map((ligne, index) => {
-          const quantiteVal = ligne.quantite || 0;
-          const prixUnitaireVal = ligne.prixUnitaire || 0;
-          const tauxTVAVal = ligne.tauxTVA || 19;
-          
-          const sousTotalHT = ligne.sousTotalHT || (quantiteVal * prixUnitaireVal);
-          const montantTVA = ligne.montantTVA || (sousTotalHT * tauxTVAVal / 100);
-          const sousTotalTTC = ligne.sousTotalTTC || (sousTotalHT + montantTVA);
-          
-          return {
-            id: ligne.idLigneCommandeFournisseur || index + 1,
-            produitId: ligne.produitId || ligne.produit?.idProduit,
-            produitLibelle: ligne.produitLibelle || ligne.produit?.libelle || 'Produit',
-            produitReference: ligne.produitReference || ligne.produit?.reference || '',
-            quantite: quantiteVal,
-            prixUnitaire: prixUnitaireVal,
-            tauxTVA: tauxTVAVal,
-            sousTotalHT: sousTotalHT,
-            montantTVA: montantTVA,
-            sousTotalTTC: sousTotalTTC,
-            estInactif: false,
-            categorie: ligne.categorie || ligne.produit?.categorie?.nomCategorie || '',
-          };
-        });
-        
-        setLignes(lignesExistantes);
-      } else {
-        resetForm();
-      }
-    }
-  }, [isOpen, commande]);
 
   const chargerProduitsDuFournisseur = async (fournisseurId) => {
     setLoadingProduitsFiltres(true);
@@ -115,8 +55,8 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       const produits = await getProductsByFournisseur(fournisseurId);
       setProduitsDisponibles(produits);
     } catch (error) {
-      console.error('❌ Erreur chargement produits:', error);
-      toast.error('Erreur lors du chargement des produits');
+      console.error('Erreur chargement produits:', error);
+      toast.error(t('dashboard.procurementOrdersComponents.productLoadError'));
       setProduitsDisponibles([]);
     } finally {
       setLoadingProduitsFiltres(false);
@@ -135,15 +75,65 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     setLignes([]);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!commande) {
+      resetForm();
+      return;
+    }
+
+    const fournisseurId = commande.fournisseur?.idFournisseur || commande.fournisseurId || '';
+    const commandeId = commande.idCommandeFournisseur || commande.id;
+
+    setSelectedFournisseur(fournisseurId);
+    setCurrentCommandeId(commandeId);
+    setFormData({
+      fournisseurId,
+      dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
+      adresseLivraison: commande.adresseLivraison || '',
+    });
+
+    if (fournisseurId) {
+      chargerProduitsDuFournisseur(fournisseurId);
+    }
+
+    const lignesExistantes = (commande.lignesCommande || []).map((ligne, index) => {
+      const quantiteVal = ligne.quantite || 0;
+      const prixUnitaireVal = ligne.prixUnitaire || 0;
+      const tauxTVAVal = ligne.tauxTVA || 19;
+      const sousTotalHT = ligne.sousTotalHT || quantiteVal * prixUnitaireVal;
+      const montantTVA = ligne.montantTVA || (sousTotalHT * tauxTVAVal) / 100;
+      const sousTotalTTC = ligne.sousTotalTTC || sousTotalHT + montantTVA;
+
+      return {
+        id: ligne.idLigneCommandeFournisseur || index + 1,
+        produitId: ligne.produitId || ligne.produit?.idProduit,
+        produitLibelle: ligne.produitLibelle || ligne.produit?.libelle || t('dashboard.procurementOrdersComponents.product'),
+        produitReference: ligne.produitReference || ligne.produit?.reference || '',
+        quantite: quantiteVal,
+        prixUnitaire: prixUnitaireVal,
+        tauxTVA: tauxTVAVal,
+        sousTotalHT,
+        montantTVA,
+        sousTotalTTC,
+        estInactif: false,
+        categorie: ligne.categorie || ligne.produit?.categorie?.nomCategorie || '',
+      };
+    });
+
+    setLignes(lignesExistantes);
+  }, [isOpen, commande]);
+
   const handleFournisseurChange = async (e) => {
     const fournisseurId = parseInt(e.target.value);
     setSelectedFournisseur(fournisseurId);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      fournisseurId: fournisseurId,
+      fournisseurId,
     }));
     setLignes([]);
-    
+
     if (fournisseurId) {
       await chargerProduitsDuFournisseur(fournisseurId);
     } else {
@@ -163,108 +153,94 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     setQuantiteTemp(1);
   };
 
-  const selectProduit = (produit) => {
-    setProduitSelectionneTemp(produit);
-  };
-
-  const incrementQuantite = () => {
-    setQuantiteTemp(prev => prev + 1);
-  };
-
-  const decrementQuantite = () => {
-    setQuantiteTemp(prev => Math.max(1, prev - 1));
-  };
-
-  const handleQuantiteChange = (e) => {
-    const value = parseInt(e.target.value);
-    if (isNaN(value) || value < 1) {
-      setQuantiteTemp(1);
-    } else {
-      setQuantiteTemp(value);
+  const modifierQuantiteLigne = (id, valeur) => {
+    const nouvelleQuantite = parseInt(valeur) || 1;
+    if (nouvelleQuantite < 1) {
+      toast.error(t('dashboard.procurementOrdersComponents.minQuantityError'));
+      return;
     }
+
+    setLignes((prev) =>
+      prev.map((ligne) => {
+        if (ligne.id !== id) return ligne;
+
+        const nouvelleLigne = { ...ligne, quantite: nouvelleQuantite };
+        nouvelleLigne.sousTotalHT = nouvelleLigne.quantite * nouvelleLigne.prixUnitaire;
+        nouvelleLigne.montantTVA = nouvelleLigne.sousTotalHT * (nouvelleLigne.tauxTVA / 100);
+        nouvelleLigne.sousTotalTTC = nouvelleLigne.sousTotalHT + nouvelleLigne.montantTVA;
+        return nouvelleLigne;
+      })
+    );
   };
 
   const ajouterProduitSelectionne = () => {
     if (!produitSelectionneTemp) {
-      toast.error('Veuillez sélectionner un produit');
-      return;
-    }
-    
-    if (quantiteTemp < 1) {
-      toast.error('La quantité doit être au moins 1');
-      return;
-    }
-    
-    const prixUnitaireValue = produitSelectionneTemp.prixAchat || produitSelectionneTemp.prix || 0;
-    
-    if (prixUnitaireValue <= 0) {
-      toast.error('Le prix unitaire doit être supérieur à 0');
+      toast.error(t('dashboard.procurementOrdersComponents.selectProductError'));
       return;
     }
 
-    const ligneExistante = lignes.find(l => l.produitId === produitSelectionneTemp.id);
-    
+    if (quantiteTemp < 1) {
+      toast.error(t('dashboard.procurementOrdersComponents.minQuantityError'));
+      return;
+    }
+
+    const prixUnitaireValue = produitSelectionneTemp.prixAchat || produitSelectionneTemp.prix || 0;
+    if (prixUnitaireValue <= 0) {
+      toast.error(t('dashboard.procurementOrdersComponents.unitPricePositiveError'));
+      return;
+    }
+
+    const productName = produitSelectionneTemp.nom || produitSelectionneTemp.libelle;
+    const ligneExistante = lignes.find((ligne) => ligne.produitId === produitSelectionneTemp.id);
+
     if (ligneExistante) {
       const nouvelleQuantite = ligneExistante.quantite + quantiteTemp;
       modifierQuantiteLigne(ligneExistante.id, nouvelleQuantite);
-      toast.success(`Quantité mise à jour : ${produitSelectionneTemp.nom || produitSelectionneTemp.libelle}`);
+      toast.success(t('dashboard.procurementOrdersComponents.quantityUpdated', { name: productName }));
     } else {
       const tauxTVA = produitSelectionneTemp.tauxTVA || 19;
       const sousTotalHT = quantiteTemp * prixUnitaireValue;
       const montantTVA = sousTotalHT * (tauxTVA / 100);
       const sousTotalTTC = sousTotalHT + montantTVA;
 
-      const nouvelleLigne = {
-        id: Date.now() + Math.random(),
-        produitId: produitSelectionneTemp.id,
-        produitLibelle: produitSelectionneTemp.nom || produitSelectionneTemp.libelle || 'Produit sans nom',
-        produitReference: produitSelectionneTemp.reference || `REF-${produitSelectionneTemp.id}`,
-        quantite: quantiteTemp,
-        prixUnitaire: prixUnitaireValue,
-        tauxTVA: tauxTVA,
-        sousTotalHT: sousTotalHT,
-        montantTVA: montantTVA,
-        sousTotalTTC: sousTotalTTC,
-        estInactif: !produitSelectionneTemp.estActif,
-        categorie: produitSelectionneTemp.categorieNom || 'Sans catégorie',
-      };
-
-      setLignes(prev => [...prev, nouvelleLigne]);
-      toast.success(`Produit ajouté : ${produitSelectionneTemp.nom || produitSelectionneTemp.libelle}`);
+      setLignes((prev) => [
+        ...prev,
+        {
+          id: Date.now() + Math.random(),
+          produitId: produitSelectionneTemp.id,
+          produitLibelle: productName || t('dashboard.procurementOrdersComponents.productWithoutName'),
+          produitReference: produitSelectionneTemp.reference || `REF-${produitSelectionneTemp.id}`,
+          quantite: quantiteTemp,
+          prixUnitaire: prixUnitaireValue,
+          tauxTVA,
+          sousTotalHT,
+          montantTVA,
+          sousTotalTTC,
+          estInactif: !produitSelectionneTemp.estActif,
+          categorie: produitSelectionneTemp.categorieNom || '',
+        },
+      ]);
+      toast.success(t('dashboard.procurementOrdersComponents.productAdded', { name: productName }));
     }
-    
+
     closeProductModal();
   };
 
-  const modifierQuantiteLigne = (id, valeur) => {
-    const nouvelleQuantite = parseInt(valeur) || 1;
-    if (nouvelleQuantite < 1) {
-      toast.error('La quantité doit être au moins 1');
-      return;
-    }
-    
-    setLignes(prev => prev.map(ligne => {
-      if (ligne.id !== id) return ligne;
-      
-      const nouvelleLigne = { ...ligne, quantite: nouvelleQuantite };
-      nouvelleLigne.sousTotalHT = nouvelleLigne.quantite * nouvelleLigne.prixUnitaire;
-      nouvelleLigne.montantTVA = nouvelleLigne.sousTotalHT * (nouvelleLigne.tauxTVA / 100);
-      nouvelleLigne.sousTotalTTC = nouvelleLigne.sousTotalHT + nouvelleLigne.montantTVA;
-      
-      return nouvelleLigne;
-    }));
+  const supprimerLigne = (id) => {
+    const ligneASupprimer = lignes.find((ligne) => ligne.id === id);
+    setLignes((prev) => prev.filter((ligne) => ligne.id !== id));
+    toast.success(t('dashboard.procurementOrdersComponents.productDeleted', { name: ligneASupprimer?.produitLibelle || '' }));
   };
 
-  const supprimerLigne = (id) => {
-    const ligneASupprimer = lignes.find(l => l.id === id);
-    setLignes(prev => prev.filter(l => l.id !== id));
-    toast.success(`Produit supprimé : ${ligneASupprimer?.produitLibelle}`);
+  const handleQuantiteChange = (e) => {
+    const value = parseInt(e.target.value);
+    setQuantiteTemp(Number.isNaN(value) || value < 1 ? 1 : value);
   };
 
   const totaux = useMemo(() => {
-    const totalHT = lignes.reduce((acc, l) => acc + (l.sousTotalHT || 0), 0);
-    const totalTVA = lignes.reduce((acc, l) => acc + (l.montantTVA || 0), 0);
-    const totalTTC = lignes.reduce((acc, l) => acc + (l.sousTotalTTC || 0), 0);
+    const totalHT = lignes.reduce((acc, ligne) => acc + (ligne.sousTotalHT || 0), 0);
+    const totalTVA = lignes.reduce((acc, ligne) => acc + (ligne.montantTVA || 0), 0);
+    const totalTTC = lignes.reduce((acc, ligne) => acc + (ligne.sousTotalTTC || 0), 0);
     return { totalHT, totalTVA, totalTTC };
   }, [lignes]);
 
@@ -272,22 +248,19 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     e.preventDefault();
 
     if (!selectedFournisseur) {
-      toast.error('Veuillez sélectionner un fournisseur');
+      toast.error(t('dashboard.procurementOrdersComponents.selectSupplierError'));
       return;
     }
-
     if (lignes.length === 0) {
-      toast.error('Veuillez ajouter au moins un produit');
+      toast.error(t('dashboard.procurementOrdersComponents.addOneProductError'));
       return;
     }
-
     if (!formData.dateLivraisonPrevue) {
-      toast.error('Veuillez sélectionner une date de livraison');
+      toast.error(t('dashboard.procurementOrdersComponents.selectDeliveryDateError'));
       return;
     }
-
     if (!formData.adresseLivraison.trim()) {
-      toast.error('Veuillez saisir une adresse de livraison');
+      toast.error(t('dashboard.procurementOrdersComponents.deliveryAddressError'));
       return;
     }
 
@@ -295,35 +268,35 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
       fournisseur: { idFournisseur: selectedFournisseur },
       dateLivraisonPrevue: new Date(formData.dateLivraisonPrevue).toISOString(),
       adresseLivraison: formData.adresseLivraison,
-      lignesCommande: lignes.map(l => ({
-        produitId: l.produitId,
-        quantite: l.quantite,
-        prixUnitaire: l.prixUnitaire,
-        tauxTVA: l.tauxTVA,
+      lignesCommande: lignes.map((ligne) => ({
+        produitId: ligne.produitId,
+        quantite: ligne.quantite,
+        prixUnitaire: ligne.prixUnitaire,
+        tauxTVA: ligne.tauxTVA,
       })),
     };
 
     try {
       setLoading(true);
-      
+
       if (currentCommandeId) {
-        // Mode édition
-        toast.loading('Modification de la commande en cours...', { id: 'commande' });
+        toast.loading(t('dashboard.procurementOrdersComponents.updateLoading'), { id: 'commande' });
         await onSave(currentCommandeId, commandeData);
-        toast.success('Commande modifiée avec succès', { id: 'commande' });
+        toast.success(t('dashboard.procurementOrdersComponents.updateSuccess'), { id: 'commande' });
       } else {
-        // Mode création
-        toast.loading('Création de la commande en cours...', { id: 'commande' });
+        toast.loading(t('dashboard.procurementOrdersComponents.createLoading'), { id: 'commande' });
         await onSave(commandeData);
-        toast.success('Commande créée avec succès', { id: 'commande' });
+        toast.success(t('dashboard.procurementOrdersComponents.createSuccess'), { id: 'commande' });
       }
-      
+
       await onSuccess();
       onClose();
       resetForm();
     } catch (error) {
-      console.error('❌ Erreur:', error);
-      toast.error(error.response?.data?.message || error.message || 'Erreur lors de l\'enregistrement', { id: 'commande' });
+      console.error('Erreur:', error);
+      toast.error(error.response?.data?.message || error.message || t('dashboard.procurementOrdersComponents.saveError'), {
+        id: 'commande',
+      });
     } finally {
       setLoading(false);
     }
@@ -334,121 +307,118 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
   const isLoading = loadingFournisseurs || loadingProducts || loadingProduitsFiltres || loading;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto" dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="flex min-h-screen items-center justify-center px-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-
-          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
+        <div className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-lg bg-white shadow-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gradient-to-r from-blue-600 to-blue-700 p-6">
             <h3 className="text-lg font-semibold text-white">
-              {commande ? 'Modifier le Bon De Commande' : 'Nouveau Bon De Commande'}
+              {commande
+                ? t('dashboard.procurementOrdersComponents.editOrderTitle')
+                : t('dashboard.procurementOrdersComponents.newOrderTitle')}
             </h3>
-            <button onClick={onClose} className="text-white hover:text-gray-200">
-              <XMarkIcon className="w-6 h-6" />
+            <button onClick={onClose} className="text-white hover:text-gray-200" title={t('dashboard.procurementOrdersComponents.close')}>
+              <XMarkIcon className="h-6 w-6" />
             </button>
           </div>
 
           {isLoading ? (
             <div className="p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-500">Chargement...</p>
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
+              <p className="mt-2 text-gray-500">{t('common.loading')}</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-
-              {/* ÉTAPE 1 : Choix du fournisseur */}
-              <section className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  1. Choisir un fournisseur <span className="text-red-500">*</span>
+            <form onSubmit={handleSubmit} className="space-y-6 p-6">
+              <section className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-3 text-sm font-medium text-gray-700">
+                  {t('dashboard.procurementOrdersComponents.chooseSupplierStep')} <span className="text-red-500">*</span>
                 </h4>
                 <select
                   value={formData.fournisseurId}
                   onChange={handleFournisseurChange}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="">-- Sélectionner un fournisseur --</option>
-                  {activeFournisseurs?.map(f => (
-                    <option key={f.idFournisseur} value={f.idFournisseur}>
-                      {f.nomFournisseur} - {f.email}
+                  <option value="">{t('dashboard.procurementOrdersComponents.selectSupplier')}</option>
+                  {activeFournisseurs?.map((fournisseur) => (
+                    <option key={fournisseur.idFournisseur} value={fournisseur.idFournisseur}>
+                      {fournisseur.nomFournisseur} - {fournisseur.email}
                     </option>
                   ))}
                 </select>
               </section>
 
-              {/* ÉTAPE 2 : Livraison */}
-              <section className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">2. Livraison</h4>
+              <section className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-3 text-sm font-medium text-gray-700">{t('dashboard.procurementOrdersComponents.deliveryStep')}</h4>
                 <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Date prévue <span className="text-red-500">*</span>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {t('dashboard.procurementOrdersComponents.plannedDate')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
                     value={formData.dateLivraisonPrevue}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dateLivraisonPrevue: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dateLivraisonPrevue: e.target.value }))}
+                    className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
                 <textarea
                   value={formData.adresseLivraison}
-                  onChange={(e) => setFormData(prev => ({ ...prev, adresseLivraison: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Adresse de livraison..."
+                  onChange={(e) => setFormData((prev) => ({ ...prev, adresseLivraison: e.target.value }))}
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder={t('dashboard.procurementOrdersComponents.deliveryAddressPlaceholder')}
                   rows="3"
                   required
                 />
               </section>
 
-              {/* ÉTAPE 3 : Liste des produits dans la commande */}
               {selectedFournisseur && (
-                <section className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-sm font-medium text-gray-700">
-                      3. Produits dans la commande
-                    </h4>
+                <section className="rounded-lg bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">{t('dashboard.procurementOrdersComponents.productsStep')}</h4>
                     {produitsDisponibles.length > 0 && (
                       <button
                         type="button"
                         onClick={openProductModal}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700"
                       >
-                        <PlusIcon className="w-4 h-4" />
-                        Ajouter un produit
+                        <PlusIcon className="h-4 w-4" />
+                        {t('dashboard.procurementOrdersComponents.addProduct')}
                       </button>
                     )}
                   </div>
-                  
+
                   {lignes.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded-lg">
-                      <p>Aucun produit sélectionné</p>
+                    <div className="rounded-lg border-2 border-dashed py-8 text-center text-gray-400">
+                      <p>{t('dashboard.procurementOrdersComponents.noProductSelected')}</p>
                       {produitsDisponibles.length > 0 ? (
                         <button
                           type="button"
                           onClick={openProductModal}
-                          className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700"
                         >
-                          Cliquez ici pour ajouter un produit
+                          {t('dashboard.procurementOrdersComponents.clickAddProduct')}
                         </button>
                       ) : (
-                        <p className="text-xs text-gray-400 mt-2">
-                          Aucun produit disponible pour ce fournisseur
-                        </p>
+                        <p className="mt-2 text-xs text-gray-400">{t('dashboard.procurementOrdersComponents.noProductForSupplier')}</p>
                       )}
                     </div>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-hidden rounded-lg border">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-100">
                           <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Produit</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Qté</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Prix unit.</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">
+                              {t('dashboard.procurementOrdersComponents.product')}
+                            </th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">{t('dashboard.procurementOrdersComponents.qty')}</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">
+                              {t('dashboard.procurementOrdersComponents.unitPrice')}
+                            </th>
                             <th className="px-4 py-3 text-center text-sm font-medium">TVA</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Total HT</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Total TTC</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium">Action</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">{t('dashboard.procurementOrdersComponents.totalHT')}</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">{t('dashboard.procurementOrdersComponents.totalTTC')}</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium">{t('dashboard.procurementOrdersComponents.action')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -460,7 +430,7 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                                   <button
                                     type="button"
                                     onClick={() => modifierQuantiteLigne(ligne.id, ligne.quantite - 1)}
-                                    className="w-6 h-6 rounded border hover:bg-gray-100 flex items-center justify-center"
+                                    className="flex h-6 w-6 items-center justify-center rounded border hover:bg-gray-100"
                                     disabled={ligne.quantite <= 1}
                                   >
                                     -
@@ -470,26 +440,24 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                                     min="1"
                                     value={ligne.quantite}
                                     onChange={(e) => modifierQuantiteLigne(ligne.id, e.target.value)}
-                                    className="w-16 px-2 py-1 text-right border rounded text-sm"
+                                    className="w-16 rounded border px-2 py-1 text-right text-sm"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => modifierQuantiteLigne(ligne.id, ligne.quantite + 1)}
-                                    className="w-6 h-6 rounded border hover:bg-gray-100 flex items-center justify-center"
+                                    className="flex h-6 w-6 items-center justify-center rounded border hover:bg-gray-100"
                                   >
                                     +
                                   </button>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-right text-sm">
-                                {formatPrice(ligne.prixUnitaire)}
-                              </td>
+                              <td className="px-4 py-3 text-right text-sm">{formatPrice(ligne.prixUnitaire, language)}</td>
                               <td className="px-4 py-3 text-center text-sm">{ligne.tauxTVA}%</td>
-                              <td className="px-4 py-3 text-right text-sm">{formatPrice(ligne.sousTotalHT)}</td>
-                              <td className="px-4 py-3 text-right text-sm font-medium">{formatPrice(ligne.sousTotalTTC)}</td>
+                              <td className="px-4 py-3 text-right text-sm">{formatPrice(ligne.sousTotalHT, language)}</td>
+                              <td className="px-4 py-3 text-right text-sm font-medium">{formatPrice(ligne.sousTotalTTC, language)}</td>
                               <td className="px-4 py-3 text-center">
                                 <button type="button" onClick={() => supprimerLigne(ligne.id)}>
-                                  <TrashIcon className="w-4 h-4 text-red-600 hover:text-red-800" />
+                                  <TrashIcon className="h-4 w-4 text-red-600 hover:text-red-800" />
                                 </button>
                               </td>
                             </tr>
@@ -501,39 +469,34 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                 </section>
               )}
 
-              {/* Totaux */}
               {lignes.length > 0 && (
-                <section className="bg-gray-50 p-4 rounded-lg">
+                <section className="rounded-lg bg-gray-50 p-4">
                   <div className="flex justify-end">
                     <div className="w-80 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Total HT</span>
-                        <span className="font-medium">{formatPrice(totaux.totalHT)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Total TVA</span>
-                        <span className="font-medium">{formatPrice(totaux.totalTVA)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-2 text-base">
-                        <span className="font-semibold">Total TTC</span>
-                        <span className="font-semibold text-blue-600">{formatPrice(totaux.totalTTC)}</span>
-                      </div>
+                      <TotalLine label={t('dashboard.procurementOrdersComponents.totalHT')} value={formatPrice(totaux.totalHT, language)} />
+                      <TotalLine label={t('dashboard.procurementOrdersComponents.totalVAT')} value={formatPrice(totaux.totalTVA, language)} />
+                      <TotalLine
+                        label={t('dashboard.procurementOrdersComponents.totalTTC')}
+                        value={formatPrice(totaux.totalTTC, language)}
+                        strong
+                      />
                     </div>
                   </div>
                 </section>
               )}
 
-              {/* Boutons d'action */}
               <div className="flex justify-end gap-3 border-t pt-4">
-                <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
-                  Annuler
+                <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 hover:bg-gray-50">
+                  {t('dashboard.procurementOrdersComponents.cancel')}
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={loading || !selectedFournisseur || lignes.length === 0} 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                <button
+                  type="submit"
+                  disabled={loading || !selectedFournisseur || lignes.length === 0}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                 >
-                  {commande ? 'Modifier' : 'Créer'} la commande
+                  {commande
+                    ? t('dashboard.procurementOrdersComponents.updateOrder')
+                    : t('dashboard.procurementOrdersComponents.createOrder')}
                 </button>
               </div>
             </form>
@@ -541,98 +504,95 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
         </div>
       </div>
 
-      {/* MODALE DE SÉLECTION DES PRODUITS */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="flex min-h-screen items-center justify-center px-4">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeProductModal} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-              
-              <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
-                <h3 className="text-lg font-semibold text-white">
-                  Ajouter un produit
-                </h3>
+            <div className="relative max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b bg-gradient-to-r from-blue-600 to-blue-700 p-4">
+                <h3 className="text-lg font-semibold text-white">{t('dashboard.procurementOrdersComponents.addProductModalTitle')}</h3>
                 <button onClick={closeProductModal} className="text-white hover:text-gray-200">
-                  <XMarkIcon className="w-5 h-5" />
+                  <XMarkIcon className="h-5 w-5" />
                 </button>
               </div>
-              
-              <div className="p-4 overflow-y-auto max-h-[60vh]">
-                <p className="text-sm text-gray-600 mb-3">
-                  Fournisseur : <span className="font-semibold">
-                    {activeFournisseurs?.find(f => f.idFournisseur === selectedFournisseur)?.nomFournisseur}
+
+              <div className="max-h-[60vh] overflow-y-auto p-4">
+                <p className="mb-3 text-sm text-gray-600">
+                  {t('dashboard.procurementOrdersComponents.supplier')}:{' '}
+                  <span className="font-semibold">
+                    {activeFournisseurs?.find((fournisseur) => fournisseur.idFournisseur === selectedFournisseur)?.nomFournisseur}
                   </span>
                 </p>
-                
+
                 {produitsDisponibles.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-yellow-500 mb-3" />
-                    <p>Aucun produit disponible pour ce fournisseur</p>
+                  <div className="py-8 text-center text-gray-500">
+                    <ExclamationTriangleIcon className="mx-auto mb-3 h-12 w-12 text-yellow-500" />
+                    <p>{t('dashboard.procurementOrdersComponents.noProductForSupplier')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {produitsDisponibles.map(produit => {
-                      const estDejaAjoute = lignes.some(l => l.produitId === produit.id);
+                    {produitsDisponibles.map((produit) => {
+                      const estDejaAjoute = lignes.some((ligne) => ligne.produitId === produit.id);
                       const estActif = produit.estActif !== false;
-                      
+
                       return (
                         <div
                           key={produit.id}
-                          onClick={() => !estDejaAjoute && estActif && selectProduit(produit)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          onClick={() => !estDejaAjoute && estActif && setProduitSelectionneTemp(produit)}
+                          className={`cursor-pointer rounded-lg border p-3 transition-colors ${
                             produitSelectionneTemp?.id === produit.id
                               ? 'border-blue-500 bg-blue-50'
                               : estDejaAjoute
-                              ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                              ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-60'
                               : !estActif
-                              ? 'border-orange-200 bg-orange-50 cursor-not-allowed'
+                              ? 'cursor-not-allowed border-orange-200 bg-orange-50'
                               : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
                           }`}
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-800">
-                                  {produit.nom || produit.libelle}
-                                </span>
+                                <span className="font-medium text-gray-800">{produit.nom || produit.libelle}</span>
                                 {!estActif && (
-                                  <span className="text-xs px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">
-                                    Inactif
+                                  <span className="rounded-full bg-orange-200 px-2 py-0.5 text-xs text-orange-700">
+                                    {t('dashboard.procurementOrdersComponents.inactive')}
                                   </span>
                                 )}
                                 {estDejaAjoute && (
-                                  <span className="text-xs px-2 py-0.5 bg-green-200 text-green-700 rounded-full">
-                                    Déjà dans la commande
+                                  <span className="rounded-full bg-green-200 px-2 py-0.5 text-xs text-green-700">
+                                    {t('dashboard.procurementOrdersComponents.alreadyInOrder')}
                                   </span>
                                 )}
                               </div>
-                              <div className="flex gap-4 text-sm text-gray-500 mt-1">
-                                <span>Prix: {formatPrice(produit.prixAchat || produit.prix)}</span>
-                                <span>Stock: {produit.stock || 0}</span>
+                              <div className="mt-1 flex gap-4 text-sm text-gray-500">
+                                <span>
+                                  {t('dashboard.procurementOrdersComponents.price')}:{' '}
+                                  {formatPrice(produit.prixAchat || produit.prix, language)}
+                                </span>
+                                <span>
+                                  {t('dashboard.procurementOrdersComponents.stock')}: {produit.stock || 0}
+                                </span>
                                 <span>TVA: {produit.tauxTVA || 19}%</span>
                               </div>
                             </div>
-                            {produitSelectionneTemp?.id === produit.id && (
-                              <CheckIcon className="w-5 h-5 text-blue-600" />
-                            )}
+                            {produitSelectionneTemp?.id === produit.id && <CheckIcon className="h-5 w-5 text-blue-600" />}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-                
-                {/* Contrôle de quantité - minimum 1 */}
+
                 {produitSelectionneTemp && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Quantité (minimum 1)
+                  <div className="mt-4 rounded-lg border bg-gray-50 p-3">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      {t('dashboard.procurementOrdersComponents.quantityMinimum')}
                     </label>
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={decrementQuantite}
-                        className="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                        onClick={() => setQuantiteTemp((prev) => Math.max(1, prev - 1))}
+                        className="rounded-lg border px-3 py-1 hover:bg-gray-100 disabled:opacity-50"
                         disabled={quantiteTemp <= 1}
                       >
                         -
@@ -642,12 +602,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                         min="1"
                         value={quantiteTemp}
                         onChange={handleQuantiteChange}
-                        className="w-24 text-center px-3 py-1 border rounded-lg"
+                        className="w-24 rounded-lg border px-3 py-1 text-center"
                       />
                       <button
                         type="button"
-                        onClick={incrementQuantite}
-                        className="px-3 py-1 border rounded-lg hover:bg-gray-100"
+                        onClick={() => setQuantiteTemp((prev) => prev + 1)}
+                        className="rounded-lg border px-3 py-1 hover:bg-gray-100"
                       >
                         +
                       </button>
@@ -655,22 +615,18 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
                   </div>
                 )}
               </div>
-              
-              <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
-                <button
-                  type="button"
-                  onClick={closeProductModal}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-100"
-                >
-                  Annuler
+
+              <div className="flex justify-end gap-3 border-t bg-gray-50 p-4">
+                <button type="button" onClick={closeProductModal} className="rounded-lg border px-4 py-2 hover:bg-gray-100">
+                  {t('dashboard.procurementOrdersComponents.cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={ajouterProduitSelectionne}
                   disabled={!produitSelectionneTemp || quantiteTemp < 1}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                 >
-                  Ajouter à la commande
+                  {t('dashboard.procurementOrdersComponents.addToOrder')}
                 </button>
               </div>
             </div>
@@ -680,5 +636,12 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     </div>
   );
 };
+
+const TotalLine = ({ label, value, strong }) => (
+  <div className={`flex justify-between ${strong ? 'border-t pt-2 text-base' : 'text-sm'}`}>
+    <span className={strong ? 'font-semibold' : ''}>{label}</span>
+    <span className={strong ? 'font-semibold text-blue-600' : 'font-medium'}>{value}</span>
+  </div>
+);
 
 export default CommandeModal;

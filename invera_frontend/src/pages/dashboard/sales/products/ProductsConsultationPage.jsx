@@ -40,10 +40,20 @@ import SuccessModal from './components/SuccessModal';
 import productService from '../../../../services/productService';
 import clientService from '../../../../services/clientService';
 import { useAuth } from '../../../../hooks/useAuth';
+import { useLanguage } from '../../../../context/LanguageContext';
+
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
 
 const ProductsConsultationPage = () => {
   // États pour les données
   const { isAuthenticated } = useAuth();
+  const { t, language, isArabic } = useLanguage();
+  const tr = (key, params) => t(`salesPages.${key}`, params);
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -144,7 +154,7 @@ const loadProducts = async (filters = {}) => {
     
   } catch (err) {
     console.error('❌ Erreur lors du chargement des produits:', err);
-    setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
+    setError(err.response?.data?.message || err.message || tr('productsLoadError'));
     setProducts([]);
   } finally {
     setLoading(false);
@@ -383,14 +393,14 @@ const loadProducts = async (filters = {}) => {
         idProduit: productId,
         prix: product.prix || product.prixVente || 0,
         quantiteStock: product.quantiteStock || 0,
-        uniteMesure: product.uniteMesure || 'unité'
+        uniteMesure: product.uniteMesure || tr('unit')
       }]);
     }
   };
 
   const handleCreateOrder = () => {
     if (selectedProducts.length === 0) {
-      alert('Veuillez sélectionner au moins un produit');
+      alert(tr('selectAtLeastOneProduct'));
       return;
     }
     
@@ -424,7 +434,7 @@ const loadProducts = async (filters = {}) => {
   const handleAddNewClient = async () => {
     try {
       if (!nouveauClient.nom.trim() || !nouveauClient.telephone.trim()) {
-        alert('Veuillez remplir les champs obligatoires (nom et téléphone)');
+        alert(tr('requiredClientFields'));
         return;
       }
       
@@ -466,18 +476,18 @@ const loadProducts = async (filters = {}) => {
       
     } catch (err) {
       console.error('Erreur création client:', err);
-      alert(err.response?.data?.message || 'Erreur lors de la création du client');
+      alert(err.response?.data?.message || tr('clientCreateError'));
     }
   };
 
   const handleCreateCommande = () => {
     if (selectedProducts.length === 0 || !selectedClient) {
-      alert('Veuillez sélectionner un client et au moins un produit');
+      alert(tr('selectClientAndProduct'));
       return;
     }
 
     if (!checkDisponibilite(selectedProducts)) {
-      alert('Certains produits ne sont pas disponibles en quantité suffisante');
+      alert(tr('someProductsUnavailable'));
       return;
     }
 
@@ -513,7 +523,7 @@ const loadProducts = async (filters = {}) => {
         client: selectedClient,
         produits: selectedProducts.map(p => ({
           produitId: p.idProduit || p.id,
-          libelle: p.libelle || 'Produit',
+          libelle: p.libelle || tr('product'),
           quantite: p.quantiteCommande || 1,
           prixUnitaire: p.prix || p.prixVente || 0,
           sousTotal: ((p.prix || p.prixVente || 0) * (p.quantiteCommande || 1)).toFixed(2)
@@ -544,7 +554,7 @@ const loadProducts = async (filters = {}) => {
       
     } catch (err) {
       console.error('Erreur enregistrement commande:', err);
-      alert(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      alert(err.response?.data?.message || tr('saveError'));
     }
   };
 
@@ -585,12 +595,12 @@ const loadProducts = async (filters = {}) => {
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Consultation des Produits</h1>
-            <p className="text-gray-600 mt-2">Consultez le catalogue et créez des commandes clients</p>
+            <h1 className="text-2xl font-bold text-gray-800">{tr('productConsultationTitle')}</h1>
+            <p className="text-gray-600 mt-2">{tr('productConsultationDescription')}</p>
           </div>
           
           {selectedProducts.length > 0 && (
@@ -601,13 +611,13 @@ const loadProducts = async (filters = {}) => {
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Créer commande ({selectedProducts.length})
+                {tr('createOrderWithCount', { count: selectedProducts.length })}
               </button>
             </div>
           )}
         </div>
 
-        <ProductStats stats={stats} />
+        <ProductStats stats={stats} t={tr} />
 
         <ProductFilters 
           searchTerm={searchTerm}
@@ -615,6 +625,8 @@ const loadProducts = async (filters = {}) => {
           selectedCategory={selectedCategory}
           setSelectedCategory={handleCategoryChange}
           categories={categories}
+          t={tr}
+          isArabic={isArabic}
         />
       </div>
 
@@ -623,7 +635,7 @@ const loadProducts = async (filters = {}) => {
           <div className="flex items-center">
             <div className="text-red-500 mr-3">⚠️</div>
             <div>
-              <p className="text-red-700 font-medium">Erreur de chargement</p>
+              <p className="text-red-700 font-medium">{tr('loadingError')}</p>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -646,6 +658,9 @@ const loadProducts = async (filters = {}) => {
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {showCreateOrder && !showRecap && (
@@ -672,6 +687,8 @@ const loadProducts = async (filters = {}) => {
           loadingClients={loadingClients}
           applyRemiseByClientType={applyRemiseByClientType}
           loadClients={loadClients}
+          t={tr}
+          isArabic={isArabic}
         />
       )}
 
@@ -684,6 +701,9 @@ const loadProducts = async (filters = {}) => {
           remiseAppliquee={remiseAppliquee}
           calculerTotaux={calculerTotaux}
           handleEnregistrerCommande={handleEnregistrerCommande}
+          t={tr}
+          locale={locale}
+          isArabic={isArabic}
         />
       )}
 
@@ -691,6 +711,8 @@ const loadProducts = async (filters = {}) => {
         <SuccessModal 
           showSuccessPopup={showSuccessPopup}
           setShowSuccessPopup={setShowSuccessPopup}
+          t={tr}
+          isArabic={isArabic}
         />
       )}
     </div>

@@ -22,7 +22,9 @@ const ClientSelectionSection = ({
   handleSelectClient,
   loadingClients,
   applyRemiseByClientType,
-  loadClients 
+  loadClients,
+  t = (key) => key,
+  isArabic = false
 }) => {
   const [searchClientTerm, setSearchClientTerm] = useState('');
   const [filteredClients, setFilteredClients] = useState(clients);
@@ -147,7 +149,7 @@ const ClientSelectionSection = ({
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-gray-800">Sélection du Client</h3>
+        <h3 className="font-bold text-gray-800">{t('clientSelection')}</h3>
         <div className="flex items-center space-x-2">
 
           
@@ -167,7 +169,7 @@ const ClientSelectionSection = ({
             }`}
           >
             <UserIcon className="h-4 w-4 inline mr-2" />
-            Client existant
+            {t('existingClient')}
           </button>
           <button
             onClick={() => setNewClientMode(true)}
@@ -178,7 +180,7 @@ const ClientSelectionSection = ({
             }`}
           >
             <UserPlusIcon className="h-4 w-4 inline mr-2" />
-            Nouveau client
+            {t('newClient')}
           </button>
         </div>
       </div>
@@ -191,7 +193,7 @@ const ClientSelectionSection = ({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Rechercher par nom, prénom, téléphone, email, type, adresse..."
+              placeholder={t('searchClientLong')}
               className="w-full pl-10 pr-24 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={searchClientTerm}
               onChange={(e) => setSearchClientTerm(e.target.value)}
@@ -216,7 +218,7 @@ const ClientSelectionSection = ({
             {/* Indicateur de résultats */}
             {searchClientTerm && filteredClients.length > 0 && (
               <div className="absolute right-10 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                {filteredClients.length} résultat{filteredClients.length > 1 ? 's' : ''}
+                {t('resultsCount', { count: filteredClients.length })}
               </div>
             )}
           </div>
@@ -225,17 +227,17 @@ const ClientSelectionSection = ({
           {searchClientTerm && filteredClients.length === 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <p className="text-sm text-yellow-700">
-                💡 <span className="font-medium">Astuces de recherche :</span>
+                <span className="font-medium">{t('searchTips')}:</span>
               </p>
               <ul className="text-xs text-yellow-600 mt-1 ml-5 list-disc">
-                <li>Essayez avec juste le prénom ou le nom</li>
-                <li>Recherchez par numéro de téléphone (ex: 55 123 456)</li>
-                <li>Essayez le type de client (Particulier, Professionnel, etc.)</li>
+                <li>{t('searchTipName')}</li>
+                <li>{t('searchTipPhone')}</li>
+                <li>{t('searchTipType')}</li>
                 <li>Ou <button 
                   onClick={() => setNewClientMode(true)} 
                   className="text-blue-600 hover:underline font-medium"
                 >
-                  ajoutez un nouveau client
+                  {t('addNewClient')}
                 </button></li>
               </ul>
             </div>
@@ -254,6 +256,7 @@ const ClientSelectionSection = ({
             handleSelectClientLocal={handleSelectClientLocal}
             clientCreeEtSelectionne={clientCreeEtSelectionne} // ← PASSER LE CLIENT CRÉÉ
             newClientMode={newClientMode} // ← PASSER LE MODE
+            t={t}
           />
         </div>
       ) : (
@@ -265,6 +268,7 @@ const ClientSelectionSection = ({
           setNewClientMode={setNewClientMode}
           applyRemiseByClientType={applyRemiseByClientType}
           loadClients={loadClients}
+          t={t}
         />
       )}
     </div>

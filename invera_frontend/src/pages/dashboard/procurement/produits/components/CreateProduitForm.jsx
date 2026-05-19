@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import ProduitFormBase from './ProduitFormBase';
 import FournisseurService from '../../../../../services/FournisseurService';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     libelle: '',
     prixVente: '',
@@ -62,26 +64,26 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.libelle.trim()) newErrors.libelle = 'Le libellé est requis';
+    if (!formData.libelle.trim()) newErrors.libelle = t('dashboard.procurementProductsPage.errorRequiredField');
     
     const prixVente = parseFloat(formData.prixVente);
     if (!formData.prixVente || isNaN(prixVente) || prixVente <= 0) {
-      newErrors.prixVente = 'Le prix de vente doit être supérieur à 0';
+      newErrors.prixVente = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
     
     const prixAchat = parseFloat(formData.prixAchat);
     if (!formData.prixAchat || isNaN(prixAchat) || prixAchat <= 0) {
-      newErrors.prixAchat = "Le prix d'achat doit être supérieur à 0";
+      newErrors.prixAchat = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
     
-    if (!formData.categorie?.idCategorie) newErrors.categorie = 'La catégorie est requise';
-    if (!formData.fournisseurId) newErrors.fournisseurId = 'Le fournisseur est requis';
-    if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
-    if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
+    if (!formData.categorie?.idCategorie) newErrors.categorie = t('dashboard.procurementProductsPage.errorCategoryRequired');
+    if (!formData.fournisseurId) newErrors.fournisseurId = t('dashboard.procurementProductsPage.errorSupplierRequired');
+    if (formData.seuilMinimum < 0) newErrors.seuilMinimum = t('dashboard.procurementProductsPage.errorMinimumThresholdPositive');
+    if (!formData.uniteMesure.trim()) newErrors.uniteMesure = t('dashboard.procurementProductsPage.errorMeasurementUnitRequired');
     
     const remise = parseFloat(formData.remiseTemporaire);
     if (isNaN(remise) || remise < 0 || remise > 100) {
-      newErrors.remiseTemporaire = 'La remise doit être entre 0 et 100';
+      newErrors.remiseTemporaire = t('dashboard.procurementProductsPage.errorDiscountBetween');
     }
     
     setErrors(newErrors);
@@ -125,22 +127,31 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
       const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        setErrors(prev => ({ ...prev, imageUrl: 'Format non supporté' }));
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorUnsupportedImageFormat') }));
+        e.target.value = '';
         return;
       }
       
       if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, imageUrl: 'Image trop volumineuse (max 5MB)' }));
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorImageTooLarge') }));
+        e.target.value = '';
         return;
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImagePreview(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorUnsupportedImageFormat') }));
+        setImagePreview(null);
+        e.target.value = '';
       };
       reader.readAsDataURL(file);
 
@@ -202,7 +213,7 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
       // Vérification critique
       if (!formDataToSend.has('libelle')) {
         console.error(' libelle MANQUANT dans FormData!');
-        toast.error('Erreur: libelle manquant');
+        toast.error(t('dashboard.procurementProductsPage.missingProductLabel'));
         return;
       }
       
@@ -226,7 +237,7 @@ const CreateProduitForm = ({ categories = [], onClose, onSave, userRole }) => {
       handleSubmit={handleSubmit}
       onClose={onClose}
       isEditMode={false}
-      title="Nouveau produit"
+      title={t('dashboard.procurementProductsPage.newProductTitle')}
       fournisseursDisponibles={fournisseursDisponibles}
       loadingFournisseurs={loadingFournisseurs}
     />

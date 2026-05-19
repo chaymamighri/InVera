@@ -29,11 +29,11 @@ const ClientBadge = ({ type }) => {
 };
 
 // Composant pour les indicateurs d'étapes
-const StepIndicator = ({ step, currentStep }) => {
+const StepIndicator = ({ step, currentStep, t }) => {
   const steps = [
-    { number: 1, label: 'Client' },
-    { number: 2, label: 'Produits' },
-    { number: 3, label: 'Valider' }
+    { number: 1, label: t('salesPages.client') },
+    { number: 2, label: t('salesPages.products') },
+    { number: 3, label: t('salesPages.validate') }
   ];
 
   const current = steps[step - 1];
@@ -98,6 +98,8 @@ const CreateOrderModal = ({
   onCreateCommande,
   toNumber,
   isCreating = false,
+  t = (key) => key,
+  isArabic = false,
 }) => {
   const [searchProduit, setSearchProduit] = useState('');
   const [searchClient, setSearchClient] = useState('');
@@ -170,6 +172,7 @@ const CreateOrderModal = ({
 
   const montantRemise = totalProduits * remisePourcentage;
   const totalFinal = totalProduits - montantRemise;
+  const formatMontant = (value) => `${toNumber(value).toFixed(2)} ${t('salesPages.currencyLower')}`;
 
   // Fonction utilitaire pour afficher les toasts
   const showToast = (message, type = 'error', duration = 3000) => {
@@ -224,7 +227,7 @@ const CreateOrderModal = ({
     } else {
       if (!produit.id) {
         console.error('Produit ajouté sans ID:', produit);
-        showToast('Erreur: le produit n\'a pas d\'ID', 'error');
+        showToast(t('salesPages.productMissingId'), 'error');
         return;
       }
       
@@ -247,7 +250,7 @@ const CreateOrderModal = ({
   }
 
     if (!selectedClient || selectedProducts.length === 0) {
-      showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
+      showToast(t('salesPages.selectClientAndProducts'), 'error');
       return;
     }
     
@@ -259,7 +262,7 @@ const CreateOrderModal = ({
 
     if (produitSansStock) {
       showToast(
-        `Stock insuffisant pour "${produitSansStock.libelle}". Disponible: ${produitSansStock.quantiteStock}`,
+        t('salesPages.stockInsufficientForProduct', { product: produitSansStock.libelle, stock: produitSansStock.quantiteStock }),
         'error',
         4000
       );
@@ -269,7 +272,7 @@ const CreateOrderModal = ({
     onCreateCommande(selectedClient, notes);
     
     // Toast de succès (sera affiché après la création réussie)
-    showToast('Commande créée avec succès !', 'success', 3000);
+    showToast(t('salesPages.orderCreatedSuccess'), 'success', 3000);
   };
 
   const handleClearCart = () => {
@@ -281,11 +284,11 @@ const CreateOrderModal = ({
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
         </svg>
-        <span class="font-medium">Vider le panier ?</span>
+        <span class="font-medium">${t('salesPages.clearCartQuestion')}</span>
       </div>
       <div class="flex justify-end space-x-2">
-        <button class="px-3 py-1.5 bg-white text-yellow-600 rounded hover:bg-gray-100 text-sm font-medium transition-colors" id="cancelClear">Annuler</button>
-        <button class="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium transition-colors" id="confirmClear">Confirmer</button>
+        <button class="px-3 py-1.5 bg-white text-yellow-600 rounded hover:bg-gray-100 text-sm font-medium transition-colors" id="cancelClear">${t('salesPages.cancel')}</button>
+        <button class="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium transition-colors" id="confirmClear">${t('salesPages.confirm')}</button>
       </div>
     `;
     document.body.appendChild(confirmToast);
@@ -308,7 +311,7 @@ const CreateOrderModal = ({
         setTimeout(() => confirmToast.remove(), 300);
 
         // Toast de succès
-        showToast('Panier vidé avec succès', 'success', 2000);
+        showToast(t('salesPages.cartCleared'), 'success', 2000);
       });
     }
   };
@@ -347,15 +350,15 @@ const CreateOrderModal = ({
   // Étape 1 : Sélection du client
   if (currentStep === 1) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-lg">
           
           {/* En-tête */}
           <div className="bg-blue-600 px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
-                <p className="text-blue-100 text-sm mt-1">Étape 1 : Sélectionnez un client</p>
+                <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
+                <p className="text-blue-100 text-sm mt-1">{t('salesPages.stepSelectClient')}</p>
               </div>
               <button 
                 onClick={onClose}
@@ -370,11 +373,11 @@ const CreateOrderModal = ({
           {/* Étapes */}
           <div className="px-6 py-3 bg-gray-50 border-b">
             <div className="flex justify-center items-center space-x-8">
-              <StepIndicator step={1} currentStep={currentStep} />
+              <StepIndicator step={1} currentStep={currentStep} t={t} />
               <div className={`h-0.5 w-12 ${clientSelectionne ? 'bg-green-400' : 'bg-gray-300'}`}></div>
-              <StepIndicator step={2} currentStep={currentStep} />
+              <StepIndicator step={2} currentStep={currentStep} t={t} />
               <div className="h-0.5 w-12 bg-gray-300"></div>
-              <StepIndicator step={3} currentStep={currentStep} />
+              <StepIndicator step={3} currentStep={currentStep} t={t} />
             </div>
           </div>
 
@@ -384,7 +387,7 @@ const CreateOrderModal = ({
             <div className="relative mb-4">
               <input
                 type="text"
-                placeholder="Rechercher un client..."
+                placeholder={t('salesPages.searchClient')}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 value={searchClient}
                 onChange={(e) => setSearchClient(e.target.value)}
@@ -400,7 +403,7 @@ const CreateOrderModal = ({
                   <div className="flex items-center">
                     <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
                     <div>
-                      <div className="font-medium text-gray-900">Client sélectionné</div>
+                      <div className="font-medium text-gray-900">{t('salesPages.selectedClient')}</div>
                       <div className="text-sm text-gray-600">{clientSelectionne.nom} • {clientSelectionne.telephone}</div>
                     </div>
                   </div>
@@ -409,7 +412,7 @@ const CreateOrderModal = ({
                     className="text-sm text-red-600 hover:text-red-700"
                     disabled={isCreating}
                   >
-                    Changer
+                    {t('salesPages.change')}
                   </button>
                 </div>
               </div>
@@ -453,7 +456,7 @@ const CreateOrderModal = ({
             {clientsFiltres.length === 0 && (
               <div className="text-center py-8">
                 <UserCircleIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Aucun client trouvé</p>
+                <p className="text-gray-600">{t('salesPages.noClientFound')}</p>
               </div>
             )}
 
@@ -464,7 +467,7 @@ const CreateOrderModal = ({
                 variant="outline"
                 disabled={isCreating}
               >
-                Annuler
+                {t('salesPages.cancel')}
               </SimpleButton>
               <SimpleButton
                 onClick={handleNextStep}
@@ -472,7 +475,7 @@ const CreateOrderModal = ({
                 variant="primary"
                 className="px-5"
               >
-                {isCreating ? 'Chargement...' : 'Suivant'}
+                {isCreating ? t('salesPages.loading') : t('salesPages.next')}
               </SimpleButton>
             </div>
           </div>
@@ -484,22 +487,22 @@ const CreateOrderModal = ({
   // Étape 2 : Sélection des produits
   if (currentStep === 2) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
           
           {/* En-tête */}
           <div className="bg-blue-600 px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
+                <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
                 <p className="text-blue-100 text-sm mt-1">
-                  Client : {clientSelectionne?.nom} • {selectedProducts.length} produit{selectedProducts.length !== 1 ? 's' : ''}
+                  {t('salesPages.client')}: {clientSelectionne?.nom} - {t('salesPages.productCount', { count: selectedProducts.length })}
                 </p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 rounded px-3 py-1.5">
-                  <div className="text-xs text-blue-100">Total</div>
-                  <div className="text-sm font-semibold text-white">{totalFinal.toFixed(2)} dt</div>
+                  <div className="text-xs text-blue-100">{t('salesPages.total')}</div>
+                  <div className="text-sm font-semibold text-white">{formatMontant(totalFinal)}</div>
                 </div>
                 <button 
                   onClick={onClose}
@@ -515,11 +518,11 @@ const CreateOrderModal = ({
           {/* Étapes */}
           <div className="px-6 py-3 bg-gray-50 border-b">
             <div className="flex justify-center items-center space-x-8">
-              <StepIndicator step={1} currentStep={currentStep} />
+              <StepIndicator step={1} currentStep={currentStep} t={t} />
               <div className="h-0.5 w-12 bg-green-400"></div>
-              <StepIndicator step={2} currentStep={currentStep} />
+              <StepIndicator step={2} currentStep={currentStep} t={t} />
               <div className={`h-0.5 w-12 ${selectedProducts.length > 0 ? 'bg-green-400' : 'bg-gray-300'}`}></div>
-              <StepIndicator step={3} currentStep={currentStep} />
+              <StepIndicator step={3} currentStep={currentStep} t={t} />
             </div>
           </div>
 
@@ -529,7 +532,7 @@ const CreateOrderModal = ({
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center">
                   <ShoppingCartIcon className="h-4 w-4 text-green-600 mr-2" />
-                  <h3 className="font-medium text-gray-800">Produits</h3>
+                  <h3 className="font-medium text-gray-800">{t('salesPages.products')}</h3>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
@@ -537,7 +540,7 @@ const CreateOrderModal = ({
                     className="text-sm text-blue-600 hover:text-blue-700"
                     disabled={isCreating}
                   >
-                    ← Changer client
+                    {t('salesPages.changeClient')}
                   </button>
                 </div>
               </div>
@@ -546,7 +549,7 @@ const CreateOrderModal = ({
               <div className="relative mb-4">
                 <input
                   type="text"
-                  placeholder="Rechercher un produit..."
+                  placeholder={t('salesPages.searchProduct')}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   value={searchProduit}
                   onChange={(e) => setSearchProduit(e.target.value)}
@@ -571,12 +574,12 @@ const CreateOrderModal = ({
                             {produit.categorie?.nomCategorie || produit.categorieNom || '—'}
                           </div>
                           <div className={`text-xs mt-1 ${stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            Stock: {stock} {produit.uniteMesure}
+                            {t('salesPages.stock')}: {stock} {produit.uniteMesure}
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-blue-600 text-sm">
-                            {toNumber(produit.prixVente || produit.prix).toFixed(2)} dt  {/* ✅ CORRIGÉ: prixVente */}
+                            {formatMontant(produit.prixVente || produit.prix)}  {/* ✅ CORRIGÉ: prixVente */}
                           </div>
                           <button
                             onClick={() => handleAddProduct(produit)}
@@ -584,7 +587,7 @@ const CreateOrderModal = ({
                             className={`mt-1 px-2 py-1 text-xs rounded flex items-center ${stock > 0 && !isCreating ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500'}`}
                           >
                             <PlusIcon className="h-3 w-3 mr-1" />
-                            {selected ? '+1' : 'Ajouter'}
+                            {selected ? '+1' : t('salesPages.add')}
                           </button>
                         </div>
                       </div>
@@ -616,7 +619,7 @@ const CreateOrderModal = ({
                               disabled={isCreating}
                             >
                               <TrashIcon className="h-3 w-3 mr-1" />
-                              Retirer
+                              {t('salesPages.remove')}
                             </button>
                           </div>
                         </div>
@@ -629,21 +632,21 @@ const CreateOrderModal = ({
               {/* Navigation */}
               <div className="mt-6 flex justify-between">
                 <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
-                  ← Retour
+                  {t('salesPages.back')}
                 </SimpleButton>
                 <SimpleButton
                   onClick={handleNextStep}
                   disabled={selectedProducts.length === 0 || isCreating}
                   variant="primary"
                 >
-                  {isCreating ? 'Chargement...' : 'Suivant → Valider'}
+                  {isCreating ? t('salesPages.loading') : t('salesPages.nextValidate')}
                 </SimpleButton>
               </div>
             </div>
 
             {/* Panier */}
             <div className="w-80 border-l border-gray-200 p-6 overflow-y-auto bg-gray-50">
-              <h3 className="font-medium text-gray-800 mb-3">Panier</h3>
+              <h3 className="font-medium text-gray-800 mb-3">{t('salesPages.cart')}</h3>
               
               {/* Client sélectionné */}
               <div className="bg-white p-3 rounded-lg border mb-4">
@@ -660,7 +663,7 @@ const CreateOrderModal = ({
                     <button
                       onClick={() => handleClientClick(parseInt(selectedClient))}
                       className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
-                      title="Changer de client"
+                      title={t('salesPages.changeClient')}
                       disabled={isCreating}
                     >
                       ✕
@@ -672,7 +675,7 @@ const CreateOrderModal = ({
               {selectedProducts.length === 0 ? (
                 <div className="text-center py-8">
                   <ShoppingCartIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 text-sm">Panier vide</p>
+                  <p className="text-gray-600 text-sm">{t('salesPages.emptyCart')}</p>
                 </div>
               ) : (
                 <>
@@ -684,12 +687,12 @@ const CreateOrderModal = ({
                           <div className="flex-1">
                             <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
                             <div className="text-xs text-gray-600">
-                              {produit.quantite} × {toNumber(produit.prix).toFixed(2)} dt
+                              {produit.quantite} × {formatMontant(produit.prix)}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="font-semibold text-blue-600 text-sm">
-                              {(toNumber(produit.prix) * produit.quantite).toFixed(2)} dt
+                              {formatMontant(toNumber(produit.prix) * produit.quantite)}
                             </div>
                           </div>
                         </div>
@@ -705,29 +708,29 @@ const CreateOrderModal = ({
                     disabled={isCreating}
                   >
                     <TrashIcon className="h-3 w-3 mr-1 inline" />
-                    Vider le panier
+                    {t('salesPages.clearCart')}
                   </SimpleButton>
 
                   {/* Totaux */}
                   <div className="bg-white p-4 rounded-lg border">
                     <div className="space-y-2 mb-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Sous-total</span>
-                        <span className="font-medium">{totalProduits.toFixed(2)} dt</span>
+                        <span className="text-gray-700">{t('salesPages.subtotal')}</span>
+                        <span className="font-medium">{formatMontant(totalProduits)}</span>
                       </div>
                       
                       {remisePourcentage > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
-                          <span>Remise ({Math.round(remisePourcentage * 100)}%)</span>
-                          <span className="font-medium">-{montantRemise.toFixed(2)} dt</span>
+                          <span>{t('salesPages.discount')} ({Math.round(remisePourcentage * 100)}%)</span>
+                          <span className="font-medium">-{formatMontant(montantRemise)}</span>
                         </div>
                       )}
                     </div>
                     
                     <div className="border-t pt-3">
                       <div className="flex justify-between font-medium">
-                        <span>Total</span>
-                        <span className="text-green-600">{totalFinal.toFixed(2)} dt</span>
+                        <span>{t('salesPages.total')}</span>
+                        <span className="text-green-600">{formatMontant(totalFinal)}</span>
                       </div>
                     </div>
                   </div>
@@ -742,15 +745,15 @@ const CreateOrderModal = ({
 
   // Étape 3 : Validation
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
         {/* En-tête */}
         <div className="bg-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
-              <p className="text-blue-100 text-sm mt-1">Étape 3 : Validation</p>
+              <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
+              <p className="text-blue-100 text-sm mt-1">{t('salesPages.stepValidation')}</p>
             </div>
             <button 
               onClick={onClose}
@@ -765,11 +768,11 @@ const CreateOrderModal = ({
         {/* Étapes */}
         <div className="px-6 py-3 bg-gray-50 border-b">
           <div className="flex justify-center items-center space-x-8">
-            <StepIndicator step={1} currentStep={currentStep} />
+            <StepIndicator step={1} currentStep={currentStep} t={t} />
             <div className="h-0.5 w-12 bg-green-400"></div>
-            <StepIndicator step={2} currentStep={currentStep} />
+            <StepIndicator step={2} currentStep={currentStep} t={t} />
             <div className="h-0.5 w-12 bg-green-400"></div>
-            <StepIndicator step={3} currentStep={currentStep} />
+            <StepIndicator step={3} currentStep={currentStep} t={t} />
           </div>
         </div>
 
@@ -780,8 +783,8 @@ const CreateOrderModal = ({
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-2" />
               <div>
-                <h3 className="font-medium text-green-800">Vérifiez les détails</h3>
-                <p className="text-green-700 text-sm mt-1">Tout est prêt pour créer la commande</p>
+                <h3 className="font-medium text-green-800">{t('salesPages.verifyDetails')}</h3>
+                <p className="text-green-700 text-sm mt-1">{t('salesPages.readyToCreateOrder')}</p>
               </div>
             </div>
           </div>
@@ -789,13 +792,13 @@ const CreateOrderModal = ({
           {/* Client */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium text-gray-800">Client</h4>
+              <h4 className="font-medium text-gray-800">{t('salesPages.client')}</h4>
               <button
                 onClick={() => handleClientClick(parseInt(selectedClient))}
                 className="text-sm text-blue-600 hover:text-blue-700"
                 disabled={isCreating}
               >
-                Changer
+                {t('salesPages.change')}
               </button>
             </div>
             <div className="bg-white border rounded-lg p-4">
@@ -812,7 +815,7 @@ const CreateOrderModal = ({
                   <button
                     onClick={() => handleClientClick(parseInt(selectedClient))}
                     className="text-xs text-red-600 hover:text-red-700"
-                    title="Changer de client"
+                    title={t('salesPages.changeClient')}
                     disabled={isCreating}
                   >
                     ✕
@@ -825,9 +828,9 @@ const CreateOrderModal = ({
           {/* Produits */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium text-gray-800">Produits</h4>
+              <h4 className="font-medium text-gray-800">{t('salesPages.products')}</h4>
               <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                {selectedProducts.length} article{selectedProducts.length !== 1 ? 's' : ''}
+                {t('salesPages.itemCount', { count: selectedProducts.length })}
               </span>
             </div>
             
@@ -836,10 +839,10 @@ const CreateOrderModal = ({
                 <table className="min-w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Produit</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Qté</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Prix</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Total</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.product')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.quantityShort')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.price')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.total')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -849,9 +852,9 @@ const CreateOrderModal = ({
                           <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
                         </td>
                         <td className="px-4 py-2 text-gray-900 text-sm">{produit.quantite}</td>
-                        <td className="px-4 py-2 text-gray-900 text-sm">{toNumber(produit.prix).toFixed(2)} dt</td>
+                        <td className="px-4 py-2 text-gray-900 text-sm">{formatMontant(produit.prix)}</td>
                         <td className="px-4 py-2 font-medium text-blue-600 text-sm">
-                          {(toNumber(produit.prix) * produit.quantite).toFixed(2)} dt
+                          {formatMontant(toNumber(produit.prix) * produit.quantite)}
                         </td>
                       </tr>
                     ))}
@@ -864,7 +867,7 @@ const CreateOrderModal = ({
                   className="text-sm text-blue-600 hover:text-blue-700"
                   disabled={isCreating}
                 >
-                  ← Modifier
+                  {t('salesPages.edit')}
                 </button>
               </div>
             </div>
@@ -872,37 +875,37 @@ const CreateOrderModal = ({
 
           {/* Notes */}
           <div className="mb-6">
-            <h4 className="font-medium text-gray-800 mb-2">Notes</h4>
+            <h4 className="font-medium text-gray-800 mb-2">{t('salesPages.notes')}</h4>
             <textarea
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
               rows="2"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Instructions supplémentaires..."
+              placeholder={t('salesPages.additionalInstructions')}
               disabled={isCreating}
             />
           </div>
 
           {/* Totaux */}
           <div className="bg-gray-50 border rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-gray-800 mb-3">Récapitulatif</h4>
+            <h4 className="font-medium text-gray-800 mb-3">{t('salesPages.summary')}</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-700">Sous-total</span>
-                <span className="font-medium">{totalProduits.toFixed(2)} dt</span>
+                <span className="text-gray-700">{t('salesPages.subtotal')}</span>
+                <span className="font-medium">{formatMontant(totalProduits)}</span>
               </div>
               
               {remisePourcentage > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Remise ({Math.round(remisePourcentage * 100)}%)</span>
-                  <span className="font-medium">-{montantRemise.toFixed(2)} dt</span>
+                  <span>{t('salesPages.discount')} ({Math.round(remisePourcentage * 100)}%)</span>
+                  <span className="font-medium">-{formatMontant(montantRemise)}</span>
                 </div>
               )}
               
               <div className="border-t pt-3">
                 <div className="flex justify-between font-medium">
-                  <span>Total commande</span>
-                  <span className="text-green-600 text-lg">{totalFinal.toFixed(2)} dt</span>
+                  <span>{t('salesPages.orderTotal')}</span>
+                  <span className="text-green-600 text-lg">{formatMontant(totalFinal)}</span>
                 </div>
               </div>
             </div>
@@ -911,12 +914,12 @@ const CreateOrderModal = ({
           {/* Boutons finaux */}
           <div className="flex justify-between pt-4 border-t">
             <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
-              ← Retour
+              {t('salesPages.back')}
             </SimpleButton>
             
             <div className="flex space-x-3">
               <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>
-                Annuler
+                {t('salesPages.cancel')}
               </SimpleButton>
               <SimpleButton 
                 onClick={handleCreateOrder} 
@@ -930,12 +933,12 @@ const CreateOrderModal = ({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Création en cours...
+                    {t('salesPages.creating')}
                   </span>
                 ) : (
                   <>
                     <CheckCircleIcon className="h-4 w-4 mr-1 inline" />
-                    Créer la commande
+                    {t('salesPages.createOrder')}
                   </>
                 )}
               </SimpleButton>

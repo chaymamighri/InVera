@@ -123,7 +123,6 @@ public class SecurityConfig {
                                 "/api/platform/clients/login",
                                 "/api/platform/clients/request-otp",
                                 "/api/platform/clients/verify-otp",
-                                "/api/telegram/webhook",
                                 "/api/platform/clients/*/justificatifs",
                                 "/api/platform/clients/*/document/*",
                                 "/api/platform/clients/public/logo/*",
@@ -131,15 +130,11 @@ public class SecurityConfig {
                                 "/api/factures/public/*/pdf"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
-                        .requestMatchers(HttpMethod.GET, "/api/platform/telegram-link").hasRole("ADMIN_CLIENT")
 
                         .requestMatchers(HttpMethod.PUT, "/api/platform/clients/logo").hasRole("ADMIN_CLIENT")
 
 
-                        .requestMatchers(
-                                "/api/platform/clients/update-company",
-                                "/api/platform/clients/telegram-chat"
-                        ).hasRole("ADMIN_CLIENT")
+                        .requestMatchers("/api/platform/clients/update-company").hasRole("ADMIN_CLIENT")
 
 
                         // ========== SUPER ADMIN AUTH PUBLIC ==========
@@ -177,7 +172,11 @@ public class SecurityConfig {
                         ).hasAnyRole("ADMIN_CLIENT", "SUPER_ADMIN","COMMERCIAL","RESPONSABLE_ACHAT")
 
                         .requestMatchers("/api/users/me/preferences/**")
-                        .hasAnyAuthority("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+                        .hasAnyRole("SUPER_ADMIN", "ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
+
+                        // ========== ADMIN CLIENT CHATBOT ==========
+                        .requestMatchers("/api/admin-client/chatbot/**")
+                        .hasAnyRole("ADMIN_CLIENT")
 
                         // ========== SUPER ADMIN ==========
                         .requestMatchers(
@@ -221,7 +220,15 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
 
                         // ========== COMMANDES FOURNISSEURS ==========
+                        .requestMatchers("/api/commandes-fournisseurs/{id}/valider")
+                        .hasRole("ADMIN_CLIENT")
+                        .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter")
+                        .hasRole("ADMIN_CLIENT")
                         .requestMatchers("/api/commandes-fournisseurs/**")
+                        .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
+
+                        // ========== NOTIFICATIONS ==========
+                        .requestMatchers("/api/notifications/**")
                         .hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
 
                         // ========== STOCK ==========
@@ -234,15 +241,13 @@ public class SecurityConfig {
 
                         // ========== REPORTS ==========
                         .requestMatchers("/api/reports/**")
-                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL", "ADMIN")
+                        .hasAnyRole("ADMIN_CLIENT", "COMMERCIAL", "RESPONSABLE_ACHAT")
 
                         // ========== UPLOADS ==========
                         .requestMatchers("/uploads/**").permitAll()
 
                         // ========== OTHER MODULE RULES ==========
-                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN", "RESPONSABLE_ACHAT")
-                        .requestMatchers("/api/commandes-fournisseurs/{id}/valider").hasRole("ADMIN")
-                        .requestMatchers("/api/commandes-fournisseurs/{id}/rejeter").hasRole("ADMIN")
+                        .requestMatchers("/api/categories/**").hasAnyRole("ADMIN_CLIENT", "RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/mouvements/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/stock/etat/**").hasRole("RESPONSABLE_ACHAT")
                         .requestMatchers("/api/factures-fournisseur/**").hasRole("RESPONSABLE_ACHAT")

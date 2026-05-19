@@ -11,7 +11,7 @@ import SubscriptionsPage from './SubscriptionsPage';
 import commercialStatsCapture from '../../assets/images/welcome/photo5.png';
 
 const WelcomePage = () => {
-  const { t, isArabic } = useLanguage();
+  const { t, isArabic, language } = useLanguage();
 
   const scrollToSection = (sectionId) => {
     document.getElementById(sectionId)?.scrollIntoView({
@@ -35,38 +35,64 @@ const WelcomePage = () => {
     },
   ];
 
-  const roleSignals = [
-    {
-      title: t('login.signalOne'),
-      description: t('login.signalOneDescription'),
-    },
-    {
-      title: t('login.signalTwo'),
-      description: t('login.signalTwoDescription'),
-    },
-    {
-      title: t('login.signalThree'),
-      description: t('login.signalThreeDescription'),
-    },
-  ];
-
   const productHighlights = [
     t('welcome.featureOne'),
     t('welcome.featureTwo'),
     t('welcome.featureThree'),
   ];
 
-  const planLabels = [
-    t('subscriptions.freePlan'),
-    t('subscriptions.clientPlan'),
-    t('subscriptions.companyPlan'),
-  ];
+  const heroContent = {
+    fr: {
+      description:
+        "InVera rassemble les operations commerciales et administratives dans un cadre unique, structure et lisible, pense pour les equipes qui veulent gagner en maitrise autant qu'en rapidite.",
+      brandLabel: 'InVera',
+      heroWordOne: 'InVera',
+      heroWordTwo: '',
+      streamLabel: 'Vente • Achats • Facturation • Execution',
+      commandKicker: 'Operations en direct',
+      commandTitle: 'Centre InVera',
+      commandStatus: 'Actif',
+      commandItems: ['Factures synchronisees', 'Cycle commercial', 'Flux achats'],
+      monitoring: 'Suivi',
+      executionPulse: 'Rythme d execution',
+      pulseItems: ['Ventes', 'Factures', 'Achats'],
+      running: 'En cours',
+    },
+    en: {
+      description:
+        'InVera brings commercial and administrative operations into one structured workspace built for teams that need stronger control, cleaner execution, and faster visibility.',
+      brandLabel: 'InVera',
+      heroWordOne: 'InVera',
+      heroWordTwo: '',
+      streamLabel: 'Sales • Procurement • Invoicing • Execution',
+      commandKicker: 'Live Operations',
+      commandTitle: 'InVera Command',
+      commandStatus: 'Active',
+      commandItems: ['Invoices synced', 'Sales pipeline', 'Procurement flow'],
+      monitoring: 'Monitoring',
+      executionPulse: 'Execution Pulse',
+      pulseItems: ['Sales', 'Invoices', 'Purchases'],
+      running: 'Running',
+    },
+    ar: {
+      description:
+        'تجمع InVera العمليات التجارية والادارية داخل فضاء واحد منظم وواضح، موجه للفرق التي تبحث عن سيطرة افضل وتنفيذ ادق ورؤية اسرع للنشاط.',
+      brandLabel: 'InVera',
+      heroWordOne: 'InVera',
+      heroWordTwo: '',
+      streamLabel: 'المبيعات • التزويد • الفوترة • التنفيذ',
+      commandKicker: 'العمليات المباشرة',
+      commandTitle: 'مركز InVera',
+      commandStatus: 'نشط',
+      commandItems: ['فواتير متزامنة', 'المسار التجاري', 'تدفق التزويد'],
+      monitoring: 'المتابعة',
+      executionPulse: 'نبض التنفيذ',
+      pulseItems: ['المبيعات', 'الفواتير', 'المشتريات'],
+      running: 'قيد العمل',
+    },
+  };
 
-  const durationLabels = [
-    t('subscriptions.oneMonth'),
-    t('subscriptions.threeMonths'),
-    t('subscriptions.oneYear'),
-  ];
+  const hero = heroContent[language] || heroContent.en;
 
   return (
     <div
@@ -81,7 +107,7 @@ const WelcomePage = () => {
         `}
       </style>
 
-      <div className="w-full px-6 pt-6 lg:px-10 xl:px-12">
+      <div className="w-full bg-[#0b4ea2] px-6 pt-6 lg:px-10 xl:px-12">
         <PublicHeader
           title={t('welcome.heroTitle')}
           actions={
@@ -118,163 +144,138 @@ const WelcomePage = () => {
         />
       </div>
 
-      <main className="pt-14">
-        <div className="w-full px-6 lg:px-10 xl:px-12">
-          <section className="grid gap-12 pb-36 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:pb-44">
-            <div>
-              <span className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0b4ea2] shadow-sm">
-                {t('welcome.heroBadge')}
-              </span>
+      <main className="bg-[#0b4ea2] pt-0">
+        <section className="relative w-full overflow-hidden bg-[#0b4ea2] px-6 pb-28 pt-16 text-white lg:px-10 lg:pb-32 lg:pt-20 xl:px-12">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(125,211,252,0.35),transparent_28%),radial-gradient(circle_at_82%_20%,rgba(255,255,255,0.18),transparent_26%),linear-gradient(180deg,rgba(11,78,162,0)_0%,rgba(7,42,95,0.55)_100%)]" />
+          <div className="absolute -left-24 top-28 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl" />
+          <div className="absolute -right-28 bottom-10 h-96 w-96 rounded-full bg-blue-950/35 blur-3xl" />
 
-              <h2 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.05] text-slate-950 md:text-[4.4rem]">
-                {t('welcome.heroHeading')}
-              </h2>
+          <div
+            dir={isArabic ? 'rtl' : 'ltr'}
+            className={`relative mx-auto max-w-[1500px] ${isArabic ? 'text-right' : ''}`}
+          >
+            <div className="grid min-h-[620px] gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+              <div className="relative z-10">
+                <h2 className="max-w-2xl text-[3rem] font-semibold uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.8rem] md:text-[4.5rem] lg:text-[5rem]">
+                  <>
+                    {hero.heroWordOne}
+                    {hero.heroWordTwo ? (
+                      <>
+                        <br />
+                        {hero.heroWordTwo}
+                      </>
+                    ) : null}
+                  </>
+                </h2>
 
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                {t('welcome.heroDescription')}
-              </p>
+                <p className="mt-6 max-w-lg text-base leading-8 text-sky-50 md:text-lg">
+                  {hero.description}
+                </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {companyStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+                <p className="mt-7 max-w-md text-sm font-medium uppercase tracking-[0.2em] text-sky-100 md:max-w-2xl md:text-base">
+                  {hero.streamLabel}
+                </p>
+
+                <div className="mt-10 flex flex-wrap items-center gap-4">
+                  <button
+                    onClick={() => scrollToSection('more-information')}
+                    className="rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-[#0b4ea2] shadow-2xl shadow-blue-950/25 transition hover:-translate-y-1 hover:bg-sky-50"
                   >
-                    <p className="text-3xl font-semibold text-slate-950">
-                      {stat.value}
-                    </p>
+                    {t('common.moreInformation')}
+                  </button>
 
-                    <p className="mt-2 text-sm text-slate-500">
-                      {stat.label}
-                    </p>
-                  </div>
-                ))}
+                  <button
+                    onClick={() => scrollToSection('subscriptions')}
+                    className="rounded-full border border-white/35 bg-white/10 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:-translate-y-1 hover:bg-white/15"
+                  >
+                    {t('common.subscriptions')}
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-10 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0b4ea2]">
-                  {t('publicInfo.offersBadge')}
-                </p>
+              <div className="relative min-h-[520px] lg:min-h-[620px]">
+                <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+                <div className="absolute left-1/2 top-1/2 h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
 
-                <h3 className="mt-3 text-2xl font-semibold text-slate-950">
-                  {t('publicInfo.title')}
-                </h3>
+                <div className="absolute left-1/2 top-[52%] w-[92%] max-w-[760px] -translate-x-1/2 -translate-y-1/2 rotate-[-4deg] rounded-[2rem] border border-white/20 bg-white/14 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
+                  <div className="rounded-[1.4rem] bg-white p-4 text-slate-900 shadow-xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#0b4ea2]">
+                          {hero.commandKicker}
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
+                          {hero.commandTitle}
+                        </p>
+                      </div>
 
-                <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
-                  {t('publicInfo.description')}
-                </p>
-
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  {productHighlights.map((point) => (
-                    <div
-                      key={point}
-                      className="bg-[#f8fbff] p-4"
-                    >
-                      <p className="text-sm leading-7 text-slate-600">
-                        {point}
-                      </p>
+                      <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+                        {hero.commandStatus}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
 
-            <div className="space-y-5">
-              <div className="bg-[#0b4ea2] p-7 text-white shadow-[0_24px_70px_rgba(11,78,162,0.18)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-100">
-                  {t('login.securityTitle')}
-                </p>
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                      {companyStats.map((stat) => (
+                        <div key={stat.label} className="rounded-2xl bg-slate-50 p-4">
+                          <p className="text-2xl font-semibold text-[#0b4ea2]">
+                            {stat.value}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            {stat.label}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
 
-                <h3 className="mt-3 text-3xl font-semibold leading-tight">
-                  {t('login.heroTitle')}
-                </h3>
-
-                <p className="mt-4 text-base leading-8 text-sky-50">
-                  {t('login.heroDescription')}
-                </p>
-
-                <p className="mt-5 text-sm font-medium text-sky-100">
-                  {t('login.securityDescription')}
-                </p>
-              </div>
-
-              <div className="grid gap-4">
-                {roleSignals.map((signal) => (
-                  <div
-                    key={signal.title}
-                    className="bg-white p-5 shadow-[0_14px_32px_rgba(15,23,42,0.05)]"
-                  >
-                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0b4ea2]">
-                      {signal.title}
-                    </p>
-
-                    <p className="mt-3 text-sm leading-7 text-slate-600">
-                      {signal.description}
-                    </p>
+                    <div className="mt-5 space-y-3">
+                      {hero.commandItems.map((item, index) => (
+                        <div key={item} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#0b4ea2]" />
+                          <p className="flex-1 text-sm font-semibold text-slate-700">{item}</p>
+                          <span className="text-xs font-semibold text-slate-400">
+                            0{index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="bg-white p-6 shadow-[0_14px_32px_rgba(15,23,42,0.05)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600">
-                  {t('subscriptions.badge')}
-                </p>
-
-                <h3 className="mt-3 text-2xl font-semibold text-slate-950">
-                  {t('subscriptions.title')}
-                </h3>
-
-                <p className="mt-4 text-sm leading-7 text-slate-600">
-                  {t('subscriptions.description')}
-                </p>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {planLabels.map((label) => (
-                    <span
-                      key={label}
-                      className="bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700"
-                    >
-                      {label}
-                    </span>
-                  ))}
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {durationLabels.map((label) => (
-                    <span
-                      key={label}
-                      className="bg-[#f1f7ff] px-4 py-2 text-sm font-medium text-[#0b4ea2]"
-                    >
-                      {label}
-                    </span>
-                  ))}
+                <div className="absolute right-0 top-16 hidden w-52 rotate-6 rounded-3xl border border-white/20 bg-white/15 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl md:block">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-100">
+                    {hero.monitoring}
+                  </p>
+                  <div className="mt-5 flex h-24 items-end gap-2">
+                    {[42, 64, 48, 78, 58, 92, 70].map((height) => (
+                      <span
+                        key={height}
+                        className="w-full rounded-full bg-white/80"
+                        style={{ height: `${height}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-16 left-0 hidden w-64 -rotate-6 rounded-3xl border border-white/20 bg-white/15 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl md:block">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-100">
+                    {hero.executionPulse}
+                  </p>
+                  <div className="mt-5 space-y-3">
+                    {hero.pulseItems.map((item) => (
+                      <div key={item} className="flex items-center justify-between text-sm font-semibold">
+                        <span>{item}</span>
+                        <span className="text-sky-100">{hero.running}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
-        </div>
-
-        <section className="relative -mt-20 w-full lg:-mt-28">
-          <div className="relative z-20 mx-auto w-full max-w-[1600px] px-6 lg:px-10 xl:px-12">
-            <div className="grid gap-4 md:grid-cols-3">
-              {roleSignals.map((signal) => (
-                <div
-                  key={signal.title}
-                  className="bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
-                >
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0b4ea2]">
-                    {signal.title}
-                  </p>
-
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    {signal.description}
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
+        </section>
 
-          <div className="mt-[-1px] w-full bg-[#eef6ff] pt-6 lg:pt-8">
+        <section className="relative w-full">
+          <div className="w-full">
             <div
               className="relative min-h-[560px] w-full bg-cover bg-center bg-fixed"
               style={{ backgroundImage: `url(${commercialStatsCapture})` }}
@@ -335,24 +336,22 @@ const WelcomePage = () => {
           </div>
         </section>
 
-        <div className="w-full px-6 lg:px-10 xl:px-12">
-          <section
-            id="more-information"
-            className="scroll-mt-32"
-          >
-            <MoreInformationPage />
-          </section>
+        <section
+          id="more-information"
+          className="scroll-mt-32"
+        >
+          <MoreInformationPage />
+        </section>
 
-          <section
-            id="subscriptions"
-            className="scroll-mt-32"
-          >
-            <SubscriptionsPage />
-          </section>
+        <section
+          id="subscriptions"
+          className="scroll-mt-32"
+        >
+          <SubscriptionsPage />
+        </section>
 
-          <div className="pb-24">
-            <PublicFooter onNavigateSection={scrollToSection} />
-          </div>
+        <div className="pb-0">
+          <PublicFooter onNavigateSection={scrollToSection} />
         </div>
       </main>
     </div>

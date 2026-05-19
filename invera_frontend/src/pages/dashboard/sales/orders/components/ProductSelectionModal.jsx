@@ -21,7 +21,9 @@ const ProductSelectionModal = ({
   onClose,
   existingProduits = [],
   onConfirmSelection,
-  toNumber
+  toNumber,
+  t = (key) => key,
+  isArabic = false
 }) => {
   const {
     products,
@@ -191,7 +193,7 @@ const ProductSelectionModal = ({
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         
         {/* En-tête */}
@@ -200,10 +202,10 @@ const ProductSelectionModal = ({
             <div>
               <h2 className="text-xl font-semibold text-white flex items-center">
                 <CubeIcon className="h-5 w-5 mr-2" />
-                Sélectionner des produits
+                {t('salesPages.selectProducts')}
               </h2>
               <p className="text-blue-100 text-sm mt-1">
-                {selectedProducts.length} produit(s) sélectionné(s) • Total: {totalSelection.toFixed(3)} dt
+                {t('salesPages.selectedProductsSummary', { count: selectedProducts.length, total: totalSelection.toFixed(3) })}
               </p>
             </div>
             <button
@@ -220,7 +222,7 @@ const ProductSelectionModal = ({
           <div className="relative">
             <input
               type="text"
-              placeholder="Rechercher un produit..."
+              placeholder={t('salesPages.searchProduct')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -234,13 +236,13 @@ const ProductSelectionModal = ({
           {loading && (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Chargement des produits...</p>
+              <p className="text-gray-500 mt-2">{t('salesPages.loadingProducts')}</p>
             </div>
           )}
 
           {error && (
             <div className="text-center py-12 text-red-600">
-              <p>Erreur: {error}</p>
+              <p>{t('salesPages.error')}: {error}</p>
             </div>
           )}
 
@@ -264,7 +266,7 @@ const ProductSelectionModal = ({
                     }}
                   >
                     <div className="flex items-center">
-                      Produit
+                      {t('salesPages.product')}
                       {sortField === 'libelle' && (
                         sortDirection === 'asc' ? 
                           <ArrowUpIcon className="ml-1 h-3 w-3" /> : 
@@ -280,7 +282,7 @@ const ProductSelectionModal = ({
                     }}
                   >
                     <div className="flex items-center">
-                      Prix unit.
+                      {t('salesPages.unitPrice')}
                       {sortField === 'prixVente' && (
                         sortDirection === 'asc' ? 
                           <ArrowUpIcon className="ml-1 h-3 w-3" /> : 
@@ -296,7 +298,7 @@ const ProductSelectionModal = ({
                     }}
                   >
                     <div className="flex items-center">
-                      Stock
+                      {t('salesPages.stock')}
                       {sortField === 'quantiteStock' && (
                         sortDirection === 'asc' ? 
                           <ArrowUpIcon className="ml-1 h-3 w-3" /> : 
@@ -305,7 +307,7 @@ const ProductSelectionModal = ({
                     </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantité
+                    {t('salesPages.quantity')}
                   </th>
                 </tr>
               </thead>
@@ -355,7 +357,7 @@ const ProductSelectionModal = ({
                         <span className={`text-sm font-medium ${
                           (produit.quantiteStock || 0) > 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {produit.quantiteStock || 0} {produit.uniteMesure || 'unité(s)'}
+                          {produit.quantiteStock || 0} {produit.uniteMesure || t('salesPages.units')}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -403,8 +405,8 @@ const ProductSelectionModal = ({
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                       <CubeIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-lg font-medium">Aucun produit trouvé</p>
-                      <p className="text-sm mt-1">Essayez de modifier votre recherche</p>
+                      <p className="text-lg font-medium">{t('salesPages.noProductsFound')}</p>
+                      <p className="text-sm mt-1">{t('salesPages.tryChangingSearch')}</p>
                     </td>
                   </tr>
                 )}
@@ -417,7 +419,7 @@ const ProductSelectionModal = ({
         {pagination.totalPages > 1 && (
           <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
             <div className="text-sm text-gray-700">
-              Page {pagination.page} sur {pagination.totalPages}
+              {t('salesPages.pageIndicator', { current: pagination.page, total: pagination.totalPages })}
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -443,11 +445,11 @@ const ProductSelectionModal = ({
           <div className="flex items-center text-sm text-gray-600">
             <ShoppingCartIcon className="h-4 w-4 mr-2 text-blue-600" />
             <span>
-              <span className="font-bold">{selectedProducts.length}</span> produit(s) sélectionné(s)
+              <span className="font-bold">{selectedProducts.length}</span> {t('salesPages.selectedProducts')}
             </span>
             {selectedProducts.length > 0 && (
               <span className="ml-3 font-medium text-blue-600">
-                Total: {totalSelection.toFixed(3)} dt
+                {t('salesPages.total')}: {totalSelection.toFixed(3)} {t('salesPages.currencyLower')}
               </span>
             )}
           </div>
@@ -457,7 +459,7 @@ const ProductSelectionModal = ({
               onClick={onClose}
               className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
             >
-              Annuler
+              {t('salesPages.cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -465,7 +467,7 @@ const ProductSelectionModal = ({
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               <CheckCircleIcon className="h-4 w-4 mr-2" />
-              Ajouter {selectedProducts.length > 0 ? `(${selectedProducts.length})` : ''}
+              {t('salesPages.add')} {selectedProducts.length > 0 ? `(${selectedProducts.length})` : ''}
             </button>
           </div>
         </div>

@@ -5,7 +5,8 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 const SelectedProductsSection = ({ 
   selectedProducts, 
   setSelectedProducts, 
-  remiseAppliquee 
+  remiseAppliquee,
+  t = (key) => key
 }) => {
   // Fonction pour modifier la quantité
   const handleChangeQuantite = (productId, newQuantite) => {
@@ -41,7 +42,7 @@ const SelectedProductsSection = ({
 
   return (
     <div className="mb-8">
-      <h3 className="font-bold text-gray-800 mb-4">Produits Sélectionnés</h3>
+      <h3 className="font-bold text-gray-800 mb-4">{t('selectedProductsTitle')}</h3>
       <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {selectedProducts.map(product => (
@@ -64,7 +65,7 @@ const SelectedProductsSection = ({
                     {product.prix?.toFixed(2) || product.prixVente?.toFixed(2) || '0.00'} dt
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    Stock: {product.quantiteStock || 0} {product.uniteMesure || 'unité'}
+                    {t('stock')}: {product.quantiteStock || 0} {product.uniteMesure || t('unit')}
                   </div>
                 </div>
               </div>
@@ -96,7 +97,7 @@ const SelectedProductsSection = ({
                 <button
                   onClick={() => handleRemoveProduct(product.idProduit || product.id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Retirer"
+                  title={t('remove')}
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
@@ -106,19 +107,19 @@ const SelectedProductsSection = ({
         </div>
         <div className="mt-6 pt-6 border-t border-gray-200">
           <div className="flex justify-between items-center">
-            <div className="text-gray-700 font-medium">Sous-total</div>
+            <div className="text-gray-700 font-medium">{t('subtotal')}</div>
             <div className="font-bold text-gray-900 text-lg">{totaux.sousTotal} dt</div>
           </div>
           {remiseAppliquee > 0 && (
             <>
               <div className="flex justify-between items-center mt-2">
                 <div className="text-gray-700">
-                  Remise ({remiseAppliquee}%)
+                  {t('discount')} ({remiseAppliquee}%)
                 </div>
                 <div className="font-medium text-red-600">-{totaux.montantRemise} dt</div>
               </div>
               <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-                <div className="text-gray-700 font-bold">Total</div>
+                <div className="text-gray-700 font-bold">{t('total')}</div>
                 <div className="font-bold text-green-600 text-xl">{totaux.total} dt</div>
               </div>
             </>

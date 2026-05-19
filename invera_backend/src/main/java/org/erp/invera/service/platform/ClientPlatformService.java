@@ -16,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Service de gestion des clients
@@ -49,7 +48,6 @@ public class ClientPlatformService {
         client.setConnexionsMax(30);
         client.setConnexionsRestantes(30);
         client.setIsActive(true);
-        client.setTelegramLinkToken(UUID.randomUUID().toString());
 
         // Différence selon le type d'inscription
         if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
@@ -329,25 +327,6 @@ public class ClientPlatformService {
 
     public List<Client> getClientsByStatut(Client.StatutClient statut) {
         return clientRepository.findByStatut(statut);
-    }
-
-    @Transactional
-    public Client updateTelegramChatId(Long clientId, Long telegramChatId) {
-        Client client = getClientById(clientId);
-        client.setTelegramChatId(telegramChatId);
-        return clientRepository.save(client);
-    }
-
-    @Transactional
-    public Client refreshTelegramLinkToken(Long clientId) {
-        Client client = getClientById(clientId);
-
-        if (client.getTelegramChatId() != null) {
-            return client;
-        }
-
-        client.setTelegramLinkToken(UUID.randomUUID().toString());
-        return clientRepository.save(client);
     }
 
     // ========== MÉTHODES PRIVÉES ==========

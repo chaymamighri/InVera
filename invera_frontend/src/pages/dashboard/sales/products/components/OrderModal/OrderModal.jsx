@@ -30,20 +30,22 @@ const OrderModal = ({
   loadClients,
   loadingClients,
   applyRemiseByClientType,
-  onOrderCreated
+  onOrderCreated,
+  t = (key) => key,
+  isArabic = false
 }) => {
   const navigate = useNavigate();
   
   if (!showCreateOrder) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* En-tête */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">
-              Créer une Commande Client ({selectedProducts.length} produit{selectedProducts.length > 1 ? 's' : ''})
+              {t('createClientOrderWithCount', { count: selectedProducts.length })}
             </h2>
             <button
               onClick={() => setShowCreateOrder(false)}
@@ -58,6 +60,7 @@ const OrderModal = ({
             selectedProducts={selectedProducts}
             setSelectedProducts={setSelectedProducts}
             remiseAppliquee={remiseAppliquee}
+            t={t}
           />
 
           {/* Section Sélection Client */}
@@ -75,6 +78,8 @@ const OrderModal = ({
             loadingClients={loadingClients}
             applyRemiseByClientType={applyRemiseByClientType}
             loadClients={loadClients}
+            t={t}
+            isArabic={isArabic}
           />
 
           {/* Vérification de disponibilité */}
@@ -85,9 +90,9 @@ const OrderModal = ({
                   <>
                     <CheckCircleIcon className="h-6 w-6 text-green-600 mr-3" />
                     <div>
-                      <span className="text-green-700 font-medium">Tous les produits sont disponibles</span>
+                      <span className="text-green-700 font-medium">{t('allProductsAvailable')}</span>
                       <p className="text-sm text-green-600 mt-1">
-                        La commande peut être traitée immédiatement
+                        {t('orderCanBeProcessed')}
                       </p>
                     </div>
                   </>
@@ -95,10 +100,11 @@ const OrderModal = ({
                   <>
                     <XCircleIcon className="h-6 w-6 text-red-600 mr-3" />
                     <div>
-                      <span className="text-red-700 font-medium">Problème de disponibilité</span>
+                      <span className="text-red-700 font-medium">{t('availabilityProblem')}</span>
                       <p className="text-sm text-red-600 mt-1">
-                        {selectedProducts.filter(p => (p.quantiteStock || 0) < (p.quantiteCommande || 1)).length} 
-                        produit(s) avec stock insuffisant
+                        {t('productsWithInsufficientStock', {
+                          count: selectedProducts.filter(p => (p.quantiteStock || 0) < (p.quantiteCommande || 1)).length,
+                        })}
                       </p>
                     </div>
                   </>
@@ -113,7 +119,7 @@ const OrderModal = ({
               onClick={() => setShowCreateOrder(false)}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
-              Annuler
+              {t('cancel')}
             </button>
             <button
               onClick={handleCreateCommande}
@@ -121,7 +127,7 @@ const OrderModal = ({
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center shadow-sm hover:shadow-md transition-all"
             >
               <ShoppingCartIcon className="h-5 w-5 mr-2" />
-              Créer la Commande
+              {t('createOrder')}
               {remiseAppliquee > 0 && (
                 <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
                   -{remiseAppliquee}%

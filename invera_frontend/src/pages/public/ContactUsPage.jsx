@@ -63,31 +63,33 @@ const contactCopy = {
     ],
   },
   ar: {
-    pageTitle: 'تواصل معنا',
-    title: 'اجعل التواصل مباشرًا واحترافيًا وسهل الوصول.',
-    login: 'تسجيل الدخول',
-    supportExperience: 'تجربة الدعم',
-    supportTitle: 'هذه الصفحة جاهزة لبيانات الدعم والتواصل التجاري الحقيقية.',
+    pageTitle: '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639\u0646\u0627',
+    title:
+      '\u0627\u062c\u0639\u0644 \u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0628\u0627\u0634\u0631\u064b\u0627 \u0648\u0627\u062d\u062a\u0631\u0627\u0641\u064a\u064b\u0627 \u0648\u0633\u0647\u0644 \u0627\u0644\u0648\u0635\u0648\u0644.',
+    login: '\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644',
+    supportExperience: '\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u062f\u0639\u0645',
+    supportTitle:
+      '\u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629 \u062c\u0627\u0647\u0632\u0629 \u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u062f\u0639\u0645 \u0648\u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0627\u0644\u062a\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0642\u064a\u0642\u064a\u0629.',
     supportDescription:
-      'هذه الصفحة أصبحت مسارًا حقيقيًا داخل التطبيق. يمكنك استبدال بيانات الاتصال المؤقتة هذه ببريدك الحقيقي ورقم الهاتف وواتساب ومركز الدعم أو رابط الحجز.',
+      '\u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629 \u0623\u0635\u0628\u062d\u062a \u0645\u0633\u0627\u0631\u064b\u0627 \u062d\u0642\u064a\u0642\u064a\u064b\u0627 \u062f\u0627\u062e\u0644 \u0627\u0644\u062a\u0637\u0628\u064a\u0642. \u064a\u0645\u0643\u0646\u0643 \u0627\u0633\u062a\u0628\u062f\u0627\u0644 \u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0627\u0644\u0645\u0624\u0642\u062a\u0629 \u0647\u0630\u0647 \u0628\u0628\u0631\u064a\u062f\u0643 \u0627\u0644\u062d\u0642\u064a\u0642\u064a \u0648\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641 \u0648\u0648\u0627\u062a\u0633\u0627\u0628 \u0648\u0645\u0631\u0643\u0632 \u0627\u0644\u062f\u0639\u0645 \u0623\u0648 \u0631\u0627\u0628\u0637 \u0627\u0644\u062d\u062c\u0632.',
     cards: [
       {
-        title: 'البريد الإلكتروني',
+        title: '\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a',
         value: 'contact@invera.app',
         description:
-          'استخدم هذا البريد للطلبات العامة وأسئلة المنتج وطلبات الشراكة.',
+          '\u0627\u0633\u062a\u062e\u062f\u0645 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064a\u062f \u0644\u0644\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0639\u0627\u0645\u0629 \u0648\u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0645\u0646\u062a\u062c \u0648\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0634\u0631\u0627\u0643\u0629.',
       },
       {
-        title: 'الدعم',
+        title: '\u0627\u0644\u062f\u0639\u0645',
         value: 'support@invera.app',
         description:
-          'استخدم هذا البريد للمساعدة التقنية ودعم الانطلاق ومشاكل الحساب.',
+          '\u0627\u0633\u062a\u062e\u062f\u0645 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064a\u062f \u0644\u0644\u0645\u0633\u0627\u0639\u062f\u0629 \u0627\u0644\u062a\u0642\u0646\u064a\u0629 \u0648\u062f\u0639\u0645 \u0627\u0644\u0627\u0646\u0637\u0644\u0627\u0642 \u0648\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u062d\u0633\u0627\u0628.',
       },
       {
-        title: 'الهاتف',
+        title: '\u0627\u0644\u0647\u0627\u062a\u0641',
         value: '+216 00 000 000',
         description:
-          'استخدم هذا الرقم للتواصل المباشر عندما يصبح الخط المهني جاهزًا.',
+          '\u0627\u0633\u062a\u062e\u062f\u0645 \u0647\u0630\u0627 \u0627\u0644\u0631\u0642\u0645 \u0644\u0644\u062a\u0648\u0627\u0635\u0644 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 \u0639\u0646\u062f\u0645\u0627 \u064a\u0635\u0628\u062d \u0627\u0644\u062e\u0637 \u0627\u0644\u0645\u0647\u0646\u064a \u062c\u0627\u0647\u0632\u064b\u0627.',
       },
     ],
   },
@@ -115,9 +117,14 @@ const ContactUsPage = () => {
           }
         />
 
-        <main className={`mt-10 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
+        <main
+          className={`mt-10 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] ${isArabic ? 'text-right' : ''}`}
+          dir={isArabic ? 'rtl' : 'ltr'}
+        >
           <section className="rounded-[34px] border border-[#d7deea] bg-[linear-gradient(160deg,#0f172a_0%,#12243b_48%,#15314a_100%)] p-8 text-white shadow-[0_28px_90px_rgba(15,23,42,0.18)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-300">{copy.supportExperience}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-300">
+              {copy.supportExperience}
+            </p>
             <h2 className="mt-4 text-3xl font-semibold leading-tight text-white">
               {copy.title}
             </h2>
@@ -132,9 +139,15 @@ const ContactUsPage = () => {
                 key={card.title}
                 className="rounded-[28px] border border-white/80 bg-white/88 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]"
               >
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700">{card.title}</p>
-                <h3 className="mt-3 text-2xl font-semibold text-slate-950">{card.value}</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">{card.description}</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-700">
+                  {card.title}
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold text-slate-950">
+                  {card.value}
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  {card.description}
+                </p>
               </div>
             ))}
           </section>

@@ -38,7 +38,7 @@ const ClientTypeBadge = ({ type }) => {
 };
 
 // Badge pour le statut
-const StatusBadge = ({ statut }) => {
+const StatusBadge = ({ statut, t }) => {
   const getStatusConfig = (statut) => {
     switch(statut) {
       case 'CONFIRMEE':
@@ -68,9 +68,9 @@ const StatusBadge = ({ statut }) => {
   };
 
   const config = getStatusConfig(statut);
-  const displayStatut = statut === 'EN_ATTENTE' ? 'En attente' : 
-                        statut === 'CONFIRMEE' ? 'Confirmé' : 
-                        statut === 'ANNULEE' ? 'Refusé' : statut;
+  const displayStatut = statut === 'EN_ATTENTE' ? t('salesPages.pending') : 
+                        statut === 'CONFIRMEE' ? t('salesPages.confirmed') : 
+                        statut === 'ANNULEE' ? t('salesPages.rejected') : statut;
 
   return (
     <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${config.color}`}>
@@ -98,12 +98,12 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
 };
 
 // Fonction pour formater la date
-const formatDate = (dateString) => {
-  if (!dateString) return 'Non définie';
+const formatDate = (dateString, locale, t) => {
+  if (!dateString) return t('salesPages.notDefined');
   
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(locale, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -121,7 +121,10 @@ const OrderDetailsModal = ({
   commande: initialCommande, 
   toNumber,
   onUpdateSuccess,
-  onRefresh
+  onRefresh,
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   // ÉTAT LOCAL
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -131,15 +134,6 @@ const OrderDetailsModal = ({
   // ✅ CORRECTION: S'assurer que la commande a un ID valide
   useEffect(() => {
     if (initialCommande) {
-  
-    console.log('🔍 STRUCTURE COMPLÈTE DE LA COMMANDE:', initialCommande);
-    console.log('🔍 Clés disponibles:', Object.keys(initialCommande));
-        console.log('🔍 CLIENT DANS LA COMMANDE:', initialCommande.client);
-    console.log('🔍 produits?', initialCommande.produits);
-    console.log('🔍 lignesCommande?', initialCommande.lignesCommande);
-    console.log('🔍 lignes?', initialCommande.lignes);
-    console.log('🔍 details?', initialCommande.details);
-
       console.log('🔄 Mise à jour de la commande affichée:', {
         id: initialCommande.id,
         idCommandeClient: initialCommande.idCommandeClient,
@@ -190,6 +184,8 @@ const OrderDetailsModal = ({
     const remise = parseFloat(produit.remiseProduit) || 0;
     return sousTotal - remise;
   };
+
+  const formatMontant = (value) => `${toNumber(value).toFixed(3)} ${t('salesPages.currencyLower')}`;
 
   // Calculer le pourcentage de remise
   const pourcentageRemise = toNumber(commande.sousTotal) > 0 
@@ -251,23 +247,34 @@ const OrderDetailsModal = ({
   };
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
         {/* En-tête avec bouton refresh */}
         <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-white">Détails de la Commande</h2>
+              <h2 className="text-xl font-semibold text-white">{t('salesPages.orderDetails')}</h2>
               <p className="text-blue-100 text-sm mt-1 flex items-center">
                 <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
-                Numéro : {commande.numero || commande.referenceCommandeClient || 'N/A'}
+                {t('salesPages.number')}: {commande.numero || commande.referenceCommandeClient || 'N/A'}
               </p>
             </div>
             
             {/* GROUPE DE BOUTONS */}
             <div className="flex items-center gap-2">
-            
+              {/* BOUTON RAFRAÎCHIR */}
+              {onRefresh && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                  title={t('salesPages.refreshData')}
+                >
+                  <ArrowPathIcon className={`h-5 w-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              
               {/* BOUTON FERMER */}
               <button
                 onClick={onClose}
@@ -291,31 +298,31 @@ const OrderDetailsModal = ({
                     <ClipboardDocumentIcon className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-800">Informations Commande</h3>
-                    <p className="text-sm text-gray-600">Détails de la commande</p>
+                    <h3 className="font-medium text-gray-800">{t('salesPages.orderInformation')}</h3>
+                    <p className="text-sm text-gray-600">{t('salesPages.orderDetails')}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Numéro de commande</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.orderNumber')}</div>
                       <div className="font-medium text-gray-900 text-lg">
                         {commande.numero || commande.referenceCommandeClient || 'N/A'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Date de création</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.creationDate')}</div>
                       <div className="font-medium text-gray-900 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-blue-500" />
-                        {formatDate(commande.dateCommande)}
+                        {formatDate(commande.dateCommande, locale, t)}
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Statut de la commande</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.orderStatus')}</div>
                       <div className="mt-1">
-                        <StatusBadge statut={commande.statut} />
+                        <StatusBadge statut={commande.statut} t={t} />
                       </div>
                     </div>
                   </div>
@@ -330,8 +337,8 @@ const OrderDetailsModal = ({
                   <UserCircleIcon className="h-5 w-5 text-gray-600" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-800">Client</h3>
-                  <p className="text-sm text-gray-600">Informations du client</p>
+                  <h3 className="font-medium text-gray-800">{t('salesPages.client')}</h3>
+                  <p className="text-sm text-gray-600">{t('salesPages.clientInformation')}</p>
                 </div>
               </div>
               
@@ -344,7 +351,7 @@ const OrderDetailsModal = ({
                         <IdentificationIcon className="h-5 w-5 text-blue-500" />
                       </div>
                       <div className="flex-1">
-                        <div className="text-xs text-gray-500 mb-1">Nom complet</div>
+                        <div className="text-xs text-gray-500 mb-1">{t('salesPages.fullName')}</div>
                         <div className="font-semibold text-gray-900">
                           {client.prenom || ''} {client.nom || ''}
                         </div>
@@ -355,7 +362,7 @@ const OrderDetailsModal = ({
                 {/* Type de client */}
                   {client.typeClient && (
                     <div className="mb-3">
-                      <div className="text-xs text-gray-500 mb-2">Type de client</div>
+                      <div className="text-xs text-gray-500 mb-2">{t('salesPages.clientType')}</div>
                       <ClientTypeBadge type={client.typeClient} />
                     </div>
                   )}
@@ -364,19 +371,19 @@ const OrderDetailsModal = ({
                   <div className="space-y-3">
                     <ClientInfoItem 
                       icon={PhoneIcon}
-                      label="Téléphone"
+                      label={t('salesPages.phone')}
                       value={client.telephone}
                     />
                     
                     <ClientInfoItem 
                       icon={EnvelopeIcon}
-                      label="Email"
+                      label={t('salesPages.email')}
                       value={client.email}
                     />
                     
                     <ClientInfoItem 
                       icon={MapPinIcon}
-                      label="Adresse"
+                      label={t('salesPages.address')}
                       value={client.adresse}
                     />
                   </div>
@@ -384,7 +391,7 @@ const OrderDetailsModal = ({
               ) : (
                 <div className="text-center py-4">
                   <UserCircleIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Aucune information client disponible</p>
+                  <p className="text-sm text-gray-600">{t('salesPages.noClientInfo')}</p>
                 </div>
               )}
             </div>
@@ -398,12 +405,12 @@ const OrderDetailsModal = ({
                   <CubeIcon className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 text-sm">Produits Commandés</h3>
-                  <p className="text-xs text-gray-500">Détails des articles</p>
+                  <h3 className="font-medium text-gray-900 text-sm">{t('salesPages.orderedProducts')}</h3>
+                  <p className="text-xs text-gray-500">{t('salesPages.itemDetails')}</p>
                 </div>
               </div>
               <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
-                {commande.produits?.length || 0} article{commande.produits?.length !== 1 ? 's' : ''}
+                {t('salesPages.itemCount', { count: commande.produits?.length || 0 })}
               </span>
             </div>
 
@@ -416,13 +423,13 @@ const OrderDetailsModal = ({
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Produit</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Catégorie</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Qté</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Prix unit.</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Sous-total</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Remise</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.product')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.category')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.quantityShort')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.unitPrice')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.subtotal')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.discount')}</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.total')}</th>
                         </tr>
                       </thead>
                       
@@ -443,7 +450,7 @@ const OrderDetailsModal = ({
                                     <div className="relative flex-shrink-0">
                                       <img 
                                         src={produit.imageUrl}
-                                        alt={produit.libelle || `Produit ${produit.id || produit.produitId}`}
+                                        alt={produit.libelle || `${t('salesPages.product')} ${produit.id || produit.produitId}`}
                                         className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
                                         onError={(e) => e.target.style.display = 'none'}
                                       />
@@ -451,11 +458,11 @@ const OrderDetailsModal = ({
                                   )}
                                   <div className="min-w-0">
                                     <div className="font-medium text-gray-900">
-                                      {produit.libelle || `Produit ${produit.id || produit.produitId}`}
+                                      {produit.libelle || `${t('salesPages.product')} ${produit.id || produit.produitId}`}
                                     </div>
                                     {produit.code && (
                                       <div className="text-xs text-gray-400 mt-0.5">
-                                        Réf: {produit.code}
+                                        {t('salesPages.referenceShort')}: {produit.code}
                                       </div>
                                     )}
                                   </div>
@@ -483,13 +490,13 @@ const OrderDetailsModal = ({
                               </td>
                               <td className="px-4 py-3">
                                 <div className="font-medium text-gray-900">
-                                  {prixUnitaire.toFixed(3)} dt
+                                  {formatMontant(prixUnitaire)}
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
                                   <div className="font-medium text-gray-900">
-                                    {sousTotal.toFixed(3)} dt
+                                    {formatMontant(sousTotal)}
                                   </div>
                                   <div className="text-xs text-gray-500">
                                     {quantite} × {prixUnitaire.toFixed(3)}
@@ -500,7 +507,7 @@ const OrderDetailsModal = ({
                                 {remiseProduit > 0 ? (
                                   <div className="space-y-1">
                                     <div className="font-medium text-red-600">
-                                      -{remiseProduit.toFixed(3)} dt
+                                      -{formatMontant(remiseProduit)}
                                     </div>
                                     {tauxRemiseProduit > 0 && (
                                       <div className="text-xs text-red-500">
@@ -515,9 +522,9 @@ const OrderDetailsModal = ({
                               <td className="px-4 py-3">
                                 <div className="space-y-1">
                                   <div className="font-bold text-green-700">
-                                    {totalProduit.toFixed(3)} dt
+                                    {formatMontant(totalProduit)}
                                   </div>
-                                  <div className="text-xs text-gray-500">Net</div>
+                                  <div className="text-xs text-gray-500">{t('salesPages.net')}</div>
                                 </div>
                               </td>
                             </tr>
@@ -528,7 +535,7 @@ const OrderDetailsModal = ({
                       <tfoot className="bg-gray-50">
                         <tr className="font-medium border-t border-gray-300">
                           <td colSpan="4" className="px-4 py-3 text-right text-gray-600 text-sm">
-                            Sous-total
+                            {t('salesPages.subtotal')}
                           </td>
                           <td className="px-4 py-3 text-gray-900">
                             <div className="text-sm font-medium">
@@ -536,13 +543,13 @@ const OrderDetailsModal = ({
                                 const qte = parseFloat(p.quantite) || 0;
                                 const prix = getPrixUnitaire(p);
                                 return sum + (qte * prix);
-                              }, 0).toFixed(3)} dt
+                              }, 0).toFixed(3)} {t('salesPages.currencyLower')}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-red-600">
                             <div className="text-sm font-medium">
                               -{commande.produits.reduce((sum, p) => 
-                                sum + (parseFloat(p.remiseProduit) || 0), 0).toFixed(3)} dt
+                                sum + (parseFloat(p.remiseProduit) || 0), 0).toFixed(3)} {t('salesPages.currencyLower')}
                             </div>
                           </td>
                           <td className="px-4 py-3 font-bold text-green-700">
@@ -552,7 +559,7 @@ const OrderDetailsModal = ({
                                 const prix = getPrixUnitaire(p);
                                 const remise = parseFloat(p.remiseProduit) || 0;
                                 return sum + (qte * prix - remise);
-                              }, 0).toFixed(3)} dt
+                              }, 0).toFixed(3)} {t('salesPages.currencyLower')}
                             </div>
                           </td>
                         </tr>
@@ -562,12 +569,12 @@ const OrderDetailsModal = ({
                             <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
                               <div className="text-sm font-medium flex items-center justify-end gap-1">
                                 <TagIcon className="h-3 w-3 text-green-600" />
-                                Remise globale ({toNumber(commande.tauxRemise || commande.remise).toFixed(1)}%)
+                                {t('salesPages.globalDiscount')} ({toNumber(commande.tauxRemise || commande.remise).toFixed(1)}%)
                               </div>
                             </td>
                             <td className="px-4 py-2.5">
                               <div className="font-bold text-red-600 text-sm">
-                                -{toNumber(commande.montantRemise || commande.remise).toFixed(3)} dt
+                                -{formatMontant(commande.montantRemise || commande.remise)}
                               </div>
                             </td>
                           </tr>
@@ -575,10 +582,10 @@ const OrderDetailsModal = ({
                         
                         <tr className="bg-green-50 border-t border-green-200">
                           <td colSpan="6" className="px-4 py-3 text-right text-gray-900">
-                            <div className="font-bold">Total commande</div>
+                            <div className="font-bold">{t('salesPages.orderTotal')}</div>
                           </td>
                           <td className="px-4 py-3 font-bold text-green-700">
-                            <div className="text-base">{toNumber(commande.total).toFixed(3)} dt</div>
+                            <div className="text-base">{formatMontant(commande.total)}</div>
                           </td>
                         </tr>
                       </tfoot>
@@ -590,9 +597,9 @@ const OrderDetailsModal = ({
                   <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                     <CubeIcon className="h-6 w-6 text-gray-400" />
                   </div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Aucun produit</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">{t('salesPages.noProduct')}</h4>
                   <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                    Cette commande ne contient aucun produit.
+                    {t('salesPages.orderHasNoProducts')}
                   </p>
                 </div>
               )}
@@ -606,45 +613,45 @@ const OrderDetailsModal = ({
                 <CurrencyDollarIcon className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-800">Récapitulatif financier</h3>
-                <p className="text-sm text-gray-600">Détails des montants et remises</p>
+                <h3 className="font-medium text-gray-800">{t('salesPages.financialSummary')}</h3>
+                <p className="text-sm text-gray-600">{t('salesPages.amountAndDiscountDetails')}</p>
               </div>
             </div>
             
             <div className="max-w-md ml-auto">
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-600">Sous-total produits</span>
-                  <span className="font-medium">{toNumber(commande.sousTotal).toFixed(3)} dt</span>
+                  <span className="text-gray-600">{t('salesPages.productsSubtotal')}</span>
+                  <span className="font-medium">{formatMontant(commande.sousTotal)}</span>
                 </div>
                 
                 {toNumber(commande.tauxRemise || commande.remise) > 0 && (
                   <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
                     <span className="text-gray-600 flex items-center">
                       <TagIcon className="h-4 w-4 mr-2 text-green-600" />
-                      Remise ({pourcentageRemise}%)
+                      {t('salesPages.discount')} ({pourcentageRemise}%)
                     </span>
-                    <span className="font-semibold text-green-600">-{toNumber(commande.remise).toFixed(3)} dt</span>
+                    <span className="font-semibold text-green-600">-{formatMontant(commande.remise)}</span>
                   </div>
                 )}
                 
                 <div className="border-t border-green-200 pt-4 mt-2">
                   <div className="flex justify-between items-center">
                     <div>
-                      <div className="font-semibold text-gray-800">Total commande</div>
+                      <div className="font-semibold text-gray-800">{t('salesPages.orderTotal')}</div>
                       {client.typeClient && ( 
                         <div className="text-xs text-green-600 mt-1">
-                          Remise appliquée pour client {client.typeClient}
+                          {t('salesPages.discountAppliedForClient', { type: client.typeClient })}
                         </div>
                       )}
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">
-                        {toNumber(commande.total).toFixed(3)} dt
+                        {formatMontant(commande.total)}
                       </div>
                       {toNumber(commande.remise) > 0 && (
                         <div className="text-xs text-green-500 mt-1">
-                          Économie : {toNumber(commande.remise).toFixed(3)} dt
+                          {t('salesPages.savings')}: {formatMontant(commande.remise)}
                         </div>
                       )}
                     </div>
@@ -663,7 +670,7 @@ const OrderDetailsModal = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 className="font-medium text-gray-800">Remarques</h3>
+                <h3 className="font-medium text-gray-800">{t('salesPages.remarks')}</h3>
               </div>
               <div className="text-sm text-gray-700 bg-white/70 p-3 rounded-lg border border-yellow-200">
                 {commande.remarques}
@@ -674,12 +681,22 @@ const OrderDetailsModal = ({
           {/* Section 5 : Actions */}
           <div className="pt-6 border-t border-gray-200">
             <div className="flex justify-end gap-3">
-            
+              {commande.statut === 'EN_ATTENTE' && (
+                <button
+                  onClick={() => setShowUpdateModal(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-lg hover:from-amber-700 hover:to-yellow-700 text-sm font-medium transition-colors flex items-center gap-2"
+                  title={t('salesPages.editOrder')}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  {t('salesPages.edit')}
+                </button>
+              )}
+              
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
               >
-                Fermer
+                {t('salesPages.close')}
               </button>
             </div>
           </div>
@@ -693,6 +710,8 @@ const OrderDetailsModal = ({
         commande={commande}
         toNumber={toNumber}
         onUpdateSuccess={handleUpdateSuccess}
+        t={t}
+        isArabic={isArabic}
       />
     </div>
   );

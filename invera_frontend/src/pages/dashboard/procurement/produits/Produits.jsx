@@ -5,6 +5,7 @@
  * ROUTE : /dashboard/procurement/produits
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../hooks/useAuth';
 import {
   ArrowPathIcon,
@@ -21,11 +22,17 @@ import EditProduitForm from './components/EditProduitForm';
 import useProducts from '../../../../hooks/useProducts';
 import useCategories from '../../../../hooks/useCategories';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const Produits = () => {
+  const { t, isArabic } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedProductId = searchParams.get('focusProduct');
+  const focusedProductName = searchParams.get('focusProductName');
   // ========== HOOKS ==========
   const {
     products: rawProducts = [],
+    allProducts = [],
     loading: productsLoading,
     error: productsError,
     pagination = { page: 0, size: 9, total: 0, totalPages: 0 },
@@ -54,11 +61,11 @@ const Produits = () => {
     if (!rawCategories?.length) return [];
     return rawCategories.map(cat => ({
       idCategorie: cat.idCategorie || cat.id,
-      nomCategorie: cat.nomCategorie || cat.nom || cat.libelle || 'Sans catégorie',
+      nomCategorie: cat.nomCategorie || cat.nom || cat.libelle || t('dashboard.procurementProductsPage.noCategory'),
       description: cat.description || '',
       tauxTVA: cat.tauxTVA || 19
     }));
-  }, [rawCategories]);
+  }, [rawCategories, t]);
 
   useEffect(() => {
     console.log('📊 État chargement catégories:', categoriesLoading);
@@ -100,7 +107,7 @@ const Produits = () => {
       }
       
       const categorieInfo = categoriesMap.get(categorieId);
-      const categorieNom = categorieInfo?.nom || 'Sans catégorie';
+      const categorieNom = categorieInfo?.nom || t('dashboard.procurementProductsPage.noCategory');
       const tauxTVA = categorieInfo?.tauxTVA || 19;
       
       return {
@@ -116,7 +123,50 @@ const Produits = () => {
         } : product.categorie
       };
     });
-  }, [rawProducts, categoriesMap]);
+  }, [rawProducts, categoriesMap, t]);
+
+  const normalizedFocusName = String(focusedProductName || '').trim().toLowerCase();
+  const focusedProduct = useMemo(() => {
+    if (!focusedProductId && !normalizedFocusName) return null;
+
+    return allProducts.find((product) => {
+      const productId = product?.idProduit || product?.id;
+      const productName = String(product?.libelle || product?.nom || '').trim().toLowerCase();
+      return (
+        (focusedProductId && String(productId) === String(focusedProductId)) ||
+        (normalizedFocusName && productName === normalizedFocusName)
+      );
+    }) || null;
+  }, [allProducts, focusedProductId, normalizedFocusName]);
+
+  const clearFocus = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('focusProduct');
+    nextParams.delete('focusProductName');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if ((!focusedProductId && !focusedProductName) || productsLoading) return;
+
+    if (focusedProduct) {
+      const focusedIndex = allProducts.findIndex((product) => {
+        const productId = product?.idProduit || product?.id;
+        return String(productId) === String(focusedProduct.idProduit || focusedProduct.id);
+      });
+      const targetPage = focusedIndex >= 0 ? Math.floor(focusedIndex / pagination.size) : pagination.page;
+      if (targetPage !== pagination.page) {
+        changePage?.(targetPage);
+        return;
+      }
+    }
+
+    const targetId = focusedProduct?.idProduit || focusedProduct?.id || focusedProductId;
+    const target = window.document.getElementById(`product-card-${targetId}`);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [allProducts, changePage, focusedProduct, focusedProductId, focusedProductName, pagination.page, pagination.size, products, productsLoading]);
 
   // ========== ÉTATS LOCAUX ==========
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -151,14 +201,14 @@ const Produits = () => {
     try {
       const response = await createProduct(formData);
       if (response?.success) {
-        toast.success('Produit ajouté avec succès');
+        toast.success(t('dashboard.procurementProductsPage.productAddedSuccess'));
         handleCloseForm();
       } else {
-        toast.error(response?.message || 'Erreur lors de la création');
+        toast.error(response?.message || t('dashboard.procurementProductsPage.errorCreateProduct'));
       }
     } catch (error) {
       console.error('❌ Erreur création:', error);
-      toast.error(error.response?.data?.message || 'Erreur lors de la création');
+      toast.error(error.response?.data?.message || t('dashboard.procurementProductsPage.errorCreateProduct'));
     }
   };
 
@@ -167,15 +217,15 @@ const Produits = () => {
     try {
       const response = await updateProduct(id, formData);
       if (response?.success) {
-        toast.success('Produit modifié avec succès');
+        toast.success(t('dashboard.procurementProductsPage.productUpdatedSuccess'));
         handleCloseForm();
         await loadProducts(pagination.page);
       } else {
-        toast.error(response?.message || 'Erreur lors de la modification');
+        toast.error(response?.message || t('dashboard.procurementProductsPage.errorUpdateProduct'));
       }
     } catch (error) {
       console.error('❌ Erreur modification:', error);
-      toast.error(error.response?.data?.message || 'Erreur lors de la modification');
+      toast.error(error.response?.data?.message || t('dashboard.procurementProductsPage.errorUpdateProduct'));
     }
   };
 
@@ -188,12 +238,16 @@ const Produits = () => {
         : await reactivateProduct(id);
       
       if (response?.success) {
-        toast.success(currentActive ? 'Produit désactivé' : 'Produit activé');
+        toast.success(
+          currentActive
+            ? t('dashboard.procurementProductsPage.productDeactivated')
+            : t('dashboard.procurementProductsPage.productActivated')
+        );
         await loadProducts(pagination.page);
       }
     } catch (error) {
       console.error('❌ Erreur toggle:', error);
-      toast.error('Erreur lors du changement de statut');
+      toast.error(t('dashboard.procurementProductsPage.errorToggleStatus'));
     }
   };
 
@@ -216,8 +270,8 @@ const Produits = () => {
 
   const handleRefresh = useCallback(() => {
     loadProducts(0, filters);
-    toast.success('Liste actualisée');
-  }, [filters, loadProducts]);
+    toast.success(t('dashboard.procurementProductsPage.listRefreshed'));
+  }, [filters, loadProducts, t]);
 
   // ========== RENDU DE LA PAGINATION ==========
   const renderPagination = () => {
@@ -259,24 +313,26 @@ const Produits = () => {
     return (
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pt-4 border-t border-gray-200">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Afficher :</span>
+          <span className="text-sm text-gray-500">{t('dashboard.procurementProductsPage.showLabel')}</span>
           <select
             value={pageSize}
             onChange={(e) => changePageSize?.(parseInt(e.target.value))}
             className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
           >
-            <option value="6">6 par page</option>
-            <option value="9">9 par page</option>
-            <option value="12">12 par page</option>
-            <option value="18">18 par page</option>
-            <option value="24">24 par page</option>
+            {[6, 9, 12, 18, 24].map((count) => (
+              <option key={count} value={count}>
+                {t('dashboard.procurementProductsPage.itemsPerPage', { count })}
+              </option>
+            ))}
           </select>
         </div>
 
         <div className="text-sm text-gray-500">
-          Affichage de {currentPage * pageSize + 1} à{' '}
-          {Math.min((currentPage + 1) * pageSize, pagination.total)} sur{' '}
-          {pagination.total} produits
+          {t('dashboard.procurementProductsPage.paginationInfo', {
+            start: currentPage * pageSize + 1,
+            end: Math.min((currentPage + 1) * pageSize, pagination.total),
+            total: pagination.total,
+          })}
         </div>
 
         <div className="flex items-center gap-1">
@@ -284,7 +340,7 @@ const Produits = () => {
             onClick={() => changePage?.(0)}
             disabled={currentPage === 0}
             className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-            title="Première page"
+            title={t('dashboard.procurementProductsPage.firstPage')}
           >
             <ChevronDoubleLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
@@ -293,7 +349,7 @@ const Produits = () => {
             onClick={() => changePage?.(currentPage - 1)}
             disabled={currentPage === 0}
             className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-            title="Page précédente"
+            title={t('dashboard.procurementProductsPage.previousPage')}
           >
             <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
@@ -322,7 +378,7 @@ const Produits = () => {
             onClick={() => changePage?.(currentPage + 1)}
             disabled={currentPage === totalPages - 1}
             className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-            title="Page suivante"
+            title={t('dashboard.procurementProductsPage.nextPage')}
           >
             <ChevronRightIcon className="h-5 w-5 text-gray-600" />
           </button>
@@ -331,7 +387,7 @@ const Produits = () => {
             onClick={() => changePage?.(totalPages - 1)}
             disabled={currentPage === totalPages - 1}
             className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
-            title="Dernière page"
+            title={t('dashboard.procurementProductsPage.lastPage')}
           >
             <ChevronDoubleRightIcon className="h-5 w-5 text-gray-600" />
           </button>
@@ -345,14 +401,14 @@ const Produits = () => {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-red-600">
         <ExclamationTriangleIcon className="h-12 w-12 mb-4" />
-        <p className="text-lg font-medium">Erreur</p>
+        <p className="text-lg font-medium">{t('dashboard.procurementProductsPage.errorLoadingProduct')}</p>
         <p className="text-sm">{productsError}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <ProduitToolbar
         searchInput={searchInput}
         onSearchChange={setSearchInput}
@@ -368,6 +424,33 @@ const Produits = () => {
         onToggleFilters={() => setShowFilters(!showFilters)}
       />
 
+      {focusedProduct && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Produit a traiter en priorite</p>
+            <p className="text-sm text-amber-800 mt-1">
+              <span className="font-semibold">{focusedProduct.libelle || focusedProduct.nom}</span> - Alerte stock: verifiez le seuil et lancez une commande fournisseur si necessaire.
+            </p>
+          </div>
+
+          <button
+            onClick={clearFocus}
+            className="px-3 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 text-sm font-medium"
+          >
+            Retirer le focus
+          </button>
+        </div>
+      )}
+
+      {(focusedProductId || focusedProductName) && !focusedProduct && !productsLoading && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-gray-700">Le produit cible n a pas ete trouve dans la liste active.</p>
+          <button onClick={clearFocus} className="px-3 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-900 text-sm">
+            Fermer
+          </button>
+        </div>
+      )}
+
       {productsLoading ? (
         <div className="flex justify-center py-12">
           <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-600" />
@@ -377,18 +460,25 @@ const Produits = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products && products.length > 0 ? (
               products.map(produit => (
-                <ProduitCard
-                  key={produit?.id || produit?.idProduit || Math.random()}
-                  produit={produit || {}}
-                  onEdit={handleEditProduit}
-                  onToggleActive={handleToggleActive}
-                  getStatusColor={getStatusColor}
-                  getStatusLabel={getStatusLabel}
-                />
+                <div id={`product-card-${produit?.idProduit || produit?.id}`} key={produit?.id || produit?.idProduit || Math.random()}>
+                  <ProduitCard
+                    produit={produit || {}}
+                    onEdit={handleEditProduit}
+                    onToggleActive={handleToggleActive}
+                    getStatusColor={getStatusColor}
+                    getStatusLabel={getStatusLabel}
+                    isFocused={
+                      String(produit?.idProduit || produit?.id) === String(focusedProductId || '') ||
+                      String(produit?.libelle || produit?.nom || '').trim().toLowerCase() ===
+                        String(focusedProductName || '').trim().toLowerCase()
+                    }
+                    focusedBadgeText="ALERTE STOCK"
+                  />
+                </div>
               ))
             ) : (
               <div className="col-span-3 text-center py-12 text-gray-500">
-                Aucun produit trouvé
+                {t('dashboard.procurementProductsPage.noProductsFound')}
               </div>
             )}
           </div>

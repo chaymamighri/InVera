@@ -1,23 +1,23 @@
 /**
- * ClientTypeChart - Graphique de répartition des clients par type
+ * ClientTypeChart - Graphique de rÃƒÂ©partition des clients par type
  * 
- * RÔLE : Afficher la distribution des clients par catégorie (VIP, Entreprise, Particulier, etc.)
+ * RÃƒâ€LE : Afficher la distribution des clients par catÃƒÂ©gorie (VIP, Entreprise, Particulier, etc.)
  * 
- * FONCTIONNALITÉS :
- * - Affichage des données sous forme de cartes par type de client
+ * FONCTIONNALITÃƒâ€°S :
+ * - Affichage des donnÃƒÂ©es sous forme de cartes par type de client
  * - Barres de progression pour le pourcentage de clients
  * - Barres de progression pour le pourcentage du CA
- * - Cartes récapitulatives (total clients, CA total)
- * - Mini barre de répartition (camembert horizontal)
- * - Légende interactive
+ * - Cartes rÃƒÂ©capitulatives (total clients, CA total)
+ * - Mini barre de rÃƒÂ©partition (camembert horizontal)
+ * - LÃƒÂ©gende interactive
  * - Animations fluides (Framer Motion)
  * 
  * @param {Object} props
- * @param {Array|Object} props.data - Données des clients
- * @param {Function} props.formatCurrency - Fonction de formatage monétaire
+ * @param {Array|Object} props.data - DonnÃƒÂ©es des clients
+ * @param {Function} props.formatCurrency - Fonction de formatage monÃƒÂ©taire
  * 
  * @example
- * // Format attendu des données
+ * // Format attendu des donnÃƒÂ©es
  * data = [
  *   { type: "VIP", nombre: 45, ca: 150000 },
  *   { type: "ENTREPRISE", nombre: 120, ca: 320000 },
@@ -33,52 +33,54 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const ClientTypeChart = ({ data, formatCurrency }) => {
+  const { t } = useLanguage();
   
   // ============================================
-  //  LOGS DE DÉBOGUAGE (à supprimer en production)
+  //  LOGS DE DÃƒâ€°BOGUAGE (ÃƒÂ  supprimer en production)
   // ============================================
-  console.log('📊 ClientTypeChart - Données reçues:', data);
-  console.log('📊 Type de données:', typeof data);
-  console.log('📊 Est un tableau?', Array.isArray(data));
+  console.log('Ã°Å¸â€œÅ  ClientTypeChart - DonnÃƒÂ©es reÃƒÂ§ues:', data);
+  console.log('Ã°Å¸â€œÅ  Type de donnÃƒÂ©es:', typeof data);
+  console.log('Ã°Å¸â€œÅ  Est un tableau?', Array.isArray(data));
 
   // ============================================
-  //  VALIDATION DES DONNÉES
+  //  VALIDATION DES DONNÃƒâ€°ES
   // ============================================
   
-  // Cas 1: Pas de données
+  // Cas 1: Pas de donnÃƒÂ©es
   if (!data) {
-    console.log('❌ Aucune donnée reçue');
+    console.log('Ã¢ÂÅ’ Aucune donnÃƒÂ©e reÃƒÂ§ue');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée client disponible
+        {t('dashboard.salesStatsPage.noClientData')}
       </div>
     );
   }
 
   // Cas 2: Objet vide
   if (typeof data === 'object' && Object.keys(data).length === 0) {
-    console.log('❌ Objet vide reçu');
+    console.log('Ã¢ÂÅ’ Objet vide reÃƒÂ§u');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée client disponible
+        {t('dashboard.salesStatsPage.noClientData')}
       </div>
     );
   }
 
   // Cas 3: Tableau vide
   if (Array.isArray(data) && data.length === 0) {
-    console.log('❌ Tableau vide reçu');
+    console.log('Ã¢ÂÅ’ Tableau vide reÃƒÂ§u');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée client disponible
+        {t('dashboard.salesStatsPage.noClientData')}
       </div>
     );
   }
 
   // ============================================
-  //  TRANSFORMATION DES DONNÉES (format flexible)
+  //  TRANSFORMATION DES DONNÃƒâ€°ES (format flexible)
   // ============================================
   
   let chartData = [];
@@ -91,7 +93,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       ca: item.ca || item.montant || item.chiffreAffaires || 0
     }));
   } else if (typeof data === 'object') {
-    // Format: objet avec clés
+    // Format: objet avec clÃƒÂ©s
     chartData = Object.entries(data)
       .filter(([key, value]) => value !== null && value !== undefined)
       .map(([type, stats]) => {
@@ -108,13 +110,13 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       });
   }
 
-  console.log('📊 ChartData transformé:', chartData);
+  console.log('Ã°Å¸â€œÅ  ChartData transformÃƒÂ©:', chartData);
 
-  // Vérification finale
+  // VÃƒÂ©rification finale
   if (chartData.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée client disponible
+        {t('dashboard.salesStatsPage.noClientData')}
       </div>
     );
   }
@@ -149,9 +151,9 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   };
 
   /**
-   * Dégradé pour chaque type de client
+   * DÃƒÂ©gradÃƒÂ© pour chaque type de client
    * @param {string} type - Type de client
-   * @returns {string} Classes Tailwind CSS pour le dégradé
+   * @returns {string} Classes Tailwind CSS pour le dÃƒÂ©gradÃƒÂ©
    */
   const getTypeGradient = (type) => {
     const gradients = {
@@ -166,33 +168,33 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   };
 
   /**
-   * Icône pour chaque type de client
+   * IcÃƒÂ´ne pour chaque type de client
    * @param {string} type - Type de client
    * @returns {string} Emoji
    */
   const getTypeIcon = (type) => {
     const icons = {
-      'VIP': '👑',
-      'ENTREPRISE': '🏢',
-      'PROFESSIONNEL': '💼',
-      'FIDELE': '⭐',
-      'PARTICULIER': '👤',
-      'NON_DEFINI': '📊'
+      'VIP': 'Ã°Å¸â€˜â€˜',
+      'ENTREPRISE': 'Ã°Å¸ÂÂ¢',
+      'PROFESSIONNEL': 'Ã°Å¸â€™Â¼',
+      'FIDELE': 'Ã¢Â­Â',
+      'PARTICULIER': 'Ã°Å¸â€˜Â¤',
+      'NON_DEFINI': 'Ã°Å¸â€œÅ '
     };
-    return icons[type] || '📊';
+    return icons[type] || 'Ã°Å¸â€œÅ ';
   };
 
   // ============================================
   //  GESTION DES CAS LIMITES
   // ============================================
   
-  // Pas de clients → message
+  // Pas de clients Ã¢â€ â€™ message
   if (totalClients === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
         <div className="text-center">
-          <p className="text-sm">Aucun client trouvé</p>
-          <p className="text-xs mt-1">Aucune donnée client disponible pour cette période</p>
+          <p className="text-sm">{t('dashboard.salesStatsPage.noClientFound')}</p>
+          <p className="text-xs mt-1">{t('dashboard.salesStatsPage.noClientDataForPeriod')}</p>
         </div>
       </div>
     );
@@ -208,8 +210,8 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       {/* ===== SECTION 1: CARTES PAR TYPE DE CLIENT ===== */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b bg-gray-50">
-          <h3 className="font-semibold">Répartition par type de client</h3>
-          <p className="text-xs text-gray-500 mt-1">Analyse détaillée par catégorie</p>
+          <h3 className="font-semibold">{t('dashboard.salesStatsPage.clientTypeBreakdown')}</h3>
+          <p className="text-xs text-gray-500 mt-1">{t('dashboard.salesStatsPage.detailedCategoryAnalysis')}</p>
         </div>
         
         <div className="p-6">
@@ -226,7 +228,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                   transition={{ delay: index * 0.1 }}
                   className="bg-gray-50 rounded-xl p-5 hover:shadow-md transition-shadow"
                 >
-                  {/* En-tête de la carte */}
+                  {/* En-tÃƒÂªte de la carte */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${getTypeColor(item.type)}`}></div>
@@ -235,10 +237,10 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
                   
-                  {/* Barre de progression - Clients */}
+                  {/* Barre de progression - clients */}
                   <div className="mb-4">
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500">Part des clients</span>
+                      <span className="text-gray-500">{t('dashboard.salesStatsPage.clientShare')}</span>
                       <span className="font-medium">{percentage}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -251,14 +253,14 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
                   
-                  {/* Valeurs numériques */}
+                  {/* Valeurs numÃƒÂ©riques */}
                   <div className="grid grid-cols-2 gap-3 text-center mb-3">
                     <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-500">Clients</p>
+                      <p className="text-xs text-gray-500">{t('dashboard.salesStatsPage.clients')}</p>
                       <p className="text-xl font-bold text-gray-800">{item.nombre}</p>
                     </div>
                     <div className="bg-white p-3 rounded-lg">
-                      <p className="text-xs text-gray-500">CA</p>
+                      <p className="text-xs text-gray-500">{t('dashboard.salesStatsPage.revenueShort')}</p>
                       <p className="text-sm font-semibold text-green-600">{formatCurrency(item.ca)}</p>
                     </div>
                   </div>
@@ -266,7 +268,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                   {/* Barre de progression - CA */}
                   <div className="mt-2">
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500">Part du CA</span>
+                      <span className="text-gray-500">{t('dashboard.salesStatsPage.revenueShare')}</span>
                       <span className="font-medium text-green-600">{caPercentage}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -288,7 +290,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       {/* ===== SECTION 3: MINI CAMEMBERT (barre horizontale) ===== */}
       {chartData.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-gray-500 text-center">Répartition des clients par type</p>
+          <p className="text-xs text-gray-500 text-center">{t('dashboard.salesStatsPage.clientDistributionByType')}</p>
           <div className="flex justify-center space-x-1">
             {chartData.map((item, index) => {
               const percentage = totalClients > 0 ? (item.nombre / totalClients) * 100 : 0;
@@ -306,7 +308,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
             })}
           </div>
           
-          {/* Légende */}
+          {/* LÃƒÂ©gende */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-gray-400 pt-2">
             {chartData.map(item => (
               <div key={`legend-${item.type}`} className="flex items-center gap-1">

@@ -40,7 +40,10 @@ const OrderRecapModal = ({
   setShowSuccessPopup,
   setSelectedProducts,
   setSelectedClient,
-  onOrderCreated 
+  onOrderCreated,
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -52,7 +55,7 @@ const OrderRecapModal = ({
   // Formater les nombres avec 3 décimales maximum
   const formatNumber = (number) => {
     return typeof number === 'number' 
-      ? number.toLocaleString('fr-FR', {
+      ? number.toLocaleString(locale, {
           minimumFractionDigits: 0,
           maximumFractionDigits: 3
         })
@@ -62,7 +65,7 @@ const OrderRecapModal = ({
   // Formater spécifiquement pour l'affichage des prix
   const formatPrice = (number) => {
     return typeof number === 'number'
-      ? number.toLocaleString('fr-FR', {
+      ? number.toLocaleString(locale, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 3
         })
@@ -72,12 +75,12 @@ const OrderRecapModal = ({
   const handleEnregistrerCommande = async () => {
     // Validation
     if (!selectedClient) {
-      alert('Veuillez sélectionner un client');
+      alert(t('selectClient'));
       return;
     }
 
     if (selectedProducts.length === 0) {
-      alert('Veuillez sélectionner au moins un produit');
+      alert(t('selectAtLeastOneProduct'));
       return;
     }
 
@@ -130,14 +133,14 @@ const OrderRecapModal = ({
         
       } else {
         // Gérer le cas où la réponse n'a pas success=true
-        const errorMsg = result?.message || 'Erreur inconnue';
+        const errorMsg = result?.message || t('unknownError');
         throw new Error(errorMsg);
       }
       
     } catch (error) {
       console.error('❌ Erreur complète:', error);
       
-      let errorMessage = 'Erreur lors de la création de la commande';
+      let errorMessage = t('orderCreateError');
       
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -146,7 +149,7 @@ const OrderRecapModal = ({
       }
       
       setError(errorMessage);
-      alert(`Erreur: ${errorMessage}`);
+      alert(`${t('errorPrefix')} ${errorMessage}`);
       
     } finally {
       setLoading(false);
@@ -154,21 +157,21 @@ const OrderRecapModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
         {/* Loading overlay */}
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-2xl">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-700 font-medium">Création de la commande en cours...</p>
+              <p className="mt-4 text-gray-700 font-medium">{t('creatingOrder')}</p>
             </div>
           </div>
         )}
 
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">Récapitulatif de la Commande</h2>
+            <h2 className="text-xl font-bold text-gray-800">{t('orderSummary')}</h2>
             <button
               onClick={() => setShowRecap(false)}
               disabled={loading}
@@ -192,18 +195,18 @@ const OrderRecapModal = ({
 
           {/* Informations client */}
           <div className="mb-6 bg-gray-50 rounded-xl p-6">
-            <h3 className="font-bold text-gray-800 mb-4">Informations Client</h3>
+            <h3 className="font-bold text-gray-800 mb-4">{t('clientInformation')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <div className="text-sm text-gray-600">Nom</div>
+                <div className="text-sm text-gray-600">{t('name')}</div>
                 <div className="font-medium text-gray-900">
                   {selectedClient?.nom || selectedClient?.prenom ? 
                     `${selectedClient?.nom || ''} ${selectedClient?.prenom || ''}`.trim() 
-                    : 'Non spécifié'}
+                    : t('notSpecified')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Type</div>
+                <div className="text-sm text-gray-600">{t('type')}</div>
                 <div className="font-medium text-gray-900">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     selectedClient?.typeClient === 'VIP' ? 'bg-purple-100 text-purple-800' :
@@ -213,32 +216,32 @@ const OrderRecapModal = ({
                     selectedClient?.typeClient === 'PARTICULIER' ? 'bg-indigo-100 text-indigo-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {selectedClient?.typeClient || 'Non spécifié'}
+                    {selectedClient?.typeClient || t('notSpecified')}
                   </span>
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Téléphone</div>
-                <div className="font-medium text-gray-900">{selectedClient?.telephone || 'Non spécifié'}</div>
+                <div className="text-sm text-gray-600">{t('phone')}</div>
+                <div className="font-medium text-gray-900">{selectedClient?.telephone || t('notSpecified')}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-600">Adresse</div>
-                <div className="font-medium text-gray-900">{selectedClient?.adresse || 'Non spécifiée'}</div>
+                <div className="text-sm text-gray-600">{t('address')}</div>
+                <div className="font-medium text-gray-900">{selectedClient?.adresse || t('notSpecified')}</div>
               </div>
             </div>
           </div>
 
           {/* Détails des produits */}
           <div className="mb-6">
-            <h3 className="font-bold text-gray-800 mb-4">Détails des Produits ({selectedProducts.length})</h3>
+            <h3 className="font-bold text-gray-800 mb-4">{t('productDetailsWithCount', { count: selectedProducts.length })}</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produit</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix Unitaire</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sous-total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('product')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('quantity')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('unitPrice')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('subtotal')}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -261,18 +264,18 @@ const OrderRecapModal = ({
                                     e.target.onerror = null;
                                     e.target.style.display = 'none';
                                     e.target.parentElement.className = 'h-10 w-10 rounded bg-gray-100 flex items-center justify-center';
-                                    e.target.parentElement.innerHTML = '<span class="text-gray-400 text-xs">No image</span>';
+                                    e.target.parentElement.innerHTML = `<span class="text-gray-400 text-xs">${t('noImage')}</span>`;
                                   }}
                                 />
                               </div>
                             ) : (
                               <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">No image</span>
+                                <span className="text-gray-400 text-xs">{t('noImage')}</span>
                               </div>
                             )}
                             <div>
                               <div className="font-medium text-gray-900">
-                                {product.libelle || 'Produit sans nom'}
+                                {product.libelle || t('unnamedProduct')}
                               </div>
                               <div className="text-sm text-gray-500">
                                 {product.uniteMesure || 'unité'}
@@ -284,14 +287,14 @@ const OrderRecapModal = ({
                         <td className="px-4 py-3 text-gray-900">
                           <div className="font-medium">{formatNumber(quantite)}</div>
                           <div className="text-xs text-gray-500">
-                            Stock: {formatNumber(product.quantiteStock || 0)}
+                            {t('stock')}: {formatNumber(product.quantiteStock || 0)}
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-gray-900 font-medium">{formatPrice(prixUnitaire)} dt</div>
                           {product.remiseTemporaire > 0 && (
                             <div className="text-xs text-green-600">
-                              Remise: {product.remiseTemporaire}%
+                              {t('discount')}: {product.remiseTemporaire}%
                             </div>
                           )}
                         </td>
@@ -312,20 +315,20 @@ const OrderRecapModal = ({
               <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              Récapitulatif Financier
+              {t('financialSummary')}
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-600">Sous-total produits</span>
+                <span className="text-gray-600">{t('productsSubtotal')}</span>
                 <span className="font-medium text-gray-800">{formatPrice(totaux.sousTotal)} dt</span>
               </div>
               
               {remiseAppliquee > 0 && (
                 <div className="flex justify-between items-center py-2 border-t border-gray-200 pt-3">
                   <div>
-                    <span className="text-gray-600">Remise globale</span>
+                    <span className="text-gray-600">{t('globalDiscount')}</span>
                     <div className="text-xs text-gray-500">
-                      {remiseAppliquee}% (Type: {selectedClient?.typeClient || 'Standard'})
+                      {remiseAppliquee}% ({t('type')}: {selectedClient?.typeClient || t('standard')})
                     </div>
                   </div>
                   <span className="font-medium text-red-600">-{formatPrice(totaux.remise)} dt</span>
@@ -334,15 +337,15 @@ const OrderRecapModal = ({
               
               <div className="flex justify-between items-center py-2 border-t border-gray-200 pt-3">
                 <div>
-                  <span className="font-bold text-gray-800">Total à payer</span>
+                  <span className="font-bold text-gray-800">{t('totalToPay')}</span>
                   <div className="text-xs text-gray-500">
-                    {selectedProducts.length} produit(s)
+                    {t('productCount', { count: selectedProducts.length })}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-blue-600">{formatPrice(totaux.total)} dt</div>
                   <div className="text-sm text-gray-500">
-                    TTC
+                    {t('taxIncluded')}
                   </div>
                 </div>
               </div>
@@ -357,7 +360,7 @@ const OrderRecapModal = ({
               disabled={loading}
               className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Retour
+              {t('back')}
             </button>
             
             <button
@@ -370,12 +373,12 @@ const OrderRecapModal = ({
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  En cours...
+                  {t('inProgress')}
                 </>
               ) : (
                 <>
                   <DocumentTextIcon className="h-5 w-5 mr-2" />
-                  Enregistrer la Commande
+                  {t('saveOrder')}
                 </>
               )}
             </button>

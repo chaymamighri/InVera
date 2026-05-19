@@ -60,18 +60,18 @@ public class ProduitService {
                 produit.setUniteMesure(Produit.UniteMesure.valueOf(uniteMesure));
             }
 
-            // ✅ Catégorie
+            // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ CatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©gorie
             if (rs.getObject("categorie_id") != null) {
                 Categorie categorie = new Categorie();
                 categorie.setIdCategorie(rs.getInt("categorie_id"));
                 categorie.setNomCategorie(rs.getString("categorie_nom"));
                 produit.setCategorie(categorie);
-                log.info("📌 Catégorie trouvée: id={}, nom={}", categorie.getIdCategorie(), categorie.getNomCategorie());
+                log.info("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¦Ã¢â‚¬â„¢ CatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©gorie trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e: id={}, nom={}", categorie.getIdCategorie(), categorie.getNomCategorie());
             }
 
-            // ✅ Fournisseur
+            // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Fournisseur
             Object fournisseurIdObj = rs.getObject("fournisseur_id");
-            log.info("🔍 fournisseur_id dans ResultSet: {}", fournisseurIdObj);
+            log.info("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â fournisseur_id dans ResultSet: {}", fournisseurIdObj);
 
             if (fournisseurIdObj != null) {
                 Fournisseur fournisseur = new Fournisseur();
@@ -80,22 +80,23 @@ public class ProduitService {
                 fournisseur.setEmail(rs.getString("fournisseur_email"));
                 fournisseur.setTelephone(rs.getString("fournisseur_telephone"));
 
-                // Vérifier si ces colonnes existent avant de les lire
+                // VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier si ces colonnes existent avant de les lire
                 try {
                     fournisseur.setAdresse(rs.getString("fournisseur_adresse"));
                     fournisseur.setVille(rs.getString("fournisseur_ville"));
                     fournisseur.setPays(rs.getString("fournisseur_pays"));
                 } catch (SQLException e) {
-                    log.warn("Colonnes fournisseur supplémentaires non trouvées: {}", e.getMessage());
+                    log.warn("Colonnes fournisseur supplÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©mentaires non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©es: {}", e.getMessage());
                 }
 
                 produit.setFournisseur(fournisseur);
-                log.info("✅ Fournisseur attaché: id={}, nom={}",
+                log.info("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Fournisseur attachÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©: id={}, nom={}",
                         fournisseur.getIdFournisseur(), fournisseur.getNomFournisseur());
             } else {
-                log.warn("⚠️ Aucun fournisseur_id trouvé pour ce produit");
+                log.warn("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun fournisseur_id trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© pour ce produit");
             }
 
+            updateStockStatus(produit);
             return produit;
         };
     }
@@ -135,33 +136,33 @@ public class ProduitService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        System.out.println("🛠️ Création produit en cours pour client: " + clientId);
+        System.out.println("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂºÃƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â CrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ation produit en cours pour client: " + clientId);
 
-        // 1. Vérifier la catégorie
+        // 1. VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier la catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©gorie
         if (produit.getCategorie() != null && produit.getCategorie().getIdCategorie() != null) {
             String sqlCategorie = "SELECT * FROM categorie WHERE id_categorie = ?";
-            // ✅ Utiliser queryForObjectAuth
+            // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth
             Categorie categorie = tenantRepo.queryForObjectAuth(sqlCategorie, categorieRowMapper(),
                     clientId, authClientId, produit.getCategorie().getIdCategorie());
 
             if (categorie == null) {
-                throw new RuntimeException("Categorie non trouvée avec l'id: " + produit.getCategorie().getIdCategorie());
+                throw new RuntimeException("Categorie non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e avec l'id: " + produit.getCategorie().getIdCategorie());
             }
         }
 
-        // 2. Vérifier le fournisseur
+        // 2. VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier le fournisseur
         if (fournisseurId != null) {
             String sqlFournisseur = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-            // ✅ Utiliser queryForObjectAuth
+            // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth
             Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sqlFournisseur, fournisseurRowMapper(),
                     clientId, authClientId, fournisseurId);
 
             if (fournisseur == null) {
-                throw new RuntimeException("Fournisseur non trouvé avec l'id: " + fournisseurId);
+                throw new RuntimeException("Fournisseur non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© avec l'id: " + fournisseurId);
             }
         }
 
-        // 3. Insérer le produit
+        // 3. InsÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rer le produit
         String insertSql = """
             INSERT INTO produit (libelle, prix_vente, prix_achat, quantite_stock, status, 
                                  unite_mesure, is_active, seuil_minimum, image_url, 
@@ -174,7 +175,7 @@ public class ProduitService {
         String statusStr = produit.getStatus() != null ? produit.getStatus().name() : "EN_STOCK";
         String uniteMesureStr = produit.getUniteMesure() != null ? produit.getUniteMesure().name() : "PIECE";
 
-        // ✅ Utiliser queryForObjectAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth
         Integer produitId = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
                 produit.getLibelle(),
                 produit.getPrixVente(),
@@ -192,31 +193,31 @@ public class ProduitService {
                 fournisseurId
         );
 
-        // 4. Récupérer le produit créé
+        // 4. RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cupÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rer le produit crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©
         String selectSql = "SELECT * FROM produit WHERE id_produit = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth
         Produit savedProduit = tenantRepo.queryForObjectAuth(selectSql, produitRowMapperSimple(), clientId, authClientId, produitId);
 
-        // 5. Créer le mouvement de stock initial si nécessaire
+        // 5. CrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©er le mouvement de stock initial si nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cessaire
         if (savedProduit.getQuantiteStock() != null && savedProduit.getQuantiteStock() > 0) {
             String insertMovementSql = """
                 INSERT INTO stock_movement (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
                                             prix_unitaire, valeur_totale, type_document, commentaire, date_mouvement)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
-            // ✅ Utiliser updateWithAuth
+            // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser updateWithAuth
             tenantRepo.updateWithAuth(insertMovementSql, clientId, authClientId,
                     savedProduit.getIdProduit(), "INIT_STOCK", savedProduit.getQuantiteStock(),
                     0, savedProduit.getQuantiteStock(),
                     prixAchat != null ? prixAchat : BigDecimal.ZERO,
                     (prixAchat != null ? prixAchat : BigDecimal.ZERO).multiply(BigDecimal.valueOf(savedProduit.getQuantiteStock())),
-                    "INIT_STOCK", "Stock initial à la création du produit", LocalDateTime.now());
+                    "INIT_STOCK", "Stock initial ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  la crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ation du produit", LocalDateTime.now());
         }
 
         return savedProduit;
     }
 
-    // Dans ProduitService.java - À ajouter
+    // Dans ProduitService.java - ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ajouter
     public List<Produit> searchProduits(String keyword, Produit.StockStatus status, Integer categorieId, Boolean actif, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
@@ -243,7 +244,7 @@ public class ProduitService {
                 (actif != null ? " AND p.is_active = ?" : "") +
                 " ORDER BY p.libelle ASC";
 
-        // Construction des paramètres
+        // Construction des paramÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨tres
         List<Object> params = new ArrayList<>();
         if (keyword != null && !keyword.isEmpty()) params.add("%" + keyword + "%");
         if (status != null) params.add(status.name());
@@ -282,7 +283,7 @@ public class ProduitService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT * FROM produit WHERE is_active = true ORDER BY id_produit";
-        // ✅ CORRECTION: Utiliser queryWithAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ CORRECTION: Utiliser queryWithAuth
         return tenantRepo.queryWithAuth(sql, produitRowMapper(), clientId, authClientId);
     }
 
@@ -307,21 +308,21 @@ public class ProduitService {
         WHERE p.id_produit = ?
         """;
 
-        log.info("🔍 Exécution requête getProduitById pour ID: {}", id);
+        log.info("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â ExÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cution requÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªte getProduitById pour ID: {}", id);
 
         Produit produit = tenantRepo.queryForObjectAuth(sql, produitRowMapper(), clientId, authClientId, id);
 
         if (produit != null) {
-            log.info("✅ Produit trouvé: id={}, libelle={}", produit.getIdProduit(), produit.getLibelle());
+            log.info("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Produit trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©: id={}, libelle={}", produit.getIdProduit(), produit.getLibelle());
             if (produit.getFournisseur() != null) {
-                log.info("✅ Fournisseur attaché: id={}, nom={}",
+                log.info("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Fournisseur attachÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©: id={}, nom={}",
                         produit.getFournisseur().getIdFournisseur(),
                         produit.getFournisseur().getNomFournisseur());
             } else {
-                log.warn("⚠️ Aucun fournisseur attaché au produit ID={}", id);
+                log.warn("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun fournisseur attachÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© au produit ID={}", id);
             }
         } else {
-            log.warn("⚠️ Produit non trouvé pour ID: {}", id);
+            log.warn("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Produit non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© pour ID: {}", id);
         }
 
         return Optional.ofNullable(produit);
@@ -333,28 +334,28 @@ public class ProduitService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        log.info("📝 Mise à jour produit ID: {} pour client: {}", id, clientId);
-        log.info("📝 fournisseurId reçu: {}, categorieId reçu: {}", fournisseurId, categorieId);
+        log.info("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â Mise ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour produit ID: {} pour client: {}", id, clientId);
+        log.info("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â fournisseurId reÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§u: {}, categorieId reÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§u: {}", fournisseurId, categorieId);
 
-        // ✅ Vérifier que le produit existe
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier que le produit existe
         String checkSql = "SELECT COUNT(*) FROM produit WHERE id_produit = ?";
         Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, authClientId, id);
 
         if (count == null || count == 0) {
-            throw new RuntimeException("Produit non trouvé avec l'id: " + id);
+            throw new RuntimeException("Produit non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© avec l'id: " + id);
         }
 
-        // ✅ Récupérer le produit existant (pour les valeurs actuelles)
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cupÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rer le produit existant (pour les valeurs actuelles)
         String selectSql = "SELECT * FROM produit WHERE id_produit = ?";
         Produit existingProduit = tenantRepo.queryForObjectAuth(selectSql, produitRowMapperSimple(), clientId, authClientId, id);
 
         if (existingProduit == null) {
-            throw new RuntimeException("Erreur lors de la récupération du produit");
+            throw new RuntimeException("Erreur lors de la rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cupÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration du produit");
         }
 
         Integer previousQuantity = existingProduit.getQuantiteStock();
 
-        // ✅ Préparer les valeurs mises à jour (utiliser les nouvelles valeurs ou conserver les anciennes)
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©parer les valeurs mises ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour (utiliser les nouvelles valeurs ou conserver les anciennes)
         String finalLibelle = (produitDetails.getLibelle() != null) ? produitDetails.getLibelle() : existingProduit.getLibelle();
         Double finalPrixVente = (produitDetails.getPrixVente() != null) ? produitDetails.getPrixVente() : existingProduit.getPrixVente();
         BigDecimal finalPrixAchat = (prixAchat != null) ? prixAchat : existingProduit.getPrixAchat();
@@ -365,10 +366,10 @@ public class ProduitService {
         Boolean finalActive = (produitDetails.getActive() != null) ? produitDetails.getActive() : existingProduit.getActive();
         String finalImageUrl = (produitDetails.getImageUrl() != null) ? produitDetails.getImageUrl() : existingProduit.getImageUrl();
 
-        // ✅ Calculer le statut du stock
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Calculer le statut du stock
         Produit.StockStatus finalStatus = calculerStatutStock(finalQuantiteStock, finalSeuilMinimum);
 
-        // ✅ Mettre à jour le produit
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Mettre ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour le produit
         String updateSql = """
         UPDATE produit 
         SET libelle = ?, prix_vente = ?, prix_achat = ?, quantite_stock = ?, 
@@ -392,20 +393,20 @@ public class ProduitService {
                 fournisseurId,
                 id);
 
-        log.info("✅ UPDATE exécuté, affectedRows={}", updated);
+        log.info("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ UPDATE exÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cutÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©, affectedRows={}", updated);
 
         if (updated == 0) {
-            throw new RuntimeException("Erreur lors de la mise à jour du produit");
+            throw new RuntimeException("Erreur lors de la mise ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour du produit");
         }
 
-        // ✅ Notification si besoin
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Notification si besoin
         stockNotificationService.notifyIfStockNeedsReorder(existingProduit, previousQuantity, finalQuantiteStock, token);
 
-        // ✅ Retourner le produit mis à jour
-        return getProduitById(id, token).orElseThrow(() -> new RuntimeException("Produit non trouvé après mise à jour"));
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Retourner le produit mis ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour
+        return getProduitById(id, token).orElseThrow(() -> new RuntimeException("Produit non trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© aprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨s mise ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  jour"));
     }
 
-    // ✅ Méthode utilitaire pour calculer le statut du stock
+    // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ MÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©thode utilitaire pour calculer le statut du stock
     private Produit.StockStatus calculerStatutStock(Integer quantiteStock, Integer seuilMinimum) {
         if (quantiteStock == null || seuilMinimum == null || quantiteStock <= 0) {
             return Produit.StockStatus.RUPTURE;
@@ -419,7 +420,7 @@ public class ProduitService {
         return Produit.StockStatus.EN_STOCK;
     }
 
-    // ✅ RowMapper simple pour la récupération interne
+    // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ RowMapper simple pour la rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cupÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration interne
     private RowMapper<Produit> produitRowMapperSimple() {
         return (rs, rowNum) -> {
             Produit produit = new Produit();
@@ -443,6 +444,7 @@ public class ProduitService {
             if (uniteMesure != null) {
                 produit.setUniteMesure(Produit.UniteMesure.valueOf(uniteMesure));
             }
+            updateStockStatus(produit);
 
             return produit;
         };
@@ -453,7 +455,7 @@ public class ProduitService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "UPDATE produit SET is_active = false WHERE id_produit = ?";
-        // ✅ Utiliser updateWithAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser updateWithAuth
         tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
     }
 
@@ -462,11 +464,11 @@ public class ProduitService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "UPDATE produit SET is_active = true WHERE id_produit = ?";
-        // ✅ Utiliser updateWithAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser updateWithAuth
         tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
 
         String selectSql = "SELECT * FROM produit WHERE id_produit = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth
         return tenantRepo.queryForObjectAuth(selectSql, produitRowMapper(), clientId, authClientId, id);
     }
 
@@ -524,7 +526,7 @@ public class ProduitService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT quantite_stock, is_active FROM produit WHERE id_produit = ?";
-        // ✅ Utiliser queryForObjectAuth avec RowMapper
+        // ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Utiliser queryForObjectAuth avec RowMapper
         Map<String, Object> result = tenantRepo.queryForObjectAuth(sql,
                 (rs, rowNum) -> Map.of("stock", rs.getInt("quantite_stock"), "active", rs.getBoolean("is_active")),
                 clientId, authClientId, produitId);

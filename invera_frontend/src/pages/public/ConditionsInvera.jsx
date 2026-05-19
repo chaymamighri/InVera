@@ -8,9 +8,18 @@ const ConditionsInvera = () => {
       {/* Header simplifié pour la page légale */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <Link to="/" className="text-2xl font-bold text-[#0b4ea2]">
-            InVera
-          </Link>
+          <div className="flex items-center justify-between gap-4">
+            <Link to="/" className="text-2xl font-bold text-[#0b4ea2]">
+              InVera
+            </Link>
+
+            <Link
+              to="/welcome"
+              className="text-sm font-semibold text-[#0b4ea2] transition hover:underline"
+            >
+              ← Retour a l'accueil
+            </Link>
+          </div>
         </div>
       </div>
 

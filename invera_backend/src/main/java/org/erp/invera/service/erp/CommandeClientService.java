@@ -31,25 +31,28 @@ public class CommandeClientService {
     private final JwtTokenProvider jwtTokenProvider;
     private final ProduitService produitService;
     private final ClientService clientService;
+    private final StockNotificationService stockNotificationService;
 
     public CommandeClientService(TenantAwareRepository tenantRepo,
                                  JwtTokenProvider jwtTokenProvider,
                                  ProduitService produitService,
-                                 ClientService clientService) {
+                                 ClientService clientService,
+                                 StockNotificationService stockNotificationService) {
         this.tenantRepo = tenantRepo;
         this.jwtTokenProvider = jwtTokenProvider;
         this.produitService = produitService;
         this.clientService = clientService;
+        this.stockNotificationService = stockNotificationService;
     }
 
-    // ✅ RowMapper pour CommandeClient
+    // Ã¢Å“â€¦ RowMapper pour CommandeClient
     public RowMapper<CommandeClient> commandeRowMapper() {
         return (rs, rowNum) -> {
             CommandeClient commande = new CommandeClient();
             commande.setIdCommandeClient(rs.getInt("id_commande_client"));
             commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
 
-            // ✅ Créer un objet Client avec seulement l'ID (le reste sera chargé plus tard)
+            // Ã¢Å“â€¦ CrÃƒÂ©er un objet Client avec seulement l'ID (le reste sera chargÃƒÂ© plus tard)
             Client client = new Client();
             client.setIdClient(rs.getInt("client_id"));
             commande.setClient(client);
@@ -59,7 +62,7 @@ public class CommandeClientService {
                 try {
                     commande.setStatut(StatutCommande.valueOf(statutStr));
                 } catch (IllegalArgumentException e) {
-                    log.warn("Statut inconnu: {}, utilisation de EN_ATTENTE par défaut", statutStr);
+                    log.warn("Statut inconnu: {}, utilisation de EN_ATTENTE par dÃƒÂ©faut", statutStr);
                     commande.setStatut(StatutCommande.EN_ATTENTE);
                 }
             }
@@ -111,6 +114,16 @@ public class CommandeClientService {
             produit.setLibelle(rs.getString("libelle"));
             produit.setPrixVente(rs.getDouble("prix_vente"));
             produit.setQuantiteStock(rs.getInt("quantite_stock"));
+            produit.setSeuilMinimum(rs.getInt("seuil_minimum"));
+            String status = rs.getString("status");
+            if (status != null) {
+                produit.setStatus(Produit.StockStatus.valueOf(status));
+            }
+            String uniteMesure = rs.getString("unite_mesure");
+            if (uniteMesure != null) {
+                produit.setUniteMesure(Produit.UniteMesure.valueOf(uniteMesure));
+            }
+            produitService.updateStockStatus(produit);
             return produit;
         };
     }
@@ -122,6 +135,9 @@ public class CommandeClientService {
             ligne.setQuantite(rs.getInt("quantite"));
             ligne.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
             ligne.setSousTotal(rs.getBigDecimal("sous_total"));
+            Produit produit = new Produit();
+            produit.setIdProduit(rs.getInt("produit_id"));
+            ligne.setProduit(produit);
             return ligne;
         };
     }
@@ -130,7 +146,7 @@ public class CommandeClientService {
         return jwtTokenProvider.getClientIdFromToken(token);
     }
 
-    // ✅ Vérifier la disponibilité
+    // Ã¢Å“â€¦ VÃƒÂ©rifier la disponibilitÃƒÂ©
     public boolean verifierDisponibilite(Map<Integer, Integer> produits, String token) {
         if (produits == null || produits.isEmpty()) {
             return false;
@@ -153,29 +169,29 @@ public class CommandeClientService {
         return true;
     }
 
-    // ✅ Créer une commande
+    // Ã¢Å“â€¦ CrÃƒÂ©er une commande
     @Transactional
     public CommandeClient createCommande(CommandeRequestDTO commandeRequest, String token) {
-        System.out.println("🛠️ Création de commande en cours...");
+        System.out.println("Ã°Å¸â€ºÂ Ã¯Â¸Â CrÃƒÂ©ation de commande en cours...");
 
         Integer clientFinalId = commandeRequest.getClientId();
         Long tenantId = getClientIdFromToken(token);
         String authClientId = String.valueOf(tenantId);
 
         if (clientFinalId == null) {
-            throw new RuntimeException("ID client requis pour créer la commande");
+            throw new RuntimeException("ID client requis pour crÃƒÂ©er la commande");
         }
 
-        System.out.println("🔍 Client final ID: " + clientFinalId);
-        System.out.println("🔍 Tenant ID: " + tenantId);
+        System.out.println("Ã°Å¸â€Â Client final ID: " + clientFinalId);
+        System.out.println("Ã°Å¸â€Â Tenant ID: " + tenantId);
 
         String sqlClient = "SELECT * FROM client WHERE id_client = ?";
         Client client = tenantRepo.queryForObjectAuth(sqlClient, clientRowMapper(), tenantId, authClientId, clientFinalId);
 
         if (client == null) {
-            throw new RuntimeException("Client non trouvé avec l'ID: " + clientFinalId);
+            throw new RuntimeException("Client non trouvÃƒÂ© avec l'ID: " + clientFinalId);
         }
-        System.out.println("✅ Client trouvé: " + client.getNom());
+        System.out.println("Ã¢Å“â€¦ Client trouvÃƒÂ©: " + client.getNom());
 
         String reference = genererReferenceCommande();
 
@@ -188,7 +204,7 @@ public class CommandeClientService {
         if (!disponible) {
             throw new RuntimeException("Stock insuffisant pour certains produits");
         }
-        System.out.println("✅ Disponibilité vérifiée");
+        System.out.println("Ã¢Å“â€¦ DisponibilitÃƒÂ© vÃƒÂ©rifiÃƒÂ©e");
 
         String insertCommande = """
             INSERT INTO commande_client (reference_commande_client, client_id, statut, date_commande, sous_total, taux_remise, total)
@@ -206,7 +222,7 @@ public class CommandeClientService {
             Produit produit = tenantRepo.queryForObjectAuth(sqlProduit, produitRowMapper(), tenantId, authClientId, produitDTO.getProduitId());
 
             if (produit == null) {
-                throw new RuntimeException("Produit non trouvé avec l'ID: " + produitDTO.getProduitId());
+                throw new RuntimeException("Produit non trouvÃƒÂ© avec l'ID: " + produitDTO.getProduitId());
             }
 
             BigDecimal prixUnitaire = produitDTO.getPrixUnitaire() != null ?
@@ -225,8 +241,8 @@ public class CommandeClientService {
             tenantRepo.queryForObjectAuth(insertLigne, Integer.class, tenantId, authClientId,
                     commandeId, produitDTO.getProduitId(), produitDTO.getQuantite(), prixUnitaire, sousTotalLigne);
 
-            System.out.println("📦 Produit ajouté: " + produit.getLibelle() +
-                    ", Quantité: " + produitDTO.getQuantite() +
+            System.out.println("Ã°Å¸â€œÂ¦ Produit ajoutÃƒÂ©: " + produit.getLibelle() +
+                    ", QuantitÃƒÂ©: " + produitDTO.getQuantite() +
                     ", Prix unitaire: " + prixUnitaire +
                     ", Sous-total: " + sousTotalLigne);
         }
@@ -244,7 +260,7 @@ public class CommandeClientService {
             """;
         tenantRepo.updateWithAuth(updateTotaux, tenantId, authClientId, sousTotal, tauxRemise, total, commandeId);
 
-        System.out.println("💰 Totaux calculés:");
+        System.out.println("Ã°Å¸â€™Â° Totaux calculÃƒÂ©s:");
         System.out.println("  Sous-total: " + sousTotal);
         System.out.println("  Remise: " + montantRemise + " (" + tauxRemise + "%)");
         System.out.println("  Total: " + total);
@@ -252,8 +268,8 @@ public class CommandeClientService {
         String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
         CommandeClient savedCommande = tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), tenantId, authClientId, commandeId);
 
-        System.out.println("✅ Commande créée avec ID: " + savedCommande.getIdCommandeClient() +
-                " et référence: " + savedCommande.getReferenceCommandeClient());
+        System.out.println("Ã¢Å“â€¦ Commande crÃƒÂ©ÃƒÂ©e avec ID: " + savedCommande.getIdCommandeClient() +
+                " et rÃƒÂ©fÃƒÂ©rence: " + savedCommande.getReferenceCommandeClient());
 
         return savedCommande;
     }
@@ -292,16 +308,16 @@ public class CommandeClientService {
         }, clientId, authClientId, commande.getIdCommandeClient());
 
         commande.setLignesCommande(lignes);
-        log.info("📦 Commande {} - {} lignes chargées", commande.getIdCommandeClient(), lignes.size());
+        log.info("Ã°Å¸â€œÂ¦ Commande {} - {} lignes chargÃƒÂ©es", commande.getIdCommandeClient(), lignes.size());
     }
 
 
     /**
-     * Charger les détails complets du client d'une commande
+     * Charger les dÃƒÂ©tails complets du client d'une commande
      */
     private void chargerClientComplet(CommandeClient commande, Long tenantId, String authClientId) {
         if (commande.getClient() == null || commande.getClient().getIdClient() == null) {
-            log.warn("⚠️ Commande {} n'a pas de client associé", commande.getIdCommandeClient());
+            log.warn("Ã¢Å¡Â Ã¯Â¸Â Commande {} n'a pas de client associÃƒÂ©", commande.getIdCommandeClient());
             return;
         }
 
@@ -312,25 +328,25 @@ public class CommandeClientService {
 
         if (clientComplet != null) {
             commande.setClient(clientComplet);
-            log.info("👤 Client chargé pour commande {}: {} {} (ID: {})",
+            log.info("Ã°Å¸â€˜Â¤ Client chargÃƒÂ© pour commande {}: {} {} (ID: {})",
                     commande.getIdCommandeClient(),
                     clientComplet.getPrenom(),
                     clientComplet.getNom(),
                     clientComplet.getIdClient());
         } else {
-            log.warn("⚠️ Client non trouvé pour commande {} avec client_id: {}",
+            log.warn("Ã¢Å¡Â Ã¯Â¸Â Client non trouvÃƒÂ© pour commande {} avec client_id: {}",
                     commande.getIdCommandeClient(), clientId);
         }
     }
 
 
     public List<CommandeResponseDTO> getAllCommandes(String token) {
-        log.info("========== DÉBUT RÉCUPÉRATION COMMANDES ==========");
+        log.info("========== DÃƒâ€°BUT RÃƒâ€°CUPÃƒâ€°RATION COMMANDES ==========");
 
         Long tenantId = getClientIdFromToken(token);
         String authClientId = String.valueOf(tenantId);
 
-        log.info("📊 Tenant ID: {}", tenantId);
+        log.info("Ã°Å¸â€œÅ  Tenant ID: {}", tenantId);
 
         String sql = "SELECT * FROM commande_client ORDER BY date_commande DESC";
 
@@ -341,7 +357,7 @@ public class CommandeClientService {
                     cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
                     cmd.setReferenceCommandeClient(rs.getString("reference_commande_client"));
 
-                    // ✅ Client avec ID uniquement (pour la relation)
+                    // Ã¢Å“â€¦ Client avec ID uniquement (pour la relation)
                     Client client = new Client();
                     client.setIdClient(rs.getInt("client_id"));
                     cmd.setClient(client);
@@ -364,14 +380,14 @@ public class CommandeClientService {
                 tenantId, authClientId
         );
 
-        log.info("📊 Nombre de commandes trouvées: {}", commandes.size());
+        log.info("Ã°Å¸â€œÅ  Nombre de commandes trouvÃƒÂ©es: {}", commandes.size());
 
         if (commandes.isEmpty()) {
-            log.warn("⚠️ Aucune commande trouvée pour le tenant {}", tenantId);
+            log.warn("Ã¢Å¡Â Ã¯Â¸Â Aucune commande trouvÃƒÂ©e pour le tenant {}", tenantId);
             return new ArrayList<>();
         }
 
-        // ✅ CHARGER LES LIGNES ET LES CLIENTS COMPLETS
+        // Ã¢Å“â€¦ CHARGER LES LIGNES ET LES CLIENTS COMPLETS
         for (CommandeClient cmd : commandes) {
             chargerLignesCommande(cmd, tenantId, authClientId);
             chargerClientComplet(cmd, tenantId, authClientId);
@@ -379,21 +395,21 @@ public class CommandeClientService {
 
         for (int i = 0; i < commandes.size(); i++) {
             CommandeClient cmd = commandes.get(i);
-            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            log.info("📦 Commande #{} - ID: {}, Réf: {}", (i+1), cmd.getIdCommandeClient(), cmd.getReferenceCommandeClient());
-            log.info("   👤 Client: {} {} (ID: {})",
+            log.info("Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â");
+            log.info("Ã°Å¸â€œÂ¦ Commande #{} - ID: {}, RÃƒÂ©f: {}", (i+1), cmd.getIdCommandeClient(), cmd.getReferenceCommandeClient());
+            log.info("   Ã°Å¸â€˜Â¤ Client: {} {} (ID: {})",
                     cmd.getClient() != null ? cmd.getClient().getPrenom() : "?",
                     cmd.getClient() != null ? cmd.getClient().getNom() : "?",
                     cmd.getClient() != null ? cmd.getClient().getIdClient() : "?");
-            log.info("   📅 Date: {}", cmd.getDateCommande());
-            log.info("   💰 Sous-total: {} TND", cmd.getSousTotal());
-            log.info("   🏷️  Remise: {} %", cmd.getTauxRemise());
-            log.info("   💵 Total: {} TND", cmd.getTotal());
-            log.info("   📌 Statut: {}", cmd.getStatut());
-            log.info("   📋 Nombre de lignes: {}", cmd.getLignesCommande() != null ? cmd.getLignesCommande().size() : 0);
+            log.info("   Ã°Å¸â€œâ€¦ Date: {}", cmd.getDateCommande());
+            log.info("   Ã°Å¸â€™Â° Sous-total: {} TND", cmd.getSousTotal());
+            log.info("   Ã°Å¸ÂÂ·Ã¯Â¸Â  Remise: {} %", cmd.getTauxRemise());
+            log.info("   Ã°Å¸â€™Âµ Total: {} TND", cmd.getTotal());
+            log.info("   Ã°Å¸â€œÅ’ Statut: {}", cmd.getStatut());
+            log.info("   Ã°Å¸â€œâ€¹ Nombre de lignes: {}", cmd.getLignesCommande() != null ? cmd.getLignesCommande().size() : 0);
         }
 
-        log.info("========== FIN RÉCUPÉRATION COMMANDES ==========");
+        log.info("========== FIN RÃƒâ€°CUPÃƒâ€°RATION COMMANDES ==========");
 
         return commandes.stream()
                 .map(cmd -> CommandeResponseDTO.fromEntity(cmd, clientService, produitService))
@@ -415,7 +431,7 @@ public class CommandeClientService {
                     cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
                     cmd.setReferenceCommandeClient(rs.getString("reference_commande_client"));
 
-                    // ✅ Client avec ID uniquement (pour la relation)
+                    // Ã¢Å“â€¦ Client avec ID uniquement (pour la relation)
                     Client client = new Client();
                     client.setIdClient(rs.getInt("client_id"));
                     cmd.setClient(client);
@@ -439,18 +455,18 @@ public class CommandeClientService {
         );
 
         if (commande == null) {
-            log.error("❌ Commande non trouvée avec l'ID: {}", id);
-            throw new RuntimeException("Commande non trouvée");
+            log.error("Ã¢ÂÅ’ Commande non trouvÃƒÂ©e avec l'ID: {}", id);
+            throw new RuntimeException("Commande non trouvÃƒÂ©e");
         }
 
-        // ✅ CHARGER LES LIGNES ET LE CLIENT COMPLET
+        // Ã¢Å“â€¦ CHARGER LES LIGNES ET LE CLIENT COMPLET
         chargerLignesCommande(commande, tenantId, authClientId);
         chargerClientComplet(commande, tenantId, authClientId);
 
-        log.info("✅ Commande trouvée:");
+        log.info("Ã¢Å“â€¦ Commande trouvÃƒÂ©e:");
         log.info("   ID: {}", commande.getIdCommandeClient());
-        log.info("   Référence: {}", commande.getReferenceCommandeClient());
-        log.info("   👤 Client: {} {} (ID: {})",
+        log.info("   RÃƒÂ©fÃƒÂ©rence: {}", commande.getReferenceCommandeClient());
+        log.info("   Ã°Å¸â€˜Â¤ Client: {} {} (ID: {})",
                 commande.getClient() != null ? commande.getClient().getPrenom() : "?",
                 commande.getClient() != null ? commande.getClient().getNom() : "?",
                 commande.getClient() != null ? commande.getClient().getIdClient() : "?");
@@ -462,7 +478,7 @@ public class CommandeClientService {
         return CommandeResponseDTO.fromEntity(commande, clientService, produitService);
     }
 
-    // ✅ Mettre à jour une commande
+    // Ã¢Å“â€¦ Mettre ÃƒÂ  jour une commande
     @Transactional
     public CommandeClient updateCommande(Integer commandeId, CommandeUpdateRequestDTO request, String token) {
 
@@ -470,11 +486,11 @@ public class CommandeClientService {
         String authClientId = String.valueOf(clientId);
 
         String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // Ã¢Å“â€¦ Utiliser queryForObjectAuth
         CommandeClient commande = tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
 
         if (commande == null) {
-            throw new RuntimeException("Commande non trouvée");
+            throw new RuntimeException("Commande non trouvÃƒÂ©e");
         }
 
         if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
@@ -483,13 +499,13 @@ public class CommandeClientService {
 
         if (request.getStatut() != null) {
             String updateStatut = "UPDATE commande_client SET statut = ? WHERE id_commande_client = ?";
-            // ✅ Utiliser updateWithAuth
+            // Ã¢Å“â€¦ Utiliser updateWithAuth
             tenantRepo.updateWithAuth(updateStatut, clientId, authClientId, request.getStatut(), commandeId);
         }
 
         if (request.getClientAdresse() != null) {
             String updateClient = "UPDATE client SET adresse = ?, telephone = ?, email = ? WHERE id = ?";
-            // ✅ Utiliser updateWithAuth
+            // Ã¢Å“â€¦ Utiliser updateWithAuth
             tenantRepo.updateWithAuth(updateClient, clientId, authClientId,
                     request.getClientAdresse(), request.getClientTelephone(), request.getClientEmail(), clientId);
         }
@@ -497,7 +513,7 @@ public class CommandeClientService {
         updateLignesCommande(commandeId, request.getProduits(), token);
 
         String sqlLignes = "SELECT * FROM ligne_commande_client WHERE commande_client_id = ?";
-        // ✅ Utiliser queryWithAuth
+        // Ã¢Å“â€¦ Utiliser queryWithAuth
         List<LigneCommandeClient> lignes = tenantRepo.queryWithAuth(sqlLignes, ligneCommandeRowMapper(), clientId, authClientId, commandeId);
 
         BigDecimal sousTotal = calculerSousTotal(lignes);
@@ -505,10 +521,10 @@ public class CommandeClientService {
         BigDecimal total = sousTotal.subtract(sousTotal.multiply(tauxRemise.divide(BigDecimal.valueOf(100))));
 
         String updateTotaux = "UPDATE commande_client SET sous_total = ?, total = ? WHERE id_commande_client = ?";
-        // ✅ Utiliser updateWithAuth
+        // Ã¢Å“â€¦ Utiliser updateWithAuth
         tenantRepo.updateWithAuth(updateTotaux, clientId, authClientId, sousTotal, total, commandeId);
 
-        // ✅ Utiliser queryForObjectAuth
+        // Ã¢Å“â€¦ Utiliser queryForObjectAuth
         return tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
     }
 
@@ -518,7 +534,7 @@ public class CommandeClientService {
         String authClientId = String.valueOf(clientId);
 
         String sqlLignesExistantes = "SELECT id_ligne_commande_client FROM ligne_commande_client WHERE commande_client_id = ?";
-        // ✅ Utiliser queryWithAuth
+        // Ã¢Å“â€¦ Utiliser queryWithAuth
         List<Integer> idsExistants = tenantRepo.queryWithAuth(sqlLignesExistantes,
                 (rs, rowNum) -> rs.getInt("id_ligne_commande_client"), clientId, authClientId, commandeId);
 
@@ -530,7 +546,7 @@ public class CommandeClientService {
         for (Integer id : idsExistants) {
             if (!idsAConserver.contains(id)) {
                 String deleteLigne = "DELETE FROM ligne_commande_client WHERE id_ligne_commande_client = ?";
-                // ✅ Utiliser updateWithAuth
+                // Ã¢Å“â€¦ Utiliser updateWithAuth
                 tenantRepo.updateWithAuth(deleteLigne, clientId, authClientId, id);
             }
         }
@@ -542,7 +558,7 @@ public class CommandeClientService {
                     SET quantite = ?, prix_unitaire = ?, sous_total = ? 
                     WHERE id_ligne_commande_client = ?
                     """;
-                // ✅ Utiliser updateWithAuth
+                // Ã¢Å“â€¦ Utiliser updateWithAuth
                 tenantRepo.updateWithAuth(updateLigne, clientId, authClientId,
                         produitDTO.getQuantite(), produitDTO.getPrixUnitaire(),
                         produitDTO.getPrixUnitaire().multiply(produitDTO.getQuantite()),
@@ -552,7 +568,7 @@ public class CommandeClientService {
                     INSERT INTO ligne_commande_client (commande_client_id, produit_id, quantite, prix_unitaire, sous_total)
                     VALUES (?, ?, ?, ?, ?)
                     """;
-                // ✅ Utiliser updateWithAuth
+                // Ã¢Å“â€¦ Utiliser updateWithAuth
                 tenantRepo.updateWithAuth(insertLigne, clientId, authClientId,
                         commandeId, produitDTO.getProduitId(), produitDTO.getQuantite(),
                         produitDTO.getPrixUnitaire(),
@@ -563,31 +579,31 @@ public class CommandeClientService {
 
     @Transactional
     public CommandeClient confirmerCommande(Integer commandeId, String token) {
-        System.out.println("🔍 === DÉBUT confirmerCommande ===");
+        System.out.println("Ã°Å¸â€Â === DÃƒâ€°BUT confirmerCommande ===");
 
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
         try {
-            // 1. Vérifier que la commande existe et est en attente
+            // 1. VÃƒÂ©rifier que la commande existe et est en attente
             String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
             CommandeClient commande = tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
 
             if (commande == null) {
-                throw new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
+                throw new RuntimeException("Commande non trouvÃƒÂ©e avec l'ID: " + commandeId);
             }
 
-            System.out.println("✅ Commande trouvée: " + commande.getIdCommandeClient());
-            System.out.println("📊 Statut actuel: " + commande.getStatut());
+            System.out.println("Ã¢Å“â€¦ Commande trouvÃƒÂ©e: " + commande.getIdCommandeClient());
+            System.out.println("Ã°Å¸â€œÅ  Statut actuel: " + commande.getStatut());
 
             if (commande.getStatut() != CommandeClient.StatutCommande.EN_ATTENTE) {
-                throw new RuntimeException("Seules les commandes en attente peuvent être confirmées. Statut actuel: " + commande.getStatut());
+                throw new RuntimeException("Seules les commandes en attente peuvent ÃƒÂªtre confirmÃƒÂ©es. Statut actuel: " + commande.getStatut());
             }
 
-            // 2. Récupérer les lignes AVEC les produits (une seule requête)
+            // 2. RÃƒÂ©cupÃƒÂ©rer les lignes AVEC les produits (une seule requÃƒÂªte)
             String sqlLignesProduits = """
         SELECT l.*, 
-               p.id_produit, p.libelle, p.prix_vente, p.quantite_stock
+               p.id_produit, p.libelle, p.prix_vente, p.quantite_stock, p.seuil_minimum, p.status, p.unite_mesure
         FROM ligne_commande_client l
         JOIN produit p ON l.produit_id = p.id_produit
         WHERE l.commande_client_id = ?
@@ -601,6 +617,8 @@ public class CommandeClientService {
                 data.put("produitLibelle", rs.getString("libelle"));
                 data.put("stockAvant", rs.getInt("quantite_stock"));
                 data.put("prixUnitaire", rs.getBigDecimal("prix_unitaire"));
+                data.put("seuilMinimum", rs.getInt("seuil_minimum"));
+                data.put("uniteMesure", rs.getString("unite_mesure"));
                 return data;
             }, clientId, authClientId, commandeId);
 
@@ -608,7 +626,7 @@ public class CommandeClientService {
                 throw new RuntimeException("La commande ne contient aucun produit");
             }
 
-            // 3. Vérifier le stock
+            // 3. VÃƒÂ©rifier le stock
             for (Map<String, Object> ligne : lignesData) {
                 int quantite = (int) ligne.get("quantite");
                 int stock = (int) ligne.get("stockAvant");
@@ -619,7 +637,7 @@ public class CommandeClientService {
                 }
             }
 
-            // 4. Mettre à jour le stock et ENREGISTRER LES MOUVEMENTS
+            // 4. Mettre ÃƒÂ  jour le stock et ENREGISTRER LES MOUVEMENTS
             for (Map<String, Object> ligne : lignesData) {
                 int produitId = (int) ligne.get("produitId");
                 int quantite = (int) ligne.get("quantite");
@@ -628,11 +646,23 @@ public class CommandeClientService {
                 BigDecimal prixUnitaire = (BigDecimal) ligne.get("prixUnitaire");
                 BigDecimal valeurTotale = prixUnitaire.multiply(BigDecimal.valueOf(quantite));
 
-                // 4.1 Mettre à jour le stock du produit
-                String updateStock = "UPDATE produit SET quantite_stock = ? WHERE id_produit = ?";
-                tenantRepo.updateWithAuth(updateStock, clientId, authClientId, nouveauStock, produitId);
+                // 4.1 Mettre ÃƒÂ  jour le stock du produit
+                Produit produit = new Produit();
+                produit.setIdProduit(produitId);
+                produit.setLibelle((String) ligne.get("produitLibelle"));
+                produit.setQuantiteStock(nouveauStock);
+                produit.setSeuilMinimum((Integer) ligne.get("seuilMinimum"));
+                Object uniteMesureObj = ligne.get("uniteMesure");
+                if (uniteMesureObj != null) {
+                    produit.setUniteMesure(Produit.UniteMesure.valueOf((String) uniteMesureObj));
+                }
+                produitService.updateStockStatus(produit);
 
-                // 4.2 ✅ INSÉRER LE MOUVEMENT DE STOCK (sans client_id)
+                String updateStock = "UPDATE produit SET quantite_stock = ?, status = ? WHERE id_produit = ?";
+                tenantRepo.updateWithAuth(updateStock, clientId, authClientId, nouveauStock, produit.getStatus().name(), produitId);
+                stockNotificationService.notifyIfStockNeedsReorder(produit, stockAvant, nouveauStock, token);
+
+                // 4.2 Ã¢Å“â€¦ INSÃƒâ€°RER LE MOUVEMENT DE STOCK (sans client_id)
                 String insertMovement = """
     INSERT INTO stock_movement 
     (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
@@ -651,68 +681,69 @@ public class CommandeClientService {
                         commande.getReferenceCommandeClient(),
                         commande.getCreatedBy()
                 );
-                System.out.println("✅ Mouvement stock créé: Produit=" + ligne.get("produitLibelle") +
+                System.out.println("Ã¢Å“â€¦ Mouvement stock crÃƒÂ©ÃƒÂ©: Produit=" + ligne.get("produitLibelle") +
                         ", Sortie=" + quantite +
                         ", Stock avant=" + stockAvant +
-                        ", Stock après=" + nouveauStock);
+                        ", Stock aprÃƒÂ¨s=" + nouveauStock);
             }
 
-            // 5. Mettre à jour le statut de la commande
+            // 5. Mettre ÃƒÂ  jour le statut de la commande
             String updateStatut = "UPDATE commande_client SET statut = 'CONFIRMEE' WHERE id_commande_client = ?";
             tenantRepo.updateWithAuth(updateStatut, clientId, authClientId, commandeId);
 
-            // 6. Retourner la commande mise à jour
+            // 6. Retourner la commande mise ÃƒÂ  jour
             CommandeClient updated = tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
-            System.out.println("✅ Commande " + updated.getIdCommandeClient() + " confirmée avec succès");
+            System.out.println("Ã¢Å“â€¦ Commande " + updated.getIdCommandeClient() + " confirmÃƒÂ©e avec succÃƒÂ¨s");
 
             return updated;
 
         } catch (Exception e) {
-            System.err.println("❌ EXCEPTION dans confirmerCommande: " + e.getMessage());
+            System.err.println("Ã¢ÂÅ’ EXCEPTION dans confirmerCommande: " + e.getMessage());
             throw e;
         }
     }
 
-    // ✅ Rejeter une commande
+    // Ã¢Å“â€¦ Rejeter une commande
     @Transactional
     public CommandeClient rejeterCommande(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
         String sqlCommande = "SELECT * FROM commande_client WHERE id_commande_client = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // Ã¢Å“â€¦ Utiliser queryForObjectAuth
         CommandeClient commande = tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
 
         if (commande == null) {
-            throw new RuntimeException("Commande non trouvée");
+            throw new RuntimeException("Commande non trouvÃƒÂ©e");
         }
 
         if (commande.getStatut() == CommandeClient.StatutCommande.ANNULEE) {
-            throw new RuntimeException("La commande est déjà annulée");
+            throw new RuntimeException("La commande est dÃƒÂ©jÃƒÂ  annulÃƒÂ©e");
         }
 
         if (commande.getStatut() == CommandeClient.StatutCommande.CONFIRMEE) {
             String sqlLignes = "SELECT * FROM ligne_commande_client WHERE commande_client_id = ?";
-            // ✅ Utiliser queryWithAuth
+            // Ã¢Å“â€¦ Utiliser queryWithAuth
             List<LigneCommandeClient> lignes = tenantRepo.queryWithAuth(sqlLignes, ligneCommandeRowMapper(), clientId, authClientId, commandeId);
 
             for (LigneCommandeClient ligne : lignes) {
                 String sqlProduit = "SELECT * FROM produit WHERE id_produit = ?";
-                // ✅ Utiliser queryForObjectAuth
+                // Ã¢Å“â€¦ Utiliser queryForObjectAuth
                 Produit produit = tenantRepo.queryForObjectAuth(sqlProduit, produitRowMapper(), clientId, authClientId, ligne.getProduit().getIdProduit());
 
                 int nouveauStock = produit.getQuantiteStock() + ligne.getQuantite();
-                String updateStock = "UPDATE produit SET quantite_stock = ? WHERE id_produit = ?";
-                // ✅ Utiliser updateWithAuth
-                tenantRepo.updateWithAuth(updateStock, clientId, authClientId, nouveauStock, produit.getIdProduit());
+                produit.setQuantiteStock(nouveauStock);
+                produitService.updateStockStatus(produit);
+                String updateStock = "UPDATE produit SET quantite_stock = ?, status = ? WHERE id_produit = ?";
+                tenantRepo.updateWithAuth(updateStock, clientId, authClientId, nouveauStock, produit.getStatus().name(), produit.getIdProduit());
             }
         }
 
         String updateStatut = "UPDATE commande_client SET statut = 'ANNULEE' WHERE id_commande_client = ?";
-        // ✅ Utiliser updateWithAuth
+        // Ã¢Å“â€¦ Utiliser updateWithAuth
         tenantRepo.updateWithAuth(updateStatut, clientId, authClientId, commandeId);
 
-        // ✅ Utiliser queryForObjectAuth
+        // Ã¢Å“â€¦ Utiliser queryForObjectAuth
         return tenantRepo.queryForObjectAuth(sqlCommande, commandeRowMapper(), clientId, authClientId, commandeId);
     }
 
