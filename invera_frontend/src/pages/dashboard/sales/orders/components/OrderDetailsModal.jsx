@@ -15,10 +15,10 @@ import {
   EnvelopeIcon,
   IdentificationIcon,
   CubeIcon,
-  PencilIcon,
-  ArrowPathIcon
+  BuildingOfficeIcon,
+  BriefcaseIcon
 } from '@heroicons/react/24/outline';
-import UpdateOrderModal from './UpdateOrderModal'; 
+import clientService from '../../../../../services/clientService';
 
 // Badge pour le type de client
 const ClientTypeBadge = ({ type }) => {
@@ -30,9 +30,17 @@ const ClientTypeBadge = ({ type }) => {
     'PARTICULIER': 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-800 border border-gray-200'
   };
   
+  const typeLabels = {
+    'ENTREPRISE': '🏢 Entreprise',
+    'PROFESSIONNEL': '💼 Professionnel',
+    'PARTICULIER': '👤 Particulier',
+    'VIP': '⭐ VIP',
+    'FIDELE': '🔁 Fidèle'
+  };
+  
   return (
     <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${colors[type] || colors['PARTICULIER']}`}>
-      {type}
+      {typeLabels[type] || type}
     </span>
   );
 };
@@ -54,7 +62,7 @@ const StatusBadge = ({ statut }) => {
           icon: <ClockIcon className="h-5 w-5 mr-1.5" />
         };
       case 'ANNULEE':
-      case 'Refusé':
+      case 'Annulée':
         return {
           color: 'bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200',
           icon: <XCircleIcon className="h-5 w-5 mr-1.5" />
@@ -69,8 +77,8 @@ const StatusBadge = ({ statut }) => {
 
   const config = getStatusConfig(statut);
   const displayStatut = statut === 'EN_ATTENTE' ? 'En attente' : 
-                        statut === 'CONFIRMEE' ? 'Confirmé' : 
-                        statut === 'ANNULEE' ? 'Refusé' : statut;
+                        statut === 'CONFIRMEE' ? 'Confirmée' : 
+                        statut === 'ANNULEE' ? 'Annulée' : statut;
 
   return (
     <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${config.color}`}>
@@ -80,7 +88,7 @@ const StatusBadge = ({ statut }) => {
   );
 };
 
-// Composant d'info client
+// Composant d'info client (adapté pour entreprise vs particulier)
 const ClientInfoItem = ({ icon: Icon, label, value }) => {
   if (!value) return null;
   
@@ -93,6 +101,71 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
         <div className="text-xs text-gray-500 mb-1">{label}</div>
         <div className="text-sm text-gray-900">{value}</div>
       </div>
+    </div>
+  );
+};
+
+// Composant pour afficher les infos client spécifiques selon le type
+const ClientInfoSection = ({ client }) => {
+  const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
+  
+  return (
+    <div className="space-y-4">
+      {/* Type de client */}
+      {client?.typeClient && (
+        <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-2">Type de client</div>
+          <ClientTypeBadge type={client.typeClient} />
+        </div>
+      )}
+      
+      {/* Nom / Raison sociale */}
+      {isEntreprise ? (
+        <>
+          <ClientInfoItem 
+            icon={BuildingOfficeIcon}
+            label="Raison sociale"
+            value={client.raisonSociale || client.nom}
+          />
+          {client.matriculeFiscal && (
+            <ClientInfoItem 
+              icon={IdentificationIcon}
+              label="Matricule fiscal"
+              value={client.matriculeFiscal}
+            />
+          )}
+          <ClientInfoItem 
+            icon={BriefcaseIcon}
+            label="Gérant"
+            value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
+          />
+        </>
+      ) : (
+        <ClientInfoItem 
+          icon={IdentificationIcon}
+          label="Nom complet"
+          value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
+        />
+      )}
+      
+      {/* Coordonnées communes */}
+      <ClientInfoItem 
+        icon={PhoneIcon}
+        label="Téléphone"
+        value={client.telephone}
+      />
+      
+      <ClientInfoItem 
+        icon={EnvelopeIcon}
+        label="Email"
+        value={client.email}
+      />
+      
+      <ClientInfoItem 
+        icon={MapPinIcon}
+        label="Adresse"
+        value={client.adresse}
+      />
     </div>
   );
 };
@@ -115,39 +188,80 @@ const formatDate = (dateString) => {
   }
 };
 
+
+const calculerRemiseProduit = (produit) => {
+  // Log pour debug
+  console.log('🔍 Calcul remise pour produit:', {
+    libelle: produit.libelle,
+    categorieRemiseStandard: produit.categorieRemiseStandard,
+    tauxRemiseProduit: produit.tauxRemiseProduit,
+    remiseProduit: produit.remiseProduit
+  });
+  
+  // Utiliser directement les valeurs déjà calculées
+  if (produit.remiseProduit > 0) {
+    return {
+      remiseMontant: produit.remiseProduit,
+      tauxRemise: produit.tauxRemiseProduit || 0
+    };
+  }
+  
+  // Si la remise est dans categorieRemiseStandard
+  if (produit.categorieRemiseStandard > 0) {
+    const prixUnitaire = parseFloat(produit.prixUnitaire) || parseFloat(produit.prix) || 0;
+    const quantite = parseFloat(produit.quantite) || 1;
+    const remiseMontant = (prixUnitaire * quantite) * (produit.categorieRemiseStandard / 100);
+    
+    return {
+      remiseMontant: remiseMontant,
+      tauxRemise: produit.categorieRemiseStandard
+    };
+  }
+  
+  return {
+    remiseMontant: 0,
+    tauxRemise: 0
+  };
+};
+
 const OrderDetailsModal = ({
   show,
   onClose,
   commande: initialCommande, 
-  toNumber,
-  onUpdateSuccess,
-  onRefresh
+  toNumber
 }) => {
-  // ÉTAT LOCAL
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [commande, setCommande] = useState(initialCommande);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // ✅ Ajout de l'état pour la remise client
+  const [clientRemise, setClientRemise] = useState(0);
+  const [loadingRemise, setLoadingRemise] = useState(false);
 
-  // ✅ CORRECTION: S'assurer que la commande a un ID valide
+  // ✅ Récupérer la remise du client par son type
+  useEffect(() => {
+    const fetchClientRemise = async () => {
+      if (!commande?.client?.typeClient) return;
+      
+      setLoadingRemise(true);
+      try {
+        const response = await clientService.getRemiseByType(commande.client.typeClient);
+        if (response?.success) {
+          setClientRemise(response.remise || 0);
+        }
+      } catch (error) {
+        console.error('Erreur chargement remise client:', error);
+      } finally {
+        setLoadingRemise(false);
+      }
+    };
+    
+    fetchClientRemise();
+  }, [commande?.client?.typeClient]);
+
   useEffect(() => {
     if (initialCommande) {
-  
-    console.log('🔍 STRUCTURE COMPLÈTE DE LA COMMANDE:', initialCommande);
-    console.log('🔍 Clés disponibles:', Object.keys(initialCommande));
-        console.log('🔍 CLIENT DANS LA COMMANDE:', initialCommande.client);
-    console.log('🔍 produits?', initialCommande.produits);
-    console.log('🔍 lignesCommande?', initialCommande.lignesCommande);
-    console.log('🔍 lignes?', initialCommande.lignes);
-    console.log('🔍 details?', initialCommande.details);
-
-      console.log('🔄 Mise à jour de la commande affichée:', {
-        id: initialCommande.id,
-        idCommandeClient: initialCommande.idCommandeClient,
-        numero: initialCommande.numero,
-        statut: initialCommande.statut
-      });
+      console.log('🔍 STRUCTURE COMPLÈTE DE LA COMMANDE:', initialCommande);
+      console.log('🔍 CLIENT:', initialCommande.client);
+      console.log('🔍 PRODUITS:', initialCommande.produits);
       
-      // ✅ S'assurer que l'ID est préservé
       const commandeAvecId = {
         ...initialCommande,
         id: initialCommande.id || initialCommande.idCommandeClient,
@@ -158,103 +272,45 @@ const OrderDetailsModal = ({
     }
   }, [initialCommande]);
 
-  // ✅ DEBUG plus détaillé
-  console.log(' OrderDetailsModal - État actuel:', {
-    id: commande?.id,
-    idCommandeClient: commande?.idCommandeClient,
-    numero: commande?.numero,
-    statut: commande?.statut,
-    produitsCount: commande?.produits?.length || 0,
-    aDesDonnees: !!commande
-  });
-
   if (!show || !commande) return null;
 
-  // Fonctions utilitaires
-  const getPrixUnitaire = (produit) => {
-    if (produit.prixUnitaire) return parseFloat(produit.prixUnitaire);
-    if (produit.prix) return parseFloat(produit.prix);
-    return 0;
-  };
-
-  const getSousTotal = (produit) => {
-    if (produit.sousTotal) return parseFloat(produit.sousTotal);
-    const prix = getPrixUnitaire(produit);
-    const qte = parseFloat(produit.quantite) || 0;
-    return prix * qte;
-  };
-
-  const getTotalLigne = (produit) => {
-    if (produit.totalLigne) return parseFloat(produit.totalLigne);
-    const sousTotal = getSousTotal(produit);
-    const remise = parseFloat(produit.remiseProduit) || 0;
-    return sousTotal - remise;
-  };
-
-  // Calculer le pourcentage de remise
-  const pourcentageRemise = toNumber(commande.sousTotal) > 0 
-    ? Math.round((toNumber(commande.tauxRemise || commande.remise) / toNumber(commande.sousTotal)) * 100)
-    : 0;
-
-  // Extraire les informations client
   const client = commande.client || {};
-  const hasClientInfo = client.nom || client.prenom || client.telephone || client.email || client.adresse;
+  const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
+  const hasClientInfo = client.nom || client.raisonSociale || client.telephone || client.email || client.adresse;
 
-  // ✅ GESTIONNAIRE APRÈS MISE À JOUR
-  const handleUpdateSuccess = (updatedCommande) => {
-    console.log('✅ Mise à jour réussie, nouvelle commande reçue:', updatedCommande);
+  // ✅ Enrichir les produits avec les remises calculées
+  const produitsEnrichis = commande.produits?.map(produit => {
+    const remiseCalculee = calculerRemiseProduit(produit);
     
-    if (updatedCommande) {
-      // ✅ Préserver l'ID quelle que soit la structure
-      const commandeComplete = {
-        ...updatedCommande,
-        id: updatedCommande.id || updatedCommande.idCommandeClient || commande.id,
-        idCommandeClient: updatedCommande.idCommandeClient || updatedCommande.id || commande.idCommandeClient,
-        numero: updatedCommande.numero || updatedCommande.referenceCommandeClient || commande.numero
-      };
-      
-      console.log('✅ Commande complète après mise à jour:', commandeComplete);
-      setCommande(commandeComplete);
-    }
-    
-    setShowUpdateModal(false);
-    
-    if (onUpdateSuccess) {
-      onUpdateSuccess(updatedCommande);
-    }
-  };
+    return {
+      ...produit,
+      remiseProduit: remiseCalculee.remiseMontant,
+      tauxRemiseProduit: remiseCalculee.tauxRemise
+    };
+  }) || [];
 
-  // GESTIONNAIRE DE REFRESH
-  const handleRefresh = async () => {
-    if (!onRefresh) return;
-    
-    setIsRefreshing(true);
-    try {
-      console.log('🔄 Rafraîchissement des données pour commande ID:', commande.id);
-      const refreshedCommande = await onRefresh(commande.id);
-      
-      if (refreshedCommande) {
-        // ✅ Même logique de préservation d'ID
-        const commandeComplete = {
-          ...refreshedCommande,
-          id: refreshedCommande.id || refreshedCommande.idCommandeClient || commande.id,
-          idCommandeClient: refreshedCommande.idCommandeClient || refreshedCommande.id || commande.idCommandeClient,
-          numero: refreshedCommande.numero || refreshedCommande.referenceCommandeClient || commande.numero
-        };
-        setCommande(commandeComplete);
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors du rafraîchissement:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  // Calcul des totaux avec les produits enrichis
+  const sousTotal = produitsEnrichis.reduce((sum, p) => {
+    const qte = parseFloat(p.quantite) || 0;
+    const prix = parseFloat(p.prixUnitaire) || parseFloat(p.prix) || 0;
+    return sum + (qte * prix);
+  }, 0);
   
+  const remiseTotale = produitsEnrichis.reduce((sum, p) => 
+    sum + (parseFloat(p.remiseProduit) || 0), 0);
+  
+  const totalApresRemises = sousTotal - remiseTotale;
+  
+  // ✅ Utiliser la remise client récupérée depuis l'API, sinon utiliser celle de la commande
+  const remiseGlobale = clientRemise > 0 ? clientRemise : parseFloat(commande.tauxRemise || commande.remise || 0);
+  const montantRemiseGlobale = totalApresRemises * (remiseGlobale / 100);
+  const totalFinal = totalApresRemises - montantRemiseGlobale;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
-        {/* En-tête avec bouton refresh */}
+        {/* En-tête */}
         <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
@@ -265,21 +321,15 @@ const OrderDetailsModal = ({
               </p>
             </div>
             
-            {/* GROUPE DE BOUTONS */}
-            <div className="flex items-center gap-2">
-            
-              {/* BOUTON FERMER */}
-              <button
-                onClick={onClose}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <XMarkIcon className="h-5 w-5 text-white" />
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <XMarkIcon className="h-5 w-5 text-white" />
+            </button>
           </div>
         </div>
 
-        {/* Reste du JSX inchangé... */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {/* Section 1 : Informations principales */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -323,64 +373,28 @@ const OrderDetailsModal = ({
               </div>
             </div>
 
-            {/* Informations client */}
+            {/* Informations client - Version adaptée */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200">
               <div className="flex items-center mb-4">
                 <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mr-3">
-                  <UserCircleIcon className="h-5 w-5 text-gray-600" />
+                  {isEntreprise ? (
+                    <BuildingOfficeIcon className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <UserCircleIcon className="h-5 w-5 text-gray-600" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-800">Client</h3>
-                  <p className="text-sm text-gray-600">Informations du client</p>
+                  <h3 className="font-medium text-gray-800">
+                    {isEntreprise ? 'Entreprise' : 'Client'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {isEntreprise ? 'Informations de l\'entreprise' : 'Informations du client'}
+                  </p>
                 </div>
               </div>
               
               {hasClientInfo ? (
-                <div className="space-y-4">
-                  {/* Nom complet */}
-                  {(client.nom || client.prenom) && (
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <IdentificationIcon className="h-5 w-5 text-blue-500" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500 mb-1">Nom complet</div>
-                        <div className="font-semibold text-gray-900">
-                          {client.prenom || ''} {client.nom || ''}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                {/* Type de client */}
-                  {client.typeClient && (
-                    <div className="mb-3">
-                      <div className="text-xs text-gray-500 mb-2">Type de client</div>
-                      <ClientTypeBadge type={client.typeClient} />
-                    </div>
-                  )}
-      
-                  {/* Coordonnées */}
-                  <div className="space-y-3">
-                    <ClientInfoItem 
-                      icon={PhoneIcon}
-                      label="Téléphone"
-                      value={client.telephone}
-                    />
-                    
-                    <ClientInfoItem 
-                      icon={EnvelopeIcon}
-                      label="Email"
-                      value={client.email}
-                    />
-                    
-                    <ClientInfoItem 
-                      icon={MapPinIcon}
-                      label="Adresse"
-                      value={client.adresse}
-                    />
-                  </div>
-                </div>
+                <ClientInfoSection client={client} />
               ) : (
                 <div className="text-center py-4">
                   <UserCircleIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
@@ -390,291 +404,174 @@ const OrderDetailsModal = ({
             </div>
           </div>
 
-          {/* Section 2 : Produits commandés */}
-          <div className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div className="flex items-center">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mr-2.5">
-                  <CubeIcon className="h-4 w-4 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 text-sm">Produits Commandés</h3>
-                  <p className="text-xs text-gray-500">Détails des articles</p>
-                </div>
-              </div>
-              <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
-                {commande.produits?.length || 0} article{commande.produits?.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Section Produits */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
-              {commande.produits?.length > 0 ? (
-                <>
-                  {/* Tableau */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Produit</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Catégorie</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Qté</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Prix unit.</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Sous-total</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Remise</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
-                        </tr>
-                      </thead>
-                      
-                      <tbody className="divide-y divide-gray-200">
-                        {commande.produits.map((produit, index) => {
-                          const quantite = produit.quantite ? parseFloat(produit.quantite) : 0;
-                          const prixUnitaire = getPrixUnitaire(produit);
-                          const sousTotal = getSousTotal(produit);
-                          const remiseProduit = produit.remiseProduit ? parseFloat(produit.remiseProduit) : 0;
-                          const tauxRemiseProduit = produit.tauxRemiseProduit ? parseFloat(produit.tauxRemiseProduit) : 0;
-                          const totalProduit = getTotalLigne(produit);
-
-                          return (
-                            <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                  {produit.imageUrl && (
-                                    <div className="relative flex-shrink-0">
-                                      <img 
-                                        src={produit.imageUrl}
-                                        alt={produit.libelle || `Produit ${produit.id || produit.produitId}`}
-                                        className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
-                                        onError={(e) => e.target.style.display = 'none'}
-                                      />
-                                    </div>
-                                  )}
-                                  <div className="min-w-0">
-                                    <div className="font-medium text-gray-900">
-                                      {produit.libelle || `Produit ${produit.id || produit.produitId}`}
-                                    </div>
-                                    {produit.code && (
-                                      <div className="text-xs text-gray-400 mt-0.5">
-                                        Réf: {produit.code}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                             {/* Catégorie - VERSION SIMPLIFIÉE */}
-<td className="px-4 py-3">
-  {produit.categorieNom || produit.displayCategorie ? (
-    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-      {produit.categorieNom || produit.displayCategorie}
+          {/* Section 2 : Produits commandés - SIMPLIFIÉE */}
+<div className="mb-6">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+    <div className="flex items-center">
+      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mr-2.5">
+        <CubeIcon className="h-4 w-4 text-emerald-600" />
+      </div>
+      <div>
+        <h3 className="font-medium text-gray-900 text-sm">Produits Commandés</h3>
+        <p className="text-xs text-gray-500">Détails des articles</p>
+      </div>
+    </div>
+    <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
+      {produitsEnrichis.length || 0} article{produitsEnrichis.length !== 1 ? 's' : ''}
     </span>
-  ) : (
-    <span className="text-xs text-gray-400">—</span>
-  )}
-</td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-gray-900">
-                                    {quantite.toLocaleString('fr-FR')}
-                                    {produit.uniteMesure && (
-                                      <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="font-medium text-gray-900">
-                                  {prixUnitaire.toFixed(3)} dt
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-gray-900">
-                                    {sousTotal.toFixed(3)} dt
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {quantite} × {prixUnitaire.toFixed(3)}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {remiseProduit > 0 ? (
-                                  <div className="space-y-1">
-                                    <div className="font-medium text-red-600">
-                                      -{remiseProduit.toFixed(3)} dt
-                                    </div>
-                                    {tauxRemiseProduit > 0 && (
-                                      <div className="text-xs text-red-500">
-                                        {tauxRemiseProduit.toFixed(1)}%
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-bold text-green-700">
-                                    {totalProduit.toFixed(3)} dt
-                                  </div>
-                                  <div className="text-xs text-gray-500">Net</div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      
-                      <tfoot className="bg-gray-50">
-                        <tr className="font-medium border-t border-gray-300">
-                          <td colSpan="4" className="px-4 py-3 text-right text-gray-600 text-sm">
-                            Sous-total
-                          </td>
-                          <td className="px-4 py-3 text-gray-900">
-                            <div className="text-sm font-medium">
-                              {commande.produits.reduce((sum, p) => {
-                                const qte = parseFloat(p.quantite) || 0;
-                                const prix = getPrixUnitaire(p);
-                                return sum + (qte * prix);
-                              }, 0).toFixed(3)} dt
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-red-600">
-                            <div className="text-sm font-medium">
-                              -{commande.produits.reduce((sum, p) => 
-                                sum + (parseFloat(p.remiseProduit) || 0), 0).toFixed(3)} dt
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-bold text-green-700">
-                            <div className="text-sm">
-                              {commande.produits.reduce((sum, p) => {
-                                const qte = parseFloat(p.quantite) || 0;
-                                const prix = getPrixUnitaire(p);
-                                const remise = parseFloat(p.remiseProduit) || 0;
-                                return sum + (qte * prix - remise);
-                              }, 0).toFixed(3)} dt
-                            </div>
-                          </td>
-                        </tr>
-                        
-                        {toNumber(commande.tauxRemise || commande.remise) > 0 && (
-                          <tr className="bg-green-50">
-                            <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
-                              <div className="text-sm font-medium flex items-center justify-end gap-1">
-                                <TagIcon className="h-3 w-3 text-green-600" />
-                                Remise globale ({toNumber(commande.tauxRemise || commande.remise).toFixed(1)}%)
-                              </div>
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <div className="font-bold text-red-600 text-sm">
-                                -{toNumber(commande.montantRemise || commande.remise).toFixed(3)} dt
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        
-                        <tr className="bg-green-50 border-t border-green-200">
-                          <td colSpan="6" className="px-4 py-3 text-right text-gray-900">
-                            <div className="font-bold">Total commande</div>
-                          </td>
-                          <td className="px-4 py-3 font-bold text-green-700">
-                            <div className="text-base">{toNumber(commande.total).toFixed(3)} dt</div>
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-                    <CubeIcon className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Aucun produit</h4>
-                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                    Cette commande ne contient aucun produit.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+  </div>
 
-          {/* Section 3 : Récapitulatif financier */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-100 mb-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                <CurrencyDollarIcon className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-800">Récapitulatif financier</h3>
-                <p className="text-sm text-gray-600">Détails des montants et remises</p>
-              </div>
-            </div>
-            
-            <div className="max-w-md ml-auto">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-600">Sous-total produits</span>
-                  <span className="font-medium">{toNumber(commande.sousTotal).toFixed(3)} dt</span>
-                </div>
-                
-                {toNumber(commande.tauxRemise || commande.remise) > 0 && (
-                  <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
-                    <span className="text-gray-600 flex items-center">
-                      <TagIcon className="h-4 w-4 mr-2 text-green-600" />
-                      Remise ({pourcentageRemise}%)
-                    </span>
-                    <span className="font-semibold text-green-600">-{toNumber(commande.remise).toFixed(3)} dt</span>
-                  </div>
-                )}
-                
-                <div className="border-t border-green-200 pt-4 mt-2">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-semibold text-gray-800">Total commande</div>
-                      {client.typeClient && ( 
-                        <div className="text-xs text-green-600 mt-1">
-                          Remise appliquée pour client {client.typeClient}
-                        </div>
+  {/* Tableau des produits - SIMPLIFIÉ (sans les totaux dans le tableau) */}
+  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
+    {produitsEnrichis.length > 0 ? (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Produit</th>
+              <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">Qté</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Prix unit.</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Sous-total</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Remise</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
+            </tr>
+          </thead>
+          
+          <tbody className="divide-y divide-gray-200">
+            {produitsEnrichis.map((produit, index) => {
+              const quantite = parseFloat(produit.quantite) || 0;
+              const prixUnitaire = parseFloat(produit.prixUnitaire) || parseFloat(produit.prix) || 0;
+              const sousTotalLigne = quantite * prixUnitaire;
+              const remiseLigne = parseFloat(produit.remiseProduit) || 0;
+              const tauxRemiseLigne = parseFloat(produit.tauxRemiseProduit) || 
+                                     (remiseLigne > 0 ? (remiseLigne / sousTotalLigne * 100) : 0);
+              const totalLigne = sousTotalLigne - remiseLigne;
+
+              return (
+                <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {produit.imageUrl && (
+                        <img 
+                          src={produit.imageUrl}
+                          alt={produit.libelle}
+                          className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
+                          onError={(e) => e.target.style.display = 'none'}
+                        />
                       )}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-green-600">
-                        {toNumber(commande.total).toFixed(3)} dt
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-900">
+                          {produit.libelle || `Produit ${produit.id || produit.produitId}`}
+                        </div>
                       </div>
-                      {toNumber(commande.remise) > 0 && (
-                        <div className="text-xs text-green-500 mt-1">
-                          Économie : {toNumber(commande.remise).toFixed(3)} dt
-                        </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="font-medium text-gray-900">
+                      {quantite}
+                      {produit.uniteMesure && (
+                        <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="font-medium text-gray-900">
+                      {prixUnitaire.toFixed(3)} dt
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="font-medium text-gray-900">
+                      {sousTotalLigne.toFixed(3)} dt
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {remiseLigne > 0 ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-red-600 font-medium">
+                          -{remiseLigne.toFixed(3)} dt
+                        </span>
+                        {tauxRemiseLigne > 0 && (
+                          <span className="text-xs text-red-500">
+                            ({tauxRemiseLigne.toFixed(1)}%)
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="font-bold text-green-700">
+                      {totalLigne.toFixed(3)} dt
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div className="text-center py-10">
+        <CubeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+        <p className="text-sm text-gray-500">Aucun produit dans cette commande</p>
+      </div>
+    )}
+  </div>
+</div>
 
-          {/* Section 4 : Remarques */}
-          {commande.remarques && (
-            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-5 border border-yellow-100 mb-6">
-              <div className="flex items-center mb-3">
-                <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
-                  <svg className="h-4 w-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                  </svg>
-                </div>
-                <h3 className="font-medium text-gray-800">Remarques</h3>
-              </div>
-              <div className="text-sm text-gray-700 bg-white/70 p-3 rounded-lg border border-yellow-200">
-                {commande.remarques}
-              </div>
-            </div>
-          )}
-
-          {/* Section 5 : Actions */}
+{/* SECTION RÉCAPITULATIVE - UNIQUEMENT À DROITE */}
+<div className="flex justify-end mt-2">
+  <div className="w-80 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200 shadow-sm">
+    <div className="space-y-1.5 text-sm">
+      {/* Sous-total */}
+      <div className="flex justify-between">
+        <span className="text-gray-600">Sous-total</span>
+        <span className="font-medium">{sousTotal.toFixed(3)} dt</span>
+      </div>
+      
+      {/* Remises sur produits */}
+      {remiseTotale > 0 && (
+        <div className="flex justify-between text-red-600">
+          <span>Remises produits</span>
+          <span>-{remiseTotale.toFixed(3)} dt</span>
+        </div>
+      )}
+      
+      {/* Remise client */}
+      {remiseGlobale > 0 && (
+        <div className="flex justify-between text-red-600 bg-white/50 rounded p-1.5 -mx-1.5">
+          <span className="flex items-center gap-1">
+            <TagIcon className="h-3 w-3 text-green-600" />
+            Remise {client.typeClient || 'client'} ({remiseGlobale}%)
+          </span>
+          <span>-{montantRemiseGlobale.toFixed(3)} dt</span>
+        </div>
+      )}
+      
+      <div className="border-t border-green-200 my-1"></div>
+      
+      {/* Total final */}
+      <div className="flex justify-between font-bold">
+        <span className="text-gray-800">Total</span>
+        <span className="text-green-700 font-bold text-base">{totalFinal.toFixed(3)} dt</span>
+      </div>
+      
+      {/* Économies */}
+      {(remiseTotale > 0 || remiseGlobale > 0) && (
+        <div className="text-right">
+          <span className="text-xs text-green-600">
+            Économie : {(remiseTotale + montantRemiseGlobale).toFixed(3)} dt
+          </span>
+        </div>
+      )}
+    </div>
+      </div>
+    </div>
+      
+          {/* Actions */}
           <div className="pt-6 border-t border-gray-200">
             <div className="flex justify-end gap-3">
-            
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
@@ -685,15 +582,6 @@ const OrderDetailsModal = ({
           </div>
         </div>
       </div>
-      
- {/* Modal de mise à jour */}
-      <UpdateOrderModal
-        show={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-        commande={commande}
-        toNumber={toNumber}
-        onUpdateSuccess={handleUpdateSuccess}
-      />
     </div>
   );
 };

@@ -1,9 +1,10 @@
-// produits/ProduitFormBase.jsx - Version ONE-TO-MANY (un seul fournisseur)
+// produits/ProduitFormBase.jsx - Version SANS remise temporaire
 import React from 'react';
 import { 
   XMarkIcon, 
   EnvelopeIcon,    
-  PhoneIcon
+  PhoneIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 
 const UNITE_MESURE_OPTIONS = [
@@ -24,7 +25,6 @@ const ProduitFormBase = ({
   handleRemoveImage,      
   imagePreview,       
   handleCategorieChange,
-  isRemiseDisabled,   
   handleSubmit,
   onClose,
   isEditMode,
@@ -32,6 +32,8 @@ const ProduitFormBase = ({
   stockDisabled = false,
   fournisseursDisponibles = [],
   loadingFournisseurs = false,
+  categorieRemiseStandard = 0,
+  prixApresRemise = 0,
 }) => {
 
   return (
@@ -44,14 +46,7 @@ const ProduitFormBase = ({
           </button>
         </div>
 
-        <form onSubmit={(e) => {
-          try {
-            handleSubmit(e);
-          } catch (error) {
-            console.error('🔥 Erreur submit formulaire:', error);
-            e.preventDefault();
-          }
-        }} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           {/* Informations générales */}
           <div className="space-y-4">
@@ -71,7 +66,7 @@ const ProduitFormBase = ({
               {errors.libelle && <p className="mt-1 text-sm text-red-600">{errors.libelle}</p>}
             </div>
 
-            {/* ✅ Prix d'achat et Prix de vente en HORIZONTAL */}
+            {/* Prix d'achat et Prix de vente */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -79,8 +74,6 @@ const ProduitFormBase = ({
                 </label>
                 <input
                   type="text"
-                  step="0"
-                  min="0"
                   name="prixAchat"
                   value={formData.prixAchat || ''}
                   onChange={handleChange}
@@ -120,14 +113,37 @@ const ProduitFormBase = ({
                 {categories && categories.map(cat => (
                   <option key={cat.idCategorie} value={cat.idCategorie}>
                     {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
+                    {cat.remiseStandard > 0 ? ` (remise: ${cat.remiseStandard}%)` : ''}
                   </option>
                 ))}
               </select>
               {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
             </div>
+
+          {/* Affichage de la remise standard - Version champ désactivé */}
+<div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Remise standard (%)
+    </label>
+    <div className="relative">
+      <input
+        type="number"
+        value={categorieRemiseStandard}
+        disabled
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+      />
+      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+        <span className="text-gray-400 text-sm">%</span>
+      </div>
+    </div>
+  </div>
+
+
+</div>
           </div>
 
-          {/* SECTION FOURNISSEUR - SELECT SIMPLE */}
+          {/* SECTION FOURNISSEUR */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-700">🏢 Fournisseur</h3>
             
@@ -154,7 +170,6 @@ const ProduitFormBase = ({
                     ))}
                   </select>
                   
-                  {/* Affichage des infos du fournisseur sélectionné */}
                   {formData.fournisseurId && (
                     <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-xs text-blue-600 mb-1">Informations du fournisseur</p>
@@ -238,114 +253,80 @@ const ProduitFormBase = ({
             </div>
           </div>
 
-          {/* Informations commerciales */}
+          {/* Informations commerciales - Statut uniquement */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">Informations commerciales</h3>
+            <h3 className="text-lg font-semibold text-gray-700">Statut</h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Remise temporaire (%)
-                </label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2">
                 <input
-                  type="text"
-                  name="remiseTemporaire"
-                  value={formData.remiseTemporaire || ''}
-                  onChange={handleChange}
-                  disabled={isRemiseDisabled}
-                  placeholder="0"
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 
-                    ${isRemiseDisabled ? 'bg-gray-100 cursor-not-allowed text-gray-500' : 'bg-white'}
-                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  type="radio"
+                  name="active"
+                  checked={formData.active === true}
+                  onChange={() => handleChange({ target: { name: 'active', value: true } })}
+                  className="text-blue-600"
                 />
-                {isRemiseDisabled && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    La remise est gérée par l'administrateur
-                  </p>
-                )}
-                {errors.remiseTemporaire && (
-                  <p className="mt-1 text-sm text-red-600">{errors.remiseTemporaire}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Statut <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-4 mt-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === true}
-                      onChange={() => handleChange({ target: { name: 'active', value: true } })}
-                      className="text-blue-600"
-                    />
-                    <span className="text-sm">Actif</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === false}
-                      onChange={() => handleChange({ target: { name: 'active', value: false } })}
-                      className="text-red-600"
-                    />
-                    <span className="text-sm">Inactif</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Section Image */}
-            <div className="col-span-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Image du produit
+                <span className="text-sm">Actif</span>
               </label>
-              
-              <div className="flex items-start space-x-4">
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    id="image-upload"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={handleImageChange}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-blue-50 file:text-blue-700
-                      hover:file:bg-blue-100"
-                  />
-                </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="active"
+                  checked={formData.active === false}
+                  onChange={() => handleChange({ target: { name: 'active', value: false } })}
+                  className="text-red-600"
+                />
+                <span className="text-sm">Inactif</span>
+              </label>
+            </div>
+          </div>
 
-                {imagePreview && (
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={imagePreview}
-                      alt="Aperçu"
-                      className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
-                      onError={(e) => {
-                        console.error('Erreur chargement image:', imagePreview);
-                        e.target.src = '/placeholder-image.png'; 
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
-                      title="Supprimer l'image"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+          {/* Image du produit */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700">Image du produit</h3>
+            
+            <div className="flex items-start space-x-4">
+              <div className="flex-1">
+                <input
+                  type="file"
+                  id="image-upload"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
               </div>
-              
-              {errors.imageUrl && (
-                <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+
+              {imagePreview && (
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={imagePreview}
+                    alt="Aperçu"
+                    className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
+                    onError={(e) => {
+                      console.error('Erreur chargement image:', imagePreview);
+                      e.target.src = '/placeholder-image.png'; 
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
+                    title="Supprimer l'image"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
+            
+            {errors.imageUrl && (
+              <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+            )}
           </div>
 
           {/* Boutons d'action */}

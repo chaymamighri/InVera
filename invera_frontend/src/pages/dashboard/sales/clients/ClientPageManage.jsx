@@ -1,7 +1,7 @@
 /**
  * ClientManagePage - Gestion des clients
  * 
- * RÔLE : Gérer le CRUD des clients (création, modification, suppression, consultation)
+ * RÔLE : Gérer les clients (création, modification, consultation)
  * ROUTE : /dashboard/sales/clients
  * 
  * FONCTIONNALITÉS :
@@ -10,18 +10,10 @@
  * - Tri (ID, date de création)
  * - Création de client (modale)
  * - Modification de client (modale)
- * - Suppression avec confirmation
  * - Consultation des détails
  * - Cartes statistiques
  * 
- * COMPOSANTS UTILISÉS : * - ClientFilters : Barre de filtres et tri
- * - ClientStats : Cartes statistiques
- * - ClientFormModal : Modal création client
- * - UpdateClientModal : Modal modification client
- * - ClientDetailsModal : Modal détails client
- * - ConfirmDeleteModal : Modal confirmation suppression
- * 
- * HOOK UTILISÉ : useClients()
+ * ⚠️ NOTE : La suppression n'est pas disponible pour préserver l'intégrité des données
  */
 
 import React, { useState, useMemo } from 'react';
@@ -31,11 +23,10 @@ import UpdateClientModal from './components/UpdateClientModal';
 import ClientDetailsModal from './components/ClientDetailsModal';
 import ClientFilters from './components/ClientFilters';
 import ClientStats from './components/ClientStats';
-import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import useClients from '../../../../hooks/useClient';
 import { useLanguage } from '../../../../context/LanguageContext';
 
-// ✅ Textes de fallback pour les traductions manquantes
+// ✅ Textes de fallback
 const FALLBACK_TEXTS = {
   'salesPages.clientManagementTitle': 'Gestion des clients',
   'salesPages.newClient': 'Nouveau client',
@@ -53,7 +44,6 @@ const FALLBACK_TEXTS = {
   'salesPages.noClientsFound': 'Aucun client trouvé',
   'salesPages.edit': 'Modifier',
   'salesPages.viewDetails': 'Voir détails',
-  'salesPages.delete': 'Supprimer',
   'salesPages.of': 'de',
   'salesPages.clients': 'clients',
   'salesPages.show': 'Afficher',
@@ -77,10 +67,7 @@ const FALLBACK_TEXTS = {
   'salesPages.createClient': 'Créer un client',
   'salesPages.editClient': 'Modifier le client',
   'salesPages.clientDetails': 'Détails du client',
-  'salesPages.confirmDelete': 'Confirmer la suppression',
-  'salesPages.deleteConfirmation': 'Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible.',
   'salesPages.cancel': 'Annuler',
-  'salesPages.confirm': 'Confirmer',
   'salesPages.save': 'Enregistrer',
   'salesPages.update': 'Mettre à jour',
   'salesPages.name': 'Nom',
@@ -91,22 +78,16 @@ const FALLBACK_TEXTS = {
   'salesPages.clientType': 'Type de client',
   'salesPages.remise': 'Remise (%)',
   'salesPages.createdAt': 'Date de création',
-  'salesPages.actionsLabel': 'Actions',
-    'salesPages.individuals': 'Particuliers',
+  'salesPages.individuals': 'Particuliers',
   'salesPages.companies': 'Entreprises',
   'salesPages.loyal': 'Fidèles',
-  'salesPages.par': 'PAR',  // Particuliers
-  'salesPages.ent': 'ENT',  // Entreprises
-  'salesPages.fid': 'FID', 
 };
 
 const ClientManagePage = () => {
   const { t } = useLanguage();
   
-  // ✅ Fonction de traduction avec fallback
   const safeT = (key) => {
     const translated = t(key);
-    // Si la traduction retourne la clé elle-même (non trouvée) ou est vide
     if (!translated || translated === key) {
       return FALLBACK_TEXTS[key] || key;
     }
@@ -116,16 +97,11 @@ const ClientManagePage = () => {
   const [openModal, setOpenModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [clientToDelete, setClientToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: '' });
   
-  // État pour le tri
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  
-  // État pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -136,13 +112,12 @@ const ClientManagePage = () => {
     fetchClients, 
     createClient,
     updateClient,
-    deleteClient,
     checkTelephone,
+    checkMatriculeFiscale,
     getRemiseForType,
     clientTypes 
   } = useClients(filters);
 
-  // Fonction de tri
   const sortedClients = useMemo(() => {
     if (!clients) return [];
     
@@ -165,7 +140,6 @@ const ClientManagePage = () => {
     });
   }, [clients, sortBy, sortOrder]);
 
-  // Pagination
   const paginatedClients = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -192,32 +166,6 @@ const ClientManagePage = () => {
   const handleViewDetails = (client) => {
     setSelectedClient(client);
     setOpenDetailsModal(true);
-  };
-
-  // Fonctions pour la suppression
-  const handleDeleteClick = (client) => {
-    setClientToDelete(client);
-    setOpenDeleteModal(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!clientToDelete) return;
-    
-    try {
-      await deleteClient(clientToDelete.idClient);
-      toast.success('Client supprimé avec succès');
-      fetchClients();
-    } catch (error) {
-      toast.error(error.message || 'Erreur lors de la suppression');
-    } finally {
-      setOpenDeleteModal(false);
-      setClientToDelete(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setOpenDeleteModal(false);
-    setClientToDelete(null);
   };
 
   const handleModalClose = () => {
@@ -349,8 +297,8 @@ const ClientManagePage = () => {
                       </svg>
                       <p className="text-gray-500">{safeT('salesPages.noClientsFound')}</p>
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ) : (
                 paginatedClients?.map((client) => (
                   <tr key={client.idClient} className="hover:bg-gray-50 transition-colors">
@@ -391,15 +339,7 @@ const ClientManagePage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => handleDeleteClick(client)}
-                          className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title={safeT('salesPages.delete')}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        {/* ❌ BOUTON SUPPRESSION SUPPRIMÉ */}
                       </div>
                     </td>
                   </tr>
@@ -519,7 +459,7 @@ const ClientManagePage = () => {
         )}
       </div>
 
-      {/* Modal de création */}
+      {/* Modals */}
       <ClientFormModal
         open={openModal}
         onClose={handleModalClose}
@@ -532,17 +472,16 @@ const ClientManagePage = () => {
         t={safeT}
       />
 
-      {/* Modal de modification */}
       <UpdateClientModal
         open={openUpdateModal}
         onClose={handleUpdateModalClose}
         client={selectedClient}
         onSuccess={handleModalSuccess}
         updateClient={updateClient}
+        checkMatriculeFiscale={checkMatriculeFiscale} 
         t={safeT}
       />
 
-      {/* Modal de détails */}
       <ClientDetailsModal
         open={openDetailsModal}
         onClose={handleDetailsModalClose}
@@ -550,14 +489,6 @@ const ClientManagePage = () => {
         t={safeT}
       />
 
-      {/* Modal de confirmation de suppression */}
-      <ConfirmDeleteModal
-        isOpen={openDeleteModal}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
-        t={safeT}
-      />
     </div>
   );
 };

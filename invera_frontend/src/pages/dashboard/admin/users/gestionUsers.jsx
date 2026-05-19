@@ -4,7 +4,6 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   PencilIcon,
-  TrashIcon,
   XCircleIcon,
   EnvelopeIcon,
   ExclamationCircleIcon,
@@ -14,75 +13,70 @@ import { useLanguage } from '../../../../context/LanguageContext';
 import { useUserManagement } from '../../../../hooks/useUserManagement';
 import { useAuth } from '../../../../hooks/useAuth';
 
+
 const copy = {
   fr: {
     title: 'Gestion des utilisateurs',
-    description: 'Ajoutez, modifiez et gerez les comptes internes de votre entreprise.',
+    description: 'Ajoutez, modifiez et gérez les comptes internes de votre entreprise.',
     confirm: 'Confirmer',
     cancel: 'Annuler',
-    deleteUser: 'Supprimer utilisateur',
-    deleteMessage: 'Voulez-vous vraiment supprimer {{name}} ? Cette action est irreversible.',
     fullName: 'Nom complet',
     email: 'Email',
-    role: 'Role',
+    role: 'Rôle',
     invalidEmail: "Format d'email invalide",
-    emailExists: 'Cet email est deja utilise par un autre utilisateur',
-    admin: 'Admin',
-    sales: 'Commercial',
-    procurement: 'Responsable Achat',
+    emailExists: 'Cet email est déjà utilisé par un autre utilisateur',
+    admin: 'Administrateur',
+    sales: 'Responsable vente',
+    procurement: 'Responsable achat et stock',
     loading: 'Chargement...',
     addUser: 'Nouvel utilisateur',
     search: 'Rechercher un utilisateur...',
-    allRoles: 'Tous les roles',
+    allRoles: 'Tous les rôles',
     usersCount: '{{count}} utilisateur(s)',
-    noUser: 'Aucun utilisateur trouve',
+    noUser: 'Aucun utilisateur trouvé',
     status: 'Statut',
     actions: 'Actions',
     active: 'Actif',
     inactive: 'Inactif',
     save: 'Sauvegarder',
     add: 'Ajouter',
-    createHint: 'Creez des comptes Commercial ou Responsable Achat.',
+    createHint: 'Créez des comptes Responsable vente ou Responsable achat et stock.',
     editUser: "Modifier l'utilisateur",
-    ownSecurity: 'Pour des raisons de securite, vous ne pouvez pas modifier votre propre compte.',
+    ownSecurity: 'Pour des raisons de sécurité, vous ne pouvez pas modifier votre propre compte.',
     requiredName: 'Veuillez remplir le nom.',
-    requiredEmail: 'Veuillez remplir l email.',
-    invalidOrUsedEmail: 'Email invalide ou deja utilise.',
-    userAdded: 'Utilisateur ajoute avec succes',
-    userUpdated: 'Utilisateur modifie avec succes',
-    userDeleted: 'Utilisateur supprime',
+    requiredEmail: 'Veuillez remplir l\'email.',
+    invalidOrUsedEmail: 'Email invalide ou déjà utilisé.',
+    userAdded: 'Utilisateur ajouté avec succès',
+    userUpdated: 'Utilisateur modifié avec succès',
     statusChanged: 'Utilisateur {{status}}',
-    cannotDeleteSelf: 'Vous ne pouvez pas supprimer votre propre compte.',
+    cannotModifySelf: 'Vous ne pouvez pas modifier votre propre compte.',
     nameRequired: 'Nom requis.',
     emailRequired: 'Email requis.',
     saveError: 'Erreur lors de la modification',
     addError: "Erreur lors de l'ajout",
-    deleteError: 'Erreur lors de la suppression',
     statusError: 'Erreur lors du changement de statut',
     you: 'Vous',
     editTitle: 'Modifier',
-    deleteTitle: 'Supprimer',
     namePlaceholder: 'Jean Dupont',
     emailPlaceholder: 'email@example.com',
     adminEditBlocked: 'Vous ne pouvez pas modifier un compte administrateur.',
-    adminDeleteBlocked: 'Vous ne pouvez pas supprimer un compte administrateur.',
     adminStatusBlocked: "Vous ne pouvez pas modifier le statut d'un compte administrateur.",
+    activeTooltip: 'Utilisateur actif - Cliquez pour désactiver',
+    inactiveTooltip: 'Utilisateur inactif - Cliquez pour activer',
   },
   en: {
-    title: 'User management',
-    description: 'Add, edit, and manage the internal accounts of your company.',
+    title: 'User Management',
+    description: 'Add, edit, and manage your company\'s internal accounts.',
     confirm: 'Confirm',
     cancel: 'Cancel',
-    deleteUser: 'Delete user',
-    deleteMessage: 'Do you really want to delete {{name}}? This action is irreversible.',
     fullName: 'Full name',
     email: 'Email',
     role: 'Role',
     invalidEmail: 'Invalid email format',
     emailExists: 'This email is already used by another user',
-    admin: 'Admin',
-    sales: 'Sales',
-    procurement: 'Procurement',
+    admin: 'Administrator',
+    sales: 'Sales Manager',
+    procurement: 'Procurement & Stock Manager',
     loading: 'Loading...',
     addUser: 'New user',
     search: 'Search for a user...',
@@ -95,7 +89,7 @@ const copy = {
     inactive: 'Inactive',
     save: 'Save',
     add: 'Add',
-    createHint: 'Create Sales or Procurement accounts.',
+    createHint: 'Create Sales Manager or Procurement & Stock Manager accounts.',
     editUser: 'Edit user',
     ownSecurity: 'For security reasons, you cannot edit your own account.',
     requiredName: 'Please fill in the name.',
@@ -103,44 +97,40 @@ const copy = {
     invalidOrUsedEmail: 'Invalid or already used email.',
     userAdded: 'User added successfully',
     userUpdated: 'User updated successfully',
-    userDeleted: 'User deleted',
     statusChanged: 'User {{status}}',
-    cannotDeleteSelf: 'You cannot delete your own account.',
+    cannotModifySelf: 'You cannot modify your own account.',
     nameRequired: 'Name required.',
     emailRequired: 'Email required.',
     saveError: 'Error while updating',
     addError: 'Error while adding',
-    deleteError: 'Error while deleting',
     statusError: 'Error while changing status',
     you: 'You',
     editTitle: 'Edit',
-    deleteTitle: 'Delete',
     namePlaceholder: 'John Smith',
     emailPlaceholder: 'email@example.com',
     adminEditBlocked: 'You cannot edit an admin account.',
-    adminDeleteBlocked: 'You cannot delete an admin account.',
     adminStatusBlocked: 'You cannot change the status of an admin account.',
+    activeTooltip: 'User active - Click to deactivate',
+    inactiveTooltip: 'User inactive - Click to activate',
   },
   ar: {
     title: 'إدارة المستخدمين',
-    description: 'أضف وعدل وأدر الحسابات الداخلية الخاصة بشركتك.',
+    description: 'أضف وعدّل وأدر الحسابات الداخلية لشركتك.',
     confirm: 'تأكيد',
     cancel: 'إلغاء',
-    deleteUser: 'حذف المستخدم',
-    deleteMessage: 'هل تريد فعلًا حذف {{name}}؟ هذا الإجراء غير قابل للتراجع.',
     fullName: 'الاسم الكامل',
     email: 'البريد الإلكتروني',
     role: 'الدور',
     invalidEmail: 'صيغة البريد الإلكتروني غير صحيحة',
-    emailExists: 'هذا البريد مستخدم بالفعل من طرف مستخدم آخر',
+    emailExists: 'هذا البريد مستخدم بالفعل من قبل مستخدم آخر',
     admin: 'مدير',
-    sales: 'تجاري',
-    procurement: 'مسؤول شراء',
+    sales: 'مسؤول المبيعات',
+    procurement: 'مسؤول المشتريات والمخزون',
     loading: 'جاري التحميل...',
     addUser: 'مستخدم جديد',
     search: 'ابحث عن مستخدم...',
-    allRoles: 'كل الأدوار',
-    usersCount: '{{count}} مستخدم/مستخدمون',
+    allRoles: 'جميع الأدوار',
+    usersCount: '{{count}} مستخدم',
     noUser: 'لم يتم العثور على مستخدم',
     status: 'الحالة',
     actions: 'الإجراءات',
@@ -148,33 +138,32 @@ const copy = {
     inactive: 'غير نشط',
     save: 'حفظ',
     add: 'إضافة',
-    createHint: 'أنشئ حسابات تجاري أو مسؤول شراء.',
+    createHint: 'أنشئ حسابات مسؤول مبيعات أو مسؤول مشتريات ومخزون.',
     editUser: 'تعديل المستخدم',
-    ownSecurity: 'لأسباب أمنية لا يمكنك تعديل حسابك الخاص.',
-    requiredName: 'يرجى إدخال الاسم.',
-    requiredEmail: 'يرجى إدخال البريد الإلكتروني.',
-    invalidOrUsedEmail: 'البريد غير صالح أو مستخدم بالفعل.',
+    ownSecurity: 'لأسباب أمنية، لا يمكنك تعديل حسابك الخاص.',
+    requiredName: 'الرجاء إدخال الاسم.',
+    requiredEmail: 'الرجاء إدخال البريد الإلكتروني.',
+    invalidOrUsedEmail: 'البريد الإلكتروني غير صالح أو مستخدم بالفعل.',
     userAdded: 'تمت إضافة المستخدم بنجاح',
     userUpdated: 'تم تعديل المستخدم بنجاح',
-    userDeleted: 'تم حذف المستخدم',
     statusChanged: 'تم {{status}} المستخدم',
-    cannotDeleteSelf: 'لا يمكنك حذف حسابك الخاص.',
+    cannotModifySelf: 'لا يمكنك تعديل حسابك الخاص.',
     nameRequired: 'الاسم مطلوب.',
     emailRequired: 'البريد الإلكتروني مطلوب.',
     saveError: 'خطأ أثناء التعديل',
     addError: 'خطأ أثناء الإضافة',
-    deleteError: 'خطأ أثناء الحذف',
     statusError: 'خطأ أثناء تغيير الحالة',
     you: 'أنت',
     editTitle: 'تعديل',
-    deleteTitle: 'حذف',
     namePlaceholder: 'محمد علي',
     emailPlaceholder: 'email@example.com',
     adminEditBlocked: 'لا يمكنك تعديل حساب مدير.',
-    adminDeleteBlocked: 'لا يمكنك حذف حساب مدير.',
     adminStatusBlocked: 'لا يمكنك تغيير حالة حساب مدير.',
+    activeTooltip: 'المستخدم نشط - انقر لتعطيل',
+    inactiveTooltip: 'المستخدم غير نشط - انقر لتفعيل',
   },
 };
+
 
 const Modal = ({ open, onClose, children, isArabic = false }) => {
   if (!open) return null;
@@ -196,21 +185,29 @@ const Modal = ({ open, onClose, children, isArabic = false }) => {
   );
 };
 
-const ToggleSwitch = ({ checked, onChange, disabled }) => (
-  <button
-    type="button"
-    onClick={() => onChange(!checked)}
-    disabled={disabled}
-    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-      checked ? 'bg-emerald-500' : 'bg-gray-200'
-    } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-  >
-    <span
-      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-        checked ? 'translate-x-6' : 'translate-x-1'
-      }`}
-    />
-  </button>
+// Composant ToggleSwitch avec tooltip en bas
+const ToggleSwitch = ({ checked, onChange, disabled, activeTooltip, inactiveTooltip }) => (
+  <div className="relative inline-flex group">
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+        checked ? 'bg-emerald-500' : 'bg-gray-200'
+      } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+    {!disabled && (
+      <div className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-white px-2 py-1 text-xs text-gray-700 shadow-md border border-gray-200 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none z-10">
+        {checked ? inactiveTooltip : activeTooltip}
+      </div>
+    )}
+  </div>
 );
 
 const isAdminRole = (role) => {
@@ -218,12 +215,32 @@ const isAdminRole = (role) => {
   return normalizedRole === 'admin' || normalizedRole === 'admin_client';
 };
 
+// Mapping des rôles pour l'affichage
+const getRoleLabel = (role) => {
+  if (role === 'admin' || role === 'ADMIN_CLIENT') return 'Administrateur';
+  if (role === 'sales' || role === 'COMMERCIAL') return 'Responsable vente';
+  if (role === 'procurement' || role === 'RESPONSABLE_ACHAT') return 'Responsable Achat et stock';
+  return role;
+};
+
+const getRoleColor = (role) => {
+  if (role === 'admin' || role === 'ADMIN_CLIENT') {
+    return 'bg-gray-100 text-gray-500';
+  }
+  if (role === 'sales' || role === 'COMMERCIAL') {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+  if (role === 'procurement' || role === 'RESPONSABLE_ACHAT') {
+    return 'bg-blue-100 text-blue-700';
+  }
+  return 'bg-gray-100 text-gray-700';
+};
+
 const GestionUsers = () => {
   const { language, isArabic } = useLanguage();
   const text = useMemo(() => copy[language] || copy.fr, [language]);
 
-  const { loading, getUsers, addUser, updateUser, setUserActiveStatus, deleteUserByEmail } =
-    useUserManagement();
+  const { loading: loadingAPI, getUsers, addUser, updateUser, setUserActiveStatus } = useUserManagement();
 
   const { user: currentUser } = useAuth();
 
@@ -237,38 +254,14 @@ const GestionUsers = () => {
   const [localError, setLocalError] = useState(null);
   const [emailError, setEmailError] = useState('');
   const [editEmailError, setEditEmailError] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isLoading, setIsLoading] = useState(false); // Spinner local
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const roleLabel = (role) => {
-    if (role === 'admin' || role === 'ADMIN_CLIENT') return text.admin;
-    if (role === 'sales' || role === 'COMMERCIAL') return text.sales;
-    if (role === 'procurement' || role === 'RESPONSABLE_ACHAT') return text.procurement;
-    return role;
-  };
-
-  const getRoleColor = (role) => {
-    if (role === 'admin' || role === 'ADMIN_CLIENT') {
-      return 'bg-gray-100 text-gray-500';
-    }
-
-    switch (role) {
-      case 'sales':
-      case 'COMMERCIAL':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'procurement':
-      case 'RESPONSABLE_ACHAT':
-        return 'bg-blue-100 text-blue-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
-
   const fetchUsers = async () => {
+    setIsLoading(true);
     try {
       const data = await getUsers();
 
@@ -282,14 +275,14 @@ const GestionUsers = () => {
       setLocalError(null);
     } catch (error) {
       setLocalError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const checkEmailExists = (email, excludeUserId = null) => {
     if (!email.trim()) return false;
-
     const emailLower = email.trim().toLowerCase();
-
     return users.some(
       (user) => user.email.toLowerCase() === emailLower && user.id !== excludeUserId
     );
@@ -355,6 +348,7 @@ const GestionUsers = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       await addUser(newUser);
       await fetchUsers();
@@ -366,71 +360,75 @@ const GestionUsers = () => {
       toast.success(text.userAdded);
     } catch (error) {
       toast.error(error.response?.data?.error || error.message || text.addError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-const handleEditUser = async () => {
-  if (!editingUser?.name?.trim()) {
-    toast.error(text.nameRequired);
-    return;
-  }
-
-  if (!editingUser?.email?.trim()) {
-    toast.error(text.emailRequired);
-    return;
-  }
-
-  if (isAdminRole(editingUser.role)) {
-    toast.error(text.adminEditBlocked);
-    setEditModalOpen(false);
-    return;
-  }
-
-  const isOwnAccount = editingUser.id === currentUser?.id;
-
-  if (isOwnAccount) {
-    toast.error(text.ownSecurity);
-    return;
-  }
-
-  if (!validateEditEmail(editingUser.email, editingUser.id)) {
-    toast.error(text.invalidOrUsedEmail);
-    return;
-  }
-
-  try {
-    // ✅ Extraire nom et prénom du nom complet
-    const nameParts = editingUser.name.trim().split(/\s+/);
-    const prenom = nameParts.pop() || '';
-    const nom = nameParts.join(' ') || prenom;
-
-    await updateUser(editingUser.id, {
-      name: editingUser.name,
-      nom: nom,
-      prenom: prenom,
-      email: editingUser.email,
-      role: editingUser.role,
-      active: editingUser.active
-    });
-
-    await fetchUsers();
-
-    setEditingUser(null);
-    setEditEmailError('');
-    setEditModalOpen(false);
-
-    toast.success(text.userUpdated);
-  } catch (error) {
-    const errorMessage = error.response?.data?.error || error.message;
-
-    if (errorMessage?.includes('email') || errorMessage?.includes('duplicate')) {
-      setEditEmailError(text.emailExists);
-      toast.error(text.emailExists);
-    } else {
-      toast.error(errorMessage || text.saveError);
+  const handleEditUser = async () => {
+    if (!editingUser?.name?.trim()) {
+      toast.error(text.nameRequired);
+      return;
     }
-  }
-};
+
+    if (!editingUser?.email?.trim()) {
+      toast.error(text.emailRequired);
+      return;
+    }
+
+    if (isAdminRole(editingUser.role)) {
+      toast.error(text.adminEditBlocked);
+      setEditModalOpen(false);
+      return;
+    }
+
+    const isOwnAccount = editingUser.id === currentUser?.id;
+
+    if (isOwnAccount) {
+      toast.error(text.cannotModifySelf);
+      return;
+    }
+
+    if (!validateEditEmail(editingUser.email, editingUser.id)) {
+      toast.error(text.invalidOrUsedEmail);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const nameParts = editingUser.name.trim().split(/\s+/);
+      const prenom = nameParts.pop() || '';
+      const nom = nameParts.join(' ') || prenom;
+
+      await updateUser(editingUser.id, {
+        name: editingUser.name,
+        nom: nom,
+        prenom: prenom,
+        email: editingUser.email,
+        role: editingUser.role,
+        active: editingUser.active
+      });
+
+      await fetchUsers();
+
+      setEditingUser(null);
+      setEditEmailError('');
+      setEditModalOpen(false);
+
+      toast.success(text.userUpdated);
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message;
+
+      if (errorMessage?.includes('email') || errorMessage?.includes('duplicate')) {
+        setEditEmailError(text.emailExists);
+        toast.error(text.emailExists);
+      } else {
+        toast.error(errorMessage || text.saveError);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleToggleStatus = async (user) => {
     if (isAdminRole(user.role)) {
@@ -439,10 +437,11 @@ const handleEditUser = async () => {
     }
 
     if (user.id === currentUser?.id) {
-      toast.error(text.cannotDeleteSelf);
+      toast.error(text.cannotModifySelf);
       return;
     }
 
+    setIsLoading(true);
     try {
       const newActive = !user.active;
 
@@ -461,61 +460,32 @@ const handleEditUser = async () => {
     } catch (error) {
       toast.error(error.response?.data?.error || error.message || text.statusError);
       await fetchUsers();
-    }
-  };
-
-  const askDeleteUser = (user) => {
-    if (isAdminRole(user.role)) {
-      toast.error(text.adminDeleteBlocked);
-      return;
-    }
-
-    if (user.id === currentUser?.id) {
-      toast.error(text.cannotDeleteSelf);
-      return;
-    }
-
-    setPendingDelete(user);
-    setConfirmOpen(true);
-  };
-
-  const confirmDeleteUser = async () => {
-    if (!pendingDelete) return;
-
-    try {
-      await deleteUserByEmail(pendingDelete.email);
-      await fetchUsers();
-      toast.success(text.userDeleted);
-    } catch (error) {
-      toast.error(error.response?.data?.error || error.message || text.deleteError);
     } finally {
-      setConfirmOpen(false);
-      setPendingDelete(null);
+      setIsLoading(false);
     }
   };
 
+  // Recherche filtrée - CORRIGÉE avec les nouveaux libellés
   const filteredUsers = users.filter((user) => {
-    if (user.id === currentUser?.id) return false;
-    if (isAdminRole(user.role)) return false;
-
     const search = searchTerm.trim().toLowerCase();
+    const roleLabel = getRoleLabel(user.role).toLowerCase();
 
     const matchesSearch =
       !search ||
       user.name?.toLowerCase().includes(search) ||
       user.email?.toLowerCase().includes(search) ||
-      roleLabel(user.role).toLowerCase().includes(search);
+      roleLabel.includes(search);
 
     const matchesRole =
       filterRole === 'all' ||
       (filterRole === 'sales' && (user.role === 'sales' || user.role === 'COMMERCIAL')) ||
-      (filterRole === 'procurement' &&
-        (user.role === 'procurement' || user.role === 'RESPONSABLE_ACHAT'));
+      (filterRole === 'procurement' && (user.role === 'procurement' || user.role === 'RESPONSABLE_ACHAT'));
 
     return matchesSearch && matchesRole;
   });
 
-  if (loading && users.length === 0) {
+  // Spinner global pendant les chargements
+  if ((loadingAPI || isLoading) && users.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-500"></div>
@@ -525,56 +495,23 @@ const handleEditUser = async () => {
 
   return (
     <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
-      {confirmOpen && (
-        <Modal
-          open={confirmOpen}
-          isArabic={isArabic}
-          onClose={() => {
-            setConfirmOpen(false);
-            setPendingDelete(null);
-          }}
-        >
-          <h2 className="mb-2 text-xl font-bold text-gray-900">{text.deleteUser}</h2>
-          <p className="mb-6 text-sm text-gray-600">
-            {text.deleteMessage.replace('{{name}}', pendingDelete?.name || pendingDelete?.email || '')}
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setConfirmOpen(false);
-                setPendingDelete(null);
-              }}
-              className="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
-            >
-              {text.cancel}
-            </button>
-            <button
-              onClick={confirmDeleteUser}
-              className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-            >
-              {text.confirm}
-            </button>
-          </div>
-        </Modal>
-      )}
-
+      {/* Header */}
       <div className={`flex items-center justify-between gap-4 ${isArabic ? 'flex-row-reverse' : ''}`}>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{text.title}</h1>
           <p className="mt-1 text-sm text-gray-500">{text.description}</p>
         </div>
-      </div>
-
-      <div className="flex justify-end">
         <button
           onClick={() => setAddModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white shadow-sm transition hover:bg-emerald-700"
+          disabled={isLoading}
+          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
         >
           <PlusIcon className="h-5 w-5" />
           {text.addUser}
         </button>
       </div>
 
+      {/* Filtres */}
       <div className="rounded-xl p-4 shadow-md">
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative min-w-[200px] flex-1">
@@ -588,7 +525,8 @@ const handleEditUser = async () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={text.search}
-              className={`w-full rounded-lg border border-gray-300 bg-white py-2 text-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 ${
+              disabled={isLoading}
+              className={`w-full rounded-lg border border-gray-300 bg-white py-2 text-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50 ${
                 isArabic ? 'pr-9 pl-8' : 'pl-9 pr-8'
               }`}
             />
@@ -607,128 +545,139 @@ const handleEditUser = async () => {
           <select
             value={filterRole}
             onChange={(event) => setFilterRole(event.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            disabled={isLoading}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
           >
             <option value="all">{text.allRoles}</option>
-            <option value="sales">{text.sales}</option>
-            <option value="procurement">{text.procurement}</option>
+            <option value="sales">Responsable vente</option>
+            <option value="procurement">Responsable Achat et stock</option>
           </select>
 
           <div className="text-sm font-medium text-emerald-600">
-            {text.usersCount.replace('{{count}}', String(filteredUsers.length))}
+            {isLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"></div>
+            ) : (
+              text.usersCount.replace('{{count}}', String(filteredUsers.length))
+            )}
           </div>
         </div>
       </div>
 
-      {localError && (
-        <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-3">
-          <p className="text-sm text-red-700">{localError}</p>
-        </div>
-      )}
-
+      {/* Tableau des utilisateurs */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-100">
               <tr>
-                {[text.fullName, text.email, text.role, text.status, text.actions].map((label) => (
-                  <th
-                    key={label}
-                    className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${
-                      isArabic ? 'text-right' : 'text-left'
-                    }`}
-                  >
-                    {label}
-                  </th>
-                ))}
+                <th className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${isArabic ? 'text-right' : 'text-left'}`}>
+                  {text.fullName}
+                </th>
+                <th className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${isArabic ? 'text-right' : 'text-left'}`}>
+                  {text.email}
+                </th>
+                <th className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${isArabic ? 'text-right' : 'text-left'}`}>
+                  {text.role}
+                </th>
+                <th className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${isArabic ? 'text-right' : 'text-left'}`}>
+                  {text.status}
+                </th>
+                <th className={`px-4 py-3 text-xs font-semibold uppercase text-gray-500 ${isArabic ? 'text-right' : 'text-left'}`}>
+                  {text.actions}
+                </th>
               </tr>
             </thead>
 
-         <tbody className="divide-y divide-emerald-100">
-  {filteredUsers.map((user, index) => (
-    <tr
-      key={user.id}
-      className={`transition-colors hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 ${
-        index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
-      }`}
-    >
-      <td className="whitespace-nowrap px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 text-sm font-bold text-white shadow-sm">
-            {user.name?.charAt(0).toUpperCase()}
-          </div>
-          <span className="text-sm font-medium text-gray-900">
-            {user.name || user.email}
-          </span>
-        </div>
-      </td>
+            <tbody className="divide-y divide-emerald-100">
+              {filteredUsers.map((user, index) => (
+                <tr
+                  key={user.id}
+                  className={`transition-colors hover:bg-gradient-to-r hover:from-emerald-50 hover:to-blue-50 ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'
+                  }`}
+                >
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-blue-500 text-sm font-bold text-white shadow-sm">
+                        {user.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {user.name || user.email}
+                        </span>
+                        {user.id === currentUser?.id && (
+                          <span className="ml-2 text-xs text-gray-400">({text.you})</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
 
-      <td className="whitespace-nowrap px-4 py-3">
-        <div className="flex items-center gap-2">
-          <EnvelopeIcon className="h-4 w-4 text-emerald-500" />
-          <span className="text-sm text-gray-600">{user.email}</span>
-        </div>
-      </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <EnvelopeIcon className="h-4 w-4 text-emerald-500" />
+                      <span className="text-sm text-gray-600">{user.email}</span>
+                    </div>
+                  </td>
 
-      <td className="whitespace-nowrap px-4 py-3">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getRoleColor(user.role)}`}>
-          {roleLabel(user.role)}
-        </span>
-      </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getRoleColor(user.role)}`}>
+                      {getRoleLabel(user.role)}
+                    </span>
+                  </td>
 
-      <td className="whitespace-nowrap px-4 py-3">
-        <ToggleSwitch
-          checked={user.active}
-          onChange={() => handleToggleStatus(user)}
-          disabled={loading || isAdminRole(user.role)}
-        />
-      </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <ToggleSwitch
+                      checked={user.active}
+                      onChange={() => handleToggleStatus(user)}
+                      disabled={isLoading || isAdminRole(user.role)}
+                      activeTooltip={text.activeTooltip}
+                      inactiveTooltip={text.inactiveTooltip}
+                    />
+                  </td>
 
-      <td className="whitespace-nowrap px-4 py-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setEditingUser({ ...user, originalEmail: user.email });
-              setEditModalOpen(true);
-            }}
-            className="rounded-md bg-blue-50 p-1.5 text-blue-600 transition-colors hover:bg-blue-600 hover:text-white"
-            disabled={loading || isAdminRole(user.role)}
-            title={text.editTitle}
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <button
+                      onClick={() => {
+                        setEditingUser({ ...user, originalEmail: user.email });
+                        setEditModalOpen(true);
+                      }}
+                      className="rounded-md bg-blue-50 p-1.5 text-blue-600 transition-colors hover:bg-blue-600 hover:text-white"
+                      disabled={isLoading || isAdminRole(user.role) || user.id === currentUser?.id}
+                      title={text.editTitle}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
 
-          <button
-            onClick={() => askDeleteUser(user)}
-            className="rounded-md bg-red-50 p-1.5 text-red-600 transition-colors hover:bg-red-600 hover:text-white"
-            disabled={loading || isAdminRole(user.role)}
-            title={text.deleteTitle}
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  ))}
+              {filteredUsers.length === 0 && !isLoading && (
+                <tr>
+                  <td colSpan="5" className="py-8 text-center text-gray-500">
+                    {text.noUser}
+                  </td>
+                </tr>
+              )}
 
-  {filteredUsers.length === 0 && (
-    <tr>
-      <td colSpan="5" className="py-8 text-center text-gray-500">
-        {text.noUser}
-      </td>
-    </tr>
-  )}
-</tbody>
+              {filteredUsers.length === 0 && isLoading && (
+                <tr>
+                  <td colSpan="5" className="py-8 text-center">
+                    <div className="flex justify-center">
+                      <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-emerald-500"></div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
           </table>
         </div>
       </div>
 
+      {/* Modals (inchangés) */}
       <Modal open={addModalOpen} isArabic={isArabic} onClose={() => {
         setAddModalOpen(false);
         setEmailError('');
       }}>
         <h2 className="mb-4 text-xl font-bold text-gray-900">{text.addUser}</h2>
-
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">{text.fullName}</label>
@@ -739,7 +688,6 @@ const handleEditUser = async () => {
               className="w-full rounded-lg border border-gray-300 px-4 py-2"
             />
           </div>
-
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">{text.email}</label>
             <div className="relative">
@@ -761,7 +709,6 @@ const handleEditUser = async () => {
                 } ${emailError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
               />
             </div>
-
             {emailError && (
               <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
                 <ExclamationCircleIcon className="h-3 w-3" />
@@ -769,7 +716,6 @@ const handleEditUser = async () => {
               </p>
             )}
           </div>
-
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
             <select
@@ -777,22 +723,19 @@ const handleEditUser = async () => {
               onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
               className="w-full rounded-lg border border-gray-300 px-4 py-2"
             >
-              <option value="sales">{text.sales}</option>
-              <option value="procurement">{text.procurement}</option>
+              <option value="sales">Responsable vente</option>
+              <option value="procurement">Responsable Achat et stock</option>
             </select>
           </div>
-
           <p className="text-xs text-gray-500">{text.createHint}</p>
-
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleAddUser}
-              disabled={loading || !!emailError}
+              disabled={isLoading || !!emailError}
               className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               {text.add}
             </button>
-
             <button
               onClick={() => {
                 setAddModalOpen(false);
@@ -811,7 +754,6 @@ const handleEditUser = async () => {
         setEditEmailError('');
       }}>
         <h2 className="mb-4 text-xl font-bold text-gray-900">{text.editUser}</h2>
-
         {editingUser && (
           <div className="space-y-4">
             {editingUser.id === currentUser?.id && (
@@ -822,7 +764,6 @@ const handleEditUser = async () => {
                 </div>
               </div>
             )}
-
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">{text.fullName}</label>
               <input
@@ -831,7 +772,6 @@ const handleEditUser = async () => {
                 className="w-full rounded-lg border border-gray-300 px-4 py-2"
               />
             </div>
-
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">{text.email}</label>
               <div className="relative">
@@ -853,7 +793,6 @@ const handleEditUser = async () => {
                   } ${editEmailError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                 />
               </div>
-
               {editEmailError && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
                   <ExclamationCircleIcon className="h-3 w-3" />
@@ -861,7 +800,6 @@ const handleEditUser = async () => {
                 </p>
               )}
             </div>
-
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
               <select
@@ -869,20 +807,18 @@ const handleEditUser = async () => {
                 onChange={(event) => setEditingUser({ ...editingUser, role: event.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2"
               >
-                <option value="sales">{text.sales}</option>
-                <option value="procurement">{text.procurement}</option>
+                <option value="sales">Responsable vente</option>
+                <option value="procurement">Responsable Achat et stock</option>
               </select>
             </div>
-
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}
-                disabled={loading || !!editEmailError}
+                disabled={isLoading || !!editEmailError}
                 className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
               >
                 {text.save}
               </button>
-
               <button
                 onClick={() => {
                   setEditModalOpen(false);

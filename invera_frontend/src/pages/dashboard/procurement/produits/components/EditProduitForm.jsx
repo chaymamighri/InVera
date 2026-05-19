@@ -1,9 +1,10 @@
-// produits/EditProduitForm.jsx - Version ONE-TO-MANY (un seul fournisseur)
+// produits/EditProduitForm.jsx - Version UNIQUEMENT avec remise standard
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ProduitFormBase from './ProduitFormBase';
 import FournisseurService from '../../../../../services/FournisseurService';
 import productService from '../../../../../services/productService';
+import categorieService from '../../../../../services/categorieService';
 import toast from 'react-hot-toast';
 
 const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => {
@@ -18,18 +19,18 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     uniteMesure: 'PIECE',
     imageUrl: '',
     imageFile: null,  
-    remiseTemporaire: '',
     active: true,
     fournisseurId: ''        
   });
+
+  const [categorieRemiseStandard, setCategorieRemiseStandard] = useState(0);
+  const [prixApresRemise, setPrixApresRemise] = useState(0);
 
   const [fournisseursDisponibles, setFournisseursDisponibles] = useState([]);
   const [loadingFournisseurs, setLoadingFournisseurs] = useState(false);
   const [loadingProduit, setLoadingProduit] = useState(true);
   const [errors, setErrors] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
-  
-  const isRemiseDisabled = userRole === 'RESPONSABLE_ACHAT';
 
   // Charger les fournisseurs disponibles
   useEffect(() => {
@@ -44,37 +45,36 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   }, [produit]);
 
+  // Calculer le prix après remise
+  useEffect(() => {
+    const prixVente = parseFloat(String(formData.prixVente).replace(',', '.'));
+    if (prixVente && categorieRemiseStandard > 0) {
+      const apresRemise = prixVente * (1 - categorieRemiseStandard / 100);
+      setPrixApresRemise(apresRemise);
+    } else {
+      setPrixApresRemise(prixVente || 0);
+    }
+  }, [formData.prixVente, categorieRemiseStandard]);
+
   const chargerFournisseurs = async () => {
     setLoadingFournisseurs(true);
     try {
         const response = await FournisseurService.getActiveFournisseurs();
         
-        console.log('📋 === DÉTAIL RÉPONSE FOURNISSEURS ===');
-        console.log('Type de response:', typeof response);
-        console.log('Est-ce un tableau?', Array.isArray(response));
-        console.log('Response brute:', response);
-        
         let fournisseursList = [];
         
         if (Array.isArray(response)) {
-            console.log('📋 Cas: tableau direct');
             fournisseursList = response;
         }
         else if (response?.fournisseurs && Array.isArray(response.fournisseurs)) {
-            console.log('📋 Cas: objet avec fournisseurs');
             fournisseursList = response.fournisseurs;
         }
         else if (response?.data && Array.isArray(response.data)) {
-            console.log('📋 Cas: objet avec data');
             fournisseursList = response.data;
         }
         else if (response?.success && response?.data && Array.isArray(response.data)) {
-            console.log('📋 Cas: success + data');
             fournisseursList = response.data;
         }
-        
-        console.log('📋 Fournisseurs chargés:', fournisseursList.length);
-        console.log('📋 Premier fournisseur:', fournisseursList[0]);
         
         setFournisseursDisponibles(fournisseursList);
         
@@ -86,19 +86,39 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   };
 
+  // Récupérer la remise standard de la catégorie
+  const fetchRemiseStandardByCategorie = async (categorieId) => {
+    if (!categorieId) {
+      setCategorieRemiseStandard(0);
+      return;
+    }
+    
+    try {
+      const response = await categorieService.getCategorieById(categorieId);
+      const remise = response?.remiseStandard || 0;
+      setCategorieRemiseStandard(remise);
+      console.log(`✅ Remise standard de la catégorie: ${remise}%`);
+    } catch (error) {
+      console.error('Erreur chargement remise catégorie:', error);
+      setCategorieRemiseStandard(0);
+    }
+  };
+
   const chargerProduitComplet = async () => {
     const productId = produit.idProduit || produit.id;
     setLoadingProduit(true);
     
-    console.log('🔍 Chargement du produit', productId);
-    
     try {
       const response = await productService.getProductById(productId);
-      console.log('📦 Réponse API:', response);
-      
       let produitComplet = response.produit || response;
-      
       initialiserFormulaire(produitComplet);
+      
+      const categorieId = produitComplet.categorieId || 
+                          produitComplet.idCategorie || 
+                          produitComplet.categorie?.idCategorie;
+      if (categorieId) {
+        await fetchRemiseStandardByCategorie(categorieId);
+      }
       
     } catch (error) {
       console.error('❌ Erreur chargement produit:', error);
@@ -132,8 +152,6 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     let prixAchat = produitData.prixAchat || '';
     
-    console.log('✅ Initialisation - fournisseurId:', fournisseurId, 'prixAchat:', prixAchat);
-    
     setFormData({
       libelle: produitData.libelle || '',
       prixVente: produitData.prixVente?.toString() || '',
@@ -144,19 +162,18 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       uniteMesure: produitData.uniteMesure || 'PIECE',
       imageUrl: produitData.imageUrl || '',
       imageFile: null,
-      remiseTemporaire: produitData.remiseTemporaire?.toString() || '',
       active: produitData.active ?? true,
       fournisseurId: fournisseurId
     });
     
-if (produitData.imageUrl) {
-    const baseURL = 'http://localhost:8081';
-    const imageUrl = produitData.imageUrl.startsWith('http') 
-        ? produitData.imageUrl 
-        : `${baseURL}/api/produits/uploads/produits/${produitData.imageUrl}`;
-    setImagePreview(imageUrl);
-}
-};
+    if (produitData.imageUrl) {
+      const baseURL = 'http://localhost:8081';
+      const imageUrl = produitData.imageUrl.startsWith('http') 
+          ? produitData.imageUrl 
+          : `${baseURL}/api/produits/uploads/produits/${produitData.imageUrl}`;
+      setImagePreview(imageUrl);
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -178,13 +195,6 @@ if (produitData.imageUrl) {
     if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
     if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
     
-    if (formData.remiseTemporaire) {
-      const remise = parseFloat(formData.remiseTemporaire.replace(',', '.'));
-      if (isNaN(remise) || remise < 0 || remise > 100) {
-        newErrors.remiseTemporaire = 'La remise doit être entre 0 et 100';
-      }
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -194,7 +204,7 @@ if (produitData.imageUrl) {
     
     if (name === 'quantiteStock') return;
     
-    if (name === 'prixVente' || name === 'prixAchat' || name === 'remiseTemporaire') {
+    if (name === 'prixVente' || name === 'prixAchat') {
       const normalizedValue = value.replace(',', '.');
       if (normalizedValue === '' || /^\d*\.?\d*$/.test(normalizedValue)) {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -237,7 +247,7 @@ if (produitData.imageUrl) {
     if (input) input.value = '';
   };
 
-  const handleCategorieChange = (e) => {
+  const handleCategorieChange = async (e) => {
     const categorieId = parseInt(e.target.value);
     const selectedCategorie = categories.find(c => c.idCategorie === categorieId);
     setFormData(prev => ({
@@ -245,6 +255,8 @@ if (produitData.imageUrl) {
       categorie: selectedCategorie || { idCategorie: categorieId }
     }));
     if (errors.categorie) setErrors(prev => ({ ...prev, categorie: null }));
+    
+    await fetchRemiseStandardByCategorie(categorieId);
   };
 
   const handleSubmit = async (e) => {
@@ -260,7 +272,6 @@ if (produitData.imageUrl) {
     formDataToSend.append('categorieId', String(formData.categorie?.idCategorie || ''));
     formDataToSend.append('seuilMinimum', String(parseInt(formData.seuilMinimum) || 0));
     formDataToSend.append('uniteMesure', String(formData.uniteMesure || 'PIECE'));
-    formDataToSend.append('remiseTemporaire', String(parseFloat(String(formData.remiseTemporaire).replace(',', '.')) || 0));
     formDataToSend.append('active', formData.active ? 'true' : 'false');
     
     if (formData.fournisseurId) {
@@ -310,18 +321,6 @@ if (produitData.imageUrl) {
           </div>
 
           <div className="p-6">
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-start gap-2">
-                <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-800">Gestion du stock</p>
-                  <p className="text-xs text-blue-700">
-                    Le stock est géré automatiquement par les réceptions de commande et les ventes.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <ProduitFormBase
               formData={formData}
               errors={errors}
@@ -331,7 +330,6 @@ if (produitData.imageUrl) {
               handleRemoveImage={handleRemoveImage}
               imagePreview={imagePreview}
               handleCategorieChange={handleCategorieChange}
-              isRemiseDisabled={isRemiseDisabled}
               handleSubmit={handleSubmit}
               onClose={onClose}
               isEditMode={true}
@@ -339,6 +337,8 @@ if (produitData.imageUrl) {
               stockDisabled={true}
               fournisseursDisponibles={fournisseursDisponibles}
               loadingFournisseurs={loadingFournisseurs}
+              categorieRemiseStandard={categorieRemiseStandard}
+              prixApresRemise={prixApresRemise}
             />
           </div>
         </div>

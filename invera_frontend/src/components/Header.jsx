@@ -56,6 +56,7 @@ const Header = ({ userRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const locale = language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR';
+  
   const notificationCopy = {
     fr: {
       unknownMonth: 'Inconnu',

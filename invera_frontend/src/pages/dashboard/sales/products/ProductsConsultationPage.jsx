@@ -1,36 +1,6 @@
 // src/pages/dashboard/sales/products/ProductsConsultationPage.jsx
 
-/**
- * ProductsConsultationPage - Catalogue produits et création commandes
- * 
- * RÔLE : Gérer le catalogue produits et créer des commandes clients
- * ROUTE : /dashboard/sales/products
- * 
- * FONCTIONNALITÉS :
- * - Affichage du catalogue produits (uniquement actifs)
- * - Filtres (recherche texte, catégorie)
- * - Tri des colonnes (nom, prix, stock)
- * - Pagination
- * - Sélection produits pour commande
- * - Création commande avec client existant ou nouveau
- * - Remise automatique selon type client
- * - Vérification disponibilité stock
- * - Mise à jour stock après commande
- * 
- * COMPOSANTS UTILISÉS :
- * - ProductFilters : Barre de filtres
- * - ProductStats : Cartes statistiques
- * - ProductTable : Tableau des produits
- * - OrderModal : Modal création commande
- * - OrderRecapModal : Modal récapitulatif
- * - SuccessModal : Modal confirmation
- * 
- * SERVICES :
- * - productService : Gestion produits
- * - clientService : Gestion clients
- * - useAuth : Authentification
- */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ProductFilters from './components/ProductFilterSection';
 import ProductStats from './components/ProductStatis';
 import ProductTable from './components/ProductTable';
@@ -45,6 +15,7 @@ const ProductsConsultationPage = () => {
   // États pour les données
   const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // ✅ Tous les produits pour le filtrage côté frontend
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clients, setClients] = useState([]);
@@ -85,73 +56,166 @@ const ProductsConsultationPage = () => {
     adresse: ''
   });
 
-  // Fonction pour charger les produits depuis l'API 
-const loadProducts = async (filters = {}) => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    console.log('🔄 Chargement des produits...');
+  // ✅ Fonction pour charger les produits (sans filtres)
+  const loadProducts = async () => {
+    setLoading(true);
+    setError(null);
     
-    // ✅ Construire les paramètres avec actif: true
-    const params = {
-      keyword: searchTerm || filters.keyword,
-      actif: true,  // ← AJOUTER CETTE LIGNE : ne charger que les produits actifs
-      ...filters
-    };
-    
-    // Appeler l'API avec le paramètre actif
-    const response = await productService.getAllProducts(params);
-    console.log('📥 Réponse reçue:', response);
-    
-    // Extraire les produits de la réponse
-    let produitsData = [];
-    
-    if (response && response.data) {
-      if (Array.isArray(response.data)) {
-        produitsData = response.data;
-      } else if (response.data.produits) {
-        produitsData = response.data.produits;
+    try {
+      console.log('🔄 Chargement des produits...');
+      
+      const response = await productService.getAllProducts();
+      console.log('📥 Réponse reçue:', response);
+      
+      let produitsData = [];
+      
+      if (response && response.data) {
+        if (Array.isArray(response.data)) {
+          produitsData = response.data;
+        } else if (response.data.produits) {
+          produitsData = response.data.produits;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          produitsData = response.data.data;
+        }
+      } else if (response && response.produits) {
+        produitsData = response.produits;
+      } else if (Array.isArray(response)) {
+        produitsData = response;
       }
-    } else if (response && response.produits) {
-      produitsData = response.produits;
-    } else if (Array.isArray(response)) {
-      produitsData = response;
-    } else if (response && response.data && response.data.data) {
-      produitsData = response.data.data;
+      
+      // ✅ Filtrer pour ne garder que les produits actifs
+      const produitsActifs = produitsData.filter(p => p.active === true);
+      
+      console.log(`✅ ${produitsActifs.length} produits actifs chargés`);
+      setAllProducts(produitsActifs);
+      
+      // Extraire les catégories uniques
+      const allCategories = [];
+      produitsActifs.forEach(p => {
+        let categorie = '';
+        if (p.categorie) {
+          if (typeof p.categorie === 'object') {
+            categorie = p.categorie.nomCategorie;
+          } else {
+            categorie = p.categorie;
+          }
+        } else if (p.categorieNom) {
+          categorie = p.categorieNom;
+        }
+        
+        if (categorie) {
+          allCategories.push(categorie);
+        }
+      });
+      
+      const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
+      setCategories(['Tous', ...uniqueCategories]);
+      
+    } catch (err) {
+      console.error('❌ Erreur lors du chargement des produits:', err);
+      setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
+      setAllProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fonction pour filtrer et trier les produits (côté frontend)
+  const filterAndSortProducts = useCallback(() => {
+    if (!allProducts || !Array.isArray(allProducts)) return [];
+    
+    let result = [...allProducts];
+    
+    // ✅ Filtre par recherche (nom ou catégorie)
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(product => {
+        const libelle = (product.libelle || '').toLowerCase();
+        let categorie = '';
+        
+        if (product.categorie) {
+          if (typeof product.categorie === 'object') {
+            categorie = (product.categorie.nomCategorie || '').toLowerCase();
+          } else {
+            categorie = (product.categorie || '').toLowerCase();
+          }
+        } else if (product.categorieNom) {
+          categorie = (product.categorieNom || '').toLowerCase();
+        }
+        
+        return libelle.includes(term) || categorie.includes(term);
+      });
     }
     
-    // ✅ Filtrer pour s'assurer que seuls les actifs sont affichés
-    const produitsActifs = produitsData.filter(p => p.active === true);
-    
-    console.log(`✅ ${produitsActifs.length} produits actifs chargés`);
-    setProducts(produitsActifs);
-    
-    // Extraire les catégories uniques
-    const allCategories = [];
-    produitsActifs.forEach(p => {
-      if (p.categorie) {
-        if (typeof p.categorie === 'object') {
-          allCategories.push(p.categorie.nomCategorie);
-        } else {
-          allCategories.push(p.categorie);
+    // ✅ Filtre par catégorie
+    if (selectedCategory && selectedCategory !== 'Tous') {
+      result = result.filter(product => {
+        let categorie = '';
+        
+        if (product.categorie) {
+          if (typeof product.categorie === 'object') {
+            categorie = product.categorie.nomCategorie;
+          } else {
+            categorie = product.categorie;
+          }
+        } else if (product.categorieNom) {
+          categorie = product.categorieNom;
         }
+        
+        return categorie === selectedCategory;
+      });
+    }
+    
+    // ✅ Tri
+    result.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch(sortField) {
+        case 'libelle':
+          aValue = a.libelle || '';
+          bValue = b.libelle || '';
+          break;
+        case 'prixVente':
+          aValue = Number(a.prixVente) || 0;
+          bValue = Number(b.prixVente) || 0;
+          break;
+        case 'quantiteStock':
+          aValue = Number(a.quantiteStock) || 0;
+          bValue = Number(b.quantiteStock) || 0;
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        default:
+          aValue = a[sortField] || '';
+          bValue = b[sortField] || '';
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       }
     });
     
-    const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
-    setCategories(['Tous', ...uniqueCategories]);
-    
-  } catch (err) {
-    console.error('❌ Erreur lors du chargement des produits:', err);
-    setError(err.response?.data?.message || err.message || 'Erreur de chargement des produits');
-    setProducts([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    return result;
+  }, [allProducts, searchTerm, selectedCategory, sortField, sortDirection]);
 
-  // Fonction pour charger les clients depuis l'API - CORRIGÉE
+  // ✅ Produits filtrés et triés
+  const filteredProducts = useMemo(() => filterAndSortProducts(), [filterAndSortProducts]);
+  
+  // ✅ Pagination
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  // Fonction pour charger les clients
   const loadClients = async () => {
     setLoadingClients(true);
     try {
@@ -159,7 +223,6 @@ const loadProducts = async (filters = {}) => {
       const response = await clientService.getAllClients();
       console.log('📥 Clients reçus:', response);
       
-      // Extraire les clients de la réponse
       let clientsData = [];
       
       if (response && response.clients) {
@@ -176,7 +239,6 @@ const loadProducts = async (filters = {}) => {
       
       setClients(clientsData);
       
-      // Extraire les types de clients uniques
       const uniqueTypes = [...new Set(clientsData.map(c => c.typeClient))].filter(Boolean);
       setClientTypes(uniqueTypes);
       
@@ -186,17 +248,6 @@ const loadProducts = async (filters = {}) => {
       setClientTypes([]);
     } finally {
       setLoadingClients(false);
-    }
-  };
-
-  // Fonction pour vérifier la disponibilité des stocks
-  const checkStockAvailability = async (productIds) => {
-    try {
-      const response = await productService.checkAvailability(productIds);
-      return response.allAvailable || false;
-    } catch (err) {
-      console.error('Erreur vérification disponibilité:', err);
-      return false;
     }
   };
 
@@ -249,73 +300,6 @@ const loadProducts = async (filters = {}) => {
     };
   };
 
-  const filterAndSortProducts = (products, searchTerm, selectedCategory, sortField, sortDirection) => {
-    if (!products || !Array.isArray(products)) return [];
-    
-    return products
-      .filter(product => {
-        if (!product) return false;
-        
-        const libelle = product.libelle || '';
-        let categorie = '';
-        
-        if (product.categorie) {
-          if (typeof product.categorie === 'object') {
-            categorie = product.categorie.nomCategorie || '';
-          } else {
-            categorie = product.categorie;
-          }
-        }
-        
-        const matchesSearch = libelle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             categorie.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        let matchesCategory = selectedCategory === 'Tous';
-        if (!matchesCategory) {
-          if (typeof product.categorie === 'object') {
-            matchesCategory = product.categorie.nomCategorie === selectedCategory;
-          } else {
-            matchesCategory = product.categorie === selectedCategory;
-          }
-        }
-        
-        return matchesSearch && matchesCategory;
-      })
-      .sort((a, b) => {
-        let aValue, bValue;
-        
-        switch(sortField) {
-          case 'libelle':
-            aValue = a.libelle || '';
-            bValue = b.libelle || '';
-            break;
-          case 'prixVente':
-            aValue = Number(a.prixVente) || 0;
-            bValue = Number(b.prixVente) || 0;
-            break;
-          case 'quantiteStock':
-            aValue = Number(a.quantiteStock) || 0;
-            bValue = Number(b.quantiteStock) || 0;
-            break;
-          case 'status':
-            aValue = a.status || '';
-            bValue = b.status || '';
-            break;
-          default:
-            aValue = a[sortField] || '';
-            bValue = b[sortField] || '';
-        }
-        
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortDirection === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        } else {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-      });
-  };
-
   const checkDisponibilite = (selectedProducts) => {
     return selectedProducts.every(p => {
       const stock = p.quantiteStock || 0;
@@ -326,12 +310,7 @@ const loadProducts = async (filters = {}) => {
 
   const calculerTotaux = (selectedProducts, remisePourcentage = 0) => {
     if (!selectedProducts || selectedProducts.length === 0) {
-      return { 
-        sousTotal: 0, 
-        remise: 0, 
-        total: 0, 
-        remisePourcentage 
-      };
+      return { sousTotal: 0, remise: 0, total: 0, remisePourcentage };
     }
     
     const sousTotal = selectedProducts.reduce((sum, p) => {
@@ -343,22 +322,7 @@ const loadProducts = async (filters = {}) => {
     const montantRemise = sousTotal * (remisePourcentage / 100);
     const total = sousTotal - montantRemise;
     
-    return {
-      sousTotal,
-      remise: montantRemise,
-      total,
-      remisePourcentage
-    };
-  };
-
-  const genererNumeroCommande = (commandesCount) => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const sequence = (commandesCount + 1).toString().padStart(4, '0');
-    
-    return `CMD-${year}${month}${day}-${sequence}`;
+    return { sousTotal, remise: montantRemise, total, remisePourcentage };
   };
 
   // Handlers
@@ -369,6 +333,7 @@ const loadProducts = async (filters = {}) => {
       setSortField(field);
       setSortDirection('asc');
     }
+    setCurrentPage(1);
   };
 
   const handleSelectProduct = (product) => {
@@ -501,13 +466,16 @@ const loadProducts = async (filters = {}) => {
         remiseTotale: remiseAppliquee
       };
       
-      // TODO: Appeler l'API pour enregistrer la commande
-      // const response = await orderService.createOrder(commandeData);
-      
-      // Sauvegarde locale temporaire
+      // Mettre à jour les stocks
+      for (const product of selectedProducts) {
+        const productId = product.idProduit || product.id;
+        const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
+        await productService.syncStock(productId, newStock);
+      }
+
       const nouvelleCommande = {
         id: Date.now(),
-        numero: genererNumeroCommande(commandes.length),
+        numero: `CMD-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}-${(commandes.length+1).toString().padStart(4,'0')}`,
         date: date.toISOString().split('T')[0],
         heure: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
         client: selectedClient,
@@ -525,22 +493,17 @@ const loadProducts = async (filters = {}) => {
         statut: 'EN_ATTENTE'
       };
 
-      // Mettre à jour les stocks dans le backend.
-      // Si cette étape échoue, on ne doit pas afficher une commande comme totalement réussie.
-      for (const product of selectedProducts) {
-        const productId = product.idProduit || product.id;
-        const newStock = (product.quantiteStock || 0) - (product.quantiteCommande || 1);
-        await productService.syncStock(productId, newStock);
-      }
-
       const nouvellesCommandes = [...commandes, nouvelleCommande];
       setCommandes(nouvellesCommandes);
+      localStorage.setItem('commandes', JSON.stringify(nouvellesCommandes));
       
       setShowSuccessPopup(true);
       setShowRecap(false);
       setShowCreateOrder(false);
       setSelectedProducts([]);
-      loadProducts();
+      
+      // Recharger les produits pour mettre à jour les stocks
+      await loadProducts();
       
     } catch (err) {
       console.error('Erreur enregistrement commande:', err);
@@ -548,11 +511,10 @@ const loadProducts = async (filters = {}) => {
     }
   };
 
-  // Gestion des filtres
+  // ✅ Handlers pour les filtres
   const handleSearch = (term) => {
     setSearchTerm(term);
     setCurrentPage(1);
-    loadProducts({ keyword: term });
   };
 
   const handleCategoryChange = (category) => {
@@ -579,10 +541,8 @@ const loadProducts = async (filters = {}) => {
     }
   }, []);
 
-  // Calculs
-  const stats = calculateStats(products);
-  const filteredProducts = filterAndSortProducts(products, searchTerm, selectedCategory, sortField, sortDirection);
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  // Calculs des stats sur les produits filtrés
+  const stats = useMemo(() => calculateStats(filteredProducts), [filteredProducts]);
 
   return (
     <div className="space-y-6">
@@ -597,7 +557,8 @@ const loadProducts = async (filters = {}) => {
             <div className="mt-4 md:mt-0">
               <button
                 onClick={handleCreateOrder}
-               className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow-sm hover:bg-green-700 transition-all duration-200 flex items-center"              >
+                className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow-sm hover:bg-green-700 transition-all duration-200 flex items-center"
+              >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -631,7 +592,7 @@ const loadProducts = async (filters = {}) => {
       )}
 
       <ProductTable 
-        products={filteredProducts}
+        products={paginatedProducts}
         selectedProducts={selectedProducts}
         handleSelectProduct={handleSelectProduct}
         handleCreateOrder={handleCreateOrder}

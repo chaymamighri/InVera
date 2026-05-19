@@ -81,6 +81,33 @@ export const commandeService = {
     }
   },
 
+  // ✅ NOUVELLE MÉTHODE: Récupérer les commandes par ID client
+  async getCommandesByClientId(clientId) {
+    try {
+      console.log(`📡 Appel API: /commandes/client/${clientId}`);
+      const response = await api.get(`/commandes/client/${clientId}`);
+      
+      console.log('📥 Réponse reçue:', response.data);
+      
+      // Gérer différents formats de réponse
+      if (response.data && response.data.success && response.data.commandes) {
+        return response.data;
+      }
+      if (response.data && Array.isArray(response.data)) {
+        return { success: true, commandes: response.data };
+      }
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        return { success: true, commandes: response.data.data };
+      }
+      
+      return { success: true, commandes: [] };
+    } catch (error) {
+      console.error(`❌ Erreur getCommandesByClientId ${clientId}:`, error);
+      // Ne pas bloquer l'affichage, retourner un tableau vide
+      return { success: false, commandes: [] };
+    }
+  },
+
   // Récupérer les commandes validées
   getCommandesValidees: async () => {
     try {
@@ -262,8 +289,7 @@ export const commandeService = {
   },
 
   // Visualiser une facture (ouvre dans un nouvel onglet)
-// Dans commandeService.js
-async viewInvoice(commandeId) {
+  async viewInvoice(commandeId) {
     try {
         const invoice = await this.getInvoiceByCommandeId(commandeId);
         
@@ -285,10 +311,10 @@ async viewInvoice(commandeId) {
         console.error('❌ Erreur viewInvoice:', error);
         throw error;
     }
-},
+  },
 
   // Téléchargement du PDF avec blob
-async downloadInvoicePDF(factureId) {
+  async downloadInvoicePDF(factureId) {
     try {
         console.log(`📡 Téléchargement PDF facture ${factureId}`);
         
@@ -313,19 +339,17 @@ async downloadInvoicePDF(factureId) {
         console.error('❌ Erreur downloadInvoicePDF:', error);
         throw error;
     }
-},
+  },
 
-async getInvoicePDFBlob(factureId) {
-  try {
-    const response = await api.get(`/factures/${factureId}/pdf`, {
-      responseType: 'blob',
-      // Ne pas mettre de headers 'Content-Disposition' pour éviter le téléchargement auto
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Erreur récupération PDF:', error);
-    throw error;
+  async getInvoicePDFBlob(factureId) {
+    try {
+      const response = await api.get(`/factures/${factureId}/pdf`, {
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur récupération PDF:', error);
+      throw error;
+    }
   }
-}
-
-}; 
+};

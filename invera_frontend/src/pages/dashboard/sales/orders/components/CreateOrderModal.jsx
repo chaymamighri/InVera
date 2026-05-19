@@ -10,6 +10,7 @@ import {
   ShoppingCartIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
+import clientService from '../../../../../services/clientService';
 
 // Badge simple pour le type de client
 const ClientBadge = ({ type }) => {
@@ -103,49 +104,39 @@ const CreateOrderModal = ({
   const [searchClient, setSearchClient] = useState('');
   const [notes, setNotes] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // État pour la remise client
+  const [clientRemise, setClientRemise] = useState(0);
+  const [loadingRemise, setLoadingRemise] = useState(false);
 
-  // ✅ Styles pour les toasts
+  // Récupérer la remise du client par son type
   useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slide-in {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
+    const fetchClientRemise = async () => {
+      const clientSelectionne = clients.find(c => c.id === parseInt(selectedClient));
+      if (!clientSelectionne?.typeClient) return;
       
-      @keyframes slide-out {
-        from {
-          transform: translateX(0);
-          opacity: 1;
+      setLoadingRemise(true);
+      try {
+        const response = await clientService.getRemiseByType(clientSelectionne.typeClient);
+        if (response?.success) {
+          setClientRemise(response.remise || 0);
+          console.log(`✅ Remise client ${clientSelectionne.typeClient}: ${response.remise}%`);
         }
-        to {
-          transform: translateX(100%);
-          opacity: 0;
-        }
+      } catch (error) {
+        console.error('Erreur chargement remise client:', error);
+      } finally {
+        setLoadingRemise(false);
       }
-      
-      .animate-slide-in {
-        animation: slide-in 0.3s ease-out;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    return () => {
-      document.head.removeChild(style);
     };
-  }, []);
+    
+    fetchClientRemise();
+  }, [selectedClient, clients]);
 
   if (!show) return null;
 
   const clientSelectionne = clients.find(c => c.id === parseInt(selectedClient));
   
-  // Filtrer les produits avec gestion de la catégorie
+  // Filtrer les produits
   const produitsFiltres = produits.filter(p => {
     const searchLower = searchProduit.toLowerCase();
     const categorieNom = p.categorie?.nomCategorie || p.categorieNom || '';
@@ -158,64 +149,77 @@ const CreateOrderModal = ({
     c.telephone?.includes(searchClient)
   );
 
-  const totalProduits = selectedProducts.reduce((sum, p) => 
-    sum + (toNumber(p.prix) * p.quantite), 0
-  );
+  // ✅ Calcul des montants avec TVA par produit
+  const calculerTotaux = () => {
+    let sousTotalHT = 0;
+    let remiseTotaleProduits = 0;
+    let totalHT = 0;
+    let tvaParProduit = [];
+    let totalTTC = 0;
 
-  const remisePourcentage = clientSelectionne ? 
-    (clientSelectionne.typeClient === 'VIP' ? 0.15 :      
-     clientSelectionne.typeClient === 'FIDELE' ? 0.10 :
-     clientSelectionne.typeClient === 'ENTREPRISE' ? 0.08 :
-     clientSelectionne.typeClient === 'PROFESSIONNEL' ? 0.08 : 0) : 0;
-
-  const montantRemise = totalProduits * remisePourcentage;
-  const totalFinal = totalProduits - montantRemise;
-
-  // Fonction utilitaire pour afficher les toasts
-  const showToast = (message, type = 'error', duration = 3000) => {
-    const colors = {
-      success: 'bg-green-500',
-      error: 'bg-red-500',
-      warning: 'bg-yellow-500',
-      info: 'bg-blue-500'
-    };
-
-    const icons = {
-      success: `
-        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      `,
-      error: `
-        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      `,
-      warning: `
-        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-        </svg>
-      `,
-      info: `
-        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      `
-    };
-
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center animate-slide-in`;
-    toast.innerHTML = `
-      ${icons[type]}
-      <span>${message}</span>
-    `;
-    document.body.appendChild(toast);
+    selectedProducts.forEach(p => {
+      const prixHT = toNumber(p.prixVente || p.prix || 0);
+      const quantite = p.quantite;
+      const montantHTLigne = prixHT * quantite;
+      
+      // Remise du produit (par catégorie)
+      const tauxRemiseProduit = p.categorieRemiseStandard || 0;
+      const montantRemise = montantHTLigne * (tauxRemiseProduit / 100);
+      const montantHTApresRemise = montantHTLigne - montantRemise;
+      
+      // ✅ TVA du produit (par catégorie)
+      let tauxTVA = p.categorie?.tauxTVA || 19; // Valeur en pourcentage
+      let tauxTVANumerique = typeof tauxTVA === 'number' ? tauxTVA : parseFloat(tauxTVA);
+      if (tauxTVANumerique > 1 && tauxTVANumerique <= 100) {
+        // C'est déjà un pourcentage (ex: 19)
+        tauxTVANumerique = tauxTVANumerique / 100;
+      } else if (tauxTVANumerique > 100) {
+        tauxTVANumerique = 0.19; // Fallback
+      }
+      
+      const montantTVA = montantHTApresRemise * tauxTVANumerique;
+      const montantTTCLigne = montantHTApresRemise + montantTVA;
+      
+      sousTotalHT += montantHTLigne;
+      remiseTotaleProduits += montantRemise;
+      totalHT += montantHTApresRemise;
+      tvaParProduit.push({
+        produitId: p.id,
+        libelle: p.libelle,
+        taux: tauxTVANumerique * 100,
+        montant: montantTVA
+      });
+      totalTTC += montantTTCLigne;
+    });
     
-    setTimeout(() => {
-      toast.style.animation = 'slide-out 0.3s ease-out';
-      setTimeout(() => toast.remove(), 300);
-    }, duration);
+    // Remise client
+    const tauxRemiseClient = clientRemise;
+    const montantRemiseClient = totalHT * (tauxRemiseClient / 100);
+    const totalHTApresRemiseClient = totalHT - montantRemiseClient;
+    
+    // TVA totale après remise client
+    const tvaTotale = tvaParProduit.reduce((sum, item) => sum + item.montant, 0);
+    const totalTTCApresRemiseClient = totalHTApresRemiseClient + tvaTotale;
+    
+    // Économies totales
+    const totalEconomies = remiseTotaleProduits + montantRemiseClient;
+    
+    return {
+      sousTotalHT,
+      remiseTotaleProduits,
+      totalHT,
+      tvaParProduit,
+      tvaTotale,
+      totalTTC,
+      tauxRemiseClient,
+      montantRemiseClient,
+      totalHTApresRemiseClient,
+      totalTTCApresRemiseClient,
+      totalEconomies
+    };
   };
+
+  const totaux = calculerTotaux();
 
   const handleAddProduct = (produit) => {
     const existing = selectedProducts.find(p => p.id === produit.id);
@@ -224,30 +228,23 @@ const CreateOrderModal = ({
     } else {
       if (!produit.id) {
         console.error('Produit ajouté sans ID:', produit);
-        showToast('Erreur: le produit n\'a pas d\'ID', 'error');
         return;
       }
       
       onSelectProduct({
         ...produit,
         quantite: 1,
-        prix: produit.prix || produit.prixVente || 0  
+        prix: produit.prixVente || produit.prix || 0,
+        prixVente: produit.prixVente || produit.prix || 0,
+        categorieRemiseStandard: produit.categorieRemiseStandard || 0,
+        categorie: produit.categorie
       });
     }
   };
 
   const handleCreateOrder = () => {
-  
-  console.log('🔍 [CreateOrderModal] selectedClient VALUE:', selectedClient);
-  console.log('🔍 [CreateOrderModal] selectedClient TYPE:', typeof selectedClient);
-  
-  if (!selectedClient || selectedProducts.length === 0) {
-    showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
-    return;
-  }
-
     if (!selectedClient || selectedProducts.length === 0) {
-      showToast('Veuillez sélectionner un client et ajouter des produits', 'error');
+      alert('Veuillez sélectionner un client et ajouter des produits');
       return;
     }
     
@@ -258,58 +255,16 @@ const CreateOrderModal = ({
     });
 
     if (produitSansStock) {
-      showToast(
-        `Stock insuffisant pour "${produitSansStock.libelle}". Disponible: ${produitSansStock.quantiteStock}`,
-        'error',
-        4000
-      );
+      alert(`Stock insuffisant pour "${produitSansStock.libelle}". Disponible: ${produitSansStock.quantiteStock}`);
       return;
     }
 
     onCreateCommande(selectedClient, notes);
-    
-    // Toast de succès (sera affiché après la création réussie)
-    showToast('Commande créée avec succès !', 'success', 3000);
   };
 
   const handleClearCart = () => {
-    // Toast de confirmation personnalisé
-    const confirmToast = document.createElement('div');
-    confirmToast.className = 'fixed top-4 right-4 bg-yellow-500 text-white px-4 py-3 rounded-lg shadow-lg z-[100] animate-slide-in';
-    confirmToast.innerHTML = `
-      <div class="flex items-center mb-3">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-        </svg>
-        <span class="font-medium">Vider le panier ?</span>
-      </div>
-      <div class="flex justify-end space-x-2">
-        <button class="px-3 py-1.5 bg-white text-yellow-600 rounded hover:bg-gray-100 text-sm font-medium transition-colors" id="cancelClear">Annuler</button>
-        <button class="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 text-sm font-medium transition-colors" id="confirmClear">Confirmer</button>
-      </div>
-    `;
-    document.body.appendChild(confirmToast);
-
-    // Gestionnaire pour annuler
-    const cancelBtn = document.getElementById('cancelClear');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        confirmToast.style.animation = 'slide-out 0.3s ease-out';
-        setTimeout(() => confirmToast.remove(), 300);
-      });
-    }
-
-    // Gestionnaire pour confirmer
-    const confirmBtn = document.getElementById('confirmClear');
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', () => {
-        selectedProducts.forEach(p => onSupprimerProduit(p.id));
-        confirmToast.style.animation = 'slide-out 0.3s ease-out';
-        setTimeout(() => confirmToast.remove(), 300);
-
-        // Toast de succès
-        showToast('Panier vidé avec succès', 'success', 2000);
-      });
+    if (window.confirm('Vider le panier ?')) {
+      selectedProducts.forEach(p => onSupprimerProduit(p.id));
     }
   };
 
@@ -343,7 +298,6 @@ const CreateOrderModal = ({
     }
   }, [clientSelectionne, selectedProducts.length]);
 
-  
   // Étape 1 : Sélection du client
   if (currentStep === 1) {
     return (
@@ -357,11 +311,7 @@ const CreateOrderModal = ({
                 <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
                 <p className="text-blue-100 text-sm mt-1">Étape 1 : Sélectionnez un client</p>
               </div>
-              <button 
-                onClick={onClose}
-                className="p-1.5 hover:bg-blue-700 rounded"
-                disabled={isCreating}
-              >
+              <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
                 <XMarkIcon className="h-5 w-5 text-white" />
               </button>
             </div>
@@ -459,19 +409,8 @@ const CreateOrderModal = ({
 
             {/* Boutons */}
             <div className="mt-6 flex justify-between">
-              <SimpleButton
-                onClick={onClose}
-                variant="outline"
-                disabled={isCreating}
-              >
-                Annuler
-              </SimpleButton>
-              <SimpleButton
-                onClick={handleNextStep}
-                disabled={!clientSelectionne || isCreating}
-                variant="primary"
-                className="px-5"
-              >
+              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>Annuler</SimpleButton>
+              <SimpleButton onClick={handleNextStep} disabled={!clientSelectionne || isCreating} variant="primary" className="px-5">
                 {isCreating ? 'Chargement...' : 'Suivant'}
               </SimpleButton>
             </div>
@@ -498,14 +437,10 @@ const CreateOrderModal = ({
               </div>
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 rounded px-3 py-1.5">
-                  <div className="text-xs text-blue-100">Total</div>
-                  <div className="text-sm font-semibold text-white">{totalFinal.toFixed(2)} dt</div>
+                  <div className="text-xs text-blue-100">Total TTC</div>
+                  <div className="text-sm font-semibold text-white">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</div>
                 </div>
-                <button 
-                  onClick={onClose}
-                  className="p-1.5 hover:bg-blue-700 rounded"
-                  disabled={isCreating}
-                >
+                <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
                   <XMarkIcon className="h-5 w-5 text-white" />
                 </button>
               </div>
@@ -532,11 +467,7 @@ const CreateOrderModal = ({
                   <h3 className="font-medium text-gray-800">Produits</h3>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleClientClick(parseInt(selectedClient))}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                    disabled={isCreating}
-                  >
+                  <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>
                     ← Changer client
                   </button>
                 </div>
@@ -560,15 +491,24 @@ const CreateOrderModal = ({
                 {produitsFiltres.map(produit => {
                   const selected = selectedProducts.find(p => p.id === produit.id);
                   const stock = produit.quantiteStock || 0;
+                  const tauxRemise = produit.categorieRemiseStandard || 0;
+                  const tauxTVA = produit.categorie?.tauxTVA || 19;
                   
                   return (
                     <div key={produit.id} className={`border rounded-lg p-3 ${selected ? 'border-blue-300 bg-blue-50' : 'border-gray-200'} ${isCreating ? 'opacity-50' : ''}`}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
-                          {/* ✅ CORRIGÉ: Afficher le nom de la catégorie */}
                           <div className="text-xs text-gray-600">
                             {produit.categorie?.nomCategorie || produit.categorieNom || '—'}
+                          </div>
+                          <div className="flex gap-2 mt-1">
+                            {tauxRemise > 0 && (
+                              <span className="text-xs text-green-600">Remise: {tauxRemise}%</span>
+                            )}
+                            {tauxTVA > 0 && tauxTVA !== 19 && (
+                              <span className="text-xs text-blue-600">TVA: {tauxTVA}%</span>
+                            )}
                           </div>
                           <div className={`text-xs mt-1 ${stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             Stock: {stock} {produit.uniteMesure}
@@ -576,7 +516,7 @@ const CreateOrderModal = ({
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-blue-600 text-sm">
-                            {toNumber(produit.prixVente || produit.prix).toFixed(2)} dt  {/* ✅ CORRIGÉ: prixVente */}
+                            {toNumber(produit.prixVente || produit.prix).toFixed(3)} dt HT
                           </div>
                           <button
                             onClick={() => handleAddProduct(produit)}
@@ -610,11 +550,7 @@ const CreateOrderModal = ({
                                 <PlusIcon className="h-3 w-3" />
                               </button>
                             </div>
-                            <button
-                              onClick={() => onSupprimerProduit(produit.id)}
-                              className="text-red-600 hover:text-red-700 text-xs flex items-center disabled:opacity-50"
-                              disabled={isCreating}
-                            >
+                            <button onClick={() => onSupprimerProduit(produit.id)} className="text-red-600 hover:text-red-700 text-xs flex items-center disabled:opacity-50" disabled={isCreating}>
                               <TrashIcon className="h-3 w-3 mr-1" />
                               Retirer
                             </button>
@@ -628,14 +564,8 @@ const CreateOrderModal = ({
 
               {/* Navigation */}
               <div className="mt-6 flex justify-between">
-                <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
-                  ← Retour
-                </SimpleButton>
-                <SimpleButton
-                  onClick={handleNextStep}
-                  disabled={selectedProducts.length === 0 || isCreating}
-                  variant="primary"
-                >
+                <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>← Retour</SimpleButton>
+                <SimpleButton onClick={handleNextStep} disabled={selectedProducts.length === 0 || isCreating} variant="primary">
                   {isCreating ? 'Chargement...' : 'Suivant → Valider'}
                 </SimpleButton>
               </div>
@@ -645,7 +575,7 @@ const CreateOrderModal = ({
             <div className="w-80 border-l border-gray-200 p-6 overflow-y-auto bg-gray-50">
               <h3 className="font-medium text-gray-800 mb-3">Panier</h3>
               
-              {/* Client sélectionné */}
+              {/* Client sélectionné avec remise */}
               <div className="bg-white p-3 rounded-lg border mb-4">
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center">
@@ -657,16 +587,14 @@ const CreateOrderModal = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
-                    <button
-                      onClick={() => handleClientClick(parseInt(selectedClient))}
-                      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
-                      title="Changer de client"
-                      disabled={isCreating}
-                    >
-                      ✕
-                    </button>
+                    <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50" title="Changer de client" disabled={isCreating}>✕</button>
                   </div>
                 </div>
+                {totaux.tauxRemiseClient > 0 && (
+                  <div className="mt-2 pt-2 border-t text-xs text-green-600">
+                    Remise client: {totaux.tauxRemiseClient}%
+                  </div>
+                )}
               </div>
 
               {selectedProducts.length === 0 ? (
@@ -676,59 +604,99 @@ const CreateOrderModal = ({
                 </div>
               ) : (
                 <>
-                  {/* Produits panier */}
-                  <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
-                    {selectedProducts.map(produit => (
-                      <div key={produit.id} className="bg-white p-2 rounded border">
-                        <div className="flex justify-between">
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
-                            <div className="text-xs text-gray-600">
-                              {produit.quantite} × {toNumber(produit.prix).toFixed(2)} dt
+                  {/* Produits panier avec TVA */}
+                  <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
+                    {selectedProducts.map(produit => {
+                      const tauxRemise = produit.categorieRemiseStandard || 0;
+                      const tauxTVA = produit.categorie?.tauxTVA || 19;
+                      const totalLigne = toNumber(produit.prixVente || produit.prix) * produit.quantite;
+                      const montantRemise = totalLigne * (tauxRemise / 100);
+                      const totalApresRemise = totalLigne - montantRemise;
+                      const montantTVA = totalApresRemise * (tauxTVA / 100);
+                      const totalTTCLigne = totalApresRemise + montantTVA;
+                      
+                      return (
+                        <div key={produit.id} className="bg-white p-3 rounded-lg border shadow-sm">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{produit.libelle}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {produit.categorie?.nomCategorie || produit.categorieNom || '—'}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {produit.quantite} × {toNumber(produit.prixVente || produit.prix).toFixed(3)} dt
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {tauxRemise > 0 && (
+                                  <span className="text-xs text-green-600">Remise: {tauxRemise}%</span>
+                                )}
+                                <span className="text-xs text-blue-600">TVA: {tauxTVA}%</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-blue-600 text-sm">
-                              {(toNumber(produit.prix) * produit.quantite).toFixed(2)} dt
+                            <div className="text-right">
+                              <div className="font-semibold text-blue-600">
+                                {totalTTCLigne.toFixed(3)} dt TTC
+                              </div>
+                              {montantRemise > 0 && (
+                                <div className="text-xs text-green-600 mt-1">
+                                  -{montantRemise.toFixed(3)} dt
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Bouton vider */}
-                  <SimpleButton
-                    onClick={handleClearCart}
-                    variant="danger"
-                    className="w-full mb-4"
-                    disabled={isCreating}
-                  >
-                    <TrashIcon className="h-3 w-3 mr-1 inline" />
-                    Vider le panier
+                  <SimpleButton onClick={handleClearCart} variant="danger" className="w-full mb-4" disabled={isCreating}>
+                    <TrashIcon className="h-3 w-3 mr-1 inline" /> Vider le panier
                   </SimpleButton>
 
-                  {/* Totaux */}
+                  {/* Totaux détaillés */}
                   <div className="bg-white p-4 rounded-lg border">
                     <div className="space-y-2 mb-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Sous-total</span>
-                        <span className="font-medium">{totalProduits.toFixed(2)} dt</span>
+                        <span className="text-gray-700">Sous-total HT</span>
+                        <span className="font-medium">{totaux.sousTotalHT.toFixed(3)} dt</span>
                       </div>
                       
-                      {remisePourcentage > 0 && (
+                      {totaux.remiseTotaleProduits > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
-                          <span>Remise ({Math.round(remisePourcentage * 100)}%)</span>
-                          <span className="font-medium">-{montantRemise.toFixed(2)} dt</span>
+                          <span>Remises produits</span>
+                          <span className="font-medium">-{totaux.remiseTotaleProduits.toFixed(3)} dt</span>
                         </div>
                       )}
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-700">Total HT</span>
+                        <span className="font-medium">{totaux.totalHT.toFixed(3)} dt</span>
+                      </div>
+                      
+                      {totaux.tauxRemiseClient > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Remise client ({totaux.tauxRemiseClient}%)</span>
+                          <span className="font-medium">-{totaux.montantRemiseClient.toFixed(3)} dt</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-700">TVA totale</span>
+                        <span className="font-medium">{totaux.tvaTotale.toFixed(3)} dt</span>
+                      </div>
                     </div>
                     
                     <div className="border-t pt-3">
                       <div className="flex justify-between font-medium">
-                        <span>Total</span>
-                        <span className="text-green-600">{totalFinal.toFixed(2)} dt</span>
+                        <span>Total TTC</span>
+                        <span className="text-green-600 text-lg">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</span>
                       </div>
+                      {totaux.totalEconomies > 0 && (
+                        <div className="text-right text-xs text-green-600 mt-1">
+                          Économie : {totaux.totalEconomies.toFixed(3)} dt
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -752,11 +720,7 @@ const CreateOrderModal = ({
               <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
               <p className="text-blue-100 text-sm mt-1">Étape 3 : Validation</p>
             </div>
-            <button 
-              onClick={onClose}
-              className="p-1.5 hover:bg-blue-700 rounded"
-              disabled={isCreating}
-            >
+            <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
               <XMarkIcon className="h-5 w-5 text-white" />
             </button>
           </div>
@@ -790,13 +754,7 @@ const CreateOrderModal = ({
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium text-gray-800">Client</h4>
-              <button
-                onClick={() => handleClientClick(parseInt(selectedClient))}
-                className="text-sm text-blue-600 hover:text-blue-700"
-                disabled={isCreating}
-              >
-                Changer
-              </button>
+              <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>Changer</button>
             </div>
             <div className="bg-white border rounded-lg p-4">
               <div className="flex justify-between items-center">
@@ -809,26 +767,22 @@ const CreateOrderModal = ({
                 </div>
                 <div className="flex items-center space-x-2">
                   <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
-                  <button
-                    onClick={() => handleClientClick(parseInt(selectedClient))}
-                    className="text-xs text-red-600 hover:text-red-700"
-                    title="Changer de client"
-                    disabled={isCreating}
-                  >
-                    ✕
-                  </button>
+                  <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-xs text-red-600 hover:text-red-700" title="Changer de client" disabled={isCreating}>✕</button>
                 </div>
               </div>
+              {totaux.tauxRemiseClient > 0 && (
+                <div className="mt-2 text-xs text-green-600">
+                  Remise client: {totaux.tauxRemiseClient}% appliquée
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Produits */}
+          {/* Produits avec TVA */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium text-gray-800">Produits</h4>
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                {selectedProducts.length} article{selectedProducts.length !== 1 ? 's' : ''}
-              </span>
+              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">{selectedProducts.length} article{selectedProducts.length !== 1 ? 's' : ''}</span>
             </div>
             
             <div className="bg-white border rounded-lg overflow-hidden">
@@ -838,34 +792,49 @@ const CreateOrderModal = ({
                     <tr>
                       <th className="px-4 py-2 text-left text-xs text-gray-500">Produit</th>
                       <th className="px-4 py-2 text-left text-xs text-gray-500">Qté</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Prix</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Total</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">Prix HT</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">Remise</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">TVA</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">Total TTC</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedProducts.map(produit => (
-                      <tr key={produit.id} className="border-t">
-                        <td className="px-4 py-2">
-                          <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
-                        </td>
-                        <td className="px-4 py-2 text-gray-900 text-sm">{produit.quantite}</td>
-                        <td className="px-4 py-2 text-gray-900 text-sm">{toNumber(produit.prix).toFixed(2)} dt</td>
-                        <td className="px-4 py-2 font-medium text-blue-600 text-sm">
-                          {(toNumber(produit.prix) * produit.quantite).toFixed(2)} dt
-                        </td>
-                      </tr>
-                    ))}
+                    {selectedProducts.map(produit => {
+                      const tauxRemise = produit.categorieRemiseStandard || 0;
+                      const tauxTVA = produit.categorie?.tauxTVA || 19;
+                      const totalLigne = toNumber(produit.prixVente || produit.prix) * produit.quantite;
+                      const montantRemise = totalLigne * (tauxRemise / 100);
+                      const totalApresRemise = totalLigne - montantRemise;
+                      const montantTVA = totalApresRemise * (tauxTVA / 100);
+                      const totalTTCLigne = totalApresRemise + montantTVA;
+                      
+                      return (
+                        <tr key={produit.id} className="border-t">
+                          <td className="px-4 py-2">
+                            <div className="font-medium text-gray-900 text-sm">{produit.libelle}</div>
+                            <div className="text-xs text-gray-500">{produit.categorie?.nomCategorie || produit.categorieNom || '—'}</div>
+                          </td>
+                          <td className="px-4 py-2 text-gray-900 text-sm">{produit.quantite}</td>
+                          <td className="px-4 py-2 text-gray-900 text-sm">{toNumber(produit.prixVente || produit.prix).toFixed(3)} dt</td>
+                          <td className="px-4 py-2">
+                            {tauxRemise > 0 ? (
+                              <span className="text-xs text-green-600">-{montantRemise.toFixed(3)} dt ({tauxRemise}%)</span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className="text-xs text-blue-600">{montantTVA.toFixed(3)} dt ({tauxTVA}%)</span>
+                          </td>
+                          <td className="px-4 py-2 font-medium text-blue-600 text-sm">{totalTTCLigne.toFixed(3)} dt</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
               <div className="border-t p-3">
-                <button
-                  onClick={() => setCurrentStep(2)}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                  disabled={isCreating}
-                >
-                  ← Modifier
-                </button>
+                <button onClick={() => setCurrentStep(2)} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>← Modifier</button>
               </div>
             </div>
           </div>
@@ -873,57 +842,63 @@ const CreateOrderModal = ({
           {/* Notes */}
           <div className="mb-6">
             <h4 className="font-medium text-gray-800 mb-2">Notes</h4>
-            <textarea
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              rows="2"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Instructions supplémentaires..."
-              disabled={isCreating}
-            />
+            <textarea className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm" rows="2" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Instructions supplémentaires..." disabled={isCreating} />
           </div>
 
-          {/* Totaux */}
+          {/* Totaux détaillés */}
           <div className="bg-gray-50 border rounded-lg p-4 mb-6">
             <h4 className="font-medium text-gray-800 mb-3">Récapitulatif</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-700">Sous-total</span>
-                <span className="font-medium">{totalProduits.toFixed(2)} dt</span>
+                <span className="text-gray-700">Sous-total HT</span>
+                <span className="font-medium">{totaux.sousTotalHT.toFixed(3)} dt</span>
               </div>
               
-              {remisePourcentage > 0 && (
+              {totaux.remiseTotaleProduits > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
-                  <span>Remise ({Math.round(remisePourcentage * 100)}%)</span>
-                  <span className="font-medium">-{montantRemise.toFixed(2)} dt</span>
+                  <span>Remises produits</span>
+                  <span className="font-medium">-{totaux.remiseTotaleProduits.toFixed(3)} dt</span>
                 </div>
               )}
               
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-700">Total HT</span>
+                <span className="font-medium">{totaux.totalHT.toFixed(3)} dt</span>
+              </div>
+              
+              {totaux.tauxRemiseClient > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Remise client ({totaux.tauxRemiseClient}%)</span>
+                  <span className="font-medium">-{totaux.montantRemiseClient.toFixed(3)} dt</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-700">TVA totale</span>
+                <span className="font-medium">{totaux.tvaTotale.toFixed(3)} dt</span>
+              </div>
+              
               <div className="border-t pt-3">
                 <div className="flex justify-between font-medium">
-                  <span>Total commande</span>
-                  <span className="text-green-600 text-lg">{totalFinal.toFixed(2)} dt</span>
+                  <span>Total TTC</span>
+                  <span className="text-green-600 text-lg">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</span>
                 </div>
+                {totaux.totalEconomies > 0 && (
+                  <div className="text-right text-xs text-green-600 mt-1">
+                    Économies : {totaux.totalEconomies.toFixed(3)} dt
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Boutons finaux */}
           <div className="flex justify-between pt-4 border-t">
-            <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
-              ← Retour
-            </SimpleButton>
+            <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>← Retour</SimpleButton>
             
             <div className="flex space-x-3">
-              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>
-                Annuler
-              </SimpleButton>
-              <SimpleButton 
-                onClick={handleCreateOrder} 
-                variant="primary" 
-                className="px-6"
-                disabled={isCreating}
-              >
+              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>Annuler</SimpleButton>
+              <SimpleButton onClick={handleCreateOrder} variant="primary" className="px-6" disabled={isCreating}>
                 {isCreating ? (
                   <span className="flex items-center">
                     <svg className="animate-spin h-4 w-4 mr-2 text-white" fill="none" viewBox="0 0 24 24">

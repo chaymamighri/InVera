@@ -167,7 +167,6 @@ const ProduitToolbar = ({
                 <option value="">Tous les niveaux</option>
                 <option value="EN_STOCK">En stock</option>
                 <option value="FAIBLE">Stock faible</option>
-                <option value="CRITIQUE">Stock critique</option>
                 <option value="RUPTURE">Rupture</option>
               </select>
             </div>

@@ -28,14 +28,34 @@ const DEFAULT_TRANSLATIONS = {
   'salesPages.status': 'Statut',
   'salesPages.actions': 'Actions',
   'salesPages.pending': 'En attente',
-  'salesPages.confirmed': 'Confirmé',
-  'salesPages.rejected': 'Refusé',
+  'salesPages.confirmed': 'Confirmée',
+  'salesPages.rejected': 'Annulée',
   'salesPages.view': 'Voir détails',
   'salesPages.validate': 'Valider',
-  'salesPages.reject': 'Rejeter',
+  'salesPages.reject': 'Annuler',
   'salesPages.noOrdersFound': 'Aucune commande trouvée',
   'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
   'salesPages.processed': 'Traitée'
+};
+
+// ✅ Mapping des statuts pour l'affichage
+const getStatusDisplay = (status) => {
+  const statusMap = {
+    'EN_ATTENTE': { label: 'En attente', icon: ClockIcon, color: 'yellow' },
+    'CONFIRMEE': { label: 'Confirmée', icon: CheckBadgeIcon, color: 'green' },
+    'ANNULEE': { label: 'Annulée', icon: XMarkIcon, color: 'red' }
+  };
+  return statusMap[status] || { label: status, icon: ClockIcon, color: 'gray' };
+};
+
+// ✅ Couleurs des statuts
+const getStatusColor = (status) => {
+  const colors = {
+    'EN_ATTENTE': 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200',
+    'CONFIRMEE': 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200',
+    'ANNULEE': 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200';
 };
 
 const OrderTable = ({
@@ -103,7 +123,7 @@ const OrderTable = ({
       case 'ENTREPRISE':
       case 'PROFESSIONNEL':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'STANDARD':
+      case 'PARTICULIER':
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -309,6 +329,11 @@ const OrderTable = ({
           <tbody className="bg-white divide-y divide-gray-100">
             {currentCommandes.map((commande) => {
               const pourcentageRemise = calculerPourcentageRemise(commande.sousTotal, commande.remise);
+              const statusInfo = getStatusDisplay(commande.statut);
+              const StatusIcon = statusInfo.icon;
+              const isPending = commande.statut === 'EN_ATTENTE';
+              const isConfirmed = commande.statut === 'CONFIRMEE';
+              const isCancelled = commande.statut === 'ANNULEE';
 
               return (
                 <tr key={commande.id} className="hover:bg-gray-50 transition-colors">
@@ -411,25 +436,11 @@ const OrderTable = ({
                     <div className="flex justify-center">
                       <button
                         type="button"
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center justify-center w-32 ${
-                          commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente'
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
-                            : commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé'
-                              ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
-                              : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
-                        } transition-colors`}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center justify-center w-32 ${getStatusColor(commande.statut)} transition-colors`}
                       >
-                        {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && <ClockIcon className="h-3.5 w-3.5 mr-1.5" />}
-                        {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé') && <CheckBadgeIcon className="h-3.5 w-3.5 mr-1.5" />}
-                        {(commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && <XMarkIcon className="h-3.5 w-3.5 mr-1.5" />}
+                        <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                         <span className="font-semibold">
-                          {commande.statut === 'EN_ATTENTE'
-                            ? safeT('salesPages.pending')
-                            : commande.statut === 'CONFIRMEE'
-                              ? safeT('salesPages.confirmed')
-                              : commande.statut === 'ANNULEE'
-                                ? safeT('salesPages.rejected')
-                                : commande.statut}
+                          {statusInfo.label}
                         </span>
                       </button>
                     </div>
@@ -446,7 +457,7 @@ const OrderTable = ({
                         <EyeIcon className="h-4 w-4" />
                       </button>
 
-                      {(commande.statut === 'EN_ATTENTE' || commande.statut === 'En attente') && (
+                      {isPending && (
                         <>
                           <button
                             type="button"
@@ -468,8 +479,7 @@ const OrderTable = ({
                         </>
                       )}
 
-                      {(commande.statut === 'CONFIRMEE' || commande.statut === 'Confirmé' ||
-                        commande.statut === 'ANNULEE' || commande.statut === 'Refusé') && (
+                      {(isConfirmed || isCancelled) && (
                         <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300">
                           {safeT('salesPages.processed')}
                         </span>

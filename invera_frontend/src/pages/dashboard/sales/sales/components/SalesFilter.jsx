@@ -1,21 +1,17 @@
 /**
  * SalesFilters - Barre de filtres pour les commandes validées
  * 
- * Permet de filtrer et trier la liste des commandes.
+ * Permet de filtrer la liste des commandes.
  * 
  * FONCTIONNALITÉS :
  * - Recherche par texte (n° commande, client, produit)
  * - Filtre par date de création
- * - Tri par (date, numéro, client, montant)
- * - Ordre croissant/décroissant
  * - Réinitialisation des filtres
  * - Affichage des filtres actifs
  * 
  * @param {Object} filters - État des filtres
  * @param {string} filters.searchTerm - Terme de recherche
  * @param {Object} filters.dateRange - Plage de dates { from, to }
- * @param {string} filters.sortBy - Champ de tri (date_creation, numero_commande, client, montant)
- * @param {string} filters.sortOrder - Ordre de tri (asc/desc)
  * @param {Function} onFilterChange - (key, value) => void
  * @param {number} totalFiltered - Nombre de résultats après filtrage
  */
@@ -25,26 +21,15 @@ import {
   MagnifyingGlassIcon,
   CalendarIcon,
   FunnelIcon,
-  ArrowsUpDownIcon,
   ArrowPathIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
-  // Options de tri disponibles
-  const sortOptions = [
-    { value: 'date_creation', label: 'Date création' },
-    { value: 'numero_commande', label: 'N° Commande' },
-    { value: 'client', label: 'Client' },
-    { value: 'montant', label: 'Montant' }
-  ];
-
   // Valeurs par défaut des filtres
   const defaultFilters = {
     searchTerm: '',
-    dateRange: { from: '', to: '' },
-    sortBy: 'date_creation',
-    sortOrder: 'desc'
+    dateRange: { from: '', to: '' }
   };
 
   // Vérifie si des filtres sont actifs (recherche ou date)
@@ -53,23 +38,10 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
            filters.dateRange?.from?.trim() !== '';
   };
 
-  // Vérifie si le tri est différent des valeurs par défaut
-  const isSortModified = () => {
-    return filters.sortBy !== defaultFilters.sortBy || 
-           filters.sortOrder !== defaultFilters.sortOrder;
-  };
-
   // Réinitialise tous les filtres
   const handleReset = () => {
     onFilterChange('searchTerm', defaultFilters.searchTerm);
     onFilterChange('dateRange', defaultFilters.dateRange);
-    onFilterChange('sortBy', defaultFilters.sortBy);
-    onFilterChange('sortOrder', defaultFilters.sortOrder);
-  };
-
-  // Inverse l'ordre de tri (asc ↔ desc)
-  const handleSortToggle = () => {
-    onFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc');
   };
 
   // Gère le changement de date
@@ -144,8 +116,8 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           </div>
         </div>
         
-        {/* Bouton Réinitialiser (visible si filtre actif OU tri modifié) */}
-        {(hasActiveFilters() || isSortModified()) && (
+        {/* Bouton Réinitialiser (visible si filtre actif) */}
+        {hasActiveFilters() && (
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm 
@@ -163,7 +135,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
       </div>
 
       {/* ===== CHAMPS DE FILTRAGE ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         {/* 1. Recherche textuelle */}
         <div className="space-y-2">
@@ -248,71 +220,6 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               {formatDate(filters.dateRange.from)}
             </p>
           )}
-        </div>
-
-        {/* 3. Tri */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Trier par
-          </label>
-          <div className="flex gap-2">
-            {/* Sélecteur du champ de tri */}
-            <div className="relative flex-1 group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <ArrowsUpDownIcon className={`h-5 w-5 transition-colors duration-200 ${
-                  isSortModified() ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                }`} />
-              </div>
-              <select
-                className={`w-full pl-10 pr-8 py-2.5 border rounded-lg 
-                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                         transition-all duration-200 hover:border-gray-400 
-                         appearance-none bg-white cursor-pointer
-                         ${isSortModified() 
-                           ? 'border-blue-300 bg-blue-50/30 ring-1 ring-blue-200' 
-                           : 'border-gray-300'
-                         }`}
-                value={filters.sortBy || 'date_creation'}
-                onChange={(e) => onFilterChange('sortBy', e.target.value)}
-              >
-                {sortOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-            
-            {/* Bouton d'inversion de l'ordre (asc/desc) */}
-            <button
-              onClick={handleSortToggle}
-              className={`
-                flex items-center justify-center w-12 px-3 py-2.5 border rounded-lg 
-                transition-all duration-200 hover:shadow-md active:scale-95
-                ${filters.sortOrder === 'desc' 
-                  ? 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300 text-gray-700 hover:from-gray-100 hover:to-gray-200' 
-                  : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-indigo-100'
-                }
-                ${isSortModified() ? 'ring-1 ring-offset-1 ring-blue-200' : ''}
-              `}
-              title={filters.sortOrder === 'desc' ? 'Ordre décroissant' : 'Ordre croissant'}
-            >
-              {filters.sortOrder === 'desc' ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13l-7 7-7-7m14-8l-7 7-7-7" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 11l7-7 7 7M5 19l7-7 7 7" />
-                </svg>
-              )}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -419,7 +326,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           </div>
           
           {/* Indicateur de statut des filtres */}
-          {!hasActiveFilters() && !isSortModified() && (
+          {!hasActiveFilters() && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
               Toutes les commandes

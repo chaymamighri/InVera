@@ -1,5 +1,5 @@
 // src/pages/dashboard/sales/products/components/OrderModal/index.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   XMarkIcon,
   CheckCircleIcon,
@@ -8,7 +8,6 @@ import {
 } from '@heroicons/react/24/outline';
 import SelectedProductsSection from './SelectedProductsSection';
 import ClientSelectionSection from './ClientSelectionSection';
-import { useNavigate } from 'react-router-dom';
 
 const OrderModal = ({
   showCreateOrder,
@@ -18,22 +17,20 @@ const OrderModal = ({
   clients,
   selectedClient,
   setSelectedClient,
-  newClientMode,
-  setNewClientMode,
-  nouveauClient,
-  setNouveauClient,
   remiseAppliquee,
   handleSelectClient,
   handleCreateCommande,
   checkDisponibilite,
-  clientTypes,
-  loadClients,
   loadingClients,
-  applyRemiseByClientType,
-  onOrderCreated
+  applyRemiseByClientType
 }) => {
-  const navigate = useNavigate();
-  
+  // ✅ Réinitialiser le client sélectionné quand le modal s'ouvre
+  useEffect(() => {
+    if (showCreateOrder) {
+      setSelectedClient(null);
+    }
+  }, [showCreateOrder, setSelectedClient]);
+
   if (!showCreateOrder) return null;
 
   return (
@@ -42,12 +39,15 @@ const OrderModal = ({
         <div className="p-6">
           {/* En-tête */}
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">
-              Créer une Commande Client ({selectedProducts.length} produit{selectedProducts.length > 1 ? 's' : ''})
-            </h2>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Nouvelle commande</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedProducts.length} produit{selectedProducts.length > 1 ? 's' : ''} sélectionné{selectedProducts.length > 1 ? 's' : ''}
+              </p>
+            </div>
             <button
               onClick={() => setShowCreateOrder(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -65,65 +65,53 @@ const OrderModal = ({
             clients={clients}
             selectedClient={selectedClient}
             setSelectedClient={setSelectedClient}
-            newClientMode={newClientMode}
-            setNewClientMode={setNewClientMode}
-            nouveauClient={nouveauClient}
-            setNouveauClient={setNouveauClient}
             remiseAppliquee={remiseAppliquee}
             handleSelectClient={handleSelectClient}
-            clientTypes={clientTypes}
             loadingClients={loadingClients}
             applyRemiseByClientType={applyRemiseByClientType}
-            loadClients={loadClients}
           />
 
           {/* Vérification de disponibilité */}
-          <div className="mb-8">
+          <div className="mb-6">
             <div className={`p-4 rounded-xl ${checkDisponibilite(selectedProducts) ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-center">
+              <div className="flex items-center gap-3">
                 {checkDisponibilite(selectedProducts) ? (
-                  <>
-                    <CheckCircleIcon className="h-6 w-6 text-green-600 mr-3" />
-                    <div>
-                      <span className="text-green-700 font-medium">Tous les produits sont disponibles</span>
-                      <p className="text-sm text-green-600 mt-1">
-                        La commande peut être traitée immédiatement
-                      </p>
-                    </div>
-                  </>
+                  <CheckCircleIcon className="h-5 w-5 text-green-600" />
                 ) : (
-                  <>
-                    <XCircleIcon className="h-6 w-6 text-red-600 mr-3" />
-                    <div>
-                      <span className="text-red-700 font-medium">Problème de disponibilité</span>
-                      <p className="text-sm text-red-600 mt-1">
-                        {selectedProducts.filter(p => (p.quantiteStock || 0) < (p.quantiteCommande || 1)).length} 
-                        produit(s) avec stock insuffisant
-                      </p>
-                    </div>
-                  </>
+                  <XCircleIcon className="h-5 w-5 text-red-600" />
                 )}
+                <div>
+                  <span className={`font-medium ${checkDisponibilite(selectedProducts) ? 'text-green-700' : 'text-red-700'}`}>
+                    {checkDisponibilite(selectedProducts) ? 'Tous les produits sont disponibles' : 'Problème de disponibilité'}
+                  </span>
+                  {!checkDisponibilite(selectedProducts) && (
+                    <p className="text-sm text-red-600 mt-0.5">
+                      {selectedProducts.filter(p => (p.quantiteStock || 0) < (p.quantiteCommande || 1)).length} 
+                      produit(s) avec stock insuffisant
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Boutons Créer/Annuler */}
-          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               onClick={() => setShowCreateOrder(false)}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
               Annuler
             </button>
             <button
               onClick={handleCreateCommande}
               disabled={!selectedClient || !checkDisponibilite(selectedProducts)}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center shadow-sm hover:shadow-md transition-all"
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 shadow-sm transition-all"
             >
-              <ShoppingCartIcon className="h-5 w-5 mr-2" />
-              Créer la Commande
+              <ShoppingCartIcon className="h-4 w-4" />
+              Créer la commande
               {remiseAppliquee > 0 && (
-                <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                <span className="ml-1 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">
                   -{remiseAppliquee}%
                 </span>
               )}

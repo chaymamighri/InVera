@@ -23,7 +23,8 @@ const IMAGES_BY_CATEGORY = {
   'vetement': 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
   'alimentation': 'https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
   'decoration': 'https://images.unsplash.com/photo-1513519245088-0e12902e35a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'jardin': 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
+  'jardin': 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
+  'smartphone': 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
 };
 
 // ========== FONCTIONS UTILITAIRES ==========
@@ -44,13 +45,11 @@ const normalizeImageUrl = (imageUrl, categorie) => {
     return getCategoryImage(categorie);
   }
   
-  if (imageUrl.includes('undefined') || imageUrl.includes('null') || imageUrl.includes('iphone-15-pro-finish')) {
+  if (imageUrl.includes('undefined') || imageUrl.includes('null')) {
     return getCategoryImage(categorie);
   }
   
-  // ✅ CORRECTION : Si l'URL contient déjà "uploads/produits/", l'utiliser directement
   if (imageUrl.includes('uploads/produits/')) {
-    // Nettoyer l'URL pour éviter les doubles slashes
     let cleanUrl = imageUrl;
     if (!cleanUrl.startsWith('http')) {
       cleanUrl = `http://localhost:8081/${cleanUrl}`;
@@ -58,12 +57,10 @@ const normalizeImageUrl = (imageUrl, categorie) => {
     return cleanUrl;
   }
   
-  // Si l'URL commence par /uploads/ (sans "produits")
   if (imageUrl.startsWith('/uploads/')) {
     return `http://localhost:8081${imageUrl}`;
   }
   
-  // Pour les autres cas (juste le nom du fichier)
   if (!imageUrl.startsWith('http')) {
     return `http://localhost:8081/uploads/produits/${imageUrl}`;
   }
@@ -100,13 +97,28 @@ const ProductTable = ({
     setCurrentProducts(products.slice(startIndex, endIndex));
   }, [products, currentPage, itemsPerPage]);
 
-  // Normaliser les données du produit (version simplifiée)
+  // ✅ Normaliser les données du produit avec remise de la catégorie
   const normalizeProductData = useCallback((product) => {
-    const categorie = product.categorie?.nomCategorie || product.categorie || '';
-    const imageUrl = normalizeImageUrl(product.imageUrl, categorie);
+    // Récupérer le nom de la catégorie
+    const categorie = product.categorie?.nomCategorie || product.categorieNom || product.categorie || '';
     
-    const remise = product.remiseTemporaire || 0;
-    const prixBase = product.prixVente || 0;
+    // ✅ Récupérer la remise depuis la catégorie
+    let remise = 0;
+    if (product.categorie?.remiseStandard !== undefined && product.categorie?.remiseStandard !== null) {
+      remise = Number(product.categorie.remiseStandard);
+    } else if (product.categorieRemiseStandard !== undefined && product.categorieRemiseStandard !== null) {
+      remise = Number(product.categorieRemiseStandard);
+    } else if (product.remiseStandard !== undefined && product.remiseStandard !== null) {
+      remise = Number(product.remiseStandard);
+    }
+    
+    // Si aucune remise trouvée, utiliser la remise temporaire du produit (fallback)
+    if (remise === 0 && product.remiseTemporaire) {
+      remise = Number(product.remiseTemporaire);
+    }
+    
+    const imageUrl = normalizeImageUrl(product.imageUrl, categorie);
+    const prixBase = Number(product.prixVente) || 0;
     const prixAvecRemise = remise > 0 ? prixBase * (1 - remise / 100) : prixBase;
     
     return {
@@ -114,8 +126,8 @@ const ProductTable = ({
       libelle: product.libelle || 'Produit sans nom',
       imageUrl: imageUrl,
       categorie: categorie,
-      prixVente: Number(prixBase),
-      remiseTemporaire: Number(remise),
+      prixVente: prixBase,
+      remiseTemporaire: remise,
       prix: prixAvecRemise,
       prixInitial: prixBase,
       remise: remise,
@@ -306,7 +318,7 @@ const ProductTable = ({
         </div>
       </div>
 
-      {/* Tableau des produits simplifié */}
+      {/* Tableau des produits */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -319,10 +331,11 @@ const ProductTable = ({
                   onChange={handleSelectAll}
                 />
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produit</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remise</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -334,6 +347,9 @@ const ProductTable = ({
               const isAvailable = checkDisponibiliteProduit(normalizedProduct);
               const imageUrl = getImageUrl(normalizedProduct);
               const isOutOfStock = normalizedProduct.quantiteStock <= 0;
+              const afficherRemise = normalizedProduct.remise > 0;
+              const prixFinal = normalizedProduct.prix;
+              const prixOriginal = normalizedProduct.prixInitial;
               
               return (
                 <tr key={normalizedProduct.idProduit} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -366,19 +382,25 @@ const ProductTable = ({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-sm font-medium text-gray-900">{normalizedProduct.libelle}</h3>
-                        {normalizedProduct.remiseTemporaire > 0 && (
-                          <span className="inline-block mt-1 text-xs text-red-600 font-medium">
-                            🔥 Remise {normalizedProduct.remiseTemporaire}%
-                          </span>
-                        )}
+                        <p className="text-xs text-gray-500">{normalizedProduct.categorie || 'Sans catégorie'}</p>
                       </div>
                     </div>
                   </td>
                   
                   <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900">{normalizedProduct.prix.toFixed(2)} dt</div>
-                    {normalizedProduct.remise > 0 && (
-                      <div className="text-xs text-gray-500 line-through">{normalizedProduct.prixInitial.toFixed(2)} dt</div>
+                    <div className="font-bold text-gray-900">{prixFinal.toFixed(3)} dt</div>
+                    {afficherRemise && (
+                      <div className="text-xs text-gray-400 line-through">{prixOriginal.toFixed(3)} dt</div>
+                    )}
+                  </td>
+                  
+                  <td className="px-6 py-4">
+                    {afficherRemise ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {normalizedProduct.remise}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
                     )}
                   </td>
                   
@@ -387,7 +409,7 @@ const ProductTable = ({
                       {normalizedProduct.quantiteStock} unités
                     </div>
                     {isOutOfStock && (
-                      <span className="text-xs text-red-600">Rupture</span>
+                      <span className="text-xs text-red-600 font-medium">Rupture de stock</span>
                     )}
                   </td>
                   
@@ -408,7 +430,7 @@ const ProductTable = ({
                             max={normalizedProduct.quantiteStock}
                             value={quantiteCommande}
                             onChange={(e) => handleChangeQuantite(normalizedProduct.idProduit, parseInt(e.target.value) || 1)}
-                            className="w-14 text-center py-1 border-x"
+                            className="w-14 text-center py-1 border-x text-sm"
                           />
                           <button
                             onClick={() => handleChangeQuantite(normalizedProduct.idProduit, quantiteCommande + 1)}
@@ -420,13 +442,13 @@ const ProductTable = ({
                         </div>
                         <button
                           onClick={() => handleRemoveProduct(normalizedProduct.idProduit)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Retirer"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
                         {!isAvailable && (
-                          <span className="text-xs text-red-600">Stock insuffisant</span>
+                          <span className="text-xs text-red-600 font-medium">Stock insuffisant</span>
                         )}
                       </div>
                     ) : (
@@ -476,7 +498,7 @@ const ProductTable = ({
                 <span className="font-bold">{selectedProducts.length}</span> produit{selectedProducts.length !== 1 ? 's' : ''} sélectionné{selectedProducts.length !== 1 ? 's' : ''}
               </p>
               <p className="text-lg font-bold text-blue-600">
-                Total: {calculerTotaux(selectedProducts).sousTotal.toFixed(2)} dt
+                Total: {calculerTotaux(selectedProducts).sousTotal.toFixed(3)} dt
               </p>
               {!checkDisponibilite(selectedProducts) && (
                 <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
@@ -489,7 +511,7 @@ const ProductTable = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedProducts([])}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Vider le panier
               </button>

@@ -28,7 +28,7 @@
  * 
  * STATUTS DISPONIBLES :
  * - BROUILLON → VALIDEE → ENVOYEE → RECUE 
- * - ANNULEE, REJETEE
+ * -REJETEE
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -48,7 +48,6 @@ export const StatutCommande = {
   VALIDEE: 'VALIDEE',
   ENVOYEE: 'ENVOYEE',
   RECUE: 'RECUE',
-  ANNULEE: 'ANNULEE',
   REJETEE: 'REJETEE',
 };
 
@@ -80,7 +79,6 @@ export const getStatusBadge = (statut) => {
     [StatutCommande.VALIDEE]: 'bg-blue-100 text-blue-800',
     [StatutCommande.ENVOYEE]: 'bg-yellow-100 text-yellow-800',
     [StatutCommande.RECUE]: 'bg-green-100 text-green-800',
-    [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800',
     [StatutCommande.REJETEE]: 'bg-orange-100 text-orange-800',
   };
 
@@ -106,7 +104,6 @@ const CommandesFournisseurs = () => {
     validerCommande,
     envoyerCommande,
     recevoirCommande,
-    annulerCommande,
     rejeterCommande,      
     renvoyerAttente,     
     searchByNumero,
@@ -277,11 +274,6 @@ const CommandesFournisseurs = () => {
           toast.success('Commande renvoyee en attente apres correction');
           break;
         
-        case 'annuler':
-          await annulerCommande(id);
-          toast.success('Commande annulee avec succes');
-          break;
-        
         default:
           console.warn('Action non reconnue:', action);
           return;
@@ -294,7 +286,6 @@ const CommandesFournisseurs = () => {
       await fetchCommandes();
     } catch (statusError) {
       console.error('Erreur changement statut:', statusError);
-      toast.error(`Erreur lors de ${action === 'annuler' ? "l'annulation" : "l'action"}`);
     } finally {
       setActionInProgress(null);
     }

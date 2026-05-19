@@ -52,13 +52,10 @@ import SubscriptionsManagementPage from './pages/superAdmin/abonnements/Subscrip
 import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 import ConditionsInvera from './pages/public/ConditionsInvera';
-<<<<<<< HEAD
 import PaymentsView from './pages/superAdmin/paiement/PaymentsView';
-=======
 import ContactUsPage from './pages/public/ContactUsPage';
 
-import PaymentPage from './pages/public/PaymentPage';
->>>>>>> 4e82e05480b48ed27e6890249acbbc7185fdc51d
+//import PaymentPage from './pages/public/PaymentPage';
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -286,23 +283,7 @@ function App() {
 
             {/* PAYMENT */}
 
-            <Route
-              path="/paiement/checkout"
-              element={
-                <PublicLayout>
-                  <PaymentPage />
-                </PublicLayout>
-              }
-            />
-
-            <Route
-              path="/paiement/succes"
-              element={
-                <PublicLayout>
-                  <PaymentPage />
-                </PublicLayout>
-              }
-            />
+           
 {/*route
 <Route
   path="/paiement/succes"
@@ -328,24 +309,6 @@ function App() {
     </PublicLayout>
   }
 />*/}
-
-            <Route
-              path="/paiement/echec"
-              element={
-                <PublicLayout>
-                  <PaymentPage />
-                </PublicLayout>
-              }
-            />
-
-            <Route
-              path="/paiement/annuler"
-              element={
-                <PublicLayout>
-                  <PaymentPage />
-                </PublicLayout>
-              }
-            />
 
             {/* AUTH */}
 

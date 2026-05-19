@@ -68,7 +68,7 @@ const OrderDetailsModal = ({
   const handleViewInvoice = () => {
     if (onViewInvoice) {
       onViewInvoice(commande.id);
-      onClose(); // Optionnel: fermer cette modale après avoir ouvert la facture
+      onClose(); 
     }
   };
 

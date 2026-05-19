@@ -2,7 +2,7 @@
  * SalesTable - Tableau des commandes validées
  * 
  * Affiche la liste des commandes avec pagination et actions.
- * Permet de voir les détails et de générer/consulter les factures.
+ * Permet de générer/consulter les factures.
  * 
  * @param {Array} commandes - Liste des commandes à afficher
  * @param {boolean} loading - État de chargement
@@ -24,9 +24,10 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DocumentTextIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  ArrowUpIcon,
+  ArrowDownIcon
 } from '@heroicons/react/24/outline';
-import OrderDetailsModal from './OrderDetailsModal';
 
 const SalesTable = ({ 
   commandes, 
@@ -36,17 +37,79 @@ const SalesTable = ({
   invoiceStatus = {} 
 }) => {
   // États
-  const [selectedCommande, setSelectedCommande] = useState(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortConfig, setSortConfig] = useState({
+    key: 'date',
+    direction: 'desc'
+  });
+  
+  // Tri des commandes
+  const sortCommandes = (commandesToSort) => {
+    if (!sortConfig.key) return commandesToSort;
+    
+    return [...commandesToSort].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortConfig.key) {
+        case 'date':
+          aValue = new Date(a.dateCreation);
+          bValue = new Date(b.dateCreation);
+          break;
+        case 'numero':
+          aValue = a.referenceCommandeClient || a.numeroCommande || `CMD-${a.id || a.idCommandeClient}`;
+          bValue = b.referenceCommandeClient || b.numeroCommande || `CMD-${b.id || b.idCommandeClient}`;
+          break;
+        case 'client':
+          aValue = (a.client?.nomComplet || a.client?.nom || 'Client').toLowerCase();
+          bValue = (b.client?.nomComplet || b.client?.nom || 'Client').toLowerCase();
+          break;
+        case 'total':
+          aValue = parseFloat(a.montantTotal || a.total || 0);
+          bValue = parseFloat(b.montantTotal || b.total || 0);
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  };
+
+  // Gestion du tri
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setCurrentPage(1); // Reset à la première page quand on trie
+  };
+
+  // Récupère l'icône de tri pour une colonne
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpIcon className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />;
+    }
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUpIcon className="h-3 w-3 text-blue-600" />
+      : <ArrowDownIcon className="h-3 w-3 text-blue-600" />;
+  };
+
+  // Appliquer le tri aux commandes
+  const sortedCommandes = sortCommandes(commandes);
   
   // Pagination
-  const totalPages = Math.ceil(commandes.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedCommandes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentCommandes = commandes.slice(startIndex, endIndex);
+  const currentCommandes = sortedCommandes.slice(startIndex, endIndex);
 
   // Log des changements de statut facture
   useEffect(() => {
@@ -76,19 +139,6 @@ const SalesTable = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value) + ' dt';
-  };
-
-  // Ouvre le modal des détails d'une commande
-  const handleViewDetails = (commande, e) => {
-    e?.stopPropagation();
-    setSelectedCommande(commande);
-    setIsDetailsModalOpen(true);
-  };
-
-  // Ferme le modal des détails
-  const closeDetailsModal = () => {
-    setIsDetailsModalOpen(false);
-    setSelectedCommande(null);
   };
 
   // Génère une facture pour une commande
@@ -150,7 +200,7 @@ const SalesTable = ({
                   Commandes validées
                 </h3>
                 <span className="text-xs text-gray-500">
-                  {commandes.length} commande{commandes.length !== 1 ? 's' : ''}
+                  {sortedCommandes.length} commande{sortedCommandes.length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
@@ -162,12 +212,40 @@ const SalesTable = ({
           <table className="min-w-full divide-y divide-gray-100">
             <thead>
               <tr className="bg-gray-50/80">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">N° Commande</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Articles</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Total</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                    onClick={() => handleSort('numero')}>
+                  <div className="flex items-center gap-2">
+                    N° Commande
+                    {getSortIcon('numero')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                    onClick={() => handleSort('client')}>
+                  <div className="flex items-center gap-2">
+                    Client
+                    {getSortIcon('client')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                    onClick={() => handleSort('date')}>
+                  <div className="flex items-center gap-2">
+                    Date
+                    {getSortIcon('date')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Articles
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                    onClick={() => handleSort('total')}>
+                  <div className="flex items-center gap-2">
+                    Total
+                    {getSortIcon('total')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -243,44 +321,33 @@ const SalesTable = ({
                       </div>
                     </td>
 
-                    {/* Colonne : Actions */}
+                    {/* Colonne : Action (un seul bouton) */}
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Bouton Voir détails */}
-                        <button
-                          onClick={(e) => handleViewDetails(commande, e)}
-                          className="p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          title="Voir les détails de la commande"
-                        >
-                          <EyeIcon className="h-4 w-4 transition-transform duration-200 hover:scale-110" />
-                        </button>
-                        
+                      <div className="flex items-center justify-end">
                         {hasInvoice ? (
                           // Bouton VOIR FACTURE (si facture existe)
                           <button
                             onClick={(e) => handleViewInvoiceClick(commandeId, e)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm hover:shadow"
                             title="Voir la facture"
                           >
-                            <DocumentTextIcon className="h-3.5 w-3.5" />
-                            Voir
+                            <DocumentTextIcon className="h-4 w-4" />
+                            Voir facture
                           </button>
                         ) : (
                           // Bouton GÉNÉRER FACTURE (si pas de facture)
                           <button
                             onClick={(e) => handleGenerateInvoice(commandeId, e)}
                             disabled={invoiceLoading[commandeId]}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 shadow-sm hover:shadow"
                             title="Générer la facture"
                           >
                             {invoiceLoading[commandeId] ? (
-                              <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" />
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                             ) : (
-                              <>
-                                <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                Générer
-                              </>
+                              <DocumentArrowDownIcon className="h-4 w-4" />
                             )}
+                            Générer
                           </button>
                         )}
                       </div>
@@ -293,7 +360,7 @@ const SalesTable = ({
         </div>
 
         {/* Pagination */}
-        {commandes.length > 0 && (
+        {sortedCommandes.length > 0 && (
           <div className="px-6 py-3 bg-gray-50/50 border-t border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               
@@ -320,7 +387,7 @@ const SalesTable = ({
               {/* Informations de pagination */}
               <div className="flex items-center justify-between sm:justify-end gap-4">
                 <span className="text-xs text-gray-500">
-                  {startIndex + 1} - {Math.min(endIndex, commandes.length)} sur {commandes.length}
+                  {startIndex + 1} - {Math.min(endIndex, sortedCommandes.length)} sur {sortedCommandes.length}
                 </span>
                 
                 {/* Boutons navigation */}
@@ -352,16 +419,6 @@ const SalesTable = ({
           </div>
         )}
       </div>
-
-      {/* Modal des détails de la commande */}
-      <OrderDetailsModal
-        commande={selectedCommande}
-        isOpen={isDetailsModalOpen}
-        onClose={closeDetailsModal}
-        onGenerateInvoice={onGenerateInvoice}
-        onViewInvoice={onViewInvoice}
-        hasInvoice={selectedCommande ? invoiceStatus[selectedCommande.id] : false}
-      />
     </>
   );
 };

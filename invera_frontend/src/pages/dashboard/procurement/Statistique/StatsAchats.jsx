@@ -4,7 +4,7 @@
  * RÔLE : Afficher les indicateurs de performance du module achats
  * ROUTE : /dashboard/procurement/stats
  */
-import React, { useState } from 'react';
+import React, { useState , useEffect } from 'react';
 import {
   ShoppingCartIcon,
   CubeIcon,
@@ -15,13 +15,11 @@ import {
   CheckCircleIcon,
   ClockIcon,
   TruckIcon,
-  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { useStatsAchat } from '../../../../hooks/useStatsAchat';
 import DateRangeSelectorAchats from './componentes/DateRangeSelectorAchats';
 import { useNavigate } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
-import { logoBase64 } from '../../../../assets/logoBase64';
 import { FileText } from 'lucide-react';
 
 const StatsAchats = () => {
@@ -37,13 +35,13 @@ const StatsAchats = () => {
     mouvementsStock,
     repartitionCategories,
     alertesStock,
-    commandesATraiter,
+    commandesATraiter,  // { aEnvoyer, aRecevoir }
     refetch
   } = useStatsAchat(selectedStartDate, selectedEndDate);
 
   const navigate = useNavigate();
 
-  // ✅ Vérifier si un filtre date est actif
+  // Vérifier si un filtre date est actif
   const hasDateFilter = selectedStartDate !== null && selectedEndDate !== null;
 
   const formatDateForAPI = (date) => {
@@ -54,6 +52,16 @@ const StatsAchats = () => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  useEffect(() => {
+  console.log('=== DEBUG COMMANDES A TRAITER ===');
+  console.log('hasDateFilter:', hasDateFilter);
+  console.log('commandesATraiter reçu:', commandesATraiter);
+  console.log('aEnvoyer:', commandesATraiter?.aEnvoyer);
+  console.log('aRecevoir:', commandesATraiter?.aRecevoir);
+  console.log('hasCommandsToSend:', (commandesATraiter?.aEnvoyer || 0) > 0);
+  console.log('hasCommandsToReceive:', (commandesATraiter?.aRecevoir || 0) > 0);
+}, [commandesATraiter, hasDateFilter]);
 
   const formatDateForDisplay = (dateStr) => {
     if (!dateStr) return '';
@@ -81,8 +89,13 @@ const StatsAchats = () => {
     ? ((stats.produits?.rupture || 0) / stats.produits?.actifs) * 100 
     : 0;
 
+  // Vérifier si des commandes sont à traiter
+  const hasCommandsToSend = (commandesATraiter?.aEnvoyer || 0) > 0;
+  const hasCommandsToReceive = (commandesATraiter?.aRecevoir || 0) > 0;
+  const hasPendingCommands = hasCommandsToSend || hasCommandsToReceive;
+
   // ============================================
-  //  FONCTION D'EXPORT PDF UNIQUEMENT
+  //  FONCTION D'EXPORT PDF
   // ============================================
 
   const getUserInfo = () => {
@@ -115,261 +128,251 @@ const StatsAchats = () => {
       
       const safeUserName = cleanText(userName);
      
-const generateHTML = () => {
-  let html = `<!DOCTYPE html>
-  <html>
-    <head>
-      <title>Rapport Achats</title>
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          font-family: 'Inter', -apple-system, sans-serif; 
-          background: #f0f2f5; 
-          padding: 30px 20px; 
-          color: #1e293b; 
-        }
-        .dashboard-container { 
-          max-width: 1200px; 
-          margin: 0 auto; 
-          background: white; 
-          border-radius: 20px; 
-          box-shadow: 0 20px 35px -8px rgba(0,0,0,0.1); 
-          overflow: hidden; 
-        }
+      const generateHTML = () => {
+        let html = `<!DOCTYPE html>
+        <html>
+          <head>
+            <title>Rapport Achats</title>
+            <meta charset="UTF-8">
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: 'Inter', -apple-system, sans-serif; 
+                background: #f0f2f5; 
+                padding: 30px 20px; 
+                color: #1e293b; 
+              }
+              .dashboard-container { 
+                max-width: 1200px; 
+                margin: 0 auto; 
+                background: white; 
+                border-radius: 20px; 
+                box-shadow: 0 20px 35px -8px rgba(0,0,0,0.1); 
+                overflow: hidden; 
+              }
+              .header { 
+                padding: 24px 30px; 
+                background: #f8fafc;
+                border-bottom: 1px solid #e9ecef;
+              }
+              .report-title { 
+                font-size: 24px; 
+                font-weight: 700; 
+                color: #1e293b;
+                letter-spacing: -0.5px; 
+                margin-bottom: 8px;
+              }
+              .exported-by { 
+                font-size: 12px; 
+                color: #64748b; 
+                margin-top: 4px; 
+              }
+              .period-badge { 
+                display: inline-flex; 
+                align-items: center; 
+                padding: 6px 14px; 
+                border-radius: 20px; 
+                font-size: 12px; 
+                font-weight: 500; 
+                background: #eef2ff; 
+                color: #2563eb;
+                margin-top: 12px; 
+              }
+              .kpi-grid { 
+                padding: 25px 30px; 
+                display: grid; 
+                grid-template-columns: repeat(4, 1fr); 
+                gap: 20px; 
+                background: white;
+              }
+              .kpi-card { 
+                background: #f8fafc; 
+                border-radius: 16px; 
+                padding: 20px; 
+                border: 1px solid #eef2f6;
+              }
+              .kpi-label { 
+                font-size: 12px; 
+                color: #64748b; 
+                text-transform: uppercase; 
+                letter-spacing: 0.5px; 
+                font-weight: 500;
+              }
+              .kpi-value { 
+                font-size: 28px; 
+                font-weight: 700; 
+                color: #2563eb; 
+                margin-top: 8px; 
+              }
+              .section { 
+                padding: 20px 30px; 
+                border-top: 1px solid #eef2f6;
+              }
+              .section-title { 
+                font-size: 16px; 
+                font-weight: 600; 
+                color: #1e293b; 
+                margin-bottom: 16px; 
+                display: flex; 
+                align-items: center; 
+                gap: 10px;
+                border-left: 3px solid #2563eb;
+                padding-left: 12px;
+              }
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                border-radius: 12px; 
+                overflow: hidden; 
+                border: 1px solid #edf2f7; 
+              }
+              th { 
+                background: #f8fafc; 
+                padding: 12px 12px; 
+                text-align: left; 
+                font-size: 12px; 
+                font-weight: 600; 
+                text-transform: uppercase; 
+                color: #64748b; 
+                border-bottom: 1px solid #e2e8f0; 
+              }
+              td { 
+                padding: 10px 12px; 
+                font-size: 13px; 
+                color: #334155; 
+                border-bottom: 1px solid #edf2f7; 
+              }
+              .text-right { text-align: right; }
+              .text-center { text-align: center; }
+              .footer { 
+                padding: 16px 30px; 
+                text-align: center; 
+                border-top: 1px solid #eef2f6; 
+                background: #fafcff; 
+              }
+              .footer p { 
+                font-size: 11px; 
+                color: #94a3b8; 
+              }
+              .status-dot {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 8px;
+              }
+              .status-dot.blue { background: #3b82f6; }
+              .status-dot.purple { background: #8b5cf6; }
+            </style>
+          </head>
+          <body>
+            <div class="dashboard-container">
+              <div class="header">
+                <div class="report-title">RAPPORT ACHATS</div>
+                <div class="exported-by">Exporté par : ${safeUserName}</div>
+                <div class="exported-by">le ${formattedDate}</div>
+                <div class="period-badge">Période : ${formattedPeriodStart} - ${formattedPeriodEnd}</div>
+              </div>`;
         
-        /* Header */
-        .header { 
-          padding: 24px 30px; 
-          background: #f8fafc;
-          border-bottom: 1px solid #e9ecef;
-        }
-        .report-title { 
-          font-size: 24px; 
-          font-weight: 700; 
-          color: #1e293b;
-          letter-spacing: -0.5px; 
-          margin-bottom: 8px;
-        }
-        .exported-by { 
-          font-size: 12px; 
-          color: #64748b; 
-          margin-top: 4px; 
-        }
-        .period-badge { 
-          display: inline-flex; 
-          align-items: center; 
-          padding: 6px 14px; 
-          border-radius: 20px; 
-          font-size: 12px; 
-          font-weight: 500; 
-          background: #eef2ff; 
-          color: #2563eb;
-          margin-top: 12px; 
-        }
-        
-        /* KPIs */
-        .kpi-grid { 
-          padding: 25px 30px; 
-          display: grid; 
-          grid-template-columns: repeat(4, 1fr); 
-          gap: 20px; 
-          background: white;
-        }
-        .kpi-card { 
-          background: #f8fafc; 
-          border-radius: 16px; 
-          padding: 20px; 
-          border: 1px solid #eef2f6;
-        }
-        .kpi-label { 
-          font-size: 12px; 
-          color: #64748b; 
-          text-transform: uppercase; 
-          letter-spacing: 0.5px; 
-          font-weight: 500;
-        }
-        .kpi-value { 
-          font-size: 28px; 
-          font-weight: 700; 
-          color: #2563eb; 
-          margin-top: 8px; 
-        }
-        
-        /* Sections */
-        .section { 
-          padding: 20px 30px; 
-          border-top: 1px solid #eef2f6;
-        }
-        .section-title { 
-          font-size: 16px; 
-          font-weight: 600; 
-          color: #1e293b; 
-          margin-bottom: 16px; 
-          display: flex; 
-          align-items: center; 
-          gap: 10px;
-          border-left: 3px solid #2563eb;
-          padding-left: 12px;
-        }
-        
-        /* Tableaux */
-        table { 
-          width: 100%; 
-          border-collapse: collapse; 
-          border-radius: 12px; 
-          overflow: hidden; 
-          border: 1px solid #edf2f7; 
-        }
-        th { 
-          background: #f8fafc; 
-          padding: 12px 12px; 
-          text-align: left; 
-          font-size: 12px; 
-          font-weight: 600; 
-          text-transform: uppercase; 
-          color: #64748b; 
-          border-bottom: 1px solid #e2e8f0; 
-        }
-        td { 
-          padding: 10px 12px; 
-          font-size: 13px; 
-          color: #334155; 
-          border-bottom: 1px solid #edf2f7; 
-        }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        
-        /* Footer */
-        .footer { 
-          padding: 16px 30px; 
-          text-align: center; 
-          border-top: 1px solid #eef2f6; 
-          background: #fafcff; 
-        }
-        .footer p { 
-          font-size: 11px; 
-          color: #94a3b8; 
-        }
-        .status-dot {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-right: 8px;
-        }
-        .status-dot.orange { background: #f59e0b; }
-        .status-dot.blue { background: #3b82f6; }
-      </style>
-    </head>
-    <body>
-      <div class="dashboard-container">
-        <div class="header">
-          <div class="report-title">RAPPORT ACHATS</div>
-          <div class="exported-by">Exporté par : ${safeUserName}</div>
-          <div class="exported-by">le ${formattedDate}</div>
-          <div class="period-badge">Periode : ${formattedPeriodStart} - ${formattedPeriodEnd}</div>
+        // KPIs
+        html += `<div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Bons de commande</div>
+            <div class="kpi-value">${stats.commandes?.total || 0}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">En attente</div>
+            <div class="kpi-value">${stats.commandes?.enAttente || 0}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Livrés</div>
+            <div class="kpi-value">${stats.commandes?.livre || 0}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Valeur stock</div>
+            <div class="kpi-value">${(stats.stock?.valeurTotale || 0).toLocaleString()} TND</div>
+          </div>
         </div>`;
-  
-  // KPIs
-  html += `<div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Bons de commande</div>
-      <div class="kpi-value">${stats.commandes?.total || 0}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">En attente</div>
-      <div class="kpi-value">${stats.commandes?.enAttente || 0}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Livres</div>
-      <div class="kpi-value">${stats.commandes?.livre || 0}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Valeur stock</div>
-      <div class="kpi-value">${(stats.stock?.valeurTotale || 0).toLocaleString()} TND</div>
-    </div>
-  </div>`;
-  
-  // Evolution commandes - uniquement si des données existent
-  const evolutionNonZero = evolutionCommandes.filter(item => item.valeur > 0);
-  if (evolutionNonZero.length > 0) {
-    html += `<div class="section">
-      <div class="section-title">EVOLUTION DES COMMANDES</div>
-      <table>
-        <thead><tr><th>Periode</th><th class="text-right">Nombre</th></tr></thead>
-        <tbody>`;
-    evolutionNonZero.forEach(item => {
-      html += `<tr><td style="padding: 10px 12px;">${item.label}</td><td class="text-right" style="padding: 10px 12px;">${item.valeur}</td></tr>`;
-    });
-    html += `</tbody></tr></div>`;
-  }
-  
-  // Mouvements stock - uniquement si des données existent
-  const mouvementsNonZero = mouvementsStock.filter(item => item.entrees > 0 || item.sorties > 0);
-  if (mouvementsNonZero.length > 0) {
-    html += `<div class="section">
-      <div class="section-title">MOUVEMENTS DE STOCK</div>
-      <table>
-        <thead><tr><th>Periode</th><th class="text-right">Entrees</th><th class="text-right">Sorties</th></tr></thead>
-        <tbody>`;
-    mouvementsNonZero.forEach(item => {
-      html += `<tr>
-        <td style="padding: 10px 12px;">${item.label}</td>
-        <td class="text-right" style="padding: 10px 12px;">${item.entrees.toLocaleString()}</td>
-        <td class="text-right" style="padding: 10px 12px;">${item.sorties.toLocaleString()}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
-  
-  // Repartition categories - uniquement si des données existent
-  const categoriesNonZero = repartitionCategories.filter(item => item.nombreProduits > 0);
-  if (categoriesNonZero.length > 0) {
-    html += `<div class="section">
-      <div class="section-title">REPARTITION PAR CATEGORIE</div>
-      <table>
-        <thead><tr><th>Categorie</th><th class="text-right">Produits</th></tr></thead>
-        <tbody>`;
-    categoriesNonZero.forEach(item => {
-      html += `<tr><td style="padding: 10px 12px;">${item.categorie}</td><td class="text-right" style="padding: 10px 12px;">${item.nombreProduits}NonNull
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
-  
-  // Commandes à traiter
-  const totalAware = (commandesATraiter.enAttente || 0) + (commandesATraiter.enCours || 0);
-  html += `<div class="section">
-    <div class="section-title">COMMANDES A TRAITER</div>
-    <table>
-      <thead><tr><th>Statut</th><th class="text-right">Nombre</th></tr></thead>
-      <tbody>
-        <tr>
-          <td style="padding: 10px 12px;"><span class="status-dot orange"></span> En attente de validation</td>
-          <td class="text-right" style="padding: 10px 12px;"><strong>${commandesATraiter.enAttente || 0}</strong></td>
-        </tr>
-        <tr>
-          <td style="padding: 10px 12px;"><span class="status-dot blue"></span> En cours de livraison</td>
-          <td class="text-right" style="padding: 10px 12px;"><strong>${commandesATraiter.enCours || 0}</strong></td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr style="background:#f8fafc;">
-          <td style="padding: 10px 12px; font-weight:600;">Total à traiter</td>
-          <td class="text-right" style="padding: 10px 12px; font-weight:700;">${totalAware}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>`;
-  
-  html += `<div class="footer">
-    <p>Document généré automatiquement</p>
-  </div>`;
-  
-  html += `</div></body></html>`;
-  return html;
-};
+        
+        // Evolution commandes
+        const evolutionNonZero = evolutionCommandes.filter(item => item.valeur > 0);
+        if (evolutionNonZero.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">ÉVOLUTION DES COMMANDES</div>
+            <table>
+              <thead><tr><th>Période</th><th class="text-right">Nombre</th></tr></thead>
+              <tbody>`;
+          evolutionNonZero.forEach(item => {
+            html += `<tr><td style="padding: 10px 12px;">${item.label}</td><td class="text-right" style="padding: 10px 12px;">${item.valeur}</td></tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Mouvements stock
+        const mouvementsNonZero = mouvementsStock.filter(item => item.entrees > 0 || item.sorties > 0);
+        if (mouvementsNonZero.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">MOUVEMENTS DE STOCK</div>
+            <table>
+              <thead><tr><th>Période</th><th class="text-right">Entrées</th><th class="text-right">Sorties</th></tr></thead>
+              <tbody>`;
+          mouvementsNonZero.forEach(item => {
+            html += `<tr>
+              <td style="padding: 10px 12px;">${item.label}</td>
+              <td class="text-right" style="padding: 10px 12px;">${item.entrees.toLocaleString()}</td>
+              <td class="text-right" style="padding: 10px 12px;">${item.sorties.toLocaleString()}</td>
+            </tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Répartition catégories
+        const categoriesNonZero = repartitionCategories.filter(item => item.nombreProduits > 0);
+        if (categoriesNonZero.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">RÉPARTITION PAR CATÉGORIE</div>
+            <table>
+              <thead><tr><th>Catégorie</th><th class="text-right">Produits</th></tr></thead>
+              <tbody>`;
+          categoriesNonZero.forEach(item => {
+            html += `<tr><td style="padding: 10px 12px;">${item.categorie}</td><td class="text-right" style="padding: 10px 12px;">${item.nombreProduits}</td></tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Commandes à traiter - CORRIGÉ
+        const totalAware = (commandesATraiter?.aEnvoyer || 0) + (commandesATraiter?.aRecevoir || 0);
+        html += `<div class="section">
+          <div class="section-title">COMMANDES À TRAITER</div>
+          <table>
+            <thead><tr><th>Statut</th><th class="text-right">Nombre</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px 12px;"><span class="status-dot blue"></span> Commandes à envoyer</td>
+                <td class="text-right" style="padding: 10px 12px;"><strong>${commandesATraiter?.aEnvoyer || 0}</strong></td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 12px;"><span class="status-dot purple"></span> Commandes à recevoir</td>
+                <td class="text-right" style="padding: 10px 12px;"><strong>${commandesATraiter?.aRecevoir || 0}</strong></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr style="background:#f8fafc;">
+                <td style="padding: 10px 12px; font-weight:600;">Total à traiter</td>
+                <td class="text-right" style="padding: 10px 12px; font-weight:700;">${totalAware}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`;
+        
+        html += `<div class="footer">
+          <p>Document généré automatiquement</p>
+        </div>`;
+        
+        html += `</div></body></html>`;
+        return html;
+      };
       
       const element = document.createElement('div');
       element.innerHTML = generateHTML();
@@ -711,7 +714,7 @@ const generateHTML = () => {
         <StatCard
           title="Valeur du stock"
           value={stats.stock?.valeurTotale || 0}
-          unit="DH"
+          unit="TND"
           icon={ArchiveBoxIcon}
           color="bg-gradient-to-r from-purple-500 to-purple-600"
           subtitle={`Rotation: ${stats.stock?.rotation || 0} tours/an`}
@@ -754,7 +757,7 @@ const generateHTML = () => {
                     <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
                     <div>
                       <p className="text-sm font-medium text-gray-800">Produits en rupture</p>
-                      <p className="text-xs text-gray-500">{alertesRupture} produit(s) concerné(s)</p>
+                      <p className="text-xs text-gray-500">{alertesRupture} produit(s) actif(s) concerné(s)</p>
                     </div>
                   </div>
                 )}
@@ -763,7 +766,7 @@ const generateHTML = () => {
                     <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
                     <div>
                       <p className="text-sm font-medium text-gray-800">Stock critique</p>
-                      <p className="text-xs text-gray-500">{alertesCritique} produit(s) concerné(s)</p>
+                      <p className="text-xs text-gray-500">{alertesCritique} produit(s) actif(s) concerné(s)</p>
                     </div>
                   </div>
                 )}
@@ -772,7 +775,7 @@ const generateHTML = () => {
                     <CheckCircleIcon className="w-5 h-5 text-green-600" />
                     <div>
                       <p className="text-sm font-medium text-gray-800">Stock sain</p>
-                      <p className="text-xs text-gray-500">Aucune alerte à signaler</p>
+                      <p className="text-xs text-gray-500">Aucune alerte sur les produits actifs</p>
                     </div>
                   </div>
                 )}
@@ -788,40 +791,72 @@ const generateHTML = () => {
           )}
         </div>
         
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-base font-semibold text-gray-800 mb-4">Commandes à traiter</h3>
-          {!hasDateFilter ? (
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <ExclamationTriangleIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Filtre période requis</p>
-                <p className="text-xs text-gray-400">Sélectionnez une période pour voir les commandes</p>
-              </div>
+       {/* Section Commandes à traiter - Uniquement ce qui nécessite une action */}
+<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+  <h3 className="text-base font-semibold text-gray-800 mb-4">Commandes à traiter</h3>
+  {!hasDateFilter ? (
+    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <ExclamationTriangleIcon className="w-5 h-5 text-gray-400" />
+      <div>
+        <p className="text-sm font-medium text-gray-500">Filtre période requis</p>
+        <p className="text-xs text-gray-400">Sélectionnez une période pour voir les commandes</p>
+      </div>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {/* Validées - À envoyer au fournisseur */}
+      {(commandesATraiter?.aEnvoyer || 0) > 0 && (
+        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <ShoppingCartIcon className="w-5 h-5 text-blue-600" />
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center"><ClockIcon className="w-5 h-5 text-yellow-600" /></div>
-                  <div><p className="text-sm font-medium text-gray-800">En attente de validation</p><p className="text-xs text-gray-500">À approuver</p></div>
-                </div>
-                <p className="text-xl font-bold text-yellow-600">{commandesATraiter.enAttente || 0}</p>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center"><TruckIcon className="w-5 h-5 text-blue-600" /></div>
-                  <div><p className="text-sm font-medium text-gray-800">En cours de livraison</p><p className="text-xs text-gray-500">Commandes expédiées</p></div>
-                </div>
-                <p className="text-xl font-bold text-blue-600">{commandesATraiter.enCours || 0}</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">Commandes à envoyer</p>
+              <p className="text-xs text-gray-500">Validées - En attente d'envoi au fournisseur</p>
             </div>
-          )}
-          <div className="mt-4 pt-4 border-t">
-            <button onClick={() => navigate('/dashboard/procurement/commandes')} className="w-full px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-              Voir toutes les commandes
-            </button>
+          </div>
+          <p className="text-xl font-bold text-blue-600">{commandesATraiter?.aEnvoyer || 0}</p>
+        </div>
+      )}
+      
+      {/* Envoyées - À recevoir */}
+      {(commandesATraiter?.aRecevoir || 0) > 0 && (
+        <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+              <TruckIcon className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">Commandes à réceptionner</p>
+              <p className="text-xs text-gray-500">Envoyées - En attente de réception</p>
+            </div>
+          </div>
+          <p className="text-xl font-bold text-purple-600">{commandesATraiter?.aRecevoir || 0}</p>
+        </div>
+      )}
+      
+      {/* Aucune commande à traiter */}
+      {(commandesATraiter?.aEnvoyer || 0) === 0 && (commandesATraiter?.aRecevoir || 0) === 0 && (
+        <div className="flex items-center justify-center p-6 bg-green-50 rounded-lg border border-green-200">
+          <CheckCircleIcon className="w-8 h-8 text-green-500 mr-3" />
+          <div>
+            <p className="text-sm font-medium text-gray-800">Aucune commande à traiter</p>
+            <p className="text-xs text-gray-500">Toutes les commandes sont traitées</p>
           </div>
         </div>
+      )}
+    </div>
+  )}
+  <div className="mt-4 pt-4 border-t">
+    <button 
+      onClick={() => navigate('/dashboard/procurement/commandes')} 
+      className="w-full px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+    >
+      Voir toutes les commandes
+    </button>
+  </div>
+</div>
       </div>
     </div>
   );

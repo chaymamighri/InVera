@@ -587,21 +587,6 @@ const LoginForm = ({ onSubmit, loading: externalLoading = false, savedEmail, ser
         {fieldErrors.password && <p className="mt-2 text-sm text-red-600">{fieldErrors.password}</p>}
       </div>
 
-      <div className={`flex items-center ${isArabic ? 'flex-row-reverse justify-end' : ''}`}>
-        <input
-          id="remember-me"
-          name="rememberMe"
-          type="checkbox"
-          checked={formData.rememberMe}
-          onChange={handleChange}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          disabled={isLoading}
-        />
-        <label htmlFor="remember-me" className={`${isArabic ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>
-          {text.rememberMe}
-        </label>
-      </div>
-
       <Button
         type="submit"
         fullWidth

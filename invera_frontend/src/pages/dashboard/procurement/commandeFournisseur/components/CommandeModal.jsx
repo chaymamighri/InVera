@@ -109,19 +109,21 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     }
   }, [isOpen, commande]);
 
-  const chargerProduitsDuFournisseur = async (fournisseurId) => {
-    setLoadingProduitsFiltres(true);
-    try {
-      const produits = await getProductsByFournisseur(fournisseurId);
-      setProduitsDisponibles(produits);
-    } catch (error) {
-      console.error('❌ Erreur chargement produits:', error);
-      toast.error('Erreur lors du chargement des produits');
-      setProduitsDisponibles([]);
-    } finally {
-      setLoadingProduitsFiltres(false);
-    }
-  };
+ const chargerProduitsDuFournisseur = async (fournisseurId) => {
+  setLoadingProduitsFiltres(true);
+  try {
+    const produits = await getProductsByFournisseur(fournisseurId);
+    // ✅ Filtrer uniquement les produits actifs
+    const produitsActifs = produits.filter(p => p.estActif !== false && p.active !== false);
+    setProduitsDisponibles(produitsActifs);
+  } catch (error) {
+    console.error('❌ Erreur chargement produits:', error);
+    toast.error('Erreur lors du chargement des produits');
+    setProduitsDisponibles([]);
+  } finally {
+    setLoadingProduitsFiltres(false);
+  }
+};
 
   const resetForm = () => {
     setFormData({

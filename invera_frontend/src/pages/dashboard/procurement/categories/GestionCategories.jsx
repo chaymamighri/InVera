@@ -6,16 +6,20 @@
  * 
  * FONCTIONNALITÉS :
  * - Liste des catégories avec tableau
- * - Création de catégorie (nom, description, taux TVA)
+ * - Création de catégorie (nom, description, taux TVA, remise standard)
  * - Modification de catégorie
  * - Suppression avec confirmation
- * - Validation des champs (nom requis, TVA requis)
+ * - Validation des champs
  * - Rafraîchissement automatique après action
- * 
- * SERVICES : categorieService
  */
 import React, { useState, useEffect } from 'react';
-import { TrashIcon, PlusIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  TrashIcon, 
+  PlusIcon, 
+  PencilIcon, 
+  XMarkIcon, 
+  TagIcon   // ✅ Remplacé PercentIcon par TagIcon (existe dans Heroicons)
+} from '@heroicons/react/24/outline';
 import categorieService from '../../../../services/categorieService';
 import toast from 'react-hot-toast';
 
@@ -25,7 +29,8 @@ const GestionCategories = () => {
   const [formData, setFormData] = useState({
     nomCategorie: '',
     description: '',
-    tauxTVA: ''
+    tauxTVA: '',
+    remiseStandard: 0
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -57,7 +62,8 @@ const GestionCategories = () => {
     setFormData({
       nomCategorie: '',
       description: '',
-      tauxTVA: ''
+      tauxTVA: '',
+      remiseStandard: 0
     });
     setIsEditing(false);
     setEditingId(null);
@@ -66,9 +72,16 @@ const GestionCategories = () => {
   // Gérer les changements dans le formulaire
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    let parsedValue = value;
+    
+    // Pour les nombres, convertir en float/int
+    if (name === 'tauxTVA' || name === 'remiseStandard') {
+      parsedValue = value === '' ? '' : parseFloat(value);
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: parsedValue
     }));
   };
 
@@ -77,7 +90,8 @@ const GestionCategories = () => {
     setFormData({
       nomCategorie: categorie.nomCategorie,
       description: categorie.description || '',
-      tauxTVA: categorie.tauxTVA || ''
+      tauxTVA: categorie.tauxTVA || '',
+      remiseStandard: categorie.remiseStandard || 0
     });
     setIsEditing(true);
     setEditingId(categorie.idCategorie);
@@ -100,28 +114,34 @@ const GestionCategories = () => {
       return;
     }
 
-    if (!formData.tauxTVA) {
+    if (!formData.tauxTVA && formData.tauxTVA !== 0) {
       toast.error('Le taux de TVA est requis');
       return;
     }
 
+    // Validation de la remise (0-100)
+    const remiseValue = parseFloat(formData.remiseStandard) || 0;
+    if (remiseValue < 0 || remiseValue > 100) {
+      toast.error('La remise standard doit être comprise entre 0% et 100%');
+      return;
+    }
+
     try {
+      const payload = {
+        nomCategorie: formData.nomCategorie.trim(),
+        description: formData.description.trim(),
+        tauxTVA: parseFloat(formData.tauxTVA),
+        remiseStandard: remiseValue
+      };
+
       if (isEditing) {
         // Mode modification
-        await categorieService.updateCategorie(editingId, {
-          nomCategorie: formData.nomCategorie.trim(),
-          description: formData.description.trim(),
-          tauxTVA: parseFloat(formData.tauxTVA)
-        });
+        await categorieService.updateCategorie(editingId, payload);
         toast.success(`✏️ Catégorie "${formData.nomCategorie}" modifiée avec succès !`);
       } else {
         // Mode création
-        await categorieService.createCategorie({
-          nomCategorie: formData.nomCategorie.trim(),
-          description: formData.description.trim(),
-          tauxTVA: parseFloat(formData.tauxTVA)
-        });
-        toast.success('✅ Catégorie ajoutée avec succès !');
+        await categorieService.createCategorie(payload);
+        toast.success(`✅ Catégorie "${formData.nomCategorie}" ajoutée avec succès !`);
       }
       
       // Réinitialiser le formulaire
@@ -206,7 +226,7 @@ const GestionCategories = () => {
       {/* Formulaire d'ajout/modification */}
       <div id="form-categorie" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800 flex items-center hover:text-green-600 transition-colors duration-200">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center">
             {isEditing ? (
               <>
                 <PencilIcon className="w-5 h-5 mr-2 text-yellow-600" />
@@ -230,7 +250,7 @@ const GestionCategories = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Nom de la catégorie */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -259,11 +279,35 @@ const GestionCategories = () => {
                 onChange={handleInputChange}
                 placeholder="Ex: 20, 10, 5.5"
                 step="0.01"
+                min="0"
+                max="100"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 required
               />
+            </div>
+
+            {/* Remise standard */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Remise standard (%) 
+                <span className="text-gray-400 text-xs ml-1"></span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="remiseStandard"
+                  value={formData.remiseStandard}
+                  onChange={handleInputChange}
+                  placeholder="Ex: 10, 15, 20"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pr-10"
+                />
+                <TagIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </div>
               <p className="text-xs text-gray-500 mt-1">
-                Laissez vide pour utiliser le taux par défaut (19%)
+                Remise automatique appliquée à tous les produits de cette catégorie
               </p>
             </div>
           </div>
@@ -349,6 +393,9 @@ const GestionCategories = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     TVA
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Remise
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -371,8 +418,17 @@ const GestionCategories = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
-                        {categorie.tauxTVA ? `${categorie.tauxTVA}%` : '-'}
+                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        {categorie.tauxTVA ? `${categorie.tauxTVA}%` : '19%'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        categorie.remiseStandard && categorie.remiseStandard > 0 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {categorie.remiseStandard ? `${categorie.remiseStandard}%` : '0%'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">

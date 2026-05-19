@@ -8,9 +8,6 @@ import {
   ArrowLeftIcon,
   EyeIcon,
   EyeSlashIcon,
-  BuildingOfficeIcon,
-  IdentificationIcon,
-  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 import { authService } from '../../services/authService';
@@ -25,20 +22,13 @@ const settingsCopy = {
     profileDescription: 'Mettez à jour vos informations personnelles',
     securityTab: 'Sécurité',
     securityDescription: 'Modifiez votre mot de passe',
-    companyTab: 'Entreprise',
-    companyDescription: 'Informations de votre entreprise',
     backToProfile: 'Retour au profil',
     profileInformation: 'Informations du profil',
-    companyInformation: 'Informations de l\'entreprise',
     readOnlyEmail: 'Email (lecture seule)',
     lastName: 'Nom',
     firstName: 'Prénom',
     lastNamePlaceholder: 'Votre nom',
     firstNamePlaceholder: 'Votre prénom',
-    raisonSociale: 'Raison sociale',
-    raisonSocialePlaceholder: 'Nom de votre entreprise',
-    matriculeFiscal: 'Matricule fiscal',
-    matriculeFiscalPlaceholder: 'Votre matricule fiscal',
     save: 'Enregistrer',
     saving: 'Mise à jour...',
     disabledAccount: "Votre compte est désactivé. Contactez l'administrateur.",
@@ -57,12 +47,10 @@ const settingsCopy = {
     loadError: 'Impossible de charger vos informations.',
     profileSuccess: 'Profil mis à jour avec succès.',
     profileError: 'Erreur lors de la mise à jour du profil.',
-    companyProfileSuccess: 'Informations entreprise mises à jour avec succès.',
     passwordSuccess: 'Mot de passe modifié avec succès.',
     passwordError: 'Erreur lors de la modification du mot de passe.',
     validationLastName: 'Le nom est requis.',
     validationFirstName: 'Le prénom est requis.',
-    validationRaisonSociale: 'La raison sociale est requise.',
     validationCurrentPassword: 'Le mot de passe actuel est requis.',
     validationNewPassword: 'Le nouveau mot de passe est requis.',
     validationPasswordMin: 'Le mot de passe doit contenir au moins 8 caractères.',
@@ -74,20 +62,13 @@ const settingsCopy = {
     profileDescription: 'Update your personal information',
     securityTab: 'Security',
     securityDescription: 'Change your password',
-    companyTab: 'Company',
-    companyDescription: 'Your company information',
     backToProfile: 'Back to profile',
     profileInformation: 'Profile information',
-    companyInformation: 'Company information',
     readOnlyEmail: 'Email (read only)',
     lastName: 'Last name',
     firstName: 'First name',
     lastNamePlaceholder: 'Your last name',
     firstNamePlaceholder: 'Your first name',
-    raisonSociale: 'Company name',
-    raisonSocialePlaceholder: 'Your company name',
-    matriculeFiscal: 'Tax registration number',
-    matriculeFiscalPlaceholder: 'Your tax registration number',
     save: 'Save',
     saving: 'Updating...',
     disabledAccount: 'Your account is disabled. Please contact the administrator.',
@@ -106,12 +87,10 @@ const settingsCopy = {
     loadError: 'Unable to load your information.',
     profileSuccess: 'Profile updated successfully.',
     profileError: 'Error while updating profile.',
-    companyProfileSuccess: 'Company information updated successfully.',
     passwordSuccess: 'Password updated successfully.',
     passwordError: 'Error while changing password.',
     validationLastName: 'Last name is required.',
     validationFirstName: 'First name is required.',
-    validationRaisonSociale: 'Company name is required.',
     validationCurrentPassword: 'Current password is required.',
     validationNewPassword: 'New password is required.',
     validationPasswordMin: 'Password must contain at least 8 characters.',
@@ -123,20 +102,13 @@ const settingsCopy = {
     profileDescription: 'قم بتحديث معلوماتك الشخصية',
     securityTab: 'الأمان',
     securityDescription: 'قم بتغيير كلمة المرور',
-    companyTab: 'الشركة',
-    companyDescription: 'معلومات شركتك',
     backToProfile: 'العودة إلى الملف الشخصي',
     profileInformation: 'معلومات الملف الشخصي',
-    companyInformation: 'معلومات الشركة',
     readOnlyEmail: 'البريد الإلكتروني (للقراءة فقط)',
     lastName: 'اللقب',
     firstName: 'الاسم',
     lastNamePlaceholder: 'لقبك',
     firstNamePlaceholder: 'اسمك',
-    raisonSociale: 'الاسم التجاري',
-    raisonSocialePlaceholder: 'اسم شركتك',
-    matriculeFiscal: 'الرقم الضريبي',
-    matriculeFiscalPlaceholder: 'رقمك الضريبي',
     save: 'حفظ',
     saving: 'جار التحديث...',
     disabledAccount: 'تم تعطيل حسابك. يرجى التواصل مع المسؤول.',
@@ -155,12 +127,10 @@ const settingsCopy = {
     loadError: 'تعذر تحميل معلوماتك.',
     profileSuccess: 'تم تحديث الملف الشخصي بنجاح.',
     profileError: 'حدث خطأ أثناء تحديث الملف الشخصي.',
-    companyProfileSuccess: 'تم تحديث معلومات الشركة بنجاح.',
     passwordSuccess: 'تم تغيير كلمة المرور بنجاح.',
     passwordError: 'حدث خطأ أثناء تغيير كلمة المرور.',
     validationLastName: 'اللقب مطلوب.',
     validationFirstName: 'الاسم مطلوب.',
-    validationRaisonSociale: 'الاسم التجاري مطلوب.',
     validationCurrentPassword: 'كلمة المرور الحالية مطلوبة.',
     validationNewPassword: 'كلمة المرور الجديدة مطلوبة.',
     validationPasswordMin: 'يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل.',
@@ -181,10 +151,6 @@ const SettingsPage = () => {
     prenom: '',
     email: '',
   });
-  const [companyForm, setCompanyForm] = useState({
-    raisonSociale: '',
-    matriculeFiscal: '',
-  });
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -192,18 +158,7 @@ const SettingsPage = () => {
   });
   const [showPasswords, setShowPasswords] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [savingCompany, setSavingCompany] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-
-  const isAdminClient = () => {
-    const role = String(me?.role || localStorage.getItem('userRole') || '').toUpperCase();
-    return role === 'ADMIN_CLIENT';
-  };
-
-  const isCompany = () => {
-    const typeCompte = me?.typeCompte || localStorage.getItem('typeCompte') || '';
-    return typeCompte === 'ENTREPRISE';
-  };
 
   useEffect(() => {
     const load = async () => {
@@ -221,10 +176,6 @@ const SettingsPage = () => {
               prenom: data?.prenom || data?.firstName || '',
               email: data?.email || '',
             });
-            setCompanyForm({
-              raisonSociale: data?.raisonSociale || '',
-              matriculeFiscal: data?.matriculeFiscal || '',
-            });
             
             // Stocker dans localStorage
             if (data?.nom) localStorage.setItem('userNom', data.nom);
@@ -232,8 +183,6 @@ const SettingsPage = () => {
             if (data?.email) localStorage.setItem('userEmail', data.email);
             if (data?.role) localStorage.setItem('userRole', data.role);
             if (data?.typeCompte) localStorage.setItem('typeCompte', data.typeCompte);
-            if (data?.raisonSociale) localStorage.setItem('raisonSociale', data.raisonSociale);
-            if (data?.matriculeFiscal) localStorage.setItem('matriculeFiscal', data.matriculeFiscal);
             
             setLoadingMe(false);
             return;
@@ -248,18 +197,12 @@ const SettingsPage = () => {
           prenom: localStorage.getItem('userPrenom') || '',
           email: localStorage.getItem('userEmail') || '',
         });
-        setCompanyForm({
-          raisonSociale: localStorage.getItem('raisonSociale') || '',
-          matriculeFiscal: localStorage.getItem('matriculeFiscal') || '',
-        });
         setMe({
           nom: localStorage.getItem('userNom'),
           prenom: localStorage.getItem('userPrenom'),
           email: localStorage.getItem('userEmail'),
           role: localStorage.getItem('userRole'),
           typeCompte: localStorage.getItem('typeCompte'),
-          raisonSociale: localStorage.getItem('raisonSociale'),
-          matriculeFiscal: localStorage.getItem('matriculeFiscal'),
         });
         
       } catch (error) {
@@ -273,7 +216,7 @@ const SettingsPage = () => {
   }, []);
 
   const tabs = useMemo(() => {
-    const baseTabs = [
+    return [
       {
         id: 'profile',
         name: copy.profileTab,
@@ -287,28 +230,11 @@ const SettingsPage = () => {
         description: copy.securityDescription,
       },
     ];
-    
-    // Ajouter l'onglet entreprise seulement pour ADMIN_CLIENT avec typeCompte ENTREPRISE
-    if (isAdminClient() && isCompany()) {
-      baseTabs.push({
-        id: 'company',
-        name: copy.companyTab,
-        icon: <BuildingOfficeIcon className="h-5 w-5" />,
-        description: copy.companyDescription,
-      });
-    }
-    
-    return baseTabs;
-  }, [copy, isAdminClient, isCompany]);
+  }, [copy]);
 
   const validateProfile = () => {
     if (!profileForm.nom.trim()) return copy.validationLastName;
     if (!profileForm.prenom.trim()) return copy.validationFirstName;
-    return '';
-  };
-
-  const validateCompany = () => {
-    if (!companyForm.raisonSociale.trim()) return copy.validationRaisonSociale;
     return '';
   };
 
@@ -348,36 +274,6 @@ const SettingsPage = () => {
       toast.error(typeof msg === 'string' ? msg : copy.profileError);
     } finally {
       setSavingProfile(false);
-    }
-  };
-
-  const handleCompanySubmit = async (e) => {
-    e.preventDefault();
-    const err = validateCompany();
-    if (err) return toast.error(err);
-
-    setSavingCompany(true);
-    try {
-      await api.put('/platform/clients/update-company', {
-        raisonSociale: companyForm.raisonSociale.trim(),
-        matriculeFiscal: companyForm.matriculeFiscal.trim(),
-      });
-
-      localStorage.setItem('raisonSociale', companyForm.raisonSociale.trim());
-      localStorage.setItem('matriculeFiscal', companyForm.matriculeFiscal.trim());
-
-      setMe(prev => ({ 
-        ...prev,
-        raisonSociale: companyForm.raisonSociale.trim(),
-        matriculeFiscal: companyForm.matriculeFiscal.trim(),
-      }));
-
-      toast.success(copy.companyProfileSuccess);
-    } catch (error) {
-      const msg = error?.response?.data?.error || error?.message || copy.profileError;
-      toast.error(typeof msg === 'string' ? msg : copy.profileError);
-    } finally {
-      setSavingCompany(false);
     }
   };
 
@@ -548,61 +444,6 @@ const SettingsPage = () => {
                             {copy.disabledAccount}
                           </div>
                         )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'company' && (
-                    <div className="space-y-6">
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-6">
-                        <h3 className={`mb-6 text-lg font-semibold text-gray-800 ${directionClasses}`}>
-                          <BuildingOfficeIcon className={`inline h-5 w-5 text-blue-600 ${isArabic ? 'ml-2' : 'mr-2'}`} />
-                          {copy.companyInformation}
-                        </h3>
-
-                        <form onSubmit={handleCompanySubmit} className="space-y-5">
-                          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                            <div>
-                              <label className={`mb-2 block text-sm font-medium text-gray-700 ${directionClasses}`}>
-                                {copy.raisonSociale}
-                              </label>
-                              <input
-                                type="text"
-                                value={companyForm.raisonSociale}
-                                onChange={(e) => setCompanyForm((p) => ({ ...p, raisonSociale: e.target.value }))}
-                                dir={inputDir}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                                placeholder={copy.raisonSocialePlaceholder}
-                              />
-                            </div>
-
-                            <div>
-                              <label className={`mb-2 block text-sm font-medium text-gray-700 ${directionClasses}`}>
-                                {copy.matriculeFiscal}
-                              </label>
-                              <input
-                                type="text"
-                                value={companyForm.matriculeFiscal}
-                                onChange={(e) => setCompanyForm((p) => ({ ...p, matriculeFiscal: e.target.value }))}
-                                dir={inputDir}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                                placeholder={copy.matriculeFiscalPlaceholder}
-                              />
-                            </div>
-                          </div>
-
-                          <div className={`flex ${isArabic ? 'justify-start' : 'justify-end'}`}>
-                            <button
-                              type="submit"
-                              disabled={savingCompany}
-                              className={`rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-3 font-medium text-white transition-all hover:from-blue-700 hover:to-blue-600 ${
-                                savingCompany ? 'cursor-not-allowed opacity-70' : ''
-                              }`}
-                            >
-                              {savingCompany ? copy.saving : copy.save}
-                            </button>
-                          </div>
-                        </form>
                       </div>
                     </div>
                   )}

@@ -111,6 +111,23 @@ const useClients = (filters = {}) => {
     }
   };
 
+  // ✅ NOUVEAU: Update client type only
+  const updateClientType = useCallback(async (id, newType) => {
+    try {
+      console.log(`📡 Mise à jour du type du client ${id} vers ${newType}`);
+      const response = await clientService.updateClientType(id, newType);
+      if (response?.success) {
+        toast.success(response.message || 'Type de client modifié avec succès');
+        await fetchClients();
+        return response;
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Erreur lors de la modification du type';
+      toast.error(errorMsg);
+      throw err;
+    }
+  }, [fetchClients]);
+
   // Check telephone
   const checkTelephone = async (telephone) => {
     try {
@@ -119,6 +136,17 @@ const useClients = (filters = {}) => {
     } catch (err) {
       console.error('Erreur vérification téléphone:', err);
       throw err;
+    }
+  };
+
+  // ✅ NOUVEAU: Check matricule fiscale
+  const checkMatriculeFiscale = async (matricule) => {
+    try {
+      const response = await clientService.checkMatriculeFiscale?.(matricule);
+      return response;
+    } catch (err) {
+      console.error('Erreur vérification matricule fiscale:', err);
+      return { exists: false };
     }
   };
 
@@ -185,8 +213,10 @@ const useClients = (filters = {}) => {
     fetchClientTypes,
     createClient,
     updateClient,
+    updateClientType,        // ✅ AJOUTÉ
     deleteClient,
     checkTelephone,
+    checkMatriculeFiscale,   // ✅ AJOUTÉ
     getRemiseForType,
     updateTypeDiscount,
     setPagination
