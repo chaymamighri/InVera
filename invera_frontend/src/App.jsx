@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 
 import Header from './components/Header';
+import AdminClientChatbot from './components/AdminClientChatbot';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { SidebarProvider } from './context/SidebarContext';
@@ -52,13 +53,9 @@ import SubscriptionsManagementPage from './pages/superAdmin/abonnements/Subscrip
 import ConnexionInfoToast from './components/ConnexionInfoToast';
 
 import ConditionsInvera from './pages/public/ConditionsInvera';
-<<<<<<< HEAD
 import PaymentsView from './pages/superAdmin/paiement/PaymentsView';
-=======
 import ContactUsPage from './pages/public/ContactUsPage';
-
 import PaymentPage from './pages/public/PaymentPage';
->>>>>>> 4e82e05480b48ed27e6890249acbbc7185fdc51d
 
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
@@ -77,6 +74,11 @@ const normalizeBackendRole = (role) => {
   if (!role) return null;
   const normalized = String(role).trim().toUpperCase();
   return ROLE_MAPPING[normalized] || null;
+};
+
+const isAdminClientRole = (role) => {
+  const normalized = String(role || '').trim().toUpperCase().replace(/^ROLE_/, '');
+  return normalized === 'ADMIN_CLIENT';
 };
 
 const getUserData = () => {
@@ -119,6 +121,7 @@ const Layout = ({ children, userRole }) => (
   <div className="min-h-screen flex flex-col">
     <Header userRole={userRole} />
     <main className="flex-grow bg-gray-50">{children}</main>
+    {isAdminClientRole(userRole) && <AdminClientChatbot />}
   </div>
 );
 

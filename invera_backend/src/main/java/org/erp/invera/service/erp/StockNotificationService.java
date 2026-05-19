@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.security.JwtTokenProvider;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,11 @@ public class StockNotificationService {
 
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
+    }
+
+    private JdbcTemplate getTenantJdbcTemplate(String token) {
+        Long clientId = getClientIdFromToken(token);
+        return tenantRepo.getClientJdbcTemplate(clientId, String.valueOf(clientId));
     }
 
     /**
@@ -85,38 +91,35 @@ public class StockNotificationService {
         );
 
         // Sauvegarder la notification dans la base tenant
-        saveNotification(message, produit.getLibelle(), token);
+        saveNotification(message, produit, token);
     }
 
     /**
      * Sauvegarde une notification dans la base tenant
      */
-    private void saveNotification(String message, String produitLibelle, String token) {
+    private void saveNotification(String message, Produit produit, String token) {
         try {
+            JdbcTemplate jdbc = getTenantJdbcTemplate(token);
             Long clientId = getClientIdFromToken(token);
-            String authClientId = String.valueOf(clientId);
 
             String sql = """
-                INSERT INTO notifications (tenant_id, created_at, message, read, type, user_name, target_role)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO notifications (created_at, message, read, type, user_name, target_role, entity_type, entity_id, entity_reference)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
-            // ✅ Utiliser updateWithAuth
-            int result = tenantRepo.updateWithAuth(sql, clientId, authClientId,
-                    String.valueOf(clientId),
+            jdbc.update(sql,
                     LocalDateTime.now(),
                     message,
                     false,
                     "STOCK_ALERT",
-                    produitLibelle,
-                    PROCUREMENT_ROLE
+                    produit.getLibelle(),
+                    PROCUREMENT_ROLE,
+                    "PRODUIT",
+                    produit.getIdProduit() != null ? produit.getIdProduit().longValue() : null,
+                    produit.getLibelle()
             );
 
-            if (result > 0) {
-                log.info("✅ Notification stock créée: {}", message);
-            } else {
-                log.warn("⚠️ Aucune notification stock créée");
-            }
+            log.info("✅ Notification stock créée: {}", message);
 
         } catch (Exception e) {
             log.error("❌ Erreur création notification stock: {}", e.getMessage());

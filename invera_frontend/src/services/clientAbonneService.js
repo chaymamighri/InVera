@@ -31,38 +31,30 @@ export const clientAbonneService = {
    */
   async getCurrentClient() {
     try {
-      // Récupérer l'ID du client depuis le localStorage (stocké lors du login)
-      let clientId = localStorage.getItem('clientId');
-      
-      // Si pas dans localStorage, essayer de le récupérer depuis l'API /me
-      if (!clientId) {
-        const meResponse = await api.get('/auth/me');
-        if (meResponse.data && meResponse.data.clientId) {
-          clientId = meResponse.data.clientId;
-          localStorage.setItem('clientId', clientId);
-        }
-      }
+      const meResponse = await api.get('/auth/me');
+      const me = meResponse.data || {};
+      const clientId = me.clientId || localStorage.getItem('clientId');
       
       if (!clientId) {
-        return { success: false, error: 'Aucun client connecté' };
+        return { success: false, error: 'Aucun client connecte' };
       }
       
-      const result = await this.getClientById(clientId);
+      localStorage.setItem('clientId', clientId);
       
-      // Enrichir avec les données de session
-      if (result.success && result.data) {
-        result.data = {
-          ...result.data,
-          connexionsRestantes: localStorage.getItem('connexionsRestantes') || result.data.connexionsRestantes,
-          connexionsMax: localStorage.getItem('connexionsMax') || result.data.connexionsMax,
+      return {
+        success: true,
+        data: {
+          ...me,
+          id: me.id || clientId,
+          clientId,
+          connexionsRestantes: localStorage.getItem('connexionsRestantes') || me.connexionsRestantes,
+          connexionsMax: localStorage.getItem('connexionsMax') || me.connexionsMax,
           hasActiveSubscription: localStorage.getItem('hasActiveSubscription') === 'true',
-          typeInscription: result.data.typeInscription,
-          statut: result.data.statut,
-          estActif: result.data.statut === 'ACTIF'
-        };
-      }
-      
-      return result;
+          typeInscription: me.typeInscription || localStorage.getItem('typeInscription'),
+          statut: me.statut || localStorage.getItem('clientStatut'),
+          estActif: (me.statut || localStorage.getItem('clientStatut')) === 'ACTIF'
+        }
+      };
     } catch (error) {
       console.error('Erreur getCurrentClient:', error);
       return { success: false, error: error.message };

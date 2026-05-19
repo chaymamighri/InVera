@@ -5,8 +5,10 @@ import ProduitFormBase from './ProduitFormBase';
 import FournisseurService from '../../../../../services/FournisseurService';
 import productService from '../../../../../services/productService';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => {
+  const { t, isArabic } = useLanguage();
 
   const [formData, setFormData] = useState({
     libelle: '',
@@ -102,7 +104,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       
     } catch (error) {
       console.error('❌ Erreur chargement produit:', error);
-      toast.error('Erreur lors du chargement des données du produit');
+      toast.error(t('dashboard.procurementProductsPage.errorLoadingProduct'));
       initialiserFormulaire(produit);
     } finally {
       setLoadingProduit(false);
@@ -161,27 +163,27 @@ if (produitData.imageUrl) {
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.libelle.trim()) newErrors.libelle = 'Le libellé est requis';
+    if (!formData.libelle.trim()) newErrors.libelle = t('dashboard.procurementProductsPage.errorRequiredField');
     
     const prixVente = parseFloat(formData.prixVente.replace(',', '.'));
     if (!formData.prixVente || isNaN(prixVente) || prixVente <= 0) {
-      newErrors.prixVente = 'Le prix de vente doit être supérieur à 0';
+      newErrors.prixVente = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
     
     const prixAchat = parseFloat(formData.prixAchat.replace(',', '.'));
     if (!formData.prixAchat || isNaN(prixAchat) || prixAchat <= 0) {
-      newErrors.prixAchat = "Le prix d'achat doit être supérieur à 0";
+      newErrors.prixAchat = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
     
-    if (!formData.categorie?.idCategorie) newErrors.categorie = 'La catégorie est requise';
-    if (!formData.fournisseurId) newErrors.fournisseurId = 'Le fournisseur est requis';
-    if (formData.seuilMinimum < 0) newErrors.seuilMinimum = 'Le seuil minimum doit être positif';
-    if (!formData.uniteMesure.trim()) newErrors.uniteMesure = "L'unité de mesure est requise";
+    if (!formData.categorie?.idCategorie) newErrors.categorie = t('dashboard.procurementProductsPage.errorCategoryRequired');
+    if (!formData.fournisseurId) newErrors.fournisseurId = t('dashboard.procurementProductsPage.errorSupplierRequired');
+    if (formData.seuilMinimum < 0) newErrors.seuilMinimum = t('dashboard.procurementProductsPage.errorMinimumThresholdPositive');
+    if (!formData.uniteMesure.trim()) newErrors.uniteMesure = t('dashboard.procurementProductsPage.errorMeasurementUnitRequired');
     
     if (formData.remiseTemporaire) {
       const remise = parseFloat(formData.remiseTemporaire.replace(',', '.'));
       if (isNaN(remise) || remise < 0 || remise > 100) {
-        newErrors.remiseTemporaire = 'La remise doit être entre 0 et 100';
+        newErrors.remiseTemporaire = t('dashboard.procurementProductsPage.errorDiscountBetween');
       }
     }
     
@@ -209,21 +211,32 @@ if (produitData.imageUrl) {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
       const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        setErrors(prev => ({ ...prev, imageUrl: 'Format non supporté' }));
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorUnsupportedImageFormat') }));
+        e.target.value = '';
         return;
       }
       
       if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, imageUrl: 'Image trop volumineuse (max 5MB)' }));
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorImageTooLarge') }));
+        e.target.value = '';
         return;
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImagePreview(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        setErrors(prev => ({ ...prev, imageUrl: t('dashboard.procurementProductsPage.errorUnsupportedImageFormat') }));
+        setImagePreview(null);
+        e.target.value = '';
+      };
       reader.readAsDataURL(file);
 
       setFormData(prev => ({ ...prev, imageFile: file, imageUrl: '' }));
@@ -273,7 +286,7 @@ if (produitData.imageUrl) {
 
     const productId = produit.idProduit || produit.id;
     if (!productId) {
-      toast.error('Erreur: ID du produit manquant');
+      toast.error(t('dashboard.procurementProductsPage.errorMissingProductId'));
       return;
     }
     
@@ -287,7 +300,7 @@ if (produitData.imageUrl) {
           <div className="fixed inset-0 bg-gray-500 bg-opacity-75" />
           <div className="relative bg-white rounded-lg shadow-xl p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Chargement du produit...</p>
+            <p className="mt-4 text-gray-600">{t('dashboard.procurementProductsPage.loadingProduct')}</p>
           </div>
         </div>
       </div>
@@ -295,14 +308,14 @@ if (produitData.imageUrl) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           
           <div className="sticky top-0 bg-white z-10">
             <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
-              <h3 className="text-lg font-semibold text-white">Modifier le produit</h3>
+              <h3 className="text-lg font-semibold text-white">{t('dashboard.procurementProductsPage.editProductTitle')}</h3>
               <button onClick={onClose} className="text-white hover:text-gray-200">
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -314,9 +327,9 @@ if (produitData.imageUrl) {
               <div className="flex items-start gap-2">
                 <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-blue-800">Gestion du stock</p>
+                  <p className="text-sm font-medium text-blue-800">{t('dashboard.procurementProductsPage.stockManagementTitle')}</p>
                   <p className="text-xs text-blue-700">
-                    Le stock est géré automatiquement par les réceptions de commande et les ventes.
+                    {t('dashboard.procurementProductsPage.stockManagementHint')}
                   </p>
                 </div>
               </div>
@@ -335,7 +348,7 @@ if (produitData.imageUrl) {
               handleSubmit={handleSubmit}
               onClose={onClose}
               isEditMode={true}
-              title="Modifier le produit"
+              title={t('dashboard.procurementProductsPage.editProductTitle')}
               stockDisabled={true}
               fournisseursDisponibles={fournisseursDisponibles}
               loadingFournisseurs={loadingFournisseurs}

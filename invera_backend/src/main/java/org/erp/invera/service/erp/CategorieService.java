@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -84,19 +83,17 @@ public class CategorieService {
             throw new RuntimeException("Impossible de générer un ID");
         }
 
-        // ✅ Insertion avec updateWithAuth
+        // Insertion compatible with existing tenant schemas.
         String insertSql = """
-            INSERT INTO categorie (id_categorie, nom_categorie, description, taux_tva, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO categorie (id_categorie, nom_categorie, description, taux_tva)
+            VALUES (?, ?, ?, ?)
             """;
 
         int affectedRows = tenantRepo.updateWithAuth(insertSql, clientId, authClientId,
                 generatedId.intValue(),
                 nom,
                 description,
-                tauxTVA,
-                "system",
-                LocalDateTime.now());
+                tauxTVA);
 
         log.info("✅ INSERT exécuté, affectedRows={}", affectedRows);
 

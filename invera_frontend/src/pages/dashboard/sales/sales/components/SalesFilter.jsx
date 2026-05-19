@@ -30,13 +30,13 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
-const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
+const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) => key, locale = 'fr-FR', isArabic = false }) => {
   // Options de tri disponibles
   const sortOptions = [
-    { value: 'date_creation', label: 'Date création' },
-    { value: 'numero_commande', label: 'N° Commande' },
-    { value: 'client', label: 'Client' },
-    { value: 'montant', label: 'Montant' }
+    { value: 'date_creation', label: t('creationDate') },
+    { value: 'numero_commande', label: t('orderNumber') },
+    { value: 'client', label: t('client') },
+    { value: 'montant', label: t('amount') }
   ];
 
   // Valeurs par défaut des filtres
@@ -89,7 +89,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString;
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric'
@@ -102,13 +102,13 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
   // Génère le libellé des filtres actifs (ex: "recherche & date")
   const getActiveFilterLabel = () => {
     const activeFilters = [];
-    if (filters.searchTerm) activeFilters.push('recherche');
-    if (filters.dateRange?.from) activeFilters.push('date');
+    if (filters.searchTerm) activeFilters.push(t('search'));
+    if (filters.dateRange?.from) activeFilters.push(t('date'));
     return activeFilters.join(' & ');
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200" dir={isArabic ? 'rtl' : 'ltr'}>
       
       {/* ===== EN-TÊTE ===== */}
       <div className="flex items-center justify-between mb-6">
@@ -128,7 +128,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           
           <div>
             <h3 className="font-semibold text-gray-900">
-              Filtres de commandes
+              {t('orderFilters')}
               {hasActiveFilters() && (
                 <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
                   {getActiveFilterLabel()}
@@ -137,8 +137,8 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             </h3>
             <p className="text-sm text-gray-500 mt-0.5">
               {hasActiveFilters() 
-                ? `${totalFiltered} commande${totalFiltered > 1 ? 's' : ''} trouvée${totalFiltered > 1 ? 's' : ''}`
-                : 'Filtrer les commandes validées'
+                ? t('ordersFound', { count: totalFiltered })
+                : t('filterValidatedOrders')
               }
             </p>
           </div>
@@ -157,7 +157,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                       hover:shadow-md active:scale-95"
           >
             <ArrowPathIcon className="h-4 w-4" />
-            Réinitialiser
+            {t('reset')}
           </button>
         )}
       </div>
@@ -168,7 +168,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         {/* 1. Recherche textuelle */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Rechercher
+            {t('search')}
           </label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -178,7 +178,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             </div>
             <input
               type="text"
-              placeholder="N° commande, client..."
+              placeholder={t('searchOrderPlaceholder')}
               className={`w-full pl-10 pr-10 py-2.5 border rounded-lg transition-all duration-200
                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                         hover:border-gray-400
@@ -194,7 +194,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 onClick={() => onFilterChange('searchTerm', '')}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center
                          text-gray-400 hover:text-gray-600 transition-colors"
-                title="Effacer la recherche"
+                title={t('clearSearch')}
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
@@ -203,7 +203,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {filters.searchTerm && (
             <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-blue-600 rounded-full"></span>
-              Recherche : "{filters.searchTerm}"
+              {t('searchFilterLabel', { value: filters.searchTerm })}
             </p>
           )}
         </div>
@@ -211,7 +211,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         {/* 2. Filtre par date */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Date de création
+            {t('creationDate')}
           </label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -236,7 +236,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 onClick={handleClearDate}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center
                          text-gray-400 hover:text-gray-600 transition-colors"
-                title="Effacer la date"
+                title={t('clearDate')}
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
@@ -253,7 +253,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         {/* 3. Tri */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Trier par
+            {t('sortBy')}
           </label>
           <div className="flex gap-2">
             {/* Sélecteur du champ de tri */}
@@ -300,7 +300,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 }
                 ${isSortModified() ? 'ring-1 ring-offset-1 ring-blue-200' : ''}
               `}
-              title={filters.sortOrder === 'desc' ? 'Ordre décroissant' : 'Ordre croissant'}
+              title={filters.sortOrder === 'desc' ? t('descendingOrder') : t('ascendingOrder')}
             >
               {filters.sortOrder === 'desc' ? (
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,12 +326,12 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
               </span>
               <span className="text-sm font-semibold text-gray-700">
-                Filtres appliqués
+                {t('appliedFilters')}
               </span>
               <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
                 {[
-                  filters.searchTerm && 'R',
-                  filters.dateRange?.from && 'D'
+                  filters.searchTerm && t('searchShort'),
+                  filters.dateRange?.from && t('dateShort')
                 ].filter(Boolean).join('')}
               </span>
             </div>
@@ -347,14 +347,14 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                             hover:shadow-md transition-shadow duration-200
                             animate-slideIn">
                 <MagnifyingGlassIcon className="h-3.5 w-3.5" />
-                <span className="font-medium">Recherche:</span>
+                <span className="font-medium">{t('search')}:</span>
                 <span className="truncate max-w-[150px] font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded">
                   "{filters.searchTerm}"
                 </span>
                 <button
                   onClick={() => onFilterChange('searchTerm', '')}
                   className="ml-1 p-0.5 hover:bg-blue-200/50 rounded transition-colors"
-                  title="Supprimer ce filtre"
+                  title={t('removeFilter')}
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
@@ -370,14 +370,14 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                             hover:shadow-md transition-shadow duration-200
                             animate-slideIn">
                 <CalendarIcon className="h-3.5 w-3.5" />
-                <span className="font-medium">Date:</span>
+                <span className="font-medium">{t('date')}:</span>
                 <span className="bg-white/70 px-1.5 py-0.5 rounded text-xs font-mono">
                   {formatDate(filters.dateRange.from)}
                 </span>
                 <button
                   onClick={handleClearDate}
                   className="ml-1 p-0.5 hover:bg-emerald-200/50 rounded transition-colors"
-                  title="Supprimer ce filtre"
+                  title={t('removeFilter')}
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
@@ -388,11 +388,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {/* Indicateur de nombre de résultats */}
           <div className="mt-3 text-xs text-gray-500 flex items-center gap-2">
             <span className="font-medium text-gray-700">{totalFiltered}</span>
-            <span>commande{totalFiltered > 1 ? 's' : ''} trouvée{totalFiltered > 1 ? 's' : ''}</span>
+            <span>{t('ordersFound', { count: totalFiltered })}</span>
             {totalFiltered === 0 && (
               <span className="text-amber-600 flex items-center gap-1">
                 <span className="w-1 h-1 bg-amber-600 rounded-full"></span>
-                Aucun résultat
+                {t('noResult')}
               </span>
             )}
           </div>
@@ -409,11 +409,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               <div className="absolute inset-0 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-20"></div>
             </div>
             <span className="text-sm text-gray-600">
-              État des commandes :
+              {t('ordersState')}:
               <span className="ml-1.5 px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 
                              text-white text-xs font-medium rounded-full 
                              shadow-sm shadow-emerald-200">
-                Validée ✓
+                {t('validated')}
               </span>
             </span>
           </div>
@@ -422,21 +422,21 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {!hasActiveFilters() && !isSortModified() && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
-              Toutes les commandes
+              {t('allOrders')}
             </span>
           )}
           
           {hasActiveFilters() && totalFiltered > 0 && (
             <span className="text-xs text-blue-600 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-blue-600 rounded-full"></span>
-              {totalFiltered} résultat{totalFiltered > 1 ? 's' : ''}
+              {t('resultsCount', { count: totalFiltered })}
             </span>
           )}
           
           {hasActiveFilters() && totalFiltered === 0 && (
             <span className="text-xs text-amber-600 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-amber-600 rounded-full"></span>
-              Aucun résultat
+              {t('noResult')}
             </span>
           )}
         </div>

@@ -18,7 +18,9 @@ const UpdateOrderModal = ({
   onClose,
   commande,
   toNumber,
-  onUpdateSuccess
+  onUpdateSuccess,
+  t = (key) => key,
+  isArabic = false
 }) => {
   const [loading, setLoading] = useState(false);
   const [showProductSelection, setShowProductSelection] = useState(false);
@@ -114,7 +116,7 @@ useEffect(() => {
       p.produitId !== produitId && p.idLigneCommandeClient !== produitId
     );
     setFormData({ ...formData, produits: updatedProduits });
-    toast.success('Produit supprimé');
+    toast.success(t('salesPages.productRemoved'));
   };
 
 
@@ -153,7 +155,7 @@ const handleAddProducts = (selectedProducts) => {
     produits: [...formData.produits, ...nouveauxProduits]
   });
 
-  toast.success(`${nouveauxProduits.length} produit(s) ajouté(s)`);
+  toast.success(t('salesPages.productsAdded', { count: nouveauxProduits.length }));
 };
 
 // Dans UpdateOrderModal.jsx - handleSubmit
@@ -217,7 +219,7 @@ const handleSubmit = async () => {
     console.log('📥 RÉPONSE BACKEND:', result);
     
     if (result && result.success !== false) {
-      toast.success('Commande mise à jour avec succès');
+      toast.success(t('salesPages.orderUpdatedSuccess'));
       
       if (onUpdateSuccess) {
         console.log('🟡 Appel de onUpdateSuccess');
@@ -227,12 +229,12 @@ const handleSubmit = async () => {
       console.log('🔚 Fermeture du modal');
       onClose();
     } else {
-      throw new Error(result?.message || 'Échec de la mise à jour');
+      throw new Error(result?.message || t('salesPages.updateFailed'));
     }
     
   } catch (error) {
     console.error('❌ Erreur:', error);
-    toast.error(error.message || 'Erreur lors de la mise à jour');
+    toast.error(error.message || t('salesPages.updateError'));
     
   } finally {
     setLoading(false); // ← GARANTI que loading revient à false
@@ -240,10 +242,11 @@ const handleSubmit = async () => {
 };
 
   const totaux = calculerTotaux();
+  const formatMontant = (value) => `${(parseFloat(value) || 0).toFixed(3)} ${t('salesPages.currencyLower')}`;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-lg">
           
           {/* En-tête */}
@@ -252,10 +255,10 @@ const handleSubmit = async () => {
               <div>
                 <h2 className="text-xl font-semibold text-white flex items-center">
                   <ArrowPathIcon className="h-5 w-5 mr-2" />
-                  Modifier la Commande
+                  {t('salesPages.editOrder')}
                 </h2>
                 <p className="text-amber-100 text-sm mt-1">
-                  Numéro : {commande.numero}
+                  {t('salesPages.number')}: {commande.numero}
                 </p>
               </div>
               <button
@@ -273,14 +276,14 @@ const handleSubmit = async () => {
             <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
               <h3 className="font-medium text-gray-800 mb-3 flex items-center">
                 <MapPinIcon className="h-4 w-4 mr-2 text-blue-600" />
-                Adresse de livraison
+                {t('salesPages.deliveryAddress')}
               </h3>
               <textarea
                 value={formData.adresse}
                 onChange={handleAdresseChange}
                 rows="2"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                placeholder="Adresse de livraison..."
+                placeholder={t('salesPages.deliveryAddressPlaceholder')}
               />
             </div>
 
@@ -289,14 +292,14 @@ const handleSubmit = async () => {
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-medium text-gray-800 flex items-center">
                   <CubeIcon className="h-4 w-4 mr-2 text-amber-600" />
-                  Produits dans la commande
+                  {t('salesPages.productsInOrder')}
                 </h3>
                 <button
                   onClick={() => setShowProductSelection(true)}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-1"
                 >
                   <PlusIcon className="h-4 w-4" />
-                  Ajouter des produits
+                  {t('salesPages.addProducts')}
                 </button>
               </div>
               
@@ -304,12 +307,12 @@ const handleSubmit = async () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Produit</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Catégorie</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Quantité</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Prix unit.</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Total</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">{t('salesPages.product')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">{t('salesPages.category')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">{t('salesPages.quantity')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">{t('salesPages.unitPrice')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">{t('salesPages.total')}</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">{t('salesPages.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -317,7 +320,7 @@ const handleSubmit = async () => {
                       <tr key={produit.produitId || produit.idLigneCommandeClient} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900">
-                            {produit.libelle || `Produit ${produit.id}`}
+                            {produit.libelle || `${t('salesPages.product')} ${produit.id}`}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -341,19 +344,19 @@ const handleSubmit = async () => {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm">
-                            {parseFloat(produit.prixUnitaire).toFixed(3)} dt
+                            {formatMontant(produit.prixUnitaire)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-medium text-green-600">
-                            {(parseInt(produit.quantite) * parseFloat(produit.prixUnitaire)).toFixed(3)} dt
+                            {formatMontant(parseInt(produit.quantite) * parseFloat(produit.prixUnitaire))}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => handleRemoveProduct(produit.produitId || produit.idLigneCommandeClient)}
                             className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Supprimer"
+                            title={t('salesPages.delete')}
                           >
                             <TrashIcon className="h-5 w-5" />
                           </button>
@@ -365,9 +368,9 @@ const handleSubmit = async () => {
                       <tr>
                         <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
                           <CubeIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                          <p>Aucun produit dans la commande</p>
+                          <p>{t('salesPages.noProductInOrder')}</p>
                           <p className="text-sm mt-2">
-                            Cliquez sur "Ajouter des produits" pour commencer
+                            {t('salesPages.clickAddProductsToStart')}
                           </p>
                         </td>
                       </tr>
@@ -376,10 +379,10 @@ const handleSubmit = async () => {
                   <tfoot className="bg-gray-50">
                     <tr className="border-t border-gray-300">
                       <td colSpan="4" className="px-4 py-3 text-right font-medium">
-                        TOTAL COMMANDE:
+                        {t('salesPages.orderTotal')}:
                       </td>
                       <td className="px-4 py-3 font-bold text-amber-700">
-                        {totaux.total.toFixed(3)} dt
+                        {formatMontant(totaux.total)}
                       </td>
                       <td></td>
                     </tr>
@@ -394,7 +397,7 @@ const handleSubmit = async () => {
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
               >
-                Annuler
+                {t('salesPages.cancel')}
               </button>
               <button
                 onClick={handleSubmit}
@@ -404,12 +407,12 @@ const handleSubmit = async () => {
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Mise à jour...
+                    {t('salesPages.updating')}
                   </>
                 ) : (
                   <>
                     <ArrowPathIcon className="h-4 w-4" />
-                    Mettre à jour
+                    {t('salesPages.update')}
                   </>
                 )}
               </button>
@@ -424,6 +427,8 @@ const handleSubmit = async () => {
         existingProduits={formData.produits}
         onConfirmSelection={handleAddProducts}
         toNumber={toNumber}
+        t={t}
+        isArabic={isArabic}
       />
     </>
   );

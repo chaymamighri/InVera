@@ -5,9 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.model.platform.Client;
-import org.erp.invera.model.platform.UserEmail;
 import org.erp.invera.repository.platform.ClientPlatformRepository;
-import org.erp.invera.repository.platform.UserEmailRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.erp.UtilisateurService;
@@ -32,7 +30,6 @@ public class AuthController {
     private final SessionManagementService sessionManagementService;
     private final EmailService emailService;
     private final ClientPlatformService clientPlatformService;
-    private final UserEmailRepository userEmailRepository;
 
     // ==================== LOGIN ====================
     @PostMapping("/login")
@@ -43,33 +40,12 @@ public class AuthController {
         log.info("🔐 Tentative de login: {}", email);
 
         try {
-            // ✅ 1. Chercher l'utilisateur dans user_emails (tous les utilisateurs)
-            Client client = null;
-            String userRole = null;
-            String userNom = null;
-            String userPrenom = null;
-            Long userId = null;
-
-            Optional<UserEmail> userEmailOpt = userEmailRepository.findByEmail(email);
-
-            if (userEmailOpt.isPresent()) {
-                UserEmail userEmail = userEmailOpt.get();
-                client = clientRepository.findById(userEmail.getClientId())
-                        .orElseThrow(() -> new RuntimeException("Client non trouvé"));
-                userRole = userEmail.getRole();
-                userNom = userEmail.getNom();
-                userPrenom = userEmail.getPrenom();
-                userId = userEmail.getUserId();
-                log.info("✅ Utilisateur trouvé dans user_emails: {} -> client ID={}, rôle={}", email, client.getId(), userRole);
-            } else {
-                // Fallback: chercher dans clients (email principal)
-                client = clientRepository.findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("Aucun compte associé à cet email"));
-                userRole = "ADMIN_CLIENT";
-                userNom = client.getNom();
-                userPrenom = client.getPrenom();
-                log.info("✅ Client principal trouvé: {} -> ID={}", email, client.getId());
-            }
+            LoginIdentity identity = resolveLoginIdentity(email);
+            Client client = identity.client;
+            String userRole = identity.userRole;
+            String userNom = identity.userNom;
+            String userPrenom = identity.userPrenom;
+            Long userId = identity.userId;
 
             Long clientId = client.getId();
             String dbName = client.getNomBaseDonnees();
@@ -110,6 +86,14 @@ public class AuthController {
                 return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
             }
 
+            userRole = Objects.toString(authResult.get("role"), userRole);
+            userNom = Objects.toString(authResult.get("nom"), userNom);
+            userPrenom = Objects.toString(authResult.get("prenom"), userPrenom);
+            Object authenticatedUserId = authResult.get("userId");
+            if (authenticatedUserId instanceof Number) {
+                userId = ((Number) authenticatedUserId).longValue();
+            }
+
             // ✅ 4. Enregistrer la connexion
             client = clientPlatformService.recordLogin(clientId, email);
 
@@ -123,7 +107,7 @@ public class AuthController {
                 ));
             }
 
-            // ✅ 6. Générer le token (utiliser le rôle depuis user_emails)
+            // ✅ 6. Générer le token
             String token = jwtTokenProvider.generateToken(email, userRole, clientId, dbName);
 
             // ✅ 7. Gestion de session
@@ -163,18 +147,56 @@ public class AuthController {
     // ==================== MÉTHODE POUR TROUVER LE CLIENT ====================
 
     private Client findClientByUserEmail(String email) {
-        // ✅ 1. Chercher directement par email (devrait fonctionner)
+        try {
+            return resolveLoginIdentity(email).client;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private LoginIdentity resolveLoginIdentity(String email) {
         Optional<Client> clientOpt = clientRepository.findByEmail(email);
         if (clientOpt.isPresent()) {
-            log.info("✅ Client trouvé par email: {}", email);
-            return clientOpt.get();
+            Client client = clientOpt.get();
+            log.info("Client principal trouve: {} -> ID={}", email, client.getId());
+            return new LoginIdentity(client, "ADMIN_CLIENT", client.getNom(), client.getPrenom(), null);
         }
 
-        // ✅ 2. Si non trouvé, vérifier si l'utilisateur existe dans les bases clients
-        // Cette partie devrait être évitée - le client DOIT exister dans la base centrale
+        for (Client candidate : clientRepository.findAll()) {
+            if (candidate.getId() == null || candidate.getNomBaseDonnees() == null || candidate.getNomBaseDonnees().isBlank()) {
+                continue;
+            }
 
-        log.warn("⚠️ Aucun client trouvé avec l'email: {} dans la base centrale", email);
-        return null;
+            try {
+                Utilisateur user = utilisateurService.findByEmail(candidate.getId(), email);
+                if (user != null) {
+                    String role = user.getRole() != null ? user.getRole().name() : "ADMIN_CLIENT";
+                    log.info("Utilisateur trouve dans la base tenant {} pour email {}", candidate.getNomBaseDonnees(), email);
+                    return new LoginIdentity(candidate, role, user.getNom(), user.getPrenom(), user.getId());
+                }
+            } catch (RuntimeException ignored) {
+                // User does not belong to this tenant, keep looking.
+            }
+        }
+
+        log.warn("Aucun client ou utilisateur tenant trouve avec l email: {}", email);
+        throw new RuntimeException("Aucun compte associe a cet email");
+    }
+
+    private static class LoginIdentity {
+        private final Client client;
+        private final String userRole;
+        private final String userNom;
+        private final String userPrenom;
+        private final Long userId;
+
+        private LoginIdentity(Client client, String userRole, String userNom, String userPrenom, Long userId) {
+            this.client = client;
+            this.userRole = userRole;
+            this.userNom = userNom;
+            this.userPrenom = userPrenom;
+            this.userId = userId;
+        }
     }
 
 

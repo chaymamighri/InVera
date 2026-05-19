@@ -33,7 +33,10 @@ const SalesTable = ({
   loading, 
   onGenerateInvoice, 
   onViewInvoice,
-  invoiceStatus = {} 
+  invoiceStatus = {},
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   // États
   const [selectedCommande, setSelectedCommande] = useState(null);
@@ -58,7 +61,7 @@ const SalesTable = ({
     if (!dateString) return '-';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
@@ -71,11 +74,11 @@ const SalesTable = ({
   // Formate un montant en dinars
   const formatCurrency = (amount) => {
     const value = parseFloat(amount || 0);
-    if (isNaN(value)) return '0,00 dt';
-    return new Intl.NumberFormat('fr-FR', {
+    if (isNaN(value)) return `0,00 ${t('currencyLower')}`;
+    return new Intl.NumberFormat(locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(value) + ' dt';
+    }).format(value) + ` ${t('currencyLower')}`;
   };
 
   // Ouvre le modal des détails d'une commande
@@ -127,16 +130,16 @@ const SalesTable = ({
           <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-200 border-t-blue-600"></div>
         </div>
         <h3 className="text-sm font-semibold text-gray-700 mb-1">
-          Chargement des commandes
+          {t('loadingOrders')}
         </h3>
-        <p className="text-xs text-gray-400">Veuillez patienter...</p>
+        <p className="text-xs text-gray-400">{t('pleaseWait')}</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
         
         {/* En-tête du tableau */}
         <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
@@ -147,10 +150,10 @@ const SalesTable = ({
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-800">
-                  Commandes validées
+                  {t('validatedOrdersTitle')}
                 </h3>
                 <span className="text-xs text-gray-500">
-                  {commandes.length} commande{commandes.length !== 1 ? 's' : ''}
+                  {t('orderCount', { count: commandes.length })}
                 </span>
               </div>
             </div>
@@ -162,12 +165,12 @@ const SalesTable = ({
           <table className="min-w-full divide-y divide-gray-100">
             <thead>
               <tr className="bg-gray-50/80">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">N° Commande</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Articles</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Total</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{t('orderNumber')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{t('client')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{t('date')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{t('items')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{t('total')}</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -193,7 +196,7 @@ const SalesTable = ({
                         </span>
                         {hasInvoice && (
                           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-medium rounded-full">
-                            Facturée
+                            {t('invoiced')}
                           </span>
                         )}
                       </div>
@@ -208,7 +211,7 @@ const SalesTable = ({
                           <UserCircleIcon className="h-4 w-4 text-blue-400" />
                         )}
                         <span className="text-sm text-gray-700">
-                          {commande.client?.nomComplet || commande.client?.nom || 'Client'}
+                          {commande.client?.nomComplet || commande.client?.nom || t('client')}
                         </span>
                       </div>
                     </td>
@@ -250,7 +253,7 @@ const SalesTable = ({
                         <button
                           onClick={(e) => handleViewDetails(commande, e)}
                           className="p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          title="Voir les détails de la commande"
+                          title={t('viewOrderDetails')}
                         >
                           <EyeIcon className="h-4 w-4 transition-transform duration-200 hover:scale-110" />
                         </button>
@@ -260,10 +263,10 @@ const SalesTable = ({
                           <button
                             onClick={(e) => handleViewInvoiceClick(commandeId, e)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors"
-                            title="Voir la facture"
+                            title={t('viewInvoice')}
                           >
                             <DocumentTextIcon className="h-3.5 w-3.5" />
-                            Voir
+                            {t('view')}
                           </button>
                         ) : (
                           // Bouton GÉNÉRER FACTURE (si pas de facture)
@@ -271,14 +274,14 @@ const SalesTable = ({
                             onClick={(e) => handleGenerateInvoice(commandeId, e)}
                             disabled={invoiceLoading[commandeId]}
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
-                            title="Générer la facture"
+                            title={t('generateInvoice')}
                           >
                             {invoiceLoading[commandeId] ? (
                               <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" />
                             ) : (
                               <>
                                 <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-                                Générer
+                                {t('generate')}
                               </>
                             )}
                           </button>
@@ -299,7 +302,7 @@ const SalesTable = ({
               
               {/* Sélecteur nombre d'éléments par page */}
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-500">Afficher</span>
+                <span className="text-xs text-gray-500">{t('show')}</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
@@ -314,13 +317,13 @@ const SalesTable = ({
                   <option value="50">50</option>
                   <option value="100">100</option>
                 </select>
-                <span className="text-xs text-gray-500">par page</span>
+                <span className="text-xs text-gray-500">{t('perPage')}</span>
               </div>
 
               {/* Informations de pagination */}
               <div className="flex items-center justify-between sm:justify-end gap-4">
                 <span className="text-xs text-gray-500">
-                  {startIndex + 1} - {Math.min(endIndex, commandes.length)} sur {commandes.length}
+                  {t('paginationRange', { start: startIndex + 1, end: Math.min(endIndex, commandes.length), total: commandes.length })}
                 </span>
                 
                 {/* Boutons navigation */}
@@ -329,20 +332,20 @@ const SalesTable = ({
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                    title="Page précédente"
+                    title={t('previousPage')}
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
                   
                   <span className="text-xs text-gray-600 min-w-[70px] text-center">
-                    Page {currentPage} / {totalPages}
+                    {t('pageIndicator', { current: currentPage, total: totalPages })}
                   </span>
                   
                   <button
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                    title="Page suivante"
+                    title={t('nextPage')}
                   >
                     <ChevronRightIcon className="h-4 w-4" />
                   </button>
@@ -361,6 +364,9 @@ const SalesTable = ({
         onGenerateInvoice={onGenerateInvoice}
         onViewInvoice={onViewInvoice}
         hasInvoice={selectedCommande ? invoiceStatus[selectedCommande.id] : false}
+        t={t}
+        locale={locale}
+        isArabic={isArabic}
       />
     </>
   );

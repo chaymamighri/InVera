@@ -9,15 +9,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const StatusDonutChart = ({ data, formatCurrency }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const { t } = useLanguage();
 
   // Pas de données
   if (!data || data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée disponible
+        {t('dashboard.salesStatsPage.noDataAvailable')}
       </div>
     );
   }
@@ -29,7 +31,7 @@ const StatusDonutChart = ({ data, formatCurrency }) => {
   if (total === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucun chiffre d'affaires sur cette période
+        {t('dashboard.salesStatsPage.noRevenueForPeriod')}
       </div>
     );
   }
@@ -40,9 +42,9 @@ const StatusDonutChart = ({ data, formatCurrency }) => {
   // Traduction des statuts
   const getStatutLabel = (statut) => {
     const labels = {
-      'EN_ATTENTE': 'En attente',
-      'CONFIRMEE': 'Confirmée',
-      'ANNULEE': 'Annulée'
+      'EN_ATTENTE': t('dashboard.salesStatsPage.statusPending'),
+      'CONFIRMEE': t('dashboard.salesStatsPage.statusConfirmed'),
+      'ANNULEE': t('dashboard.salesStatsPage.statusCancelled')
     };
     return labels[statut] || statut;
   };
@@ -124,7 +126,7 @@ const StatusDonutChart = ({ data, formatCurrency }) => {
             <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: item.couleur }} />
             <div className="flex-1">
               <p className="text-sm font-medium">{getStatutLabel(item.statut)}</p>
-              <p className="text-xs text-gray-500">{item.nombre || 0} commandes</p>
+              <p className="text-xs text-gray-500">{t('dashboard.salesStatsPage.ordersCount', { count: item.nombre || 0 })}</p>
             </div>
             <p className="text-xs font-semibold" style={{ color: item.couleur }}>
               {((item.montant / total) * 100).toFixed(1)}%
@@ -136,7 +138,7 @@ const StatusDonutChart = ({ data, formatCurrency }) => {
       {/* Total */}
       <div className="border-t pt-3">
         <div className="flex justify-between">
-          <p className="text-sm text-gray-500">Total</p>
+          <p className="text-sm text-gray-500">{t('dashboard.salesStatsPage.total')}</p>
           <p className="text-lg font-bold">{formatCurrency(total)}</p>
         </div>
       </div>

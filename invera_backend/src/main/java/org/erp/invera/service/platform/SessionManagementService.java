@@ -16,10 +16,22 @@ public class SessionManagementService {
     record SessionInfo(String token, LocalDateTime lastActivityTime, int timeoutSeconds) {}
 
     public boolean registerSession(String email, String token) {
-        boolean wasActive = activeSessions.containsKey(email);
-        activeSessions.put(email, new SessionInfo(token, LocalDateTime.now(), 1800));
-        if (wasActive) log.warn("⚠️ Ancienne session fermée pour {}", email);
-        return !wasActive;
+        SessionInfo existingSession = activeSessions.get(email);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (existingSession != null && existingSession.token().equals(token)) {
+            activeSessions.put(email, new SessionInfo(token, now, existingSession.timeoutSeconds()));
+            return true;
+        }
+
+        boolean hadDifferentActiveSession = existingSession != null;
+        activeSessions.put(email, new SessionInfo(token, now, 1800));
+
+        if (hadDifferentActiveSession) {
+            log.warn("Ancienne session fermee pour {}", email);
+        }
+
+        return !hadDifferentActiveSession;
     }
 
     public boolean isSessionValid(String email, String token) {

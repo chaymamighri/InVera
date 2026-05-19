@@ -1,41 +1,46 @@
-// ReceptionModal.jsx - Version clean sans logs
-import React, { useState, useEffect } from 'react';
-import { XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+// ReceptionModal.jsx
+import React, { useEffect, useState } from 'react';
+import { CheckIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR', {
+const getLocale = (language) => (language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR');
+
+const formatPrice = (price, language) => {
+  const amount = Number(price);
+
+  return new Intl.NumberFormat(getLocale(language), {
     style: 'currency',
     currency: 'TND',
-  }).format(price);
+  }).format(Number.isFinite(amount) ? amount : 0);
 };
 
 const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
+  const { t, language, isArabic } = useLanguage();
+  const lignesCommande = Array.isArray(commande?.lignesCommande) ? commande.lignesCommande : [];
   const [quantitesRecues, setQuantitesRecues] = useState({});
   const [notes, setNotes] = useState('');
   const [numeroBL, setNumeroBL] = useState('');
   const [produitsAReactiver, setProduitsAReactiver] = useState({});
-  
   const [errors, setErrors] = useState({
     numeroBL: '',
     quantiteZero: '',
-    quantitesDepassees: {}
+    quantitesDepassees: {},
   });
 
-  // Initialiser avec les quantités commandées
   useEffect(() => {
-    if (commande?.lignesCommande) {
+    if (lignesCommande.length) {
       const initialQuantites = {};
       const initialReactiver = {};
-      
-      commande.lignesCommande.forEach(ligne => {
+
+      lignesCommande.forEach((ligne) => {
         const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
         initialQuantites[ligneId] = ligne.quantite;
-        
+
         if (ligne.estInactif) {
           initialReactiver[ligneId] = true;
         }
       });
-      
+
       setQuantitesRecues(initialQuantites);
       setProduitsAReactiver(initialReactiver);
       setNotes('');
@@ -43,74 +48,69 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       setErrors({
         numeroBL: '',
         quantiteZero: '',
-        quantitesDepassees: {}
+        quantitesDepassees: {},
+      });
+    } else {
+      setQuantitesRecues({});
+      setProduitsAReactiver({});
+      setNotes('');
+      setNumeroBL('');
+      setErrors({
+        numeroBL: '',
+        quantiteZero: '',
+        quantitesDepassees: {},
       });
     }
   }, [commande]);
 
   if (!isOpen || !commande) return null;
 
+  const quantityTooHighMessage = (quantity) =>
+    t('dashboard.procurementOrdersComponents.quantityTooHigh', { quantity });
+
   const handleQuantityChange = (ligneId, value) => {
     const quantite = parseInt(value) || 0;
-    const ligne = commande.lignesCommande.find(l => 
-      (l.idLigneCommandeFournisseur || l.id) === ligneId
-    );
-    
+    const ligne = lignesCommande.find((item) => (item.idLigneCommandeFournisseur || item.id) === ligneId);
+    if (!ligne) return;
+
     if (quantite > ligne.quantite) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
         quantitesDepassees: {
           ...prev.quantitesDepassees,
-          [ligneId]: `La quantité ne peut pas dépasser ${ligne.quantite}`
-        }
+          [ligneId]: quantityTooHighMessage(ligne.quantite),
+        },
       }));
       return;
-    } else {
-      setErrors(prev => ({
-        ...prev,
-        quantitesDepassees: {
-          ...prev.quantitesDepassees,
-          [ligneId]: ''
-        }
-      }));
     }
-    
-    setQuantitesRecues(prev => ({
+
+    setErrors((prev) => ({
       ...prev,
-      [ligneId]: quantite
+      quantitesDepassees: {
+        ...prev.quantitesDepassees,
+        [ligneId]: '',
+      },
     }));
-    
-    const aAuMoinsUnProduitRecu = Object.values({
+
+    const nextQuantites = {
       ...quantitesRecues,
-      [ligneId]: quantite
-    }).some(q => q > 0);
-    
-    if (!aAuMoinsUnProduitRecu) {
-      setErrors(prev => ({
-        ...prev,
-        quantiteZero: 'Veuillez saisir au moins un produit reçu (quantité > 0)'
-      }));
-    } else {
-      setErrors(prev => ({
-        ...prev,
-        quantiteZero: ''
-      }));
-    }
+      [ligneId]: quantite,
+    };
+
+    setQuantitesRecues(nextQuantites);
+    setErrors((prev) => ({
+      ...prev,
+      quantiteZero: Object.values(nextQuantites).some((q) => q > 0)
+        ? ''
+        : t('dashboard.procurementOrdersComponents.atLeastOneReceived'),
+    }));
   };
 
   const handleNumeroBLChange = (value) => {
     setNumeroBL(value);
-    if (!value.trim()) {
-      setErrors(prev => ({ ...prev, numeroBL: 'Le numéro de bon de livraison est obligatoire' }));
-    } else {
-      setErrors(prev => ({ ...prev, numeroBL: '' }));
-    }
-  };
-
-  const handleReactiverChange = (ligneId, checked) => {
-    setProduitsAReactiver(prev => ({
+    setErrors((prev) => ({
       ...prev,
-      [ligneId]: checked
+      numeroBL: value.trim() ? '' : t('dashboard.procurementOrdersComponents.deliveryNoteRequired'),
     }));
   };
 
@@ -119,16 +119,15 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     let totalTVA = 0;
     let totalTTC = 0;
 
-    commande.lignesCommande.forEach(ligne => {
+    lignesCommande.forEach((ligne) => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
       const qteRecue = quantitesRecues[ligneId] || 0;
       const prixUnitaire = ligne.prixUnitaire || 0;
-      
       const tauxTVA = ligne.tauxTVA || 20;
       const sousTotalHT = qteRecue * prixUnitaire;
-      const montantTVA = sousTotalHT * tauxTVA / 100;
+      const montantTVA = (sousTotalHT * tauxTVA) / 100;
       const sousTotalTTC = sousTotalHT + montantTVA;
-      
+
       totalHT += sousTotalHT;
       totalTVA += montantTVA;
       totalTTC += sousTotalTTC;
@@ -137,42 +136,42 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     return { totalHT, totalTVA, totalTTC };
   };
 
-  const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some(q => q > 0);
+  const aAuMoinsUnProduitRecu = Object.values(quantitesRecues).some((q) => q > 0);
 
   const handleSubmit = () => {
     let hasError = false;
     const newErrors = {
       numeroBL: '',
       quantiteZero: '',
-      quantitesDepassees: {}
+      quantitesDepassees: {},
     };
-    
+
     if (!numeroBL.trim()) {
-      newErrors.numeroBL = 'Le numéro de bon de livraison est obligatoire';
+      newErrors.numeroBL = t('dashboard.procurementOrdersComponents.deliveryNoteRequired');
       hasError = true;
     }
-    
+
     if (!aAuMoinsUnProduitRecu) {
-      newErrors.quantiteZero = 'Veuillez saisir au moins un produit reçu (quantité > 0)';
+      newErrors.quantiteZero = t('dashboard.procurementOrdersComponents.atLeastOneReceived');
       hasError = true;
     }
-    
-    commande.lignesCommande.forEach(ligne => {
+
+    lignesCommande.forEach((ligne) => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
       const qteRecue = quantitesRecues[ligneId] || 0;
       if (qteRecue > ligne.quantite) {
-        newErrors.quantitesDepassees[ligneId] = `La quantité ne peut pas dépasser ${ligne.quantite}`;
+        newErrors.quantitesDepassees[ligneId] = quantityTooHighMessage(ligne.quantite);
         hasError = true;
       }
     });
-    
+
     if (hasError) {
       setErrors(newErrors);
       return;
     }
 
     const produitsAReactiverMap = {};
-    commande.lignesCommande.forEach(ligne => {
+    lignesCommande.forEach((ligne) => {
       const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
       const qteRecue = quantitesRecues[ligneId] || 0;
       if (ligne.estInactif && qteRecue > 0 && produitsAReactiver[ligneId]) {
@@ -185,98 +184,113 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
       numeroBL,
       notes: notes.trim() || null,
       dateReception: new Date().toISOString(),
-      produitsAReactiver: produitsAReactiverMap
+      produitsAReactiver: produitsAReactiverMap,
     });
   };
 
   const totauxRecus = calculerTotauxRecus();
-  const toutesRecues = commande.lignesCommande.every(ligne => {
+  const toutesRecues = lignesCommande.every((ligne) => {
     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
     return quantitesRecues[ligneId] === ligne.quantite;
   });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto" dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="flex min-h-screen items-center justify-center px-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-
-          {/* En-tête */}
-          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-green-600 to-green-700 sticky top-0 z-10">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <CheckIcon className="w-5 h-5" />
-              Réception - {commande.numeroCommande}
+        <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white shadow-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gradient-to-r from-green-600 to-green-700 p-6">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <CheckIcon className="h-5 w-5" />
+              {t('dashboard.procurementOrdersComponents.receiveTitle', {
+                number: commande.numeroCommande,
+              })}
             </h3>
-            <button onClick={onClose} className="text-white hover:text-gray-200">
-              <XMarkIcon className="w-6 h-6" />
+            <button onClick={onClose} className="text-white hover:text-gray-200" title={t('dashboard.procurementOrdersComponents.close')}>
+              <XMarkIcon className="h-6 w-6" />
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Info fournisseur */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Fournisseur</h4>
+          <div className="space-y-6 p-6">
+            <div className="rounded-lg bg-gray-50 p-4">
+              <h4 className="mb-2 text-sm font-medium text-gray-700">{t('dashboard.procurementOrdersComponents.supplier')}</h4>
               <p className="font-medium">{commande.fournisseur?.nomFournisseur}</p>
               <p className="text-sm text-gray-600">{commande.fournisseur?.email}</p>
             </div>
 
-            {/* Numéro BL */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Numéro de bon de livraison <span className="text-red-500">*</span>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {t('dashboard.procurementOrdersComponents.deliveryNoteNumber')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={numeroBL}
                 onChange={(e) => handleNumeroBLChange(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500 ${
                   errors.numeroBL ? 'border-red-500 bg-red-50' : ''
                 }`}
-                placeholder="Ex: BL-2024-001"
+                placeholder={t('dashboard.procurementOrdersComponents.deliveryNotePlaceholder')}
+                required
               />
               {errors.numeroBL && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <ExclamationTriangleIcon className="w-4 h-4" />
+                <p className="mt-1 flex items-center gap-1 text-sm text-red-600">
+                  <ExclamationTriangleIcon className="h-4 w-4" />
                   {errors.numeroBL}
                 </p>
               )}
             </div>
 
-            {/* Tableau des produits */}
-            <div className="bg-white border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-lg border bg-white">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Produit</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Commandé</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Prix unit.</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Reçu</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Écart</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Statut</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Activer</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.product')}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.ordered')}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.unitPrice')}
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.received')}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.difference')}
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.status')}
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">
+                      {t('dashboard.procurementOrdersComponents.activate')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {commande.lignesCommande.map((ligne) => {
+                  {lignesCommande.map((ligne) => {
                     const ligneId = ligne.idLigneCommandeFournisseur || ligne.id;
                     const qteRecue = quantitesRecues[ligneId] || 0;
                     const ecart = ligne.quantite - qteRecue;
                     const estActif = !ligne.estInactif;
                     const statutCouleur = estActif ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
-                    const statutTexte = estActif ? 'Actif' : 'Inactif';
+                    const statutTexte = estActif
+                      ? t('dashboard.procurementOrdersComponents.active')
+                      : t('dashboard.procurementOrdersComponents.inactive');
                     const estInactifEtRecu = ligne.estInactif && qteRecue > 0;
                     const hasError = errors.quantitesDepassees[ligneId];
-                    
+
                     return (
                       <tr key={ligneId} className={`hover:bg-gray-50 ${estInactifEtRecu ? 'bg-amber-50' : ''}`}>
                         <td className="px-4 py-3">
                           <div className="font-medium">{ligne.produitLibelle}</div>
-                          {ligne.categorie && (
-                            <div className="text-xs text-gray-400">{ligne.categorie}</div>
-                          )}
+                          <div className="text-xs text-gray-500">
+                            {t('dashboard.procurementOrdersComponents.reference', { reference: ligne.produitReference })}
+                          </div>
+                          {ligne.categorie && <div className="text-xs text-gray-400">{ligne.categorie}</div>}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">{ligne.quantite}</td>
-                        <td className="px-4 py-3 text-right">{formatPrice(ligne.prixUnitaire)}</td>
+                        <td className="px-4 py-3 text-right">{formatPrice(ligne.prixUnitaire, language)}</td>
                         <td className="px-4 py-3 text-center">
                           <input
                             type="number"
@@ -284,35 +298,40 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                             max={ligne.quantite}
                             value={qteRecue}
                             onChange={(e) => handleQuantityChange(ligneId, e.target.value)}
-                            className={`w-20 px-2 py-1 text-center border rounded-lg focus:ring-2 focus:ring-green-500 ${
+                            className={`w-20 rounded-lg border px-2 py-1 text-center focus:ring-2 focus:ring-green-500 ${
                               qteRecue === 0 ? 'border-red-300 bg-red-50' : ''
                             } ${hasError ? 'border-red-500 bg-red-50' : ''}`}
                           />
-                          {hasError && (
-                            <p className="text-xs text-red-600 mt-1">{hasError}</p>
-                          )}
+                          {hasError && <p className="mt-1 text-xs text-red-600">{hasError}</p>}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {ecart !== 0 && ecart > 0 && (
-                            <span className="text-orange-600">-{ecart}</span>
+                          {ecart !== 0 && (
+                            <span className={ecart > 0 ? 'text-orange-600' : 'text-blue-600'}>
+                              {ecart > 0 ? `-${ecart}` : `+${Math.abs(ecart)}`}
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statutCouleur}`}>
-                            {statutTexte}
-                          </span>
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${statutCouleur}`}>{statutTexte}</span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {estInactifEtRecu && (
-                            <label className="inline-flex items-center cursor-pointer">
+                            <label className="inline-flex cursor-pointer items-center">
                               <input
                                 type="checkbox"
                                 checked={produitsAReactiver[ligneId] || false}
-                                onChange={(e) => handleReactiverChange(ligneId, e.target.checked)}
-                                className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                onChange={(e) =>
+                                  setProduitsAReactiver((prev) => ({
+                                    ...prev,
+                                    [ligneId]: e.target.checked,
+                                  }))
+                                }
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                               />
-                              <span className="ml-1 text-xs text-gray-500">
-                                {produitsAReactiver[ligneId] ? 'Oui' : 'Non'}
+                              <span className="mx-1 text-xs text-gray-500">
+                                {produitsAReactiver[ligneId]
+                                  ? t('dashboard.procurementOrdersComponents.yes')
+                                  : t('dashboard.procurementOrdersComponents.no')}
                               </span>
                             </label>
                           )}
@@ -322,77 +341,74 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
                   })}
                 </tbody>
               </table>
+              {!lignesCommande.length && (
+                <div className="flex items-center gap-2 border-t bg-orange-50 p-4 text-sm text-orange-700">
+                  <ExclamationTriangleIcon className="h-5 w-5" />
+                  <span>Aucune ligne de commande disponible pour la reception. Rechargez la commande puis reessayez.</span>
+                </div>
+              )}
             </div>
 
             {errors.quantiteZero && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-                <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
                 <p className="text-sm text-red-600">{errors.quantiteZero}</p>
               </div>
             )}
 
-            {/* Notes */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes de réception
+            <div className="rounded-lg bg-gray-50 p-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {t('dashboard.procurementOrdersComponents.receptionNotes')}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows="2"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                placeholder="Ajouter des notes sur cette réception..."
+                className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-green-500"
+                placeholder={t('dashboard.procurementOrdersComponents.receptionNotesPlaceholder')}
               />
             </div>
 
-            {/* Totaux */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Récapitulatif</h4>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <h4 className="mb-3 text-sm font-medium text-gray-700">{t('dashboard.procurementOrdersComponents.receptionSummary')}</h4>
               <div className="flex justify-end">
                 <div className="w-80 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total HT</span>
-                    <span className="font-medium">{formatPrice(totauxRecus.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">TVA</span>
-                    <span className="font-medium">{formatPrice(totauxRecus.totalTVA)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold border-t pt-2">
-                    <span>Total TTC</span>
-                    <span className="text-green-600">{formatPrice(totauxRecus.totalTTC)}</span>
-                  </div>
+                  <TotalLine
+                    label={t('dashboard.procurementOrdersComponents.totalReceivedHT')}
+                    value={formatPrice(totauxRecus.totalHT, language)}
+                  />
+                  <TotalLine label={t('dashboard.procurementOrdersComponents.totalVAT')} value={formatPrice(totauxRecus.totalTVA, language)} />
+                  <TotalLine
+                    label={t('dashboard.procurementOrdersComponents.totalReceivedTTC')}
+                    value={formatPrice(totauxRecus.totalTTC, language)}
+                    strong
+                  />
                   {!toutesRecues && (
-                    <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded mt-2">
-                      <ExclamationTriangleIcon className="w-4 h-4" />
-                      <span>Réception partielle</span>
+                    <div className="mt-2 flex items-center gap-2 rounded bg-orange-50 p-2 text-sm text-orange-600">
+                      <ExclamationTriangleIcon className="h-4 w-4" />
+                      <span>{t('dashboard.procurementOrdersComponents.partialReception')}</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Boutons */}
-            <div className="flex justify-end gap-3 border-t pt-4 sticky bottom-0 bg-white">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Annuler
+            <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4">
+              <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-gray-700 hover:bg-gray-50">
+                {t('dashboard.procurementOrdersComponents.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!aAuMoinsUnProduitRecu}
-                className={`px-6 py-2 rounded-lg flex items-center gap-2 ${
+                className={`flex items-center gap-2 rounded-lg px-6 py-2 ${
                   aAuMoinsUnProduitRecu
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'cursor-not-allowed bg-gray-400 text-gray-200'
                 }`}
               >
-                <CheckIcon className="w-4 h-4" />
-                Confirmer
+                <CheckIcon className="h-4 w-4" />
+                {t('dashboard.procurementOrdersComponents.confirmReception')}
               </button>
             </div>
           </div>
@@ -401,5 +417,12 @@ const ReceptionModal = ({ isOpen, onClose, commande, onConfirm }) => {
     </div>
   );
 };
+
+const TotalLine = ({ label, value, strong }) => (
+  <div className={`flex justify-between ${strong ? 'border-t pt-2 font-semibold' : 'text-sm'}`}>
+    <span className={strong ? '' : 'text-gray-600'}>{label}</span>
+    <span className={strong ? 'text-green-600' : 'font-medium'}>{value}</span>
+  </div>
+);
 
 export default ReceptionModal;

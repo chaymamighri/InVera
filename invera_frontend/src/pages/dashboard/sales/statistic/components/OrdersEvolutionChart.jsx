@@ -32,8 +32,10 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const OrdersEvolutionChart = ({ data, formatCurrency }) => {
+  const { t } = useLanguage();
   
   // ============================================
   //  VALIDATION DES DONNÉES
@@ -42,7 +44,7 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
   if (!data || data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée disponible
+        {t('dashboard.salesStatsPage.noDataAvailable')}
       </div>
     );
   }
@@ -192,11 +194,11 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-40 shadow-lg pointer-events-none">
                 {point.ca > 0 ? (
                   <>
-                    <div>CA: {formatCurrency(point.ca)}</div>
-                    <div className="text-gray-300 text-[10px]">{point.commandes} commandes</div>
+                    <div>{t('dashboard.salesStatsPage.revenueShort')}: {formatCurrency(point.ca)}</div>
+                    <div className="text-gray-300 text-[10px]">{t('dashboard.salesStatsPage.ordersCount', { count: point.commandes })}</div>
                   </>
                 ) : (
-                  <div>Aucune vente</div>
+                  <div>{t('dashboard.salesStatsPage.noSale')}</div>
                 )}
               </div>
             </motion.div>
@@ -208,11 +210,11 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
       <div className="flex items-center justify-center space-x-8 pt-2">
         <div className="flex items-center">
           <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
-          <span className="text-xs text-gray-600">Nombre de commandes</span>
+          <span className="text-xs text-gray-600">{t('dashboard.salesStatsPage.orderCount')}</span>
         </div>
         <div className="flex items-center">
           <div className="w-4 h-0.5 bg-green-500 rounded mr-2"></div>
-          <span className="text-xs text-gray-600">Chiffre d'affaires</span>
+          <span className="text-xs text-gray-600">{t('dashboard.salesStatsPage.revenue')}</span>
         </div>
       </div>
 
@@ -238,8 +240,8 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
 
       {/* ===== RÉSUMÉ STATISTIQUES ===== */}
       <div className="border-t pt-3 mt-2 text-xs text-gray-500 flex justify-between px-2">
-        <span>📦 Total: {data.reduce((sum, p) => sum + p.commandes, 0)} commandes</span>
-        <span>💰 CA total: {formatCurrency(data.reduce((sum, p) => sum + p.ca, 0))}</span>
+        <span>📦 {t('dashboard.salesStatsPage.total')}: {t('dashboard.salesStatsPage.ordersCount', { count: data.reduce((sum, p) => sum + p.commandes, 0) })}</span>
+        <span>💰 {t('dashboard.salesStatsPage.totalRevenue')}: {formatCurrency(data.reduce((sum, p) => sum + p.ca, 0))}</span>
       </div>
     </div>
   );

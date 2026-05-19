@@ -75,7 +75,7 @@ const PublicFooter = ({ onNavigateSection }) => {
   return (
     <footer
       dir={isArabic ? 'rtl' : 'ltr'}
-      className="mt-24 bg-[#111b31] px-6 py-16 text-white lg:px-10 xl:px-12"
+      className="mt-0 w-full bg-[#111b31] px-6 py-16 text-white lg:px-10 xl:px-12"
     >
       <div className="w-full">
         <div className={`grid gap-12 lg:grid-cols-[1.25fr_0.7fr_0.7fr_0.8fr] ${isArabic ? 'text-right' : ''}`}>

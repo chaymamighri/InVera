@@ -8,6 +8,7 @@ import org.erp.invera.model.platform.SuperAdmin;
 import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.repository.platform.SuperAdminRepository;
 import org.erp.invera.repository.erp.utilisateurRepository;
+import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class UserLanguagePreferenceService {
 
     private final utilisateurRepository utilisateurRepository;
     private final SuperAdminRepository superAdminRepository;
+    private final TenantAwareRepository tenantRepo;
     private final MessageSource messageSource;
 
     @Transactional
@@ -63,16 +65,68 @@ public class UserLanguagePreferenceService {
             );
         }
 
-        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouve"));
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElse(null);
+        if (utilisateur != null) {
+            return new AuthenticatedLanguageOwner(
+                    ensurePreferredLanguage(utilisateur),
+                    preferredLanguage -> {
+                        utilisateur.setPreferredLanguage(preferredLanguage);
+                        utilisateurRepository.save(utilisateur);
+                    }
+            );
+        }
 
-        return new AuthenticatedLanguageOwner(
-                ensurePreferredLanguage(utilisateur),
-                preferredLanguage -> {
-                    utilisateur.setPreferredLanguage(preferredLanguage);
-                    utilisateurRepository.save(utilisateur);
-                }
-        );
+        Long clientId = getAuthenticatedClientId(authentication);
+        if (clientId != null) {
+            AuthenticatedLanguageOwner tenantOwner = getTenantUserOwner(email, clientId);
+            if (tenantOwner != null) {
+                return tenantOwner;
+            }
+        }
+
+        return new AuthenticatedLanguageOwner(PreferredLanguage.FR, preferredLanguage -> { });
+    }
+
+    private Long getAuthenticatedClientId(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Utilisateur utilisateur) {
+            return utilisateur.getClientId();
+        }
+        return null;
+    }
+
+    private AuthenticatedLanguageOwner getTenantUserOwner(String email, Long clientId) {
+        try {
+            String selectSql = "SELECT preferred_language FROM users WHERE email = ?";
+            List<PreferredLanguage> languages = tenantRepo.query(
+                    selectSql,
+                    (rs, rowNum) -> {
+                        String value = rs.getString("preferred_language");
+                        return value == null || value.isBlank() ? PreferredLanguage.FR : PreferredLanguage.valueOf(value);
+                    },
+                    clientId,
+                    String.valueOf(clientId),
+                    email
+            );
+
+            if (languages.isEmpty()) {
+                return null;
+            }
+
+            PreferredLanguage language = languages.get(0);
+            return new AuthenticatedLanguageOwner(
+                    language,
+                    preferredLanguage -> tenantRepo.update(
+                            "UPDATE users SET preferred_language = ? WHERE email = ?",
+                            clientId,
+                            String.valueOf(clientId),
+                            preferredLanguage.name(),
+                            email
+                    )
+            );
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private PreferredLanguage validateLanguage(String language, Locale locale) {
@@ -132,3 +186,4 @@ public class UserLanguagePreferenceService {
         void accept(PreferredLanguage preferredLanguage);
     }
 }
+

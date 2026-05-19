@@ -9,19 +9,22 @@ const PublicHeader = ({
   backTo = '/welcome',
   backLabel,
   actions,
+  className = '',
+  subtitleClassName = '',
+  titleClassName = '',
 }) => {
   return (
-    <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+    <header className={`rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ${className}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2">
             <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">
+            <p className={`text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2] ${subtitleClassName}`}>
               {subtitle}
             </p>
-            <h1 className="text-xl font-semibold text-slate-950">{title}</h1>
+            <h1 className={`text-xl font-semibold text-slate-950 ${titleClassName}`}>{title}</h1>
           </div>
         </div>
 

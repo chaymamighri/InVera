@@ -19,7 +19,8 @@ const ExistingClientsList = ({
   getTypeBadgeColor,
   handleSelectClientLocal,
   clientCreeEtSelectionne,
-  newClientMode
+  newClientMode,
+  t = (key) => key
 }) => {
   const [showAllClients, setShowAllClients] = useState(false);
   
@@ -55,10 +56,10 @@ const ExistingClientsList = ({
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-2" />
-              <span className="font-medium text-green-800">Client créé et sélectionné</span>
+              <span className="font-medium text-green-800">{t('clientCreatedAndSelected')}</span>
             </div>
             <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-              Nouveau
+              {t('new')}
             </span>
           </div>
           
@@ -70,16 +71,16 @@ const ExistingClientsList = ({
             
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span className="text-gray-500">Téléphone :</span>
+                <span className="text-gray-500">{t('phone')}:</span>
                 <span className="font-medium ml-1">{selectedClient.telephone}</span>
               </div>
               <div>
-                <span className="text-gray-500">Type :</span>
+                <span className="text-gray-500">{t('type')}:</span>
                 <span className="font-medium ml-1">{getTypeDisplayName(selectedClient.typeClient || selectedClient.type)}</span>
               </div>
               {selectedClient.email && (
                 <div className="col-span-2">
-                  <span className="text-gray-500">Email :</span>
+                  <span className="text-gray-500">{t('email')}:</span>
                   <span className="font-medium ml-1">{selectedClient.email}</span>
                 </div>
               )}
@@ -87,10 +88,10 @@ const ExistingClientsList = ({
             
             <div className="mt-3 pt-3 border-t border-green-100">
               <p className="text-xs text-green-600">
-                ✅ Ce client est maintenant sélectionné pour passer la commande
+                {t('clientNowSelected')}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                La remise applicable a été automatiquement calculée
+                {t('discountAutoCalculated')}
               </p>
             </div>
           </div>
@@ -102,9 +103,9 @@ const ExistingClientsList = ({
         <div className="flex items-center">
           <MagnifyingGlassIcon className="h-4 w-4 mr-1" />
           {searchClientTerm.trim() ? (
-            <span>Résultats de recherche ({filteredClients.length}/{allClients.length})</span>
+            <span>{t('searchResultsRatio', { filtered: filteredClients.length, total: allClients.length })}</span>
           ) : (
-            <span>Tous les clients ({allClients.length})</span>
+            <span>{t('allClientsCount', { count: allClients.length })}</span>
           )}
         </div>
         {!searchClientTerm.trim() && allClients.length > 10 && (
@@ -115,12 +116,12 @@ const ExistingClientsList = ({
             {showAllClients ? (
               <>
                 <ChevronUpIcon className="h-4 w-4 mr-1" />
-                Voir moins
+                {t('showLess')}
               </>
             ) : (
               <>
                 <ChevronDownIcon className="h-4 w-4 mr-1" />
-                Voir tous ({allClients.length})
+                {t('showAllCount', { count: allClients.length })}
               </>
             )}
           </button>
@@ -132,16 +133,16 @@ const ExistingClientsList = ({
         {loadingClients ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 mt-2">Chargement des clients...</p>
+            <p className="text-gray-500 mt-2">{t('loadingClients')}</p>
           </div>
         ) : displayedClients.length === 0 ? (
           <div className="p-8 text-center">
             <div className="text-4xl mb-4 text-gray-300">👤</div>
             <p className="text-gray-700 font-medium">
-              {searchClientTerm.trim() ? 'Aucun client trouvé' : 'Aucun client disponible'}
+              {searchClientTerm.trim() ? t('noClientFound') : t('noClientAvailable')}
             </p>
             <p className="text-gray-500 text-sm mt-1">
-              {searchClientTerm.trim() ? 'Essayez une autre recherche' : 'Ajoutez un nouveau client'}
+              {searchClientTerm.trim() ? t('tryAnotherSearch') : t('addNewClient')}
             </p>
           </div>
         ) : (
@@ -162,7 +163,7 @@ const ExistingClientsList = ({
                       {client.nom} {client.prenom ? client.prenom : ''}
                       {selectedClient?.id === client.id && clientEstNouveau && (
                         <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                          Nouveau
+                          {t('new')}
                         </span>
                       )}
                     </div>
@@ -186,16 +187,16 @@ const ExistingClientsList = ({
                 </div>
                 {selectedClient?.id === client.id && remiseAppliquee > 0 && (
                   <div className="mt-2 text-sm text-green-600 font-medium">
-                    Remise appliquée: {remiseAppliquee}%
+                    {t('discountApplied')}: {remiseAppliquee}%
                   </div>
                 )}
                 
                 {/* Indicateur que le client est prêt pour la commande */}
                 {selectedClient?.id === client.id && (
                   <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                    <span className="font-medium">✓ Prêt pour la commande</span>
+                    <span className="font-medium">{t('readyForOrder')}</span>
                     <p className="text-gray-600 mt-0.5">
-                      Vous pouvez maintenant ajouter des produits à la commande
+                      {t('canAddProductsNow')}
                     </p>
                   </div>
                 )}
@@ -206,14 +207,14 @@ const ExistingClientsList = ({
             {!searchClientTerm.trim() && !showAllClients && allClients.length > 10 && (
               <div className="p-4 text-center bg-gray-50 border-t border-gray-200">
                 <p className="text-sm text-gray-500">
-                  Affichage de 10 clients sur {allClients.length}
+                  {t('displayingClients', { shown: 10, total: allClients.length })}
                 </p>
                 <button
                   onClick={() => setShowAllClients(true)}
                   className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center w-full"
                 >
                   <ChevronDownIcon className="h-4 w-4 mr-1" />
-                  Voir tous les clients
+                  {t('showAllClients')}
                 </button>
               </div>
             )}
@@ -227,11 +228,11 @@ const ExistingClientsList = ({
           <div className="flex items-center">
             <CheckCircleIcon className="h-4 w-4 text-blue-600 mr-2" />
             <span className="font-medium text-blue-800">
-              Client sélectionné : {selectedClient.nom} {selectedClient.prenom}
+              {t('selectedClient')}: {selectedClient.nom} {selectedClient.prenom}
             </span>
           </div>
           <p className="text-sm text-blue-600 mt-1">
-            ✓ Prêt à passer la commande
+            {t('readyToPlaceOrder')}
           </p>
         </div>
       )}

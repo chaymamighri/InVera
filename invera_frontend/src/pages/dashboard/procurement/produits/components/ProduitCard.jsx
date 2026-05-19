@@ -1,67 +1,67 @@
-// produits/components/ProduitCard.jsx 
+// produits/components/ProduitCard.jsx
 import React, { useState } from 'react';
 import {
-  PencilSquareIcon,
   CheckCircleIcon,
+  PencilSquareIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
-const ProduitCard = ({ 
-  produit, 
-  onEdit, 
+const getLocale = (language) => (language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR');
+
+const ProduitCard = ({
+  produit,
+  onEdit,
   onToggleActive,
   getStatusColor,
-  getStatusLabel 
+  getStatusLabel,
+  isFocused = false,
+  focusedBadgeText = '',
 }) => {
+  const { t, language, isArabic } = useLanguage();
   const [imageError, setImageError] = useState(false);
 
-  // ========== GESTION DE L'ACTIVATION/DÉSACTIVATION ==========
   const handleToggleClick = (e) => {
     e.preventDefault();
     e.nativeEvent.preventDefault();
     e.stopPropagation();
-    
-    if (e.nativeEvent) {
-      e.nativeEvent.stopImmediatePropagation?.();
-    }
-    
+
+    e.nativeEvent?.stopImmediatePropagation?.();
+
     if (e.target instanceof HTMLButtonElement) {
       e.target.blur();
     }
-    
+
     onToggleActive(produit.idProduit, produit.active);
     return false;
   };
 
-  // ========== GESTION DE L'ÉDITION ==========
   const handleEditClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!produit) {
-      console.error('❌ Erreur: produit est null!');
+      console.error('Erreur: produit est null');
       return;
     }
-    
+
     const productId = produit.idProduit || produit.id;
-    
     if (!productId) {
-      console.error('❌ Erreur: produit.id est manquant!');
+      console.error('Erreur: produit.id est manquant');
       return;
     }
 
     onEdit(produit);
   };
 
-  // ========== GESTION DE L'IMAGE ==========
   const getImageUrl = () => {
     if (!produit.imageUrl) return null;
-    
+
     if (produit.imageUrl.startsWith('http')) {
       return produit.imageUrl;
     }
-    
-    let cleanPath = produit.imageUrl.replace(/^\/+|\/+$/g, '');
+
+    const cleanPath = produit.imageUrl.replace(/^\/+|\/+$/g, '');
     return `http://localhost:8081/${cleanPath}`;
   };
 
@@ -70,43 +70,52 @@ const ProduitCard = ({
     setImageError(true);
   };
 
-  // ========== FORMATAGE DES PRIX ==========
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('fr-FR', {
+    const amount = Number(price);
+
+    return new Intl.NumberFormat(getLocale(language), {
       style: 'currency',
       currency: 'TND',
       minimumFractionDigits: 3,
-      maximumFractionDigits: 3
-    }).format(price);
+      maximumFractionDigits: 3,
+    }).format(Number.isFinite(amount) ? amount : 0);
   };
 
   const imageUrl = getImageUrl();
   const hasValidImage = imageUrl && !imageError;
+  const actionSideClass = isArabic ? 'right-3' : 'left-3';
+  const statusSideClass = isArabic ? 'left-4' : 'right-4';
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 relative h-full flex flex-col ${
-      !produit.active ? 'opacity-75 bg-gray-50' : ''
-    }`}>
-      {/* ========== BOUTONS D'ACTION EN HAUT À GAUCHE ========== */}
-      <div className="absolute top-3 left-3 z-10 flex gap-1">
+    <div
+      className={`relative flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md ${
+        !produit.active ? 'bg-gray-50 opacity-75' : ''
+      } ${isFocused ? 'border-amber-300 bg-amber-50/80 ring-2 ring-amber-200 shadow-xl' : ''}`}
+      dir={isArabic ? 'rtl' : 'ltr'}
+    >
+      <div className={`absolute top-3 ${actionSideClass} z-10 flex gap-1`}>
         <button
           type="button"
           onClick={handleEditClick}
-          className="p-1.5 bg-white rounded-lg shadow-sm hover:bg-blue-50 transition-colors border border-gray-200 group"
-          title="Modifier le produit"
+          className="group rounded-lg border border-gray-200 bg-white p-1.5 shadow-sm transition-colors hover:bg-blue-50"
+          title={t('dashboard.procurementProductsPage.editProductTooltip')}
         >
           <PencilSquareIcon className="h-4 w-4 text-blue-600 group-hover:text-blue-700" />
         </button>
-        
+
         <button
           type="button"
           onClick={handleToggleClick}
-          className={`p-1.5 bg-white rounded-lg shadow-sm transition-colors border ${
-            produit.active 
-              ? 'hover:bg-red-50 border-gray-200 hover:border-red-200' 
-              : 'hover:bg-green-50 border-gray-200 hover:border-green-200'
+          className={`rounded-lg border bg-white p-1.5 shadow-sm transition-colors ${
+            produit.active
+              ? 'border-gray-200 hover:border-red-200 hover:bg-red-50'
+              : 'border-gray-200 hover:border-green-200 hover:bg-green-50'
           }`}
-          title={produit.active ? "Désactiver le produit" : "Activer le produit"}
+          title={
+            produit.active
+              ? t('dashboard.procurementProductsPage.deactivateProductTooltip')
+              : t('dashboard.procurementProductsPage.activateProductTooltip')
+          }
         >
           {produit.active ? (
             <XCircleIcon className="h-4 w-4 text-red-600" />
@@ -116,89 +125,90 @@ const ProduitCard = ({
         </button>
       </div>
 
-      {/* ========== POINT DE STATUT EN HAUT À DROITE ========== */}
-      <div className="absolute top-4 right-4 z-10">
-        <span 
-          className={`inline-block w-3 h-3 rounded-full ${
-            produit.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-          }`} 
-          title={produit.active ? 'Produit actif' : 'Produit inactif'}
+      <div className={`absolute top-4 ${statusSideClass} z-10`}>
+        <span
+          className={`inline-block h-3 w-3 rounded-full ${produit.active ? 'animate-pulse bg-green-500' : 'bg-red-500'}`}
+          title={
+            produit.active
+              ? t('dashboard.procurementProductsPage.activeProductTooltip')
+              : t('dashboard.procurementProductsPage.inactiveProductTooltip')
+          }
         />
       </div>
 
-      {/* ========== CONTENU PRINCIPAL ========== */}
-      <div className="p-4 pt-12 flex-1 flex flex-col">
-        
-        {/* ========== EN-TÊTE AVEC IMAGE ========== */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+      <div className="flex flex-1 flex-col p-4 pt-12">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gradient-to-br from-blue-100 to-cyan-100">
             {hasValidImage ? (
-              <img 
-                src={imageUrl} 
-                alt={produit.libelle} 
-                className="w-full h-full object-cover"
+              <img
+                src={imageUrl}
+                alt={produit.libelle}
+                className="h-full w-full object-cover"
                 onError={handleImageError}
                 loading="lazy"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500">
-                <span className="text-lg font-bold text-white">
-                  {produit.libelle?.charAt(0).toUpperCase()}
-                </span>
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500">
+                <span className="text-lg font-bold text-white">{produit.libelle?.charAt(0).toUpperCase()}</span>
               </div>
             )}
           </div>
-          
+
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-gray-900 truncate text-base">{produit.libelle}</h3>
-            <p className="text-xs text-gray-600 truncate">
-              {produit.categorieNom || 'Sans catégorie'}
+            <h3 className="truncate text-base font-semibold text-gray-900">{produit.libelle}</h3>
+            <p className="truncate text-xs text-gray-600">
+              {produit.categorieNom || t('dashboard.procurementProductsPage.noCategory')}
             </p>
+            {isFocused && focusedBadgeText && (
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                {focusedBadgeText}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ========== INFORMATIONS PRIX ========== */}
-        {/* ✅ Suppression du bloc "Prix achat" - Affichage uniquement du prix de vente */}
         <div className="mb-3">
-          <div className="bg-gray-50 rounded-lg p-2">
-            <p className="text-xs text-gray-600">Prix de vente</p>
-            <p className="font-semibold text-blue-700 truncate text-base">{formatPrice(produit.prixVente)}</p>
+          <div className="rounded-lg bg-gray-50 p-2">
+            <p className="text-xs text-gray-600">{t('dashboard.procurementProductsPage.salesPriceShort')}</p>
+            <p className="truncate text-base font-semibold text-blue-700">{formatPrice(produit.prixVente)}</p>
           </div>
         </div>
 
-        {/* ========== STOCK ET SEUIL ========== */}
-        <div className="space-y-1 mb-3">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">Stock actuel</span>
-            <span className="font-bold text-gray-900">
-              {produit.quantiteStock} {produit.uniteMesure}
-            </span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">Seuil minimum</span>
-            <span className="font-medium text-gray-800">
-              {produit.seuilMinimum} {produit.uniteMesure}
-            </span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">Statut stock</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(produit.status)}`}>
+        <div className="mb-3 space-y-1">
+          <InfoRow
+            label={t('dashboard.procurementProductsPage.currentStockLabel')}
+            value={`${produit.quantiteStock} ${produit.uniteMesure}`}
+            valueClassName="font-bold text-gray-900"
+          />
+          <InfoRow
+            label={t('dashboard.procurementProductsPage.minimumThresholdLabel')}
+            value={`${produit.seuilMinimum} ${produit.uniteMesure}`}
+            valueClassName="font-medium text-gray-800"
+          />
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">{t('dashboard.procurementProductsPage.stockStatusLabel')}</span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(produit.status)}`}>
               {getStatusLabel(produit.status)}
             </span>
           </div>
         </div>
 
-        {/* ========== REMISE ========== */}
         {produit.remise > 0 && (
-          <div className="p-2 bg-green-50 rounded-lg border border-green-200 mb-3">
-            <p className="text-xs text-green-700">Remise temporaire</p>
+          <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-2">
+            <p className="text-xs text-green-700">{t('dashboard.procurementProductsPage.temporaryDiscountShort')}</p>
             <p className="text-sm font-semibold text-green-800">{produit.remise}%</p>
           </div>
         )}
-
       </div>
     </div>
   );
 };
+
+const InfoRow = ({ label, value, valueClassName }) => (
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-gray-600">{label}</span>
+    <span className={valueClassName}>{value}</span>
+  </div>
+);
 
 export default ProduitCard;

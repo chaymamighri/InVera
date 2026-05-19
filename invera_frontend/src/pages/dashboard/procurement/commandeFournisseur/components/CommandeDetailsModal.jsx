@@ -1,15 +1,15 @@
-// components/commandeDetailsModal.jsx - Version avec API passée en prop
-import React, { useEffect, useMemo, useState } from 'react';
+// components/CommandeDetailsModal.jsx
+import React, { useEffect, useMemo } from 'react';
 import {
-  XMarkIcon,
   BuildingStorefrontIcon,
   CalendarIcon,
-  TruckIcon,
-  TagIcon,
   MapPinIcon,
+  TagIcon,
+  TruckIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
-// ========== CONSTANTES ==========
 const StatutCommande = {
   BROUILLON: 'BROUILLON',
   VALIDEE: 'VALIDEE',
@@ -21,11 +21,14 @@ const StatutCommande = {
 
 const STATUTS_RECUS = [StatutCommande.RECUE, StatutCommande.FACTUREE];
 
-// ========== UTILITAIRES ==========
-const formatDate = (dateString) => {
+const getLocale = (language) => (language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR');
+
+const formatDate = (dateString, language) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat('fr-FR', {
+  if (Number.isNaN(date.getTime())) return 'N/A';
+
+  return new Intl.DateTimeFormat(getLocale(language), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -34,14 +37,18 @@ const formatDate = (dateString) => {
   }).format(date);
 };
 
-const formatPrice = (price) => {
+const formatPrice = (price, language) => {
   if (price === null || price === undefined) return 'N/A';
-  return new Intl.NumberFormat('fr-FR', {
+
+  const amount = Number(price);
+  if (!Number.isFinite(amount)) return 'N/A';
+
+  return new Intl.NumberFormat(getLocale(language), {
     style: 'currency',
     currency: 'TND',
     minimumFractionDigits: 3,
-    maximumFractionDigits: 3
-  }).format(price);
+    maximumFractionDigits: 3,
+  }).format(amount);
 };
 
 const getStatusBadge = (statut) => {
@@ -53,238 +60,260 @@ const getStatusBadge = (statut) => {
     [StatutCommande.FACTUREE]: 'bg-purple-100 text-purple-800 border-purple-300',
     [StatutCommande.ANNULEE]: 'bg-red-100 text-red-800 border-red-300',
   };
+
   return (
-    <span className={`px-4 py-2 rounded-full text-sm font-semibold border shadow-sm ${colors[statut] || colors[StatutCommande.BROUILLON]}`}>
+    <span
+      className={`rounded-full border px-4 py-2 text-sm font-semibold shadow-sm ${
+        colors[statut] || colors[StatutCommande.BROUILLON]
+      }`}
+    >
       {statut}
     </span>
   );
 };
 
-// ========== HOOK PERSONNALISÉ ==========
 const useCommandeCalculs = (commande) => {
-  const estRecue = useMemo(() => 
-    STATUTS_RECUS.includes(commande?.statut), 
-    [commande?.statut]
-  );
+  const estRecue = useMemo(() => STATUTS_RECUS.includes(commande?.statut), [commande?.statut]);
 
   const ligneAvecTotaux = useMemo(() => {
     if (!commande?.lignesCommande) return [];
-    
-    return commande.lignesCommande.map(ligne => {
-      // ✅ Règle métier : quantité utilisée selon le statut
-      const quantite = estRecue 
-        ? (ligne.quantiteRecue || 0)  // Si reçue : utiliser qté reçue
-        : (ligne.quantite || 0);       // Sinon : utiliser qté commandée
-      
+
+    return commande.lignesCommande.map((ligne) => {
+      const quantite = estRecue ? ligne.quantiteRecue || 0 : ligne.quantite || 0;
       const prixUnitaire = ligne.prixUnitaire || 0;
       const tauxTVA = ligne.tauxTVA || 19;
-      
       const sousTotalHT = quantite * prixUnitaire;
-      const montantTVA = sousTotalHT * tauxTVA / 100;
+      const montantTVA = (sousTotalHT * tauxTVA) / 100;
       const sousTotalTTC = sousTotalHT + montantTVA;
-      
+
       return {
         ...ligne,
         quantiteUtilisee: quantite,
         sousTotalHT,
         montantTVA,
-        sousTotalTTC
+        sousTotalTTC,
       };
     });
   }, [commande, estRecue]);
 
   const totaux = useMemo(() => {
     if (!ligneAvecTotaux.length) return { totalHT: 0, totalTVA: 0, totalTTC: 0 };
-    
-    return ligneAvecTotaux.reduce((acc, ligne) => ({
-      totalHT: acc.totalHT + ligne.sousTotalHT,
-      totalTVA: acc.totalTVA + ligne.montantTVA,
-      totalTTC: acc.totalTTC + ligne.sousTotalTTC
-    }), { totalHT: 0, totalTVA: 0, totalTTC: 0 });
+
+    return ligneAvecTotaux.reduce(
+      (acc, ligne) => ({
+        totalHT: acc.totalHT + ligne.sousTotalHT,
+        totalTVA: acc.totalTVA + ligne.montantTVA,
+        totalTTC: acc.totalTTC + ligne.sousTotalTTC,
+      }),
+      { totalHT: 0, totalTVA: 0, totalTTC: 0 }
+    );
   }, [ligneAvecTotaux]);
 
   return { estRecue, ligneAvecTotaux, totaux };
 };
 
-// ========== COMPOSANT PRINCIPAL ==========
-const CommandeDetailsModal = ({ isOpen, onClose, commande: commandeProp, commandeId, api }) => {
-  const [commande, setCommande] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  // ✅ Charger les détails si on a un ID ou utiliser la commande passée en prop
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    // Si on a une commande complète passée en prop avec des lignes, l'utiliser
-    if (commandeProp?.lignesCommande && commandeProp.lignesCommande.length > 0) {
-      console.log('📦 Utilisation de la commande passée en prop:', commandeProp);
-      console.log('📋 Lignes avec quantiteRecue:', commandeProp.lignesCommande.map(l => ({
-        produit: l.produitLibelle,
-        quantite: l.quantite,
-        quantiteRecue: l.quantiteRecue
-      })));
-      setCommande(commandeProp);
-      return;
-    }
-    
-    // Sinon, charger depuis l'API si on a un ID et que l'API est disponible
-    if (commandeId && api) {
-      fetchCommandeDetails();
-    }
-  }, [isOpen, commandeId, commandeProp, api]);
-
-  const fetchCommandeDetails = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get(`/commandes-fournisseurs/${commandeId}`);
-      console.log('📦 Détails chargés depuis API:', response.data);
-      console.log('📋 Lignes avec quantiteRecue:', response.data.lignesCommande?.map(l => ({
-        produit: l.produitLibelle,
-        quantite: l.quantite,
-        quantiteRecue: l.quantiteRecue
-      })));
-      setCommande(response.data);
-    } catch (error) {
-      console.error('Erreur chargement détails:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Calculs - appelés à chaque rendu mais avec useMemo
+const CommandeDetailsModal = ({ isOpen, onClose, commande }) => {
+  const { t, language, isArabic } = useLanguage();
   const { estRecue, ligneAvecTotaux, totaux } = useCommandeCalculs(commande);
 
-  // ✅ Retour anticipé APRÈS tous les hooks
-  if (!isOpen) return null;
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-        <div className="bg-white p-6 rounded-xl">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Chargement des détails...</p>
-        </div>
-      </div>
-    );
-  }
-  if (!commande) return null;
+  useEffect(() => {
+    if (commande) {
+      console.log('Commande recue dans modal:', commande);
+    }
+  }, [commande]);
 
-  // Helper pour le statut de réception
+  if (!isOpen || !commande) return null;
+
   const getReceptionStatus = (ligne) => {
     const quantiteRecue = ligne.quantiteRecue || 0;
     const quantiteCommandee = ligne.quantite || 0;
-    
-    if (quantiteRecue === 0) return { type: 'none', text: '❌ Non reçu', color: 'red' };
-    if (quantiteRecue === quantiteCommandee) return { type: 'full', text: '✓ Reçu complet', color: 'green' };
-    return { type: 'partial', text: `⚠️ Réception partielle (${quantiteRecue}/${quantiteCommandee})`, color: 'orange' };
+
+    if (quantiteRecue === 0) {
+      return {
+        type: 'none',
+        text: t('dashboard.procurementOrdersComponents.notReceived'),
+        color: 'red',
+      };
+    }
+    if (quantiteRecue === quantiteCommandee) {
+      return {
+        type: 'full',
+        text: t('dashboard.procurementOrdersComponents.fullyReceived'),
+        color: 'green',
+      };
+    }
+    return {
+      type: 'partial',
+      text: t('dashboard.procurementOrdersComponents.partiallyReceived', {
+        received: quantiteRecue,
+        ordered: quantiteCommandee,
+      }),
+      color: 'orange',
+    };
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+    <div className="fixed inset-0 z-50 overflow-y-auto" dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="flex min-h-screen items-center justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" onClick={onClose} />
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        <span className="hidden sm:inline-block sm:h-screen sm:align-middle">&#8203;</span>
 
-        <div className="relative inline-block align-bottom bg-white rounded-2xl shadow-2xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle w-full max-w-6xl">
-
-          {/* En-tête */}
+        <div className="relative inline-block w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white text-left align-bottom shadow-2xl transition-all sm:my-8 sm:align-middle">
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
-                  <TagIcon className="w-6 h-6 text-white" />
+                <div className="rounded-xl bg-white/20 p-3 backdrop-blur-sm">
+                  <TagIcon className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="mb-2 flex items-center gap-3">
                     <h3 className="text-2xl font-bold text-white">
-                      Commande {commande.numeroCommande || 'N/A'}
+                      {t('dashboard.procurementOrdersComponents.orderDetailsTitle', {
+                        number: commande.numeroCommande || 'N/A',
+                      })}
                     </h3>
                     {getStatusBadge(commande.statut)}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={onClose} className="p-3 text-white hover:bg-white/20 rounded-xl transition-colors" title="Fermer">
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="rounded-xl p-3 text-white transition-colors hover:bg-white/20"
+                title={t('dashboard.procurementOrdersComponents.close')}
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
             </div>
           </div>
 
-          {/* Corps */}
-          <div className="px-8 py-6 bg-gray-50 max-h-[calc(85vh-200px)] overflow-y-auto">
+          <div className="max-h-[calc(85vh-200px)] overflow-y-auto bg-gray-50 px-8 py-6">
             <div className="space-y-6">
-
-              {/* Informations de livraison */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <InfoCard icon={CalendarIcon} label="Date commande" value={formatDate(commande.dateCommande)} />
-                <InfoCard icon={TruckIcon} label="Livraison prévue" value={formatDate(commande.dateLivraisonPrevue)} />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <InfoCard
+                  icon={CalendarIcon}
+                  label={t('dashboard.procurementOrdersComponents.orderDate')}
+                  value={formatDate(commande.dateCommande, language)}
+                />
+                <InfoCard
+                  icon={TruckIcon}
+                  label={t('dashboard.procurementOrdersComponents.plannedDelivery')}
+                  value={formatDate(commande.dateLivraisonPrevue, language)}
+                />
                 {commande.dateLivraisonReelle && (
-                  <InfoCard icon={TruckIcon} label="Livraison réelle" value={formatDate(commande.dateLivraisonReelle)} highlight />
+                  <InfoCard
+                    icon={TruckIcon}
+                    label={t('dashboard.procurementOrdersComponents.realDelivery')}
+                    value={formatDate(commande.dateLivraisonReelle, language)}
+                    highlight
+                  />
                 )}
-                <InfoCard icon={MapPinIcon} label="Adresse livraison" value={commande.adresseLivraison || 'Non spécifiée'} />
+                <InfoCard
+                  icon={MapPinIcon}
+                  label={t('dashboard.procurementOrdersComponents.deliveryAddress')}
+                  value={commande.adresseLivraison || t('dashboard.procurementOrdersComponents.notSpecified')}
+                />
               </div>
 
-              {/* Fournisseur */}
-              <FournisseurCard fournisseur={commande.fournisseur} />
+              <FournisseurCard fournisseur={commande.fournisseur} t={t} />
 
-              {/* Articles */}
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                  <h4 className="font-semibold text-gray-900">Détail des articles</h4>
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4">
+                  <h4 className="font-semibold text-gray-900">{t('dashboard.procurementOrdersComponents.itemDetails')}</h4>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500">Produit</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Qté commandée</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Qté reçue</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Prix unit.</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.product')}
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.orderedQty')}
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.receivedQty')}
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.unitPrice')}
+                        </th>
                         <th className="px-6 py-4 text-center text-xs font-medium text-gray-500">TVA</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Total HT</th>
-                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">Total TTC</th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.totalHT')}
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-medium text-gray-500">
+                          {t('dashboard.procurementOrdersComponents.totalTTC')}
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 bg-white">
                       {ligneAvecTotaux.map((ligne, idx) => {
                         const quantiteRecue = ligne.quantiteRecue || 0;
                         const receptionStatus = getReceptionStatus(ligne);
                         const colorMap = { green: 'text-green-600', orange: 'text-orange-600', red: 'text-red-600' };
-                        const bgColorMap = { green: 'bg-green-50', orange: 'bg-orange-50', red: 'bg-red-50' };
-                        
+                        const badgeColorMap = {
+                          green: 'bg-green-100 text-green-800',
+                          orange: 'bg-orange-100 text-orange-800',
+                          red: 'bg-red-100 text-red-800',
+                        };
+
                         return (
-                          <tr key={ligne.idLigneCommandeFournisseur || idx} className="hover:bg-gray-50 transition-colors">
+                          <tr key={ligne.idLigneCommandeFournisseur || idx} className="transition-colors hover:bg-gray-50">
                             <td className="px-6 py-4">
-                              <div className="font-medium text-gray-900">{ligne.produitLibelle || 'Produit sans nom'}</div>
+                              <div className="font-medium text-gray-900">
+                                {ligne.produitLibelle || t('dashboard.procurementOrdersComponents.productWithoutName')}
+                              </div>
+                              {ligne.produitReference && (
+                                <div className="text-sm text-gray-500">
+                                  {t('dashboard.procurementOrdersComponents.reference', { reference: ligne.produitReference })}
+                                </div>
+                              )}
                               {estRecue && (
-                                <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium ${bgColorMap[receptionStatus.color]} ${colorMap[receptionStatus.color]}`}>
+                                <span
+                                  className={`mt-1 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                                    badgeColorMap[receptionStatus.color]
+                                  }`}
+                                >
                                   {receptionStatus.text}
                                 </span>
                               )}
                               {!estRecue && commande.statut === StatutCommande.ENVOYEE && (
-                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">🚚 En cours de livraison</span>
+                                <span className="mt-1 inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                                  {t('dashboard.procurementOrdersComponents.inDelivery')}
+                                </span>
                               )}
                               {!estRecue && commande.statut === StatutCommande.VALIDEE && (
-                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">⏳ En attente de réception</span>
+                                <span className="mt-1 inline-flex items-center rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                                  {t('dashboard.procurementOrdersComponents.waitingReception')}
+                                </span>
                               )}
-                             </td>
+                            </td>
                             <td className="px-6 py-4 text-right font-medium text-gray-900">{ligne.quantite}</td>
                             <td className="px-6 py-4 text-right">
                               {estRecue ? (
                                 <div>
                                   <span className={`font-semibold ${colorMap[receptionStatus.color]}`}>{quantiteRecue}</span>
                                   {receptionStatus.type === 'partial' && (
-                                    <div className="text-xs text-orange-500 mt-0.5">Manque: {ligne.quantite - quantiteRecue}</div>
+                                    <div className="mt-0.5 text-xs text-orange-500">
+                                      {t('dashboard.procurementOrdersComponents.missing', {
+                                        count: (ligne.quantite || 0) - quantiteRecue,
+                                      })}
+                                    </div>
                                   )}
                                 </div>
-                              ) : <span className="text-gray-400 italic text-sm">-</span>}
-                             </td>
-                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.prixUnitaire)}</td>
+                              ) : (
+                                <span className="text-sm italic text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.prixUnitaire, language)}</td>
                             <td className="px-6 py-4 text-center">
-                              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{ligne.tauxTVA || 19}%</span>
-                             </td>
-                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.sousTotalHT)}</td>
-                            <td className="px-6 py-4 text-right font-semibold text-blue-600">{formatPrice(ligne.sousTotalTTC)}</td>
+                              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                                {ligne.tauxTVA || 19}%
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-900">{formatPrice(ligne.sousTotalHT, language)}</td>
+                            <td className="px-6 py-4 text-right font-semibold text-blue-600">
+                              {formatPrice(ligne.sousTotalTTC, language)}
+                            </td>
                           </tr>
                         );
                       })}
@@ -293,24 +322,31 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande: commandeProp, command
                 </div>
               </div>
 
-              {/* Totaux */}
               <div className="flex justify-end">
-                <div className="w-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-4">Récapitulatif des montants</h4>
+                <div className="w-96 rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 p-6 shadow-sm">
+                  <h4 className="mb-4 text-sm font-semibold text-gray-700">
+                    {t('dashboard.procurementOrdersComponents.amountSummary')}
+                  </h4>
                   <div className="space-y-3">
-                    <TotalRow label="Total HT" value={formatPrice(totaux.totalHT)} />
-                    <TotalRow label="Total TVA" value={formatPrice(totaux.totalTVA)} />
-                    <TotalRow label="Total TTC" value={formatPrice(totaux.totalTTC)} isBold />
+                    <TotalRow label={t('dashboard.procurementOrdersComponents.totalHT')} value={formatPrice(totaux.totalHT, language)} />
+                    <TotalRow label={t('dashboard.procurementOrdersComponents.totalVAT')} value={formatPrice(totaux.totalTVA, language)} />
+                    <TotalRow
+                      label={t('dashboard.procurementOrdersComponents.totalTTC')}
+                      value={formatPrice(totaux.totalTTC, language)}
+                      isBold
+                    />
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Pied */}
-          <div className="bg-gray-100 px-8 py-4 border-t border-gray-200 flex justify-end gap-3">
-            <button onClick={onClose} className="px-6 py-2.5 bg-white text-gray-700 font-medium rounded-xl border border-gray-300 hover:bg-gray-50 transition-all shadow-sm">
-              Fermer
+          <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-100 px-8 py-4">
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+            >
+              {t('dashboard.procurementOrdersComponents.close')}
             </button>
           </div>
         </div>
@@ -319,40 +355,51 @@ const CommandeDetailsModal = ({ isOpen, onClose, commande: commandeProp, command
   );
 };
 
-// ========== COMPOSANTS UTILITAIRES ==========
 const InfoCard = ({ icon: Icon, label, value, highlight }) => (
-  <div className={`bg-white p-4 rounded-xl border shadow-sm ${highlight ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
+  <div className={`rounded-xl border bg-white p-4 shadow-sm ${highlight ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
     <div className="flex items-center gap-3">
-      <Icon className={`w-5 h-5 ${highlight ? 'text-green-600' : 'text-blue-600'}`} />
+      <Icon className={`h-5 w-5 ${highlight ? 'text-green-600' : 'text-blue-600'}`} />
       <div>
         <p className="text-xs text-gray-500">{label}</p>
-        <p className={`font-semibold ${highlight ? 'text-green-700' : 'text-gray-900'}`}>{value}</p>
+        <p className={`font-semibold ${highlight ? 'text-green-700' : ''}`}>{value}</p>
       </div>
     </div>
   </div>
 );
 
-const FournisseurCard = ({ fournisseur }) => (
-  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+const FournisseurCard = ({ fournisseur, t }) => (
+  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4">
       <div className="flex items-center gap-2">
-        <BuildingStorefrontIcon className="w-5 h-5 text-gray-600" />
-        <h4 className="font-semibold text-gray-900">Informations fournisseur</h4>
+        <BuildingStorefrontIcon className="h-5 w-5 text-gray-600" />
+        <h4 className="font-semibold text-gray-900">{t('dashboard.procurementOrdersComponents.supplierInfo')}</h4>
       </div>
     </div>
     <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500 uppercase">Nom</p>
+          <p className="text-xs font-medium uppercase text-gray-500">{t('dashboard.procurementOrdersComponents.name')}</p>
           <p className="text-base font-semibold text-gray-900">{fournisseur?.nomFournisseur || fournisseur?.nom || 'N/A'}</p>
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
-          <p className="text-base text-gray-900">{fournisseur?.email || 'N/A'}</p>
+          <p className="text-xs font-medium uppercase text-gray-500">{t('dashboard.procurementOrdersComponents.email')}</p>
+          {fournisseur?.email ? (
+            <a href={`mailto:${fournisseur.email}`} className="text-base font-medium text-blue-600 hover:text-blue-800">
+              {fournisseur.email}
+            </a>
+          ) : (
+            <p className="text-base font-medium text-gray-900">N/A</p>
+          )}
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500 uppercase">Téléphone</p>
-          <p className="text-base text-gray-900">{fournisseur?.telephone || 'N/A'}</p>
+          <p className="text-xs font-medium uppercase text-gray-500">{t('dashboard.procurementOrdersComponents.phone')}</p>
+          {fournisseur?.telephone ? (
+            <a href={`tel:${fournisseur.telephone}`} className="text-base font-medium text-gray-900">
+              {fournisseur.telephone}
+            </a>
+          ) : (
+            <p className="text-base font-medium text-gray-900">N/A</p>
+          )}
         </div>
       </div>
     </div>
@@ -360,7 +407,7 @@ const FournisseurCard = ({ fournisseur }) => (
 );
 
 const TotalRow = ({ label, value, isBold }) => (
-  <div className={`flex justify-between items-center ${isBold ? 'border-t border-gray-200 pt-3 mt-3' : 'text-sm'}`}>
+  <div className={`flex items-center justify-between ${isBold ? 'mt-3 border-t border-gray-200 pt-3' : 'text-sm'}`}>
     <span className={isBold ? 'text-base font-semibold text-gray-900' : 'text-gray-600'}>{label}</span>
     <span className={isBold ? 'text-xl font-bold text-blue-600' : 'font-medium text-gray-900'}>{value}</span>
   </div>

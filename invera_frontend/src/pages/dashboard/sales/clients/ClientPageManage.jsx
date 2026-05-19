@@ -101,11 +101,11 @@ const FALLBACK_TEXTS = {
 };
 
 const ClientManagePage = () => {
-  const { t } = useLanguage();
+  const { t, isArabic } = useLanguage();
   
   // ✅ Fonction de traduction avec fallback
-  const safeT = (key) => {
-    const translated = t(key);
+  const safeT = (key, params) => {
+    const translated = t(key, params);
     // Si la traduction retourne la clé elle-même (non trouvée) ou est vide
     if (!translated || translated === key) {
       return FALLBACK_TEXTS[key] || key;
@@ -205,10 +205,10 @@ const ClientManagePage = () => {
     
     try {
       await deleteClient(clientToDelete.idClient);
-      toast.success('Client supprimé avec succès');
+      toast.success(safeT('salesPages.clientDeletedSuccess'));
       fetchClients();
     } catch (error) {
-      toast.error(error.message || 'Erreur lors de la suppression');
+      toast.error(error.message || safeT('salesPages.deleteError'));
     } finally {
       setOpenDeleteModal(false);
       setClientToDelete(null);
@@ -274,7 +274,7 @@ const ClientManagePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className={`min-h-screen bg-gray-50 p-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center">
@@ -530,6 +530,7 @@ const ClientManagePage = () => {
         clientTypes={clientTypes}
         createClient={createClient}
         t={safeT}
+        isArabic={isArabic}
       />
 
       {/* Modal de modification */}
@@ -540,6 +541,7 @@ const ClientManagePage = () => {
         onSuccess={handleModalSuccess}
         updateClient={updateClient}
         t={safeT}
+        isArabic={isArabic}
       />
 
       {/* Modal de détails */}
@@ -548,6 +550,7 @@ const ClientManagePage = () => {
         onClose={handleDetailsModalClose}
         client={selectedClient}
         t={safeT}
+        isArabic={isArabic}
       />
 
       {/* Modal de confirmation de suppression */}
@@ -557,6 +560,7 @@ const ClientManagePage = () => {
         onConfirm={handleConfirmDelete}
         clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
         t={safeT}
+        isArabic={isArabic}
       />
     </div>
   );

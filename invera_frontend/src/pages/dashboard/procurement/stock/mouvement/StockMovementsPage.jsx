@@ -1,7 +1,7 @@
-// pages/dashboard/procurement/stock/StockMovementsPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useStockMovements } from '../../../../../hooks/useStockMovements';
+import { useLanguage } from '../../../../../context/LanguageContext';
 import StatsCards from './components/StatsCards';
 import FilterBar from './components/FilterBar';
 import MovementTable from './components/MovementTable';
@@ -20,123 +20,80 @@ const formatDateFinAPI = (dateStr) => {
   return date.toISOString();
 };
 
-const ITEMS_PER_PAGE = 10;
-
 const StockMovementsPage = () => {
   const { movements, loading, error, fetchAllMovements } = useStockMovements();
-  
-  // État des filtres
+  const { t, isArabic } = useLanguage();
+  const tr = (key, params) => t(`dashboard.procurementMovementsPage.${key}`, params);
   const [filters, setFilters] = useState({
     dateDebut: '',
     dateFin: '',
-    type: ''
+    type: '',
   });
-  
-  // État de pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  // Mettre à jour le nombre de pages
-  useEffect(() => {
-    setTotalPages(Math.ceil(movements.length / ITEMS_PER_PAGE));
-    setCurrentPage(1);
-  }, [movements]);
-
-  // Chargement initial
   useEffect(() => {
     fetchAllMovements();
-  }, []);
+  }, [fetchAllMovements]);
 
-  // ✅ Recherche automatique quand les filtres changent
-  const handleFilterChange = useCallback(async (key, value) => {
-    console.log(`🔍 Filtre changé: ${key} = ${value}`);
-    
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    
-    // Construire les paramètres pour l'API
-    const apiFilters = {};
-    
-    if (newFilters.dateDebut) {
-      apiFilters.debut = formatDateDebutAPI(newFilters.dateDebut);
-      console.log(`📅 Date début formatée: ${apiFilters.debut}`);
-    }
-    if (newFilters.dateFin) {
-      apiFilters.fin = formatDateFinAPI(newFilters.dateFin);
-      console.log(`📅 Date fin formatée: ${apiFilters.fin}`);
-    }
-    if (newFilters.type) {
-      apiFilters.type = newFilters.type;
-      console.log(`📌 Type sélectionné: ${apiFilters.type}`);
-    }
-    
-    console.log('📡 Appel API avec:', apiFilters);
-    
-    // Recharger avec les filtres
-    await fetchAllMovements(apiFilters);
-  }, [filters, fetchAllMovements]);
+  const handleFilterChange = useCallback(
+    async (key, value) => {
+      const newFilters = { ...filters, [key]: value };
+      setFilters(newFilters);
 
-  // ✅ Réinitialiser les filtres
+      const apiFilters = {};
+      if (newFilters.dateDebut) apiFilters.debut = formatDateDebutAPI(newFilters.dateDebut);
+      if (newFilters.dateFin) apiFilters.fin = formatDateFinAPI(newFilters.dateFin);
+      if (newFilters.type) apiFilters.type = newFilters.type;
+
+      await fetchAllMovements(apiFilters);
+    },
+    [filters, fetchAllMovements]
+  );
+
   const resetFilters = useCallback(async () => {
-    console.log('🔄 Réinitialisation des filtres');
     setFilters({ dateDebut: '', dateFin: '', type: '' });
     await fetchAllMovements();
   }, [fetchAllMovements]);
 
-  // Statistiques
   const stats = {
-    totalEntrees: movements.filter(m => m.typeMouvement === 'ENTREE').reduce((sum, m) => sum + m.quantite, 0),
-    totalSorties: movements.filter(m => m.typeMouvement === 'SORTIE').reduce((sum, m) => sum + m.quantite, 0),
-    totalMouvements: movements.length
+    totalEntrees: movements
+      .filter((movement) => movement.typeMouvement === 'ENTREE')
+      .reduce((sum, movement) => sum + movement.quantite, 0),
+    totalSorties: movements
+      .filter((movement) => movement.typeMouvement === 'SORTIE')
+      .reduce((sum, movement) => sum + movement.quantite, 0),
+    totalMouvements: movements.length,
   };
 
   if (loading && movements.length === 0) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" dir={isArabic ? 'rtl' : 'ltr'}>
         <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="ml-2 text-gray-500">Chargement des mouvements...</p>
+        <p className={`${isArabic ? 'mr-2' : 'ml-2'} text-gray-500`}>{tr('loading')}</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-red-600">
+      <div className="flex flex-col items-center justify-center py-12 text-red-600" dir={isArabic ? 'rtl' : 'ltr'}>
         <ExclamationTriangleIcon className="w-12 h-12 mb-4" />
-        <p className="text-lg font-medium">Erreur de chargement</p>
+        <p className="text-lg font-medium">{tr('loadingError')}</p>
         <p className="text-sm">{error}</p>
         <button
           onClick={() => fetchAllMovements()}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          Réessayer
+          {tr('retry')}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Statistiques */}
+    <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <StatsCards stats={stats} />
-
-      {/* Filtres */}
-      <FilterBar
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onReset={resetFilters}
-      />
-
-      {/* Tableau */}
-      <MovementTable
-        movements={movements}
-        pagination={{
-          currentPage,
-          totalPages,
-          itemsPerPage: ITEMS_PER_PAGE
-        }}
-        onPageChange={setCurrentPage}
-      />
+      <FilterBar filters={filters} onFilterChange={handleFilterChange} onReset={resetFilters} />
+      <MovementTable movements={movements} />
     </div>
   );
 };

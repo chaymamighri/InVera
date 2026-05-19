@@ -1,21 +1,29 @@
-// src/pages/dashboard/achats/components/DateRangeSelectorAchats.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, X, RefreshCw, Check, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
-const DateRangeSelectorAchats = ({ 
-  onApply, 
-  onRefresh, 
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
+
+const DateRangeSelectorAchats = ({
+  onApply,
+  onRefresh,
   refreshing,
-  currentStartDate,  
-  currentEndDate     
+  currentStartDate,
+  currentEndDate,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [startDate, setStartDate] = useState(currentStartDate || '');
   const [endDate, setEndDate] = useState(currentEndDate || '');
   const [dateError, setDateError] = useState('');
+  const { t, language, isArabic } = useLanguage();
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
+  const tr = (key, params) => t(`dashboard.procurementStatsPage.${key}`, params);
 
-  // Synchroniser avec les props du parent
   useEffect(() => {
     setStartDate(currentStartDate || '');
     setEndDate(currentEndDate || '');
@@ -23,7 +31,7 @@ const DateRangeSelectorAchats = ({
 
   const handleApply = () => {
     if (!startDate || !endDate) {
-      setDateError('Veuillez sélectionner une date de début et de fin');
+      setDateError(tr('dateRequiredError'));
       return;
     }
 
@@ -33,20 +41,18 @@ const DateRangeSelectorAchats = ({
     today.setHours(0, 0, 0, 0);
 
     if (start > end) {
-      setDateError('La date de début doit être antérieure à la date de fin');
+      setDateError(tr('startBeforeEndError'));
       return;
     }
 
     if (start > today) {
-      setDateError('La date de début ne peut pas être dans le futur');
+      setDateError(tr('startFutureError'));
       return;
     }
 
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+    const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
     if (diffDays > 365) {
-      setDateError('La période ne peut pas dépasser 1 an');
+      setDateError(tr('periodTooLongError'));
       return;
     }
 
@@ -61,11 +67,15 @@ const DateRangeSelectorAchats = ({
   };
 
   const getDisplayRange = () => {
-    if (!currentStartDate || !currentEndDate) return "Sélectionner une période";
-    const start = new Date(currentStartDate);
-    const end = new Date(currentEndDate);
-    const formatDate = (date) => date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return `${formatDate(start)} - ${formatDate(end)}`;
+    if (!currentStartDate || !currentEndDate) return tr('selectPeriod');
+    const formatDate = (date) =>
+      new Date(date).toLocaleDateString(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
+    return `${formatDate(currentStartDate)} - ${formatDate(currentEndDate)}`;
   };
 
   const handleReset = () => {
@@ -76,8 +86,7 @@ const DateRangeSelectorAchats = ({
   };
 
   return (
-    <div className="flex items-center gap-3 relative">
-      {/* Bouton d'ouverture du calendrier */}
+    <div className="flex items-center gap-3 relative" dir={isArabic ? 'rtl' : 'ltr'}>
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -87,8 +96,7 @@ const DateRangeSelectorAchats = ({
         <Calendar className="w-4 h-4 text-blue-500" />
         <span className="text-sm font-medium text-gray-700">{getDisplayRange()}</span>
       </motion.button>
-      
-      {/* Bouton rafraîchir */}
+
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -96,45 +104,44 @@ const DateRangeSelectorAchats = ({
         disabled={refreshing}
         className={`
           px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm
-          ${refreshing 
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-            : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 shadow-md'
+          ${
+            refreshing
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 shadow-md'
           }
         `}
-        title="Rafraîchir les données"
+        title={tr('refreshData')}
       >
         <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-        <span className="text-sm font-medium">Rafraîchir</span>
+        <span className="text-sm font-medium">{tr('refresh')}</span>
       </motion.button>
 
-      {/* Bouton Reset */}
       {(currentStartDate || currentEndDate) && (
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleReset}
           className="px-3 py-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-          title="Réinitialiser"
+          title={tr('reset')}
         >
           <X className="w-4 h-4" />
         </motion.button>
       )}
 
-      {/* Sélecteur de dates */}
       <AnimatePresence>
         {showPicker && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-2xl border p-5 z-50 w-[500px]"
+            className={`absolute top-full mt-2 ${isArabic ? 'left-0' : 'right-0'} bg-white rounded-xl shadow-2xl border p-5 z-50 w-[500px]`}
           >
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-xl" />
-            
+
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-blue-500" />
-                Sélectionner une période
+                <Calendar className={`w-5 h-5 ${isArabic ? 'ml-2' : 'mr-2'} text-blue-500`} />
+                {tr('selectPeriod')}
               </h3>
               <button onClick={handleClosePicker} className="p-1.5 hover:bg-gray-100 rounded-full">
                 <X className="w-4 h-4 text-gray-500" />
@@ -144,20 +151,26 @@ const DateRangeSelectorAchats = ({
             <div className="space-y-3 mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Date de début</label>
-                  <input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={(e) => { setStartDate(e.target.value); setDateError(''); }} 
+                  <label className="block text-sm font-medium text-gray-600 mb-2">{tr('startDate')}</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setDateError('');
+                    }}
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Date de fin</label>
-                  <input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={(e) => { setEndDate(e.target.value); setDateError(''); }} 
+                  <label className="block text-sm font-medium text-gray-600 mb-2">{tr('endDate')}</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setDateError('');
+                    }}
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -172,19 +185,19 @@ const DateRangeSelectorAchats = ({
             </div>
 
             <div className="flex gap-3 pt-3 border-t border-gray-200">
-              <button 
-                onClick={handleClosePicker} 
+              <button
+                onClick={handleClosePicker}
                 className="flex-1 px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
               >
-                Annuler
+                {tr('cancel')}
               </button>
-              <button 
-                onClick={handleApply} 
-                disabled={!startDate || !endDate} 
+              <button
+                onClick={handleApply}
+                disabled={!startDate || !endDate}
                 className="flex-1 px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 shadow-md flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
-                Appliquer
+                {tr('apply')}
               </button>
             </div>
           </motion.div>

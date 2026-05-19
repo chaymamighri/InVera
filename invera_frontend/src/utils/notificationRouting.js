@@ -4,6 +4,7 @@ export const getNotificationAction = (notification) => {
   const entityType = normalizeValue(notification?.entityType);
   const entityId = notification?.entityId;
   const type = normalizeValue(notification?.type);
+  const productReference = notification?.entityReference || notification?.userName;
 
   if (entityType === 'COMMANDE_FOURNISSEUR' && entityId !== null && entityId !== undefined) {
     if (type === 'PROCUREMENT_REQUEST_APPROVED' || type === 'PROCUREMENT_REQUEST_REJECTED') {
@@ -35,6 +36,22 @@ export const getNotificationAction = (notification) => {
     };
   }
 
+  if ((entityType === 'PRODUIT' || type === 'STOCK_ALERT') && entityId !== null && entityId !== undefined) {
+    return {
+      actionLabel: 'Voir le produit',
+      actionHint: 'Ouvrir le catalogue produits et mettre le produit concerne en evidence.',
+      actionPath: `/dashboard/procurement/produits?focusProduct=${encodeURIComponent(entityId)}`,
+    };
+  }
+
+  if (type === 'STOCK_ALERT' && productReference) {
+    return {
+      actionLabel: 'Voir le produit',
+      actionHint: 'Ouvrir le catalogue produits et mettre le produit concerne en evidence.',
+      actionPath: `/dashboard/procurement/produits?focusProductName=${encodeURIComponent(productReference)}`,
+    };
+  }
+
   return null;
 };
 
@@ -56,6 +73,9 @@ export const decorateNotification = (notification) => {
   } else if (type === 'PROCUREMENT_REQUEST_REJECTED') {
     defaults.title = 'Decision admin';
     defaults.badgeLabel = 'Rejetee';
+  } else if (type === 'STOCK_ALERT') {
+    defaults.title = 'Alerte stock';
+    defaults.badgeLabel = 'Stock';
   }
 
   return {

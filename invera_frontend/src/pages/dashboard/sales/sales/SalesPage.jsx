@@ -31,8 +31,18 @@ import SalesFilters from './components/SalesFilter';
 import SalesTable from './components/SalesTable'; 
 import InvoiceModal from '../invoicing/components/invoiceModal'; 
 import { commandeService } from '../../../../services/commandeService'; 
+import { useLanguage } from '../../../../context/LanguageContext';
+
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
 
 const SalesPage = () => {
+  const { t, language, isArabic } = useLanguage();
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
+  const tr = (key, params) => t(`salesPages.${key}`, params);
   // ===== ÉTATS =====
   const [commandes, setCommandes] = useState([]);           // Liste des commandes
   const [loading, setLoading] = useState(true);             // État de chargement
@@ -61,28 +71,26 @@ const SalesPage = () => {
    * Vérifie pour chaque commande si une facture existe déjà
    * @param {Array} commandesList - Liste des commandes
    */
-const checkInvoicesStatus = useCallback(async (commandesList) => {
-  const status = {};
-  
-  await Promise.all(
-    commandesList.map(async (cmd) => {
-      const commandeId = cmd.id || cmd.idCommandeClient || cmd.idCommande;
-      if (!commandeId) return;
-      
-      try {
-        // ✅ Correction: La méthode retourne un booléen directement
-        const hasInvoice = await commandeService.checkInvoiceExistsForCommande(commandeId);
-        status[commandeId] = hasInvoice;
-        console.log(`📊 Commande ${commandeId} - Facture existe: ${hasInvoice}`);
-      } catch (error) {
-        console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
-        status[commandeId] = false;
-      }
-    })
-  );
-  
-  setInvoiceStatus(status);
-}, []);
+  const checkInvoicesStatus = useCallback(async (commandesList) => {
+    const status = {};
+    
+    await Promise.all(
+      commandesList.map(async (cmd) => {
+        const commandeId = cmd.id || cmd.idCommandeClient || cmd.idCommande;
+        if (!commandeId) return;
+        
+        try {
+          const result = await commandeService.checkInvoiceExistsForCommande(commandeId);
+          status[commandeId] = result.exists;
+        } catch (error) {
+          console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
+          status[commandeId] = false;
+        }
+      })
+    );
+    
+    setInvoiceStatus(status);
+  }, []);
 
   // ============================================
   //  CHARGEMENT DES COMMANDES
@@ -128,7 +136,7 @@ const checkInvoicesStatus = useCallback(async (commandesList) => {
         
         // Informations complémentaires
         modeLivraison: cmd.modeLivraison || 'Standard',
-        modePaiement: cmd.modePaiement || 'Non spécifié',
+        modePaiement: cmd.modePaiement || tr('notSpecified'),
         notes: cmd.notes || cmd.remarques || '',
         
         // Produits
@@ -143,7 +151,7 @@ const checkInvoicesStatus = useCallback(async (commandesList) => {
           nomComplet: cmd.client.nomComplet || 
                       `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() ||
                       cmd.client.nom ||
-                      'Client',
+                      tr('client'),
           entreprise: cmd.client.entreprise || cmd.client.societe || '',
           typeClient: cmd.client.typeClient || cmd.client.type || 'STANDARD',
           telephone: cmd.client.telephone || '',
@@ -151,7 +159,7 @@ const checkInvoicesStatus = useCallback(async (commandesList) => {
           adresse: cmd.client.adresse || ''
         } : {
           id: cmd.clientId,
-          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || 'Client',
+          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || tr('client'),
           entreprise: cmd.clientEntreprise || cmd.clientSociete || '',
           typeClient: cmd.clientType || 'STANDARD',
           telephone: cmd.clientTelephone || '',
@@ -168,7 +176,7 @@ const checkInvoicesStatus = useCallback(async (commandesList) => {
       
     } catch (err) {
       console.error('❌ Erreur chargement:', err);
-      setError('Impossible de charger les commandes validées.');
+      setError(tr('validatedOrdersLoadError'));
       setCommandes([]);
     } finally {
       setLoading(false);
@@ -304,144 +312,130 @@ const checkInvoicesStatus = useCallback(async (commandesList) => {
    * @param {Object} invoiceData - Données de la facture
    * @param {string|number} commandeId - ID de la commande associée
    */
-const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
-  const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-  
-  console.log('📄 Données facture reçues:', invoiceData);
-  
-  // Calcul de la date d'échéance (date facture + 30 jours)
-  let dueDate = null;
-  if (invoiceData.dateFacture) {
-    try {
-      const dateFacture = new Date(invoiceData.dateFacture);
-      if (!isNaN(dateFacture.getTime())) {
-        const dueDateObj = new Date(dateFacture);
-        dueDateObj.setDate(dueDateObj.getDate() + 30);
-        dueDate = dueDateObj.toISOString();
+  const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
+    const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+    
+    console.log('📄 Données facture reçues:', invoiceData);
+    
+    // Calcul de la date d'échéance (date facture + 30 jours)
+    let dueDate = null;
+    if (invoiceData.dateFacture) {
+      try {
+        const dateFacture = new Date(invoiceData.dateFacture);
+        if (!isNaN(dateFacture.getTime())) {
+          const dueDateObj = new Date(dateFacture);
+          dueDateObj.setDate(dueDateObj.getDate() + 30);
+          dueDate = dueDateObj.toISOString();
+        }
+      } catch (error) {
+        console.error('Erreur calcul date échéance:', error);
       }
-    } catch (error) {
-      console.error('Erreur calcul date échéance:', error);
     }
-  }
-  
-  // Construction de l'objet facture pour le modal
-  const factureData = {
-    id: invoiceData.idFactureClient,
-    idFactureClient: invoiceData.idFactureClient,
-    referenceFactureClient: invoiceData.referenceFactureClient,
-    reference: invoiceData.referenceFactureClient,
-    invoiceNumber: invoiceData.referenceFactureClient,
-    dateFacture: invoiceData.dateFacture,
-    date: invoiceData.dateFacture,
-    dueDate: dueDate,
     
-    client: {
-      nomComplet: commande?.client?.nomComplet || 
-                  (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : 'Client'),
-      email: commande?.client?.email || '',
-      telephone: commande?.client?.telephone || '',
-      adresse: commande?.client?.adresse || '',
-      typeClient: commande?.client?.typeClient || 'PARTICULIER'
-    },
-    
-    commande: commande ? {
-      id: commande.id,
-      reference: commande.referenceCommandeClient || commande.numeroCommande,
-      lignesCommande: commande.produits?.map(p => ({
-        produit: { libelle: p.libelle || p.nom || 'Produit' },
-        quantite: p.quantite,
-        prix_unitaire: p.prixUnitaire,
+    // Construction de l'objet facture pour le modal
+    const factureData = {
+      id: invoiceData.idFactureClient || invoiceData.id || invoiceData.factureId || `FAC-${commandeId}`,
+      referenceFactureClient: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
+      reference: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
+      invoiceNumber: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
+      dateFacture: invoiceData.dateFacture,
+      date: invoiceData.dateFacture,
+      dueDate: dueDate,
+      
+      client: {
+        nomComplet: commande?.client?.nomComplet || 
+                    (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : tr('client')),
+        email: commande?.client?.email || invoiceData.client?.email || '',
+        telephone: commande?.client?.telephone || invoiceData.client?.telephone || '',
+        adresse: commande?.client?.adresse || invoiceData.client?.adresse || '',
+        typeClient: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER'
+      },
+      
+      commande: commande ? {
+        id: commande.id,
+        reference: commande.referenceCommandeClient || commande.numeroCommande,
+        lignesCommande: commande.produits?.map(p => ({
+          produit: { libelle: p.libelle || tr('product') },
+          quantite: p.quantite,
+          prix_unitaire: p.prixUnitaire,
+          total: p.sousTotal || (p.quantite * p.prixUnitaire)
+        })) || []
+      } : null,
+      
+      montantTotal: invoiceData.montantTotal || commande?.montantTotal || 0,
+      total: invoiceData.montantTotal || commande?.total || 0,
+      
+      items: commande?.produits?.map(p => ({
+        description: p.libelle || tr('product'),
+        quantity: p.quantite,
+        unitPrice: p.prixUnitaire,
         total: p.sousTotal || (p.quantite * p.prixUnitaire)
-      })) || []
-    } : null,
+      })) || [],
+      
+      statut: invoiceData.statut || 'NON_PAYE',
+      status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
+      commandeId: commandeId,
+      paymentMethod: commande?.modePaiement || tr('notSpecified'),
+      notes: commande?.notes || ''
+    };
     
-    montantTotal: invoiceData.montantTotal || commande?.montantTotal || 0,
-    total: invoiceData.montantTotal || commande?.total || 0,
+    console.log('✅ Facture préparée pour le modal:', factureData);
     
-    items: commande?.produits?.map(p => ({
-      description: p.libelle || p.nom || 'Produit',
-      quantity: p.quantite,
-      unitPrice: p.prixUnitaire,
-      total: p.sousTotal || (p.quantite * p.prixUnitaire)
-    })) || [],
+    setSelectedFacture(factureData);
+    setIsInvoiceModalOpen(true);
     
-    statut: invoiceData.statut || 'NON_PAYE',
-    status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
-    commandeId: commandeId,
-    paymentMethod: commande?.modePaiement || 'Non spécifié',
-    notes: commande?.notes || ''
-  };
-  
-  console.log('✅ Facture préparée pour le modal:', factureData);
-  
-  setSelectedFacture(factureData);
-  setIsInvoiceModalOpen(true);
-  
-  // Mise à jour du statut de la facture
-  setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-}, [commandes]);
+    // Mise à jour du statut de la facture
+    setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
+  }, [commandes]);
 
-/**
+  /**
    * Génère une nouvelle facture pour une commande
    * @param {string|number} commandeId - ID de la commande
    */
-const handleGenerateInvoice = async (commandeId) => {
+  const handleGenerateInvoice = async (commandeId) => {
     setInvoiceLoading(prev => ({ ...prev, [commandeId]: true }));
     
     try {
-        console.log('📄 Génération facture pour commande:', commandeId);
-        
-        // 1. Générer la facture
-        const result = await commandeService.generateOrGetInvoice(commandeId);
-        console.log('✅ Résultat API:', result);
-        
-        if (result && result.success) {
-            // 2. Récupérer la facture fraîchement créée
-            const invoice = await commandeService.getInvoiceByCommandeId(commandeId);
-            console.log('✅ Facture récupérée:', invoice);
-            
-            if (invoice) {
-                const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-                displayInvoiceInModal(invoice, commandeId);
-                
-                // ✅ Remplacer loadFactures() par la mise à jour du status
-                setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-                
-                // ✅ Optionnel: Recharger la liste des commandes pour mettre à jour le statut
-                await loadCommandesValidees();
-            } else {
-                throw new Error('Facture non trouvée après génération');
-            }
-        } else {
-            throw new Error(result?.message || 'Erreur lors de la génération');
-        }
-        
-        return result;
+      console.log('📄 Génération facture pour commande:', commandeId);
+      const result = await commandeService.generateOrGetInvoice(commandeId);
+      console.log('✅ Résultat API:', result);
+      
+      if (result && result.facture) {
+        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+        const factureComplete = { ...result.facture, items: commande?.produits || [] };
+        displayInvoiceInModal(factureComplete, commandeId);
+      }
+      
+      return result;
     } catch (error) {
-        console.error('❌ Erreur génération facture:', error);
-        alert('Erreur lors de la génération de la facture: ' + error.message);
-        throw error;
+      console.error('❌ Erreur génération facture:', error);
+      alert(tr('invoiceGenerationError'));
+      throw error;
     } finally {
-        setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
+      setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
     }
-};
+  };
 
   /**
    * Consulte une facture existante
    * @param {string|number} commandeId - ID de la commande
    */
-const handleViewInvoice = useCallback(async (commandeId) => {
-  try {
-    console.log('📄 Consultation facture pour commande:', commandeId);
-    
-    // ✅ Utiliser viewInvoice qui ouvre l'URL directement
-    await commandeService.viewInvoice(commandeId);
-    
-  } catch (error) {
-    console.error('❌ Erreur consultation facture:', error);
-    alert(error.message || 'Erreur lors de la consultation de la facture');
-  }
-}, []);
+  const handleViewInvoice = useCallback(async (commandeId) => {
+    try {
+      console.log('📄 Consultation facture pour commande:', commandeId);
+      const result = await commandeService.generateOrGetInvoice(commandeId);
+      console.log('✅ Facture existante récupérée:', result);
+      
+      if (result && result.facture) {
+        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
+        const factureComplete = { ...result.facture, items: commande?.produits || [] };
+        displayInvoiceInModal(factureComplete, commandeId);
+      }
+    } catch (error) {
+      console.error('❌ Erreur consultation facture:', error);
+      alert(tr('invoiceViewError'));
+    }
+  }, [commandes, displayInvoiceInModal]);
 
   /**
    * Télécharge la facture au format PDF
@@ -472,7 +466,7 @@ const handleViewInvoice = useCallback(async (commandeId) => {
   // ============================================
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className={`space-y-6 p-4 md:p-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       
       {/* En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -484,13 +478,13 @@ const handleViewInvoice = useCallback(async (commandeId) => {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                  Commandes Validées
+                  {tr('validatedOrdersTitle')}
                 </h1>
               </div>
               <p className="text-gray-600 flex items-center gap-2">
-                <span>{filteredResult.length} commande{filteredResult.length !== 1 ? 's' : ''} affichée{filteredResult.length !== 1 ? 's' : ''}</span>
+                <span>{tr('ordersDisplayed', { count: filteredResult.length })}</span>
                 {hasActiveFilters && filteredResult.length === 0 && (
-                  <span className="text-amber-600 text-sm">(aucun résultat)</span>
+                  <span className="text-amber-600 text-sm">({tr('noResult')})</span>
                 )}
               </p>
             </div>
@@ -501,13 +495,13 @@ const handleViewInvoice = useCallback(async (commandeId) => {
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 animate-fadeIn">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5" />
               <div className="flex-1">
-                <p className="text-red-600 text-sm font-medium">Erreur</p>
+                <p className="text-red-600 text-sm font-medium">{tr('error')}</p>
                 <p className="text-red-500 text-xs">{error}</p>
                 <button 
                   onClick={() => setError(null)}
                   className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
                 >
-                  Masquer
+                  {tr('hide')}
                 </button>
               </div>
             </div>
@@ -520,6 +514,9 @@ const handleViewInvoice = useCallback(async (commandeId) => {
         filters={filters} 
         onFilterChange={handleFilterChange}
         totalFiltered={filteredResult.length} 
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {/* Tableau des commandes */}
@@ -531,6 +528,9 @@ const handleViewInvoice = useCallback(async (commandeId) => {
         onGenerateInvoice={handleGenerateInvoice}
         onViewInvoice={handleViewInvoice}
         filters={filters} 
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {/* Modal d'affichage de la facture */}
@@ -541,7 +541,8 @@ const handleViewInvoice = useCallback(async (commandeId) => {
           setSelectedFacture(null);
         }}
         facture={selectedFacture}
-         commandeId={selectedFacture?.commandeId} 
+        t={tr}
+        isArabic={isArabic}
         onStatusChange={async (factureId, newStatus) => {
           console.log('Statut changé pour facture:', factureId, newStatus);
           const commandeId = selectedFacture?.commandeId;

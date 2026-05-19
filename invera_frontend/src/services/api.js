@@ -195,7 +195,7 @@ if (error.response?.status === 403 && errorCode === 'SUBSCRIPTION_EXPIRED') {
     }
     
     // ✅ CAS 9: Autres erreurs 401/403
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (error.response?.status === 401) {
       console.warn('🔒 Authentification invalide');
       
       ['token', 'userRole', 'userName', 'userEmail', 'userDashboard', 
@@ -206,6 +206,11 @@ if (error.response?.status === 403 && errorCode === 'SUBSCRIPTION_EXPIRED') {
       
       toast.error('Session invalide. Veuillez vous reconnecter.');
       window.location.href = '/login';
+    }
+
+    if (error.response?.status === 403) {
+      console.warn('Acces refuse pour cette action');
+      toast.error(errorMessage || 'Acces refuse pour cette action.');
     }
     
     return Promise.reject(error);

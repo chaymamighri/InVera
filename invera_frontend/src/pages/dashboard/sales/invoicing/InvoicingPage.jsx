@@ -29,8 +29,12 @@ import FacturesTable from './components/FacturesTable';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import html2pdf from 'html2pdf.js';
+import { useLanguage } from '../../../../context/LanguageContext';
 
 const InvoicingPage = () => {
+  const { t, isArabic } = useLanguage();
+  const tr = (key, params) => t(`salesPages.${key}`, params);
+
   const [factures, setFactures] = useState([]);
   const [filteredFactures, setFilteredFactures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -412,6 +416,8 @@ const handleDownloadInvoice = async (facture, e) => {
         currentPage={currentPage}
         totalPages={totalPages}
         formatDate={formatDate}
+        t={tr}
+        isArabic={isArabic}
       />
 
       {/* Tableau */}
@@ -429,6 +435,8 @@ const handleDownloadInvoice = async (facture, e) => {
         formatDate={formatDate}
         formatMontant={formatMontant}
         onRefresh={loadFactures}
+        t={tr}
+        isArabic={isArabic}
       />
 
       {/* Pagination */}

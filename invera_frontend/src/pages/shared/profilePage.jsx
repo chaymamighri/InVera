@@ -269,17 +269,6 @@ const refreshLogo = () => {
             logoUrl = localStorage.getItem('logoUrl');
           }
           
-          if (!logoUrl && me.clientId) {
-            try {
-              const clientRes = await api.get(`/platform/clients/${me.clientId}`);
-              if (clientRes.data && clientRes.data.logoUrl) {
-                logoUrl = clientRes.data.logoUrl;
-                console.log('✅ Logo récupéré depuis API client:', logoUrl);
-              }
-            } catch (err) {
-              console.warn('Impossible de récupérer le logo du client:', err);
-            }
-          }
           
           setUserData({
             id: me.id,
