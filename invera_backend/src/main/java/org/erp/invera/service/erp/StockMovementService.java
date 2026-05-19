@@ -112,7 +112,7 @@ public class StockMovementService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // ✅ CORRECTION : Utiliser la requête avec jointure
+        //  CORRECTION : Utiliser la requête avec jointure
         String sql = """
             SELECT sm.*, p.libelle as produit_libelle 
             FROM stock_movement sm
@@ -137,7 +137,7 @@ public class StockMovementService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // ✅ CORRECTION : Utiliser la requête avec jointure pour l'historique aussi
+        //  CORRECTION : Utiliser la requête avec jointure pour l'historique aussi
         String sql = """
             SELECT sm.*, p.libelle as produit_libelle 
             FROM stock_movement sm

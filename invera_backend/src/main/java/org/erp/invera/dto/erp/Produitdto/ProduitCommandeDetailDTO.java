@@ -32,12 +32,16 @@ public class ProduitCommandeDetailDTO {
     private String categorieNom;
     private Produit.UniteMesure uniteMesure;
 
+    // ✅ AJOUTER CES CHAMPS
+    private Double remiseStandard;      // Remise standard de la catégorie (%)
+    private BigDecimal tauxTVA;          // Taux de TVA de la catégorie (%)
+
     /**
      * Convertit une ligne de commande en DTO (AVEC TOKEN)
      */
     public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne,
                                                      ProduitService produitService,
-                                                     String token) {  // ← AJOUTER TOKEN
+                                                     String token) {
         if (ligne == null) {
             return null;
         }
@@ -53,6 +57,9 @@ public class ProduitCommandeDetailDTO {
             if (produit.getCategorie() != null) {
                 dto.setCategorieId(produit.getCategorie().getIdCategorie());
                 dto.setCategorieNom(produit.getCategorie().getNomCategorie());
+                // ✅ AJOUTER LA REMISE ET LA TVA
+                dto.setRemiseStandard(produit.getCategorie().getRemiseStandard());
+                dto.setTauxTVA(produit.getCategorie().getTauxTVA());
             }
 
             dto.setUniteMesure(produit.getUniteMesure());
@@ -61,9 +68,8 @@ public class ProduitCommandeDetailDTO {
             dto.setStatutStock(produit.getStatus() != null ?
                     produit.getStatus().name() : "INCONNU");
         } else if (produitService != null && ligne.getProduit() != null) {
-            // ✅ Passer le token
             Optional<Produit> produitOpt = produitService.getProduitById(
-                    ligne.getProduit().getIdProduit(), token);  // ← AJOUTER TOKEN
+                    ligne.getProduit().getIdProduit(), token);
 
             if (produitOpt.isPresent()) {
                 Produit p = produitOpt.get();
@@ -74,6 +80,9 @@ public class ProduitCommandeDetailDTO {
                 if (p.getCategorie() != null) {
                     dto.setCategorieId(p.getCategorie().getIdCategorie());
                     dto.setCategorieNom(p.getCategorie().getNomCategorie());
+                    // ✅ AJOUTER LA REMISE ET LA TVA
+                    dto.setRemiseStandard(p.getCategorie().getRemiseStandard());
+                    dto.setTauxTVA(p.getCategorie().getTauxTVA());
                 }
 
                 dto.setUniteMesure(p.getUniteMesure());
@@ -98,7 +107,6 @@ public class ProduitCommandeDetailDTO {
     @Deprecated
     public static ProduitCommandeDetailDTO fromLigne(LigneCommandeClient ligne,
                                                      ProduitService produitService) {
-        // ⚠️ Méthode dépréciée - utilisez fromLigne(ligne, produitService, token) à la place
         return fromLigne(ligne, produitService, null);
     }
 
@@ -108,7 +116,7 @@ public class ProduitCommandeDetailDTO {
     public static List<ProduitCommandeDetailDTO> fromMap(
             Map<Integer, Integer> produitsMap,
             ProduitService produitService,
-            String token) {  // ← AJOUTER TOKEN
+            String token) {
 
         List<ProduitCommandeDetailDTO> produits = new ArrayList<>();
 
@@ -121,7 +129,6 @@ public class ProduitCommandeDetailDTO {
             Integer quantite = entry.getValue();
 
             try {
-                // ✅ Passer le token
                 Optional<Produit> produitOpt = produitService.getProduitById(produitId, token);
 
                 if (produitOpt.isPresent()) {
@@ -135,9 +142,14 @@ public class ProduitCommandeDetailDTO {
                     if (produit.getCategorie() != null) {
                         dto.setCategorieId(produit.getCategorie().getIdCategorie());
                         dto.setCategorieNom(produit.getCategorie().getNomCategorie());
+                        // ✅ AJOUTER LA REMISE ET LA TVA
+                        dto.setRemiseStandard(produit.getCategorie().getRemiseStandard());
+                        dto.setTauxTVA(produit.getCategorie().getTauxTVA());
                     } else {
                         dto.setCategorieId(null);
                         dto.setCategorieNom("Non catégorisé");
+                        dto.setRemiseStandard(0.0);
+                        dto.setTauxTVA(BigDecimal.valueOf(19));
                     }
 
                     dto.setUniteMesure(produit.getUniteMesure());

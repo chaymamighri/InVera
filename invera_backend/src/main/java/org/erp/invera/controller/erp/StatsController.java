@@ -174,6 +174,7 @@ public class StatsController {
 
     /**
      * GET /api/procurement/stats/alertes-stock
+     * Récupère les alertes stock UNIQUEMENT pour les produits actifs
      */
     @GetMapping("/alertes-stock")
     public ResponseEntity<List<AlerteStockDTO>> getAlertesStock(
@@ -185,12 +186,14 @@ public class StatsController {
         LocalDate start = parseLocalDate(startDate);
         LocalDate end = parseLocalDate(endDate);
 
+        // Le service filtre déjà sur les produits actifs
         List<AlerteStockDTO> alertes = statsService.getAlertesStock(start, end, token);
         return ResponseEntity.ok(alertes);
     }
 
     /**
      * GET /api/procurement/stats/commandes-attente
+     * Récupère les commandes à traiter (à envoyer et à recevoir)
      */
     @GetMapping("/commandes-attente")
     public ResponseEntity<Map<String, Object>> getCommandesATraiter(HttpServletRequest request) {

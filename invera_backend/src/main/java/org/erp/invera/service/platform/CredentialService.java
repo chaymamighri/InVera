@@ -19,7 +19,7 @@ import java.util.Base64;
 @RequiredArgsConstructor
 public class CredentialService {
 
-    // ✅ FORCER l'utilisation du bon JdbcTemplate avec @Qualifier
+    //FORCER l'utilisation du bon JdbcTemplate avec @Qualifier
    // @Qualifier("platformJdbcTemplate")
     private final JdbcTemplate platformJdbcTemplate;
 
@@ -28,20 +28,20 @@ public class CredentialService {
 
     @PostConstruct
     public void init() {
-        // 🔍 DEBUG : Vérifier quelle base est utilisée
+        //  Vérifier quelle base est utilisée
         try {
             String currentDb = platformJdbcTemplate.queryForObject(
                     "SELECT current_database()", String.class
             );
             log.info("========== CONFIGURATION CREDENTIAL SERVICE ==========");
-            log.info("📁 platformJdbcTemplate connecté à: {}", currentDb);
+            log.info(" platformJdbcTemplate connecté à: {}", currentDb);
             log.info("======================================================");
 
             if (!"invera_platform".equals(currentDb)) {
-                log.error("❌ ERREUR CRITIQUE: La table sera créée dans la MAUVAISE base !");
+                log.error(" ERREUR CRITIQUE: La table sera créée dans la MAUVAISE base !");
             }
         } catch (Exception e) {
-            log.error("❌ Impossible de vérifier la base: {}", e.getMessage());
+            log.error(" Impossible de vérifier la base: {}", e.getMessage());
         }
 
         // Initialisation de la clé
@@ -53,7 +53,7 @@ public class CredentialService {
             keyBytes = fixedKey;
         }
         secretKey = new SecretKeySpec(keyBytes, "AES");
-        log.info("✅ Service de chiffrement initialisé");
+        log.info("Service de chiffrement initialisé");
 
         createTableIfNotExists();
     }
@@ -71,16 +71,16 @@ public class CredentialService {
 
         try {
             platformJdbcTemplate.execute(sql);
-            log.info("✅ Table client_credentials créée/vérifiée");
+            log.info(" Table client_credentials créée/vérifiée");
 
             // Vérification post-création
             String currentDb = platformJdbcTemplate.queryForObject(
                     "SELECT current_database()", String.class
             );
-            log.info("📁 Table créée dans la base: {}", currentDb);
+            log.info(" Table créée dans la base: {}", currentDb);
 
         } catch (Exception e) {
-            log.error("❌ Erreur création table: {}", e.getMessage());
+            log.error(" Erreur création table: {}", e.getMessage());
             throw new RuntimeException("Impossible de créer la table client_credentials", e);
         }
     }
@@ -100,7 +100,7 @@ public class CredentialService {
             """;
 
         platformJdbcTemplate.update(sql, clientId, encryptedUsername, encryptedPassword, LocalDateTime.now());
-        log.info("✅ Credentials stockés pour client {}", clientId);
+        log.info(" Credentials stockés pour client {}", clientId);
     }
 
     public Credentials getCredentials(Long clientId) {
@@ -112,7 +112,7 @@ public class CredentialService {
             String password = decrypt((String) result.get("password_encrypted"));
             return new Credentials(username, password);
         } catch (Exception e) {
-            log.warn("⚠️ Credentials non trouvés pour client {}", clientId);
+            log.warn(" Credentials non trouvés pour client {}", clientId);
             // Retourner des credentials par défaut au lieu de planter
             return new Credentials("postgres", "chayma");
         }

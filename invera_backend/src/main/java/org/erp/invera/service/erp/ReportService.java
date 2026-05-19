@@ -94,7 +94,7 @@ public class ReportService {
 
         sql.append(" ORDER BY c.date_commande DESC");
 
-        // ✅ Correction: Utiliser queryWithAuth au lieu de query
+        //  Correction: Utiliser queryWithAuth au lieu de query
         List<CommandeClient> commandes = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             CommandeClient cmd = new CommandeClient();
             cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
@@ -200,7 +200,7 @@ public class ReportService {
 
         sql.append(" ORDER BY f.date_facture DESC");
 
-        // ✅ Correction: Utiliser queryWithAuth
+        // Correction: Utiliser queryWithAuth
         List<FactureClient> factures = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             FactureClient facture = new FactureClient();
             facture.setIdFactureClient(rs.getInt("id_facture_client"));
@@ -314,7 +314,7 @@ public class ReportService {
 
         sql.append(" GROUP BY cl.id_client ORDER BY ca DESC LIMIT 50");
 
-        // ✅ Correction: Utiliser queryWithAuth
+        //  Correction: Utiliser queryWithAuth
         List<Map<String, Object>> topClients = tenantRepo.queryWithAuth(sql.toString(), (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("id_client", rs.getInt("id_client"));
@@ -339,7 +339,7 @@ public class ReportService {
         GROUP BY cl.type_client
         """;
 
-        // ✅ Correction: Utiliser queryWithAuth
+        // Correction: Utiliser queryWithAuth
         List<Map<String, Object>> repartition = tenantRepo.queryWithAuth(repartitionSql, (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("type_client", rs.getString("type_client"));
@@ -359,7 +359,7 @@ public class ReportService {
             AND c.date_commande BETWEEN ? AND ?
         """;
 
-        // ✅ Correction: Utiliser queryForObjectAuth
+        // Correction: Utiliser queryForObjectAuth
         Map<String, Object> summary = tenantRepo.queryForObjectAuth(summarySql, (rs, rowNum) -> {
             Map<String, Object> row = new HashMap<>();
             row.put("totalClients", rs.getLong("total"));

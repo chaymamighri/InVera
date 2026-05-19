@@ -40,8 +40,11 @@ public class CommandeResponseDTO {
 
     // Totaux financiers
     private BigDecimal sousTotal;
-    private BigDecimal tauxRemise;
+    private BigDecimal tauxRemise;      // Remise client appliquée
     private BigDecimal total;
+
+    // ✅ AJOUTER CE CHAMP POUR LA REMISE CLIENT EN POURCENTAGE
+    private BigDecimal tauxRemiseClient;  // Pour plus de clarté
 
     // Lignes de commande
     private List<LigneCommandeClientDTO> lignesCommande;
@@ -53,12 +56,6 @@ public class CommandeResponseDTO {
     // MÉTHODES DE CONVERSION
     // ==========================
 
-    // Méthode avec 1 paramètre (sans services)
-    public static CommandeResponseDTO fromEntity(CommandeClient commande) {
-        return fromEntity(commande, null, null);
-    }
-
-    // Méthode avec 3 paramètres (avec services)
     public static CommandeResponseDTO fromEntity(CommandeClient commande,
                                                  ClientService clientService,
                                                  ProduitService produitService) {
@@ -97,10 +94,15 @@ public class CommandeResponseDTO {
 
         // Totaux
         dto.setSousTotal(commande.getSousTotal());
-        dto.setTauxRemise(commande.getTauxRemise());
+        // ✅ Utiliser directement le tauxRemise déjà stocké dans la commande
+        // (Il a été défini dans chargerClientComplet)
+        dto.setTauxRemise(commande.getTauxRemise() != null ? commande.getTauxRemise() : BigDecimal.ZERO);
+        dto.setTauxRemiseClient(commande.getTauxRemise() != null ? commande.getTauxRemise() : BigDecimal.ZERO);
         dto.setTotal(commande.getTotal());
 
-        // ✅ CONVERSION MANUELLE DES LIGNES (plus fiable)
+        System.out.println("✅ Taux remise client depuis commande: " + dto.getTauxRemise() + "%");
+
+        // ✅ CONVERSION MANUELLE DES LIGNES
         List<LigneCommandeClientDTO> lignesDTO = new ArrayList<>();
         List<ProduitCommandeDetailDTO> produitsDTO = new ArrayList<>();
 
@@ -122,8 +124,11 @@ public class CommandeResponseDTO {
                     ligneDTO.setPrixVente(BigDecimal.valueOf(ligne.getProduit().getPrixVente()));
                     ligneDTO.setImageUrl(ligne.getProduit().getImageUrl());
 
+                    // Ajouter les infos de la catégorie avec la remise
                     if (ligne.getProduit().getCategorie() != null) {
                         ligneDTO.setCategorieNom(ligne.getProduit().getCategorie().getNomCategorie());
+                        ligneDTO.setRemiseStandard(ligne.getProduit().getCategorie().getRemiseStandard());
+                        ligneDTO.setTauxTVA(ligne.getProduit().getCategorie().getTauxTVA());
                     }
                 }
                 lignesDTO.add(ligneDTO);
@@ -137,13 +142,18 @@ public class CommandeResponseDTO {
                 produitDTO.setSousTotal(ligne.getSousTotal());
                 produitDTO.setImageUrl(ligne.getProduit().getImageUrl());
 
+                // Ajouter la remise au produit DTO
                 if (ligne.getProduit().getCategorie() != null) {
                     produitDTO.setCategorieNom(ligne.getProduit().getCategorie().getNomCategorie());
+                    produitDTO.setRemiseStandard(ligne.getProduit().getCategorie().getRemiseStandard());
+                    produitDTO.setTauxTVA(ligne.getProduit().getCategorie().getTauxTVA());
                 }
                 produitsDTO.add(produitDTO);
 
                 System.out.println("   ✅ Ligne convertie: " + ligne.getProduit().getLibelle() +
-                        " x" + ligne.getQuantite());
+                        " x" + ligne.getQuantite() +
+                        " (Remise categorie: " + (ligne.getProduit().getCategorie() != null ?
+                        ligne.getProduit().getCategorie().getRemiseStandard() : 0) + "%)");
             }
         } else {
             System.out.println("⚠️ [fromEntity] Aucune ligne à convertir");
@@ -152,6 +162,7 @@ public class CommandeResponseDTO {
         dto.setLignesCommande(lignesDTO);
         dto.setProduits(produitsDTO);
 
+        System.out.println("🔍 [fromEntity] Final - Remise client: " + dto.getTauxRemise() + "%");
         System.out.println("🔍 [fromEntity] Final - LignesDTO: " + lignesDTO.size() +
                 ", ProduitsDTO: " + produitsDTO.size());
 

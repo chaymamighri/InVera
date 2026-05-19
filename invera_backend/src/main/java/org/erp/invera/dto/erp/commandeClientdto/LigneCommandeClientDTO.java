@@ -17,13 +17,19 @@ public class LigneCommandeClientDTO {
     private String imageUrl;
     private String categorieNom;
 
-    // Constructeurs
+    // ✅ AJOUTER CES CHAMPS POUR LA REMISE ET LA TVA
+    private Double remiseStandard;      // Remise standard de la catégorie (%)
+    private BigDecimal tauxTVA;          // Taux de TVA de la catégorie (%)
+
+    // Constructeur par défaut
     public LigneCommandeClientDTO() {}
 
+    // Constructeur avec tous les paramètres
     public LigneCommandeClientDTO(Integer idLigneCommandeClient, Integer quantite,
                                   Double prixUnitaire, Double sousTotal,
                                   Integer produitId, String produitLibelle,
-                                  Double prixVente, String imageUrl, String categorieNom) {
+                                  Double prixVente, String imageUrl, String categorieNom,
+                                  Double remiseStandard, BigDecimal tauxTVA) {
         this.idLigneCommandeClient = idLigneCommandeClient;
         this.quantite = quantite;
         this.prixUnitaire = prixUnitaire;
@@ -33,6 +39,8 @@ public class LigneCommandeClientDTO {
         this.prixVente = prixVente;
         this.imageUrl = imageUrl;
         this.categorieNom = categorieNom;
+        this.remiseStandard = remiseStandard;
+        this.tauxTVA = tauxTVA;
     }
 
     // Getters et Setters pour idLigneCommandeClient
@@ -53,7 +61,7 @@ public class LigneCommandeClientDTO {
         this.quantite = quantite;
     }
 
-    // ✅ CORRECTION : Setter pour prixUnitaire avec conversion BigDecimal → Double
+    // Setter pour prixUnitaire avec conversion BigDecimal → Double
     public Double getPrixUnitaire() {
         return prixUnitaire;
     }
@@ -67,7 +75,7 @@ public class LigneCommandeClientDTO {
         this.prixUnitaire = prixUnitaire;
     }
 
-    // ✅ CORRECTION : Setter pour sousTotal avec conversion BigDecimal → Double
+    // Setter pour sousTotal avec conversion BigDecimal → Double
     public Double getSousTotal() {
         return sousTotal;
     }
@@ -99,7 +107,7 @@ public class LigneCommandeClientDTO {
         this.produitLibelle = produitLibelle;
     }
 
-    // ✅ CORRECTION : Setter pour prixVente avec conversion BigDecimal → Double
+    // Setter pour prixVente avec conversion BigDecimal → Double
     public Double getPrixVente() {
         return prixVente;
     }
@@ -129,5 +137,23 @@ public class LigneCommandeClientDTO {
 
     public void setCategorieNom(String categorieNom) {
         this.categorieNom = categorieNom;
+    }
+
+    // ✅ GETTERS ET SETTERS POUR remiseStandard
+    public Double getRemiseStandard() {
+        return remiseStandard;
+    }
+
+    public void setRemiseStandard(Double remiseStandard) {
+        this.remiseStandard = remiseStandard;
+    }
+
+    // ✅ GETTERS ET SETTERS POUR tauxTVA
+    public BigDecimal getTauxTVA() {
+        return tauxTVA;
+    }
+
+    public void setTauxTVA(BigDecimal tauxTVA) {
+        this.tauxTVA = tauxTVA;
     }
 }

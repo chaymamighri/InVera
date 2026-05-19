@@ -102,56 +102,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @PostConstruct
     public void init() {
-        System.out.println("✅ JwtAuthenticationFilter initialisé");
-        System.out.println("   - jwtTokenProvider: " + (jwtTokenProvider != null ? "✅ OK" : "❌ NULL"));
-        System.out.println("   - sessionManagementService: " + (sessionManagementService != null ? "✅ OK" : "❌ NULL"));
+        System.out.println("JwtAuthenticationFilter initialisé");
+        System.out.println("   - jwtTokenProvider: " + (jwtTokenProvider != null ? " OK" : " NULL"));
+        System.out.println("   - sessionManagementService: " + (sessionManagementService != null ? " OK" : " NULL"));
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
-        // ✅ Log pour voir toutes les requêtes
-        System.out.println("🔍 shouldNotFilter: " + path);
+        //  Log pour voir toutes les requêtes
+        System.out.println(" shouldNotFilter: " + path);
 
         for (String endpoint : PUBLIC_ENDPOINTS) {
             if (path.startsWith(endpoint)) {
-                System.out.println("🔓 [PUBLIC] " + path);
+                System.out.println("[PUBLIC] " + path);
                 return true;
             }
         }
 
         if (path.matches("/api/platform/clients/public/logo/\\d+")) {
-            System.out.println("🔓 [PUBLIC LOGO] " + path);
+            System.out.println(" [PUBLIC LOGO] " + path);
             return true;
         }
 
         if (path.startsWith("/api/platform/clients/public/logo/")) {
-            System.out.println("🔓 [PUBLIC LOGO] " + path);
+            System.out.println(" [PUBLIC LOGO] " + path);
             return true;
         }
 
         if (path.matches("/api/paiement/\\d+/konnect")) {
-            System.out.println("🔓 [PUBLIC - KONNECT] " + path);
+            System.out.println(" [PUBLIC - KONNECT] " + path);
             return true;
         }
 
         if (path.matches("/api/abonnement/\\d+/paiement/initier")) {
-            System.out.println("🔓 [PUBLIC - ABONNEMENT] " + path);
+            System.out.println(" [PUBLIC - ABONNEMENT] " + path);
             return true;
         }
 
         if (path.matches("/api/platform/clients/\\d+/justificatifs")) {
-            System.out.println("🔓 [UPLOAD] " + path + " - autorisé sans JWT");
+            System.out.println(" [UPLOAD] " + path + " - autorisé sans JWT");
             return true;
         }
 
         if (path.startsWith("/api/public/")) {
-            System.out.println("🔓 [PUBLIC API] " + path);
+            System.out.println(" [PUBLIC API] " + path);
             return true;
         }
 
-        System.out.println("🔒 [PROTECTED] " + path);
+        System.out.println(" [PROTECTED] " + path);
         return false;
     }
 
@@ -182,16 +182,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // FORCE BYPASS FOR PUBLIC API
         if (path.startsWith("/api/public/")) {
-            System.out.println("🔓 FORCE PUBLIC BYPASS: " + path);
+            System.out.println(" FORCE PUBLIC BYPASS: " + path);
             filterChain.doFilter(request, response);
             return;
         }
 
-        // ✅ AJOUT : BYPASS POUR LES ROUTES DE PAIEMENT (PUBLIQUES)
+        //  BYPASS POUR LES ROUTES DE PAIEMENT (PUBLIQUES)
         if (path.startsWith("/paiement/") ||
                 path.startsWith("/api/paiement/") ||
                 path.startsWith("/webhook/")) {
-            System.out.println("🔓 [PUBLIC PAYMENT] " + path + " - bypass JWT");
+            System.out.println(" [PUBLIC PAYMENT] " + path + " - bypass JWT");
             filterChain.doFilter(request, response);
             return;
         }
@@ -240,7 +240,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } else if (jwt != null) {
-            System.out.println("❌ Invalid token");
+            System.out.println(" Invalid token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -251,7 +251,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 """);
             return;
         } else {
-            System.out.println("❌ No JWT found in Authorization header");
+            System.out.println(" No JWT found in Authorization header");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -287,7 +287,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        System.out.println("👑 SUPER ADMIN detected:");
+        System.out.println("SUPER ADMIN detected:");
         System.out.println("   - AdminId: " + adminId);
         System.out.println("   - Email: " + email);
         System.out.println("   - Nom: " + nom);
@@ -295,7 +295,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         sessionManagementService.registerSession(email, jwt);
 
         if (!sessionManagementService.isSessionValid(email, jwt)) {
-            System.out.println("🔒 Session invalide pour " + email);
+            System.out.println(" Session invalide pour " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -328,7 +328,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        System.out.println("✅ Super admin authenticated");
+        System.out.println(" Super admin authenticated");
     }
 
     // =========================
@@ -360,20 +360,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("   - ClientId: " + clientId);
 
         if (role == null || email == null || clientId == null) {
-            System.out.println("❌ Missing email, role or clientId in client token");
+            System.out.println(" Missing email, role or clientId in client token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"INVALID_TOKEN\",\"message\":\"Token invalide\"}");
             return false;
         }
 
-        // ✅ CRITICAL: Vérifier le statut du client AVANT toute authentification
+        // Vérifier le statut du client AVANT toute authentification
         try {
             Client client = clientPlatformService.getClientById(clientId);
 
             // 1. Vérifier si le client existe et est actif
             if (client.getStatut() == Client.StatutClient.INACTIF) {
-                System.out.println("❌ Client INACTIF - Accès refusé: " + email);
+                System.out.println(" Client INACTIF - Accès refusé: " + email);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Votre compte est inactif. Veuillez contacter l'administrateur.\"}");
@@ -382,7 +382,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 2. Vérifier si le client est refusé
             if (client.getStatut() == Client.StatutClient.REFUSE) {
-                System.out.println("❌ Client REFUSE - Accès refusé: " + email);
+                System.out.println(" Client REFUSE - Accès refusé: " + email);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"ACCOUNT_REJECTED\",\"message\":\"Votre inscription a été refusée.\"}");
@@ -391,7 +391,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 3. Vérifier si le client est en attente de paiement (VALIDE)
             if (client.getStatut() == Client.StatutClient.VALIDE) {
-                System.out.println("❌ Client VALIDE (en attente paiement) - Accès refusé: " + email);
+                System.out.println(" Client VALIDE (en attente paiement) - Accès refusé: " + email);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"PAYMENT_PENDING\",\"message\":\"Veuillez finaliser votre paiement pour accéder à la plateforme.\"}");
@@ -401,7 +401,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 4. Pour les clients DEFINITIF, vérifier l'abonnement
             if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
                 if (client.getAbonnementActif() == null) {
-                    System.out.println("❌ Client DEFINITIF sans abonnement - Accès refusé: " + email);
+                    System.out.println("Client DEFINITIF sans abonnement - Accès refusé: " + email);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"NO_SUBSCRIPTION\",\"message\":\"Vous n'avez pas d'abonnement actif.\"}");
@@ -410,7 +410,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (client.getAbonnementActif().getDateFin() != null &&
                         client.getAbonnementActif().getDateFin().isBefore(java.time.LocalDateTime.now())) {
-                    System.out.println("❌ Abonnement expiré pour client: " + email);
+                    System.out.println(" Abonnement expiré pour client: " + email);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"SUBSCRIPTION_EXPIRED\",\"message\":\"Votre abonnement a expiré. Veuillez le renouveler.\"}");
@@ -418,7 +418,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 if (client.getAbonnementActif().getStatut() != Abonnement.StatutAbonnement.ACTIF) {
-                    System.out.println("❌ Abonnement non actif pour client: " + email);
+                    System.out.println("Abonnement non actif pour client: " + email);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"SUBSCRIPTION_INACTIVE\",\"message\":\"Votre abonnement n'est pas actif.\"}");
@@ -427,7 +427,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
-            System.out.println("❌ Erreur vérification client: " + e.getMessage());
+            System.out.println(" Erreur vérification client: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("{\"error\":\"CLIENT_NOT_FOUND\",\"message\":\"Client non trouvé\"}");
@@ -437,7 +437,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         sessionManagementService.registerSession(email, jwt);
 
         if (!sessionManagementService.isSessionValid(email, jwt)) {
-            System.out.println("🔒 Session invalide pour client: " + email);
+            System.out.println(" Session invalide pour client: " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -463,7 +463,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (clientRole == null) {
-            System.out.println("❌ Invalid role: " + roleValue);
+            System.out.println(" Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("{\"error\":\"INVALID_ROLE\",\"message\":\"Rôle invalide\"}");
             return false;
@@ -493,7 +493,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        System.out.println("✅ Client authenticated: " + email);
+        System.out.println(" Client authenticated: " + email);
         return true;
     }
 
@@ -512,12 +512,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Integer userId = (Integer) claims.get("userId");
         String role = (String) claims.get("role");
 
-        System.out.println("💼 ERP user detected:");
+        System.out.println(" ERP user detected:");
         System.out.println("   - Email: " + email);
         System.out.println("   - Role: " + role);
 
         if (role == null || email == null) {
-            System.out.println("❌ Missing email or role in ERP token");
+            System.out.println(" Missing email or role in ERP token");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return false;
         }
@@ -525,7 +525,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         sessionManagementService.registerSession(email, jwt);
 
         if (!sessionManagementService.isSessionValid(email, jwt)) {
-            System.out.println("🔒 Session invalide pour ERP user: " + email);
+            System.out.println(" Session invalide pour ERP user: " + email);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -553,7 +553,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             user.setRole(Utilisateur.RoleUtilisateur.valueOf(roleValue));
         } catch (IllegalArgumentException e) {
-            System.out.println("❌ Invalid role: " + roleValue);
+            System.out.println(" Invalid role: " + roleValue);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return false;
         }
@@ -574,7 +574,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        System.out.println("✅ ERP user authenticated: " + email);
+        System.out.println(" ERP user authenticated: " + email);
         return true;
     }
 }

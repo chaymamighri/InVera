@@ -63,21 +63,21 @@ public class DatabaseCreationService {
         String userName = generateUsername(clientId);
         String dbPassword = generateSecurePassword();
 
-        log.info("🚀 Création base pour client {} ({})", clientId, client.getEmail());
+        log.info(" Création base pour client {} ({})", clientId, client.getEmail());
         log.info("   Database: {}", dbName);
         log.info("   User dédié: {}", userName);
 
         try {
             // Nettoyage préventif
-            log.info("🧹 Nettoyage préventif des objets existants...");
+            log.info("Nettoyage préventif des objets existants...");
 
             if (userExists(userName)) {
-                log.warn("⚠️ Utilisateur {} existe déjà, suppression préventive", userName);
+                log.warn("️ Utilisateur {} existe déjà, suppression préventive", userName);
                 platformJdbcTemplate.execute(String.format("DROP USER IF EXISTS %s", sanitizeIdentifier(userName)));
             }
 
             if (databaseExists(dbName)) {
-                log.warn("⚠️ Base {} existe déjà, suppression préventive", dbName);
+                log.warn(" Base {} existe déjà, suppression préventive", dbName);
                 terminateConnections(dbName);
                 platformJdbcTemplate.execute(String.format("DROP DATABASE IF EXISTS %s", sanitizeIdentifier(dbName)));
                 Thread.sleep(200);
@@ -92,7 +92,7 @@ public class DatabaseCreationService {
                     sanitizeIdentifier(dbName), sanitizeIdentifier(TEMPLATE_DB)
             );
             platformJdbcTemplate.execute(createDbSql);
-            log.info("✅ Base créée: {}", dbName);
+            log.info(" Base créée: {}", dbName);
 
             // Créer l'utilisateur dédié
             String createUserSql = String.format(
@@ -100,7 +100,7 @@ public class DatabaseCreationService {
                     sanitizeIdentifier(userName), dbPassword
             );
             platformJdbcTemplate.execute(createUserSql);
-            log.info("✅ Utilisateur dédié créé: {}", userName);
+            log.info("Utilisateur dédié créé: {}", userName);
 
             // Donner les droits
             String grantDbSql = String.format(
@@ -108,7 +108,7 @@ public class DatabaseCreationService {
                     sanitizeIdentifier(dbName), sanitizeIdentifier(userName)
             );
             platformJdbcTemplate.execute(grantDbSql);
-            log.info("✅ Droits de connexion accordés");
+            log.info(" Droits de connexion accordés");
 
             grantSchemaPrivileges(dbName, userName);
 
@@ -121,12 +121,12 @@ public class DatabaseCreationService {
             // Mettre à jour le client
             updateClientWithDatabaseInfo(clientId, dbName);
 
-            log.info("🎉 Base créée avec succès - Client {} a son propre compte {}", clientId, userName);
+            log.info(" Base créée avec succès - Client {} a son propre compte {}", clientId, userName);
 
             return new DatabaseInfo(dbName, userName, dbPassword, getConnectionUrl(dbName));
 
         } catch (Exception e) {
-            log.error("❌ Erreur création base: {}", e.getMessage());
+            log.error(" Erreur création base: {}", e.getMessage());
             cleanupFailedCreation(dbName, userName);
             throw new RuntimeException("Erreur création base client: " + e.getMessage(), e);
         }
@@ -158,7 +158,7 @@ public class DatabaseCreationService {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
-        log.info("👤 Création utilisateur admin dans la base {} pour {}", dbName, client.getEmail());
+        log.info(" Création utilisateur admin dans la base {} pour {}", dbName, client.getEmail());
 
         try (Connection conn = DriverManager.getConnection(url, platformDbUsername, platformDbPassword)) {
             try (PreparedStatement pstmtClient = conn.prepareStatement(insertClientSql)) {
@@ -171,7 +171,7 @@ public class DatabaseCreationService {
                 pstmtClient.setString(7, mapTenantClientType(client));
                 pstmtClient.setObject(8, null);
                 pstmtClient.executeUpdate();
-                log.info("✅ Ligne client créée dans la base {}: {}", dbName, client.getId());
+                log.info("Ligne client créée dans la base {}: {}", dbName, client.getId());
             }
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -185,10 +185,10 @@ public class DatabaseCreationService {
                 pstmt.setString(8, "FR");
                 pstmt.executeUpdate();
 
-                log.info("✅ Utilisateur admin créé dans la base {}: {}", dbName, client.getEmail());
+                log.info(" Utilisateur admin créé dans la base {}: {}", dbName, client.getEmail());
             }
         } catch (SQLException e) {
-            log.error("❌ Erreur création admin dans {}: {}", dbName, e.getMessage());
+            log.error(" Erreur création admin dans {}: {}", dbName, e.getMessage());
             throw new RuntimeException("Erreur création utilisateur admin: " + e.getMessage(), e);
         }
     }
@@ -226,7 +226,7 @@ public class DatabaseCreationService {
     // ============================================================
 
     private void grantSchemaPrivileges(String dbName, String userName) {
-        log.info("🔐 Configuration des droits sur le schéma public pour {}", userName);
+        log.info(" Configuration des droits sur le schéma public pour {}", userName);
 
         try (var conn = DriverManager.getConnection(getConnectionUrl(dbName), platformDbUsername, platformDbPassword)) {
             try (var stmt = conn.createStatement()) {
@@ -237,9 +237,9 @@ public class DatabaseCreationService {
                 stmt.execute(String.format("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO %s", userName));
                 stmt.execute(String.format("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO %s", userName));
             }
-            log.info("✅ Droits accordés à {} sur {}", userName, dbName);
+            log.info(" Droits accordés à {} sur {}", userName, dbName);
         } catch (SQLException e) {
-            log.error("❌ Erreur lors de l'octroi des droits: {}", e.getMessage());
+            log.error(" Erreur lors de l'octroi des droits: {}", e.getMessage());
             throw new RuntimeException("Impossible de configurer les droits sur la base " + dbName, e);
         }
     }
@@ -248,28 +248,28 @@ public class DatabaseCreationService {
         try {
             List<Boolean> terminated = platformJdbcTemplate.queryForList(TERMINATE_CONNECTIONS, Boolean.class, dbName);
             long count = terminated != null ? terminated.stream().filter(Boolean::booleanValue).count() : 0;
-            if (count > 0) log.info("✅ {} connexions terminées sur {}", count, dbName);
+            if (count > 0) log.info(" {} connexions terminées sur {}", count, dbName);
         } catch (Exception e) {
-            log.warn("⚠️ Impossible de terminer les connexions: {}", e.getMessage());
+            log.warn(" Impossible de terminer les connexions: {}", e.getMessage());
         }
     }
 
     private void cleanupFailedCreation(String dbName, String userName) {
-        log.info("🧹 Nettoyage après échec - Base: {}, User: {}", dbName, userName);
+        log.info(" Nettoyage après échec - Base: {}, User: {}", dbName, userName);
 
         try {
             if (databaseExists(dbName)) {
                 terminateConnections(dbName);
                 platformJdbcTemplate.execute(String.format("DROP DATABASE IF EXISTS %s", sanitizeIdentifier(dbName)));
-                log.info("✅ Base {} supprimée", dbName);
+                log.info(" Base {} supprimée", dbName);
             }
 
             if (userExists(userName)) {
                 platformJdbcTemplate.execute(String.format("DROP USER IF EXISTS %s", sanitizeIdentifier(userName)));
-                log.info("✅ Utilisateur {} supprimé", userName);
+                log.info(" Utilisateur {} supprimé", userName);
             }
         } catch (Exception e) {
-            log.error("❌ Erreur lors du nettoyage: {}", e.getMessage());
+            log.error(" Erreur lors du nettoyage: {}", e.getMessage());
         }
     }
 
@@ -317,7 +317,7 @@ public class DatabaseCreationService {
         client.setDateActivation(LocalDateTime.now());
         client.setIsActive(true);
         clientRepository.save(client);
-        log.info("✅ Client mis à jour: {} - Statut: {}", client.getEmail(), client.getStatut());
+        log.info(" Client mis à jour: {} - Statut: {}", client.getEmail(), client.getStatut());
     }
 
     // ============================================================

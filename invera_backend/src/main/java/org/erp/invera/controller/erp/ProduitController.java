@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.erp.Produitdto.ProduitDTO;
 import org.erp.invera.model.erp.Categorie;
 import org.erp.invera.model.erp.Produit;
-import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.erp.ProduitService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -44,6 +43,7 @@ public class ProduitController {
         }
         return null;
     }
+
     private String saveImage(MultipartFile image) throws IOException {
         if (image == null || image.isEmpty()) {
             return null;
@@ -75,7 +75,6 @@ public class ProduitController {
         Path filePath = produitsPath.resolve(fileName);
         Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        // ✅ Stocker le chemin complet
         return "uploads/produits/" + fileName;
     }
 
@@ -98,7 +97,6 @@ public class ProduitController {
             @RequestParam(value = "quantiteStock", defaultValue = "0") Integer quantiteStock,
             @RequestParam(value = "seuilMinimum", defaultValue = "10") Integer seuilMinimum,
             @RequestParam(value = "uniteMesure", defaultValue = "PIECE") String uniteMesure,
-            @RequestParam(value = "remiseTemporaire", required = false) Double remiseTemporaire,
             @RequestParam(value = "active", defaultValue = "true") Boolean active,
             @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,
             @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,
@@ -133,9 +131,6 @@ public class ProduitController {
                 return errorResponse("Unité de mesure invalide", HttpStatus.BAD_REQUEST);
             }
 
-            if (remiseTemporaire != null) {
-                produit.setRemiseTemporaire(remiseTemporaire);
-            }
             produit.setActive(active);
 
             Categorie categorie = new Categorie();
@@ -149,10 +144,13 @@ public class ProduitController {
 
             Produit createdProduit = produitService.createProduit(produit, fournisseurId, prixAchat, token);
 
+            // ✅ Convertir en DTO pour la réponse
+            ProduitDTO createdDTO = ProduitDTO.fromEntity(createdProduit);
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit ajouté avec succès");
-            response.put("produit", createdProduit);
+            response.put("produit", createdDTO);
             response.put("fournisseurId", fournisseurId);
             response.put("prixAchat", prixAchat);
 
@@ -174,10 +172,15 @@ public class ProduitController {
 
             List<Produit> produits = produitService.getAllProduits(token);
 
+            // ✅ Convertir en DTO
+            List<ProduitDTO> produitsDTO = produits.stream()
+                    .map(ProduitDTO::fromEntity)
+                    .collect(Collectors.toList());
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("count", produits.size());
-            response.put("produits", produits);
+            response.put("count", produitsDTO.size());
+            response.put("produits", produitsDTO);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -227,60 +230,25 @@ public class ProduitController {
 
             Produit produit = produitOpt.get();
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
+            // ✅ Convertir en DTO
+            ProduitDTO produitDTO = ProduitDTO.fromEntity(produit);
 
-            Map<String, Object> produitMap = new HashMap<>();
-            produitMap.put("idProduit", produit.getIdProduit());
-            produitMap.put("libelle", produit.getLibelle());
-            produitMap.put("prixVente", produit.getPrixVente());
-            produitMap.put("prixAchat", produit.getPrixAchat());
-            produitMap.put("quantiteStock", produit.getQuantiteStock());
-            produitMap.put("uniteMesure", produit.getUniteMesure() != null ? produit.getUniteMesure().name() : null);
-            produitMap.put("active", produit.getActive());
-            produitMap.put("seuilMinimum", produit.getSeuilMinimum());
-
-            // ✅ Construction de l'URL de l'image
+            // Construction de l'URL de l'image
             String baseUrl = "http://localhost:8081";
             if (produit.getImageUrl() != null && !produit.getImageUrl().isEmpty()) {
-                String imageFullUrl;
-
                 if (produit.getImageUrl().startsWith("http")) {
-                    // Déjà une URL complète
-                    imageFullUrl = produit.getImageUrl();
-                }
-                else if (produit.getImageUrl().startsWith("uploads/produits/")) {
-                    // ✅ CORRECTION: extraire le nom et utiliser le bon endpoint
+                    produitDTO.setImageUrl(produit.getImageUrl());
+                } else if (produit.getImageUrl().startsWith("uploads/produits/")) {
                     String filename = produit.getImageUrl().substring(produit.getImageUrl().lastIndexOf("/") + 1);
-                    imageFullUrl = baseUrl + "/api/produits/uploads/produits/" + filename;
+                    produitDTO.setImageUrl(baseUrl + "/api/produits/uploads/produits/" + filename);
+                } else {
+                    produitDTO.setImageUrl(baseUrl + "/api/produits/uploads/produits/" + produit.getImageUrl());
                 }
-                else {
-                    // Juste le nom du fichier
-                    imageFullUrl = baseUrl + "/api/produits/uploads/produits/" + produit.getImageUrl();
-                }
-                produitMap.put("imageUrl", imageFullUrl);
-            } else {
-                produitMap.put("imageUrl", null);
             }
 
-            produitMap.put("remiseTemporaire", produit.getRemiseTemporaire());
-            produitMap.put("status", produit.getStatus() != null ? produit.getStatus().name() : null);
-
-            // Catégorie
-            if (produit.getCategorie() != null) {
-                produitMap.put("categorieId", produit.getCategorie().getIdCategorie());
-                produitMap.put("categorieNom", produit.getCategorie().getNomCategorie());
-            }
-
-            // Fournisseur
-            if (produit.getFournisseur() != null) {
-                produitMap.put("fournisseurId", produit.getFournisseur().getIdFournisseur());
-                produitMap.put("fournisseurNom", produit.getFournisseur().getNomFournisseur());
-                produitMap.put("fournisseurEmail", produit.getFournisseur().getEmail());
-                produitMap.put("fournisseurTelephone", produit.getFournisseur().getTelephone());
-            }
-
-            response.put("produit", produitMap);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("produit", produitDTO);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -302,22 +270,8 @@ public class ProduitController {
 
             List<Produit> produits = produitService.getProduitsByFournisseur(fournisseurId, token);
 
-            List<Map<String, Object>> produitsDTO = produits.stream()
-                    .map(p -> {
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("id", p.getIdProduit());
-                        map.put("idProduit", p.getIdProduit());
-                        map.put("libelle", p.getLibelle());
-                        map.put("nom", p.getLibelle());
-                        map.put("prixAchat", p.getPrixAchat());
-                        map.put("prixVente", p.getPrixVente());
-                        map.put("quantiteStock", p.getQuantiteStock());
-                        map.put("uniteMesure", p.getUniteMesure());
-                        map.put("active", p.getActive());
-                        map.put("tauxTVA", p.getCategorie() != null && p.getCategorie().getTauxTVA() != null ? p.getCategorie().getTauxTVA() : 19);
-                        map.put("estActif", p.getActive());
-                        return map;
-                    })
+            List<ProduitDTO> produitsDTO = produits.stream()
+                    .map(ProduitDTO::fromEntity)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of(
@@ -343,7 +297,6 @@ public class ProduitController {
             @RequestParam(required = false) Integer quantiteStock,
             @RequestParam(required = false) Integer seuilMinimum,
             @RequestParam(required = false) String uniteMesure,
-            @RequestParam(required = false) Double remiseTemporaire,
             @RequestParam(required = false) Boolean active,
             @RequestParam(value = "fournisseurId", required = false) Integer fournisseurId,
             @RequestParam(value = "prixAchat", required = false) BigDecimal prixAchat,
@@ -367,7 +320,6 @@ public class ProduitController {
             if (quantiteStock != null) produit.setQuantiteStock(quantiteStock);
             if (seuilMinimum != null) produit.setSeuilMinimum(seuilMinimum);
             if (active != null) produit.setActive(active);
-            if (remiseTemporaire != null) produit.setRemiseTemporaire(remiseTemporaire);
 
             if (categorieId != null) {
                 Categorie categorie = new Categorie();
@@ -398,20 +350,22 @@ public class ProduitController {
                 produit.setImageUrl(imageUrl);
             }
 
-            // ✅ CORRECTION: Passer categorieId en 4ème paramètre
             Produit updatedProduit = produitService.updateProduit(
-                    id,                    // 1. Integer id
-                    produit,               // 2. Produit produitDetails
-                    fournisseurId,         // 3. Integer fournisseurId
-                    categorieId,           // 4. Integer categorieId (AJOUTÉ)
-                    prixAchat,            // 5. BigDecimal prixAchat
-                    token                 // 6. String token
+                    id,
+                    produit,
+                    fournisseurId,
+                    categorieId,
+                    prixAchat,
+                    token
             );
+
+            // ✅ Convertir en DTO
+            ProduitDTO updatedDTO = ProduitDTO.fromEntity(updatedProduit);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit mis à jour avec succès");
-            response.put("produit", updatedProduit);
+            response.put("produit", updatedDTO);
             response.put("fournisseurId", fournisseurId);
             response.put("categorieId", categorieId);
             response.put("prixAchat", prixAchat);
@@ -459,10 +413,13 @@ public class ProduitController {
 
             Produit produit = produitService.reactiverProduit(id, token);
 
+            // ✅ Convertir en DTO
+            ProduitDTO produitDTO = ProduitDTO.fromEntity(produit);
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Produit réactivé avec succès");
-            response.put("produit", produit);
+            response.put("produit", produitDTO);
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -482,13 +439,15 @@ public class ProduitController {
             @RequestParam(required = false) Boolean actif) {
 
         try {
+            log.info("[SEARCH] Début - keyword: {}, status: {}, categorieId: {}, actif: {}",
+                    keyword, status, categorieId, actif);
+
             String token = extractToken(request);
             if (token == null) {
+                log.error(" [SEARCH] Token non trouvé");
                 return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
             }
 
-            // Note: Cette méthode searchProduits doit aussi être adaptée dans le service
-            // Pour l'instant, on fait une recherche simple
             List<Produit> produits;
             if (keyword != null && !keyword.isEmpty()) {
                 produits = produitService.getAllProduits(token).stream()
@@ -498,55 +457,61 @@ public class ProduitController {
                 produits = produitService.getAllProduits(token);
             }
 
+            log.info(" [SEARCH] {} produits récupérés avant filtres", produits.size());
+
             if (status != null) {
                 produits = produits.stream()
                         .filter(p -> p.getStatus() == status)
                         .collect(Collectors.toList());
+                log.info(" [SEARCH] Après filtre status: {} produits", produits.size());
             }
 
             if (categorieId != null) {
                 produits = produits.stream()
                         .filter(p -> p.getCategorie() != null && p.getCategorie().getIdCategorie() == categorieId)
                         .collect(Collectors.toList());
+                log.info(" [SEARCH] Après filtre categorieId: {} produits", produits.size());
             }
 
             if (actif != null) {
                 produits = produits.stream()
                         .filter(p -> p.getActive() == actif)
                         .collect(Collectors.toList());
+                log.info("[SEARCH] Après filtre actif: {} produits", produits.size());
             }
 
-            List<Map<String, Object>> produitsDTO = produits.stream()
-                    .map(p -> {
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("idProduit", p.getIdProduit());
-                        map.put("libelle", p.getLibelle());
-                        map.put("prixVente", p.getPrixVente());
-                        map.put("prixAchat", p.getPrixAchat());
-                        map.put("quantiteStock", p.getQuantiteStock());
-                        map.put("uniteMesure", p.getUniteMesure() != null ? p.getUniteMesure().name() : null);
-                        map.put("active", p.getActive());
-                        map.put("seuilMinimum", p.getSeuilMinimum());
-                        map.put("imageUrl", p.getImageUrl());
-                        map.put("remiseTemporaire", p.getRemiseTemporaire());
-                        map.put("status", p.getStatus() != null ? p.getStatus().name() : null);
+            // ✅ Convertir en DTO avec logs
+            List<ProduitDTO> produitsDTO = new ArrayList<>();
+            for (Produit produit : produits) {
+                log.info("[SEARCH] Traitement produit ID={}, Libelle={}",
+                        produit.getIdProduit(), produit.getLibelle());
 
-                        if (p.getCategorie() != null) {
-                            map.put("categorieId", p.getCategorie().getIdCategorie());
-                            map.put("categorieNom", p.getCategorie().getNomCategorie());
-                        }
-                        return map;
-                    })
-                    .collect(Collectors.toList());
+                if (produit.getCategorie() != null) {
+                    log.info("  Catégorie: ID={}, Nom={}, Remise={}%",
+                            produit.getCategorie().getIdCategorie(),
+                            produit.getCategorie().getNomCategorie(),
+                            produit.getCategorie().getRemiseStandard());
+                } else {
+                    log.warn("  Aucune catégorie pour ce produit");
+                }
+
+                ProduitDTO dto = ProduitDTO.fromEntity(produit);
+                log.info("   DTO créé - categorieId={}, categorieNom={}",
+                        dto.getCategorieId(), dto.getCategorieNom());
+
+                produitsDTO.add(dto);
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("count", produitsDTO.size());
             response.put("produits", produitsDTO);
 
+            log.info(" [SEARCH] Réponse finale avec {} produits", produitsDTO.size());
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(" [SEARCH] Erreur: {}", e.getMessage(), e);
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -561,11 +526,16 @@ public class ProduitController {
 
             List<Produit> produits = produitService.getProduitsByCategorie(categorieId, token);
 
+            // ✅ Convertir en DTO
+            List<ProduitDTO> produitsDTO = produits.stream()
+                    .map(ProduitDTO::fromEntity)
+                    .collect(Collectors.toList());
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("count", produits.size());
+            response.put("count", produitsDTO.size());
             response.put("categorieId", categorieId);
-            response.put("produits", produits);
+            response.put("produits", produitsDTO);
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -591,7 +561,6 @@ public class ProduitController {
                 return errorResponse("La quantité ne peut pas être négative", HttpStatus.BAD_REQUEST);
             }
 
-            // Note: Cette méthode doit être adaptée dans le service
             Optional<Produit> produitOpt = produitService.getProduitById(id, token);
             if (produitOpt.isEmpty()) {
                 return errorResponse("Produit non trouvé", HttpStatus.NOT_FOUND);
@@ -661,23 +630,17 @@ public class ProduitController {
         }
     }
 
-    /**
-     * Endpoint public pour servir les images des produits (sans authentification)
-     * URL: /api/produits/uploads/produits/{filename}
-     */
     @GetMapping(value = "/uploads/produits/{filename}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getProductImage(@PathVariable String filename) {
         try {
             Path imagePath = Paths.get("uploads/produits").toAbsolutePath().normalize().resolve(filename);
 
-            // Vérifier aussi dans le dossier uploads/produits
             if (!Files.exists(imagePath)) {
-                // Essayer avec le chemin relatif
                 imagePath = Paths.get("uploads/produits").resolve(filename);
             }
 
             if (!Files.exists(imagePath)) {
-                log.warn("❌ Image non trouvée: {}", imagePath);
+                log.warn(" Image non trouvée: {}", imagePath);
                 return ResponseEntity.notFound().build();
             }
 
@@ -689,9 +652,8 @@ public class ProduitController {
                     .body(imageBytes);
 
         } catch (Exception e) {
-            log.error("❌ Erreur chargement image: {}", e.getMessage());
+            log.error("Erreur chargement image: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
-
 }

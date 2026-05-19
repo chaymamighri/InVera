@@ -27,22 +27,22 @@ public class InvitationService {
         InvitationData data = invitationCache.get(email);
 
         if (data == null) {
-            log.warn("❌ Aucun code d'invitation trouvé pour {}", email);
+            log.warn(" Aucun code d'invitation trouvé pour {}", email);
             return false;
         }
 
         if (data.expiration.isBefore(LocalDateTime.now())) {
-            log.warn("⏰ Code d'invitation expiré pour {}", email);
+            log.warn(" Code d'invitation expiré pour {}", email);
             invitationCache.remove(email);
             return false;
         }
 
         if (!data.code.equals(code)) {
-            log.warn("❌ Code d'invitation incorrect pour {}", email);
+            log.warn(" Code d'invitation incorrect pour {}", email);
             return false;
         }
 
-        log.info("✅ Code d'invitation validé pour {}", email);
+        log.info(" Code d'invitation validé pour {}", email);
         invitationCache.remove(email);
         return true;
     }
@@ -59,7 +59,7 @@ public class InvitationService {
      */
     public void invalidateCode(String email) {
         invitationCache.remove(email);
-        log.info("🗑️ Code d'invitation supprimé pour {}", email);
+        log.info(" Code d'invitation supprimé pour {}", email);
     }
 
     // Classe interne pour stocker les données d'invitation

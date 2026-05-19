@@ -3,6 +3,7 @@ package org.erp.invera.controller.erp;
 import jakarta.servlet.http.HttpServletRequest;
 import org.erp.invera.dto.erp.clientdto.ClientDTO;
 import org.erp.invera.dto.erp.clientdto.ClientTypeRemiseUpdateDTO;
+import org.erp.invera.dto.erp.clientdto.ClientTypeUpdateDTO;
 import org.erp.invera.dto.erp.clientdto.NouveauClientDTO;
 import org.erp.invera.model.erp.client.Client;
 import org.erp.invera.security.JwtTokenProvider;
@@ -30,6 +31,7 @@ import java.util.Map;
  * Endpoints recherche :
  * - GET    /rechercher?q=              → Rechercher par nom/téléphone/email
  * - GET    /verifier-telephone?telephone= → Vérifier si un téléphone existe
+ * - GET    /verifier-matricule?matricule= → Vérifier si un matricule fiscale existe
  *
  * Endpoints types et remises :
  * - GET    /types                      → Types de clients disponibles
@@ -38,7 +40,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/clients")
-public class   ClientController {
+public class ClientController {
 
     private final ClientService clientService;
     private final JwtTokenProvider jwtTokenProvider;
@@ -78,6 +80,13 @@ public class   ClientController {
             HttpServletRequest request) {
         try {
             String token = extractToken(request);
+
+            // Log pour debug
+            System.out.println("=== CRÉATION CLIENT ===");
+            System.out.println("Type: " + clientDTO.getType());
+            System.out.println("Raison sociale: " + clientDTO.getRaisonSociale());
+            System.out.println("Matricule fiscale: " + clientDTO.getMatriculeFiscale());
+
             Client client = clientService.creerClient(clientDTO, token);
             ClientDTO clientResponse = ClientDTO.fromEntity(client);
 
@@ -101,6 +110,33 @@ public class   ClientController {
         try {
             String token = extractToken(request);
             List<Client> clients = clientService.getAllClients(token);
+            List<ClientDTO> clientDTOs = clients.stream()
+                    .map(ClientDTO::fromEntity)
+                    .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("count", clientDTOs.size());
+            response.put("clients", clientDTOs);
+            response.put("tenantId", getClientIdFromRequest(request));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Récupère uniquement les clients de type ENTREPRISE
+     */
+    @GetMapping("/entreprises")
+    public ResponseEntity<Map<String, Object>> getEntrepriseClients(HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            List<Client> clients = clientService.getEntrepriseClients(token);
             List<ClientDTO> clientDTOs = clients.stream()
                     .map(ClientDTO::fromEntity)
                     .toList();
@@ -199,7 +235,9 @@ public class   ClientController {
 
         System.out.println("=== REQUÊTE DE MISE À JOUR ===");
         System.out.println("ID client: " + id);
-        System.out.println("Données reçues: " + clientDTO);
+        System.out.println("Type: " + clientDTO.getType());
+        System.out.println("Raison sociale: " + clientDTO.getRaisonSociale());
+        System.out.println("Matricule fiscale: " + clientDTO.getMatriculeFiscale());
 
         try {
             String token = extractToken(request);
@@ -216,6 +254,34 @@ public class   ClientController {
             System.err.println("Erreur: " + e.getMessage());
             e.printStackTrace();
 
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+// update type client
+    @PatchMapping("/{id}/type")
+    public ResponseEntity<?> updateClientType(
+            @PathVariable Integer id,
+            @RequestBody Map<String, String> payload,
+            HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            String newType = payload.get("type");
+
+            Client updatedClient = clientService.updateClientType(id, newType, token);
+
+            // ✅ Utiliser la méthode statique fromEntity() qui existe déjà
+            ClientDTO responseDto = ClientDTO.fromEntity(updatedClient);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Type de client modifié avec succès");
+            response.put("client", responseDto);
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("message", e.getMessage());
@@ -264,6 +330,33 @@ public class   ClientController {
             response.put("message", exists ?
                     "Ce numéro est déjà utilisé" :
                     "Ce numéro est disponible");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Vérifie si un matricule fiscale existe déjà (pour les entreprises)
+     */
+    @GetMapping("/verifier-matricule")
+    public ResponseEntity<Map<String, Object>> verifierMatriculeFiscale(
+            @RequestParam String matricule,
+            HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            boolean exists = clientService.checkMatriculeFiscaleExists(matricule, token);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("exists", exists);
+            response.put("message", exists ?
+                    "Ce matricule fiscale est déjà utilisé" :
+                    "Ce matricule fiscale est disponible");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -14,4 +14,12 @@ public class NouveauClientDTO {
     private String adresse;
     private String type;
     private String email;
+
+    private String raisonSociale;
+    private String matriculeFiscale;
+
+
+    private Double remiseClientFidele;
+    private Double remiseClientVIP;
+    private Double remiseClientProfessionnelle;
 }

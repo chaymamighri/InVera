@@ -79,7 +79,7 @@ public class DashboardService {
             GROUP BY statut
             """;
 
-        // ✅ Utiliser queryWithAuth
+        //  Utiliser queryWithAuth
         List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 CommandeClient.StatutCommande.valueOf(rs.getString("statut")),
                 rs.getLong("count"),
@@ -133,7 +133,7 @@ public class DashboardService {
             ORDER BY date
             """;
 
-        // ✅ Utiliser queryWithAuth
+        // Utiliser queryWithAuth
         List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 rs.getDate("date").toLocalDate(),
                 rs.getLong("commandes"),
@@ -169,7 +169,7 @@ public class DashboardService {
             GROUP BY c.type_client
             """;
 
-        // ✅ Utiliser queryWithAuth
+        // Utiliser queryWithAuth
         List<Object[]> results = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> new Object[]{
                 Client.TypeClient.valueOf(rs.getString("type_client")),
                 rs.getLong("nombre"),
@@ -274,7 +274,7 @@ public class DashboardService {
         String sumSql = "SELECT COALESCE(SUM(total), 0) FROM commande_client WHERE date_commande BETWEEN ? AND ?";
         String countSql = "SELECT COUNT(*) FROM commande_client WHERE date_commande BETWEEN ? AND ?";
 
-        // ✅ Utiliser queryForObjectAuth
+        // Utiliser queryForObjectAuth
         BigDecimal caActuel = tenantRepo.queryForObjectAuth(sumSql, BigDecimal.class, clientId, authClientId, debutDateTime, finDateTime);
         Long cmdActuel = tenantRepo.queryForObjectAuth(countSql, Long.class, clientId, authClientId, debutDateTime, finDateTime);
         if (cmdActuel == null) cmdActuel = 0L;
@@ -340,7 +340,7 @@ public class DashboardService {
         String factureCountSql = "SELECT COUNT(*) FROM facture_client WHERE statut = 'NON_PAYE'";
         String factureRetardSql = "SELECT COUNT(*) FROM facture_client WHERE statut = 'NON_PAYE' AND date_facture < ?";
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         BigDecimal creancesTotal = tenantRepo.queryForObjectAuth(factureSumSql, BigDecimal.class, clientId, authClientId);
         Long creancesNombre = tenantRepo.queryForObjectAuth(factureCountSql, Long.class, clientId, authClientId);
         LocalDateTime dateRetard = LocalDate.now().minusDays(30).atStartOfDay();
@@ -373,7 +373,7 @@ public class DashboardService {
                 NULLIF((SELECT COUNT(*) FROM commande_client WHERE date_commande BETWEEN ? AND ?), 0), 0)
             """;
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         return tenantRepo.queryForObjectAuth(sql, BigDecimal.class, clientId, authClientId, debut, fin, debut, fin);
     }
 
@@ -390,7 +390,7 @@ public class DashboardService {
         String daySql = "SELECT COALESCE(SUM(total), 0) FROM commande_client WHERE DATE(date_commande) = ?";
 
         while (!currentDate.isAfter(endDate)) {
-            // ✅ Utiliser queryForObjectAuth
+            //  Utiliser queryForObjectAuth
             BigDecimal caDuJour = tenantRepo.queryForObjectAuth(daySql, BigDecimal.class, clientId, authClientId, currentDate);
 
             if (caDuJour != null && caDuJour.compareTo(BigDecimal.ZERO) > 0) {
@@ -420,7 +420,7 @@ public class DashboardService {
             LIMIT 5
             """;
 
-        // ✅ Utiliser queryWithAuth
+        //  Utiliser queryWithAuth
         List<DashboardDTO.ProduitVente> topProduits = tenantRepo.queryWithAuth(topSql, (rs, rowNum) -> {
             Integer id = Integer.valueOf(rs.getInt("id"));
             String nom = rs.getString("nom");

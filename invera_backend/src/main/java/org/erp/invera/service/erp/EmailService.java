@@ -51,7 +51,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("🔐 Code de réinitialisation - Invera ERP");
+            helper.setSubject(" Code de réinitialisation - Invera ERP");
 
             LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(10);
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
@@ -154,7 +154,7 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email d'activation envoyé à " + email);
+            System.out.println(" Email d'activation envoyé à " + email);
 
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
@@ -173,12 +173,12 @@ public class EmailService {
         try {
             // Validation des paramètres
             if (toEmail == null || toEmail.isEmpty()) {
-                System.err.println("❌ Email destinataire invalide");
+                System.err.println(" Email destinataire invalide");
                 return;
             }
 
             if (pdfContent == null || pdfContent.length == 0) {
-                System.err.println("❌ Contenu PDF vide pour la commande " + numeroCommande);
+                System.err.println(" Contenu PDF vide pour la commande " + numeroCommande);
                 return;
             }
 
@@ -187,7 +187,7 @@ public class EmailService {
 
             helper.setFrom(fromEmail);
             helper.setTo(toEmail);
-            helper.setSubject("📄 Bon de commande N° " + numeroCommande);
+            helper.setSubject(" Bon de commande N° " + numeroCommande);
 
             LocalDateTime dateEnvoi = LocalDateTime.now();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm");
@@ -240,12 +240,12 @@ public class EmailService {
 
             mailSender.send(message);
 
-            System.out.println("✅ Email envoyé à " + toEmail);
+            System.out.println(" Email envoyé à " + toEmail);
             System.out.println("   - Fournisseur: " + fournisseurNom);
             System.out.println("   - Commande: " + numeroCommande);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email: " + e.getMessage());
+            System.err.println(" Erreur envoi email: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -309,11 +309,11 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email de validation/paiement envoyé à " + email);
-            System.out.println("🔗 Lien de paiement: " + paymentLink);
+            System.out.println(" Email de validation/paiement envoyé à " + email);
+            System.out.println(" Lien de paiement: " + paymentLink);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email validation: " + e.getMessage());
+            System.err.println(" Erreur envoi email validation: " + e.getMessage());
         }
     }
     /**
@@ -328,7 +328,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("❌ Votre dossier InVera a été refusé");
+            helper.setSubject(" Votre dossier InVera a été refusé");
 
             String htmlContent = String.format("""
         <!DOCTYPE html>
@@ -369,10 +369,10 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email de refus envoyé à " + email + " - Motif: " + motif);
+            System.out.println(" Email de refus envoyé à " + email + " - Motif: " + motif);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email refus: " + e.getMessage());
+            System.err.println(" Erreur envoi email refus: " + e.getMessage());
         }
     }
     /**
@@ -385,7 +385,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("✅ Abonnement activé - Invera ERP");
+            helper.setSubject(" Abonnement activé - Invera ERP");
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             String dateFinFormatted = dateFin.format(formatter);
@@ -428,10 +428,10 @@ public class EmailService {
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
-            System.out.println("✅ Email confirmation abonnement envoyé à " + email);
+            System.out.println(" Email confirmation abonnement envoyé à " + email);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email confirmation à " + email + ": " + e.getMessage());
+            System.err.println(" Erreur envoi email confirmation à " + email + ": " + e.getMessage());
         }
     }
     /**

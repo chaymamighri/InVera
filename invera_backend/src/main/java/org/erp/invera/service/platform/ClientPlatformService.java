@@ -202,11 +202,11 @@ public class ClientPlatformService {
             client.setDateInscription(LocalDateTime.now());
 
             client = clientRepository.save(client);
-            log.info("✅ Client créé automatiquement: ID={}, Email={}", client.getId(), client.getEmail());
+            log.info(" Client créé automatiquement: ID={}, Email={}", client.getId(), client.getEmail());
         }
 
         if (client == null) {
-            log.error("❌ Client non trouvé pour clientId: {} et impossible de le créer", clientId);
+            log.error(" Client non trouvé pour clientId: {} et impossible de le créer", clientId);
             throw new RuntimeException("Client non trouvé pour cet ID: " + clientId);
         }
 

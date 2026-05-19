@@ -116,37 +116,6 @@ public class CommandeClientController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateCommande(
-            HttpServletRequest request,
-            @PathVariable Integer id,
-            @RequestBody CommandeUpdateRequestDTO commandeUpdateRequest) {
-
-        try {
-            String token = extractToken(request);
-            CommandeClient commandeMaj = commandeService.updateCommande(id, commandeUpdateRequest, token);
-
-            CommandeResponseDTO commandeDTO = CommandeResponseDTO.fromEntity(
-                    commandeMaj,
-                    clientService,
-                    produitService
-            );
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Commande mise à jour avec succès");
-            response.put("commande", commandeDTO);
-
-            return ResponseEntity.ok(response);
-
-        } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getCommandeById(HttpServletRequest request, @PathVariable Integer id) {
         try {

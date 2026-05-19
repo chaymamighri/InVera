@@ -39,23 +39,18 @@ public class Client {
     @Column(name = "type_client", nullable = false)
     private TypeClient typeClient;
 
-    @Column(name = "remise_client_fidele", nullable = true)
-    private Double remiseClientFidele;
+    @Column(name = "raison_sociale")
+    private String raisonSociale;
 
-    @Column(name = "remise_client_vip", nullable = true)
-    private Double remiseClientVIP;
+    @Column(name = "matricule_fiscale", unique = true, length = 50)
+    private String matriculeFiscale;
 
-    @Column(name = "remise_client_professionnelle", nullable = true)
-    private Double remiseClientProfessionnelle;
-
-    // --- Nouveaux champs d'audit ---
     @CreatedBy
-    @Column(name = "created_by", nullable = false,  updatable = false)
+    @Column(name = "created_by", nullable = false, updatable = false)
     private String createdBy;
 
-    @Column(name = "created_at", nullable = false, updatable = false )
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    // ------------------------------
 
     public enum TypeClient {
         PARTICULIER("Particulier"),
@@ -74,7 +69,6 @@ public class Client {
         }
     }
 }
-
 
 
 

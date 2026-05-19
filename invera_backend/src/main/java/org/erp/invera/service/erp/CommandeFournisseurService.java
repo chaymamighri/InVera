@@ -53,7 +53,7 @@ public class CommandeFournisseurService {
             WHERE id_commande_fournisseur = ? AND actif = true
             """;
 
-        // ✅ Utiliser queryForObjectAuth (avec authenticatedClientId)
+        //  Utiliser queryForObjectAuth (avec authenticatedClientId)
         CommandeFournisseur commande = tenantRepo.queryForObjectAuth(sql, (rs, rowNum) -> {
             CommandeFournisseur c = new CommandeFournisseur();
             c.setIdCommandeFournisseur(rs.getInt("id_commande_fournisseur"));
@@ -85,7 +85,7 @@ public class CommandeFournisseurService {
             WHERE l.commande_fournisseur_id = ? AND l.actif = true
             """;
 
-        // ✅ Utiliser queryWithAuth pour les listes
+        //  Utiliser queryWithAuth pour les listes
         List<LigneCommandeFournisseur> lignes = tenantRepo.queryWithAuth(lignesSql, (rs, rowNum) -> {
             LigneCommandeFournisseur ligne = new LigneCommandeFournisseur();
             ligne.setIdLigneCommandeFournisseur(rs.getInt("id_ligne_commande_fournisseur"));
@@ -166,7 +166,7 @@ public class CommandeFournisseurService {
             dto.setMotifRejet(rs.getString("motif_rejet"));
             dto.setDateRejet(rs.getTimestamp("date_rejet") != null ? rs.getTimestamp("date_rejet").toLocalDateTime() : null);
 
-            // ✅ Remplir les informations du fournisseur
+            // Remplir les informations du fournisseur
             if (rs.getObject("id_fournisseur") != null) {
                 FournisseurDTO fournisseurDTO = new FournisseurDTO();
                 fournisseurDTO.setIdFournisseur(rs.getInt("id_fournisseur"));
@@ -208,13 +208,13 @@ public class CommandeFournisseurService {
             commande.setLignesCommande(lignes);
         }
         for (CommandeFournisseurDTO cmd : commandes) {
-            System.out.println("🔍 Commande " + cmd.getNumeroCommande() +
+            System.out.println(" Commande " + cmd.getNumeroCommande() +
                     " - HT: " + cmd.getTotalHT() +
                     ", TVA: " + cmd.getTotalTVA() +
                     ", TTC: " + cmd.getTotalTTC());
             if (cmd.getLignesCommande() != null) {
                 for (LigneCommandeDTO ligne : cmd.getLignesCommande()) {
-                    System.out.println("   📦 " + ligne.getProduitLibelle() +
+                    System.out.println("libelle " + ligne.getProduitLibelle() +
                             " - Qté cmd: " + ligne.getQuantite() +
                             ", Qté reçue: " + ligne.getQuantiteRecue() +
                             ", Total HT: " + ligne.getSousTotalHT());
@@ -247,7 +247,7 @@ public class CommandeFournisseurService {
             RETURNING id_commande_fournisseur
             """;
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         Integer commandeId = tenantRepo.queryForObjectAuth(insertCommandeSql, Integer.class, clientId, authClientId,
                 numeroCommande, LocalDateTime.now(), dto.getDateLivraisonPrevue(),
                 dto.getAdresseLivraison(), "BROUILLON", true);
@@ -263,7 +263,7 @@ public class CommandeFournisseurService {
                 WHERE p.id_produit = ?
                 """;
 
-            // ✅ Utiliser queryForObjectAuth
+            //  Utiliser queryForObjectAuth
             Produit produit = tenantRepo.queryForObjectAuth(produitSql, (rs, rowNum) -> {
                 Produit p = new Produit();
                 p.setIdProduit(rs.getInt("id_produit"));
@@ -311,7 +311,7 @@ public class CommandeFournisseurService {
                 RETURNING id_ligne_commande_fournisseur
                 """;
 
-            // ✅ Utiliser queryForObjectAuth
+            //  Utiliser queryForObjectAuth
             Integer ligneId = tenantRepo.queryForObjectAuth(insertLigneSql, Integer.class, clientId, authClientId,
                     commandeId, ligneDTO.getProduitId(), ligneDTO.getQuantite(),
                     ligneDTO.getPrixUnitaire(), sousTotalHT, montantTVA, sousTotalTTC, tauxTVA, ligneDTO.getNotes(), true);
@@ -387,7 +387,7 @@ public class CommandeFournisseurService {
             dto.setTotalTTC(rs.getBigDecimal("totalttc"));
             dto.setActif(rs.getBoolean("actif"));
 
-            // ✅ Remplir les informations du fournisseur
+            //  Remplir les informations du fournisseur
             if (rs.getObject("id_fournisseur") != null) {
                 FournisseurDTO fournisseurDTO = new FournisseurDTO();
                 fournisseurDTO.setIdFournisseur(rs.getInt("id_fournisseur"));
@@ -399,8 +399,8 @@ public class CommandeFournisseurService {
                 fournisseurDTO.setPays(rs.getString("pays"));
                 dto.setFournisseur(fournisseurDTO);
 
-                System.out.println("📞 Téléphone récupéré: '" + rs.getString("telephone") + "'");
-                System.out.println("📞 Téléphone dans DTO: '" + fournisseurDTO.getTelephone() + "'");
+                System.out.println(" Téléphone récupéré: '" + rs.getString("telephone") + "'");
+                System.out.println(" Téléphone dans DTO: '" + fournisseurDTO.getTelephone() + "'");
             }
 
             return dto;
@@ -440,7 +440,7 @@ public class CommandeFournisseurService {
             ligne.setEstInactif(!rs.getBoolean("is_active"));
 
             // Log pour déboguer
-            System.out.println("✅ Ligne chargée: Produit=" + ligne.getProduitLibelle() +
+            System.out.println(" Ligne chargée: Produit=" + ligne.getProduitLibelle() +
                     ", Quantité=" + ligne.getQuantite() +
                     ", Prix=" + ligne.getPrixUnitaire());
 
@@ -450,7 +450,7 @@ public class CommandeFournisseurService {
         commande.setLignesCommande(lignes);
 
         // Log pour vérifier
-        System.out.println("📦 Commande chargée: ID=" + commande.getIdCommandeFournisseur() +
+        System.out.println(" Commande chargée: ID=" + commande.getIdCommandeFournisseur() +
                 ", Fournisseur=" + (commande.getFournisseur() != null ? commande.getFournisseur().getNomFournisseur() : "null") +
                 ", Lignes=" + (lignes != null ? lignes.size() : 0));
 
@@ -465,7 +465,7 @@ public class CommandeFournisseurService {
         String authClientId = String.valueOf(clientId);
 
         String checkSql = "SELECT statut FROM commandes_fournisseurs WHERE id_commande_fournisseur = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // Utiliser queryForObjectAuth
         String statut = tenantRepo.queryForObjectAuth(checkSql, String.class, clientId, authClientId, id);
 
         if (!"BROUILLON".equals(statut)) {
@@ -511,7 +511,7 @@ public class CommandeFournisseurService {
             throw new RuntimeException("Le fournisseur '" + fournisseur.getNomFournisseur() + "' n'a pas d'email configuré");
         }
 
-        // 4. ✅ Récupérer le client connecté (émetteur)
+        // 4.  Récupérer le client connecté (émetteur)
         Long clientIdToken = jwtTokenProvider.getClientIdFromToken(token);
         String authClientIdToken = String.valueOf(clientIdToken);
         Client clientConnecte = clientService.getClientById(clientIdToken);
@@ -527,9 +527,9 @@ public class CommandeFournisseurService {
                     numeroCommande,
                     pdfContent
             );
-            log.info("✅ Bon de commande {} envoyé à {}", numeroCommande, fournisseur.getEmail());
+            log.info(" Bon de commande {} envoyé à {}", numeroCommande, fournisseur.getEmail());
         } catch (Exception e) {
-            log.error("❌ Erreur envoi email pour commande {}: {}", numeroCommande, e.getMessage());
+            log.error(" Erreur envoi email pour commande {}: {}", numeroCommande, e.getMessage());
             throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
         }
 
@@ -537,7 +537,7 @@ public class CommandeFournisseurService {
         String updateSql = "UPDATE commandes_fournisseurs SET statut = 'ENVOYEE' WHERE id_commande_fournisseur = ?";
         tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
 
-        log.info("✅ Commande {} marquée comme ENVOYEE", numeroCommande);
+        log.info(" Commande {} marquée comme ENVOYEE", numeroCommande);
 
         return getCommandeById(id, token);
     }
@@ -562,8 +562,8 @@ public class CommandeFournisseurService {
         String authClientId = String.valueOf(clientId);
 
         System.out.println("========================================");
-        System.out.println("🔔 RECEPTION COMMANDE CALLED!");
-        System.out.println("🔔 ID: " + id);
+        System.out.println(" RECEPTION COMMANDE CALLED!");
+        System.out.println(" ID: " + id);
         System.out.println("========================================");
 
         CommandeFournisseurDTO commande = getCommandeById(id, token);
@@ -601,7 +601,7 @@ public class CommandeFournisseurService {
                 String updateStockSql = "UPDATE produit SET quantite_stock = ? WHERE id_produit = ?";
                 tenantRepo.updateWithAuth(updateStockSql, clientId, authClientId, nouveauStock, ligne.getProduitId());
 
-                // 4. ✅ INSÉRER LE MOUVEMENT DE STOCK (version simplifiée)
+                // 4.  INSÉRER LE MOUVEMENT DE STOCK (version simplifiée)
                 String insertMovementSql = """
                 INSERT INTO stock_movement 
                 (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
@@ -621,7 +621,7 @@ public class CommandeFournisseurService {
                         valeurTotale
                 );
 
-                System.out.println("✅ Mouvement stock: Produit=" + ligne.getProduitLibelle() +
+                System.out.println(" Mouvement stock: Produit=" + ligne.getProduitLibelle() +
                         ", ENTREE=" + quantiteRecue + ", Stock: " + stockAvant + " → " + nouveauStock);
 
                 // 5. Mettre à jour quantite_recue
@@ -630,7 +630,7 @@ public class CommandeFournisseurService {
             }
         }
 
-        System.out.println("✅ FIN RECEPTION COMMANDE");
+        System.out.println(" FIN RECEPTION COMMANDE");
         return getCommandeById(id, token);
     }
 
@@ -705,7 +705,7 @@ public class CommandeFournisseurService {
 
         String sql = "SELECT * FROM commandes_fournisseurs WHERE actif = false ORDER BY date_commande DESC";
 
-        // ✅ Utiliser queryWithAuth pour les listes
+        //  Utiliser queryWithAuth pour les listes
         List<CommandeFournisseur> commandes = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
             CommandeFournisseur c = new CommandeFournisseur();
             c.setIdCommandeFournisseur(rs.getInt("id_commande_fournisseur"));
@@ -751,7 +751,7 @@ public class CommandeFournisseurService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT id_commande_fournisseur FROM commandes_fournisseurs WHERE numero_commande = ?";
-        // ✅ Utiliser queryForObjectAuth
+        // Utiliser queryForObjectAuth
         Integer id = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, authClientId, numero);
 
         if (id == null) {
@@ -771,7 +771,7 @@ public class CommandeFournisseurService {
             ORDER BY date_commande DESC
             """;
 
-        // ✅ Utiliser queryWithAuth pour les listes
+        //  Utiliser queryWithAuth pour les listes
         List<CommandeFournisseur> commandes = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
             CommandeFournisseur c = new CommandeFournisseur();
             c.setIdCommandeFournisseur(rs.getInt("id_commande_fournisseur"));

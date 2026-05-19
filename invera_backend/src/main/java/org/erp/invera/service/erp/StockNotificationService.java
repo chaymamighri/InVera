@@ -62,7 +62,6 @@ public class StockNotificationService {
 
         // Déterminer le libellé du statut
         String statusLabel = switch (newStatus) {
-            case CRITIQUE -> "critique";
             case RUPTURE -> "en rupture";
             case FAIBLE -> "faible";
             default -> "en baisse";
@@ -101,7 +100,7 @@ public class StockNotificationService {
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
 
-            // ✅ Utiliser updateWithAuth
+            // Utiliser updateWithAuth
             int result = tenantRepo.updateWithAuth(sql, clientId, authClientId,
                     String.valueOf(clientId),
                     LocalDateTime.now(),
@@ -113,13 +112,13 @@ public class StockNotificationService {
             );
 
             if (result > 0) {
-                log.info("✅ Notification stock créée: {}", message);
+                log.info(" Notification stock créée: {}", message);
             } else {
-                log.warn("⚠️ Aucune notification stock créée");
+                log.warn(" Aucune notification stock créée");
             }
 
         } catch (Exception e) {
-            log.error("❌ Erreur création notification stock: {}", e.getMessage());
+            log.error("Erreur création notification stock: {}", e.getMessage());
         }
     }
 
@@ -138,7 +137,6 @@ public class StockNotificationService {
         return switch (status) {
             case EN_STOCK -> 0;
             case FAIBLE -> 1;
-            case CRITIQUE -> 2;
             case RUPTURE -> 3;
         };
     }
@@ -153,10 +151,6 @@ public class StockNotificationService {
 
         if (quantity <= 0) {
             return Produit.StockStatus.RUPTURE;
-        }
-
-        if (quantity <= threshold * 0.25) {
-            return Produit.StockStatus.CRITIQUE;
         }
 
         if (quantity <= threshold) {

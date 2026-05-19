@@ -40,10 +40,10 @@ public class AuthController {
         String email = request.get("email");
         String password = request.get("password");
 
-        log.info("🔐 Tentative de login: {}", email);
+        log.info(" Tentative de login: {}", email);
 
         try {
-            // ✅ 1. Chercher l'utilisateur dans user_emails (tous les utilisateurs)
+            //  1. Chercher l'utilisateur dans user_emails (tous les utilisateurs)
             Client client = null;
             String userRole = null;
             String userNom = null;
@@ -60,7 +60,7 @@ public class AuthController {
                 userNom = userEmail.getNom();
                 userPrenom = userEmail.getPrenom();
                 userId = userEmail.getUserId();
-                log.info("✅ Utilisateur trouvé dans user_emails: {} -> client ID={}, rôle={}", email, client.getId(), userRole);
+                log.info("Utilisateur trouvé dans user_emails: {} -> client ID={}, rôle={}", email, client.getId(), userRole);
             } else {
                 // Fallback: chercher dans clients (email principal)
                 client = clientRepository.findByEmail(email)
@@ -68,7 +68,7 @@ public class AuthController {
                 userRole = "ADMIN_CLIENT";
                 userNom = client.getNom();
                 userPrenom = client.getPrenom();
-                log.info("✅ Client principal trouvé: {} -> ID={}", email, client.getId());
+                log.info(" Client principal trouvé: {} -> ID={}", email, client.getId());
             }
 
             Long clientId = client.getId();
@@ -78,9 +78,9 @@ public class AuthController {
                 return ResponseEntity.status(401).body(Map.of("error", "Configuration base de données manquante"));
             }
 
-            // ✅ 2. Vérifier le statut du client AVANT l'authentification
+            //  2. Vérifier le statut du client AVANT l'authentification
             if (client.getStatut() == Client.StatutClient.INACTIF) {
-                log.warn("❌ Login refusé: {} - Client INACTIF", email);
+                log.warn("Login refusé: {} - Client INACTIF", email);
                 return ResponseEntity.status(403).body(Map.of(
                         "error", "ACCOUNT_INACTIVE",
                         "message", "Votre compte est inactif. Veuillez contacter l'administrateur."
@@ -88,7 +88,7 @@ public class AuthController {
             }
 
             if (client.getStatut() == Client.StatutClient.VALIDE) {
-                log.warn("❌ Login refusé: {} - En attente de paiement", email);
+                log.warn(" Login refusé: {} - En attente de paiement", email);
                 return ResponseEntity.status(403).body(Map.of(
                         "error", "PAYMENT_PENDING",
                         "message", "Vos documents ont été validés. Veuillez finaliser votre paiement."
@@ -96,7 +96,7 @@ public class AuthController {
             }
 
             if (client.getStatut() == Client.StatutClient.REFUSE) {
-                log.warn("❌ Login refusé: {} - Client REFUSE", email);
+                log.warn(" Login refusé: {} - Client REFUSE", email);
                 return ResponseEntity.status(403).body(Map.of(
                         "error", "ACCOUNT_REJECTED",
                         "message", "Votre inscription a été refusée."
@@ -123,13 +123,13 @@ public class AuthController {
                 ));
             }
 
-            // ✅ 6. Générer le token (utiliser le rôle depuis user_emails)
+            //  6. Générer le token (utiliser le rôle depuis user_emails)
             String token = jwtTokenProvider.generateToken(email, userRole, clientId, dbName);
 
-            // ✅ 7. Gestion de session
+            //  7. Gestion de session
             sessionManagementService.registerSession(email, token);
 
-            // ✅ 8. Construire la réponse
+            //  8. Construire la réponse
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
             response.put("email", email);
@@ -147,15 +147,15 @@ public class AuthController {
             response.put("statut", client.getStatut().getLabel());
             response.put("hasActiveSubscription", hasActiveSubscription);
 
-            log.info("✅ Login réussi: {} - Rôle: {}", email, userRole);
+            log.info(" Login réussi: {} - Rôle: {}", email, userRole);
 
             return ResponseEntity.ok(response);
 
         } catch (RuntimeException e) {
-            log.warn("❌ Login échoué: {} - {}", email, e.getMessage());
+            log.warn(" Login échoué: {} - {}", email, e.getMessage());
             return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("❌ Erreur login: {}", e.getMessage());
+            log.error(" Erreur login: {}", e.getMessage());
             return ResponseEntity.status(401).body(Map.of("error", "Email ou mot de passe incorrect"));
         }
     }
@@ -163,17 +163,17 @@ public class AuthController {
     // ==================== MÉTHODE POUR TROUVER LE CLIENT ====================
 
     private Client findClientByUserEmail(String email) {
-        // ✅ 1. Chercher directement par email (devrait fonctionner)
+        //  1. Chercher directement par email (devrait fonctionner)
         Optional<Client> clientOpt = clientRepository.findByEmail(email);
         if (clientOpt.isPresent()) {
-            log.info("✅ Client trouvé par email: {}", email);
+            log.info(" Client trouvé par email: {}", email);
             return clientOpt.get();
         }
 
-        // ✅ 2. Si non trouvé, vérifier si l'utilisateur existe dans les bases clients
+        //  2. Si non trouvé, vérifier si l'utilisateur existe dans les bases clients
         // Cette partie devrait être évitée - le client DOIT exister dans la base centrale
 
-        log.warn("⚠️ Aucun client trouvé avec l'email: {} dans la base centrale", email);
+        log.warn("⚠ Aucun client trouvé avec l'email: {} dans la base centrale", email);
         return null;
     }
 
@@ -252,7 +252,7 @@ public class AuthController {
             // Désactiver le compte jusqu'à activation
             utilisateurService.toggleEmployeeStatus(clientId, newUser.getId(), false);
 
-            // ✅ AJOUTER L'ENVOI D'EMAIL D'ACTIVATION
+            //  AJOUTER L'ENVOI D'EMAIL D'ACTIVATION
             String activationToken = jwtTokenProvider.generateActivationToken(email, 24);
             emailService.sendActivationLinkEmail(email, activationToken, nom, prenom);
             log.info(" Email d'activation envoyé à {}", email);
@@ -342,12 +342,12 @@ public class AuthController {
                 return ResponseEntity.notFound().build();
             }
 
-            // ✅ EMPÊCHER la modification d'un compte admin
+            //  EMPÊCHER la modification d'un compte admin
             if (userToUpdate.getRole().name().equals("ADMIN_CLIENT")) {
                 return ResponseEntity.status(403).body(Map.of("error", "Vous ne pouvez pas modifier un compte administrateur."));
             }
 
-            // ✅ EMPÊCHER la modification de son propre compte
+            //  EMPÊCHER la modification de son propre compte
             if (userToUpdate.getEmail().equals(currentUserEmail)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Vous ne pouvez pas modifier votre propre compte via cette interface."));
             }
@@ -399,7 +399,7 @@ public class AuthController {
             Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
             String role = jwtTokenProvider.getRoleFromToken(jwt);
 
-            log.info("📌 GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
+            log.info(" GetCurrentUser - email: {}, clientId: {}, role: {}", email, clientId, role);
 
             Client client = findClientByUserEmail(email);
             if (client == null) {
@@ -409,7 +409,7 @@ public class AuthController {
             Utilisateur user = utilisateurService.findByEmail(clientId, email);
 
             if (user == null) {
-                log.warn("⚠️ Utilisateur non trouvé dans la base client_{}", clientId);
+                log.warn(" Utilisateur non trouvé dans la base client_{}", clientId);
                 return ResponseEntity.status(404).body(Map.of("error", "Utilisateur non trouvé"));
             }
 
@@ -435,13 +435,13 @@ public class AuthController {
             response.put("hasActiveSubscription", client.getAbonnementActif() != null);
             response.put("statut", client.getStatut().getLabel());
 
-            // ✅ AJOUTER LES CHAMPS MANQUANTS POUR LE PROFIL
+            // AJOUTER LES CHAMPS MANQUANTS POUR LE PROFIL
             response.put("typeCompte", client.getTypeCompte() != null ? client.getTypeCompte().name() : "PARTICULIER");
             response.put("raisonSociale", client.getRaisonSociale() != null ? client.getRaisonSociale() : "");
             response.put("matriculeFiscal", client.getMatriculeFiscal() != null ? client.getMatriculeFiscal() : "");
             response.put("logoUrl", client.getLogoUrl() != null ? client.getLogoUrl() : "");
 
-            log.info("✅ Infos client retournées - typeCompte: {}, raisonSociale: {}, logoUrl: {}",
+            log.info("Infos client retournées - typeCompte: {}, raisonSociale: {}, logoUrl: {}",
                     client.getTypeCompte(),
                     client.getRaisonSociale(),
                     client.getLogoUrl() != null ? "Présent" : "Absent");
@@ -449,7 +449,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Erreur getCurrentUser: {}", e.getMessage(), e);
+            log.error(" Erreur getCurrentUser: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
@@ -742,7 +742,7 @@ public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request,
             // 5. Envoyer l'email avec le code
             emailService.sendResetPasswordEmail(email, resetCode);
 
-            log.info("📧 Code de réinitialisation envoyé à: {}", email);
+            log.info(" Code de réinitialisation envoyé à: {}", email);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
