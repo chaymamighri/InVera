@@ -3,6 +3,7 @@ package org.erp.invera.service.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.platform.abonnementdto.AbonnementResponse;
+import org.erp.invera.dto.platform.abonnementdto.SuspensionRequest;
 import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.model.platform.OffreAbonnement;
@@ -70,12 +71,11 @@ public class SubscriptionService {
         Client client = clientService.getClientById(clientId);
         assertNoActiveSubscription(clientId);
 
-        // ✅ Créer l'abonnement EN ATTENTE (pas de dates, pas d'activation)
         Abonnement abonnement = Abonnement.builder()
                 .client(client)
                 .offreAbonnement(offre)
-                .dateDebut(null)  // NULL car pas encore payé
-                .dateFin(null)     // NULL car pas encore payé
+                .dateDebut(null)
+                .dateFin(null)
                 .statut(Abonnement.StatutAbonnement.EN_ATTENTE_VALIDATION)
                 .build();
 
@@ -197,84 +197,87 @@ public class SubscriptionService {
         }
     }
 
-    // ==================== GESTION PAR ADMIN ====================
+    // ==================== GESTION PAR ADMIN AVEC MOTIF ====================
 
     /**
-     * Suspendre un abonnement (admin seulement)
-     * ✅ Sans motif obligatoire
+     * Suspendre un abonnement (admin seulement) - AVEC MOTIF OBLIGATOIRE
      */
     @Transactional
-    public AbonnementResponse suspendSubscription(Long abonnementId) {
+    public AbonnementResponse suspendSubscription(Long abonnementId, String motif) {
+        if (motif == null || motif.trim().isEmpty()) {
+            throw new RuntimeException("Le motif de suspension est obligatoire");
+        }
+
         Abonnement abonnement = getSubscriptionEntity(abonnementId);
 
         if (abonnement.getStatut() != Abonnement.StatutAbonnement.ACTIF) {
             throw new RuntimeException("Seul un abonnement actif peut être suspendu");
         }
 
-        // ✅ Vérification de null pour dateFin
         if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Impossible de suspendre un abonnement expiré");
         }
 
+        // Sauvegarder le motif et la date d'action
+        abonnement.setMotifAction(motif.trim());
+        abonnement.setDateDerniereAction(LocalDateTime.now());
         abonnement.setStatut(Abonnement.StatutAbonnement.SUSPENDU);
         abonnementRepository.save(abonnement);
 
         deactivateClientAccess(abonnement.getClient());
 
-        log.warn("Abonnement suspendu pour client {}", abonnement.getClient().getEmail());
+        // ✅ Envoyer un email au client avec le motif
+        Client client = abonnement.getClient();
+        String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
+        emailService.sendSubscriptionSuspensionNotice(
+                client.getEmail(),
+                clientNom.trim(),
+                abonnement.getOffreAbonnement().getNom(),
+                motif.trim()
+        );
+
+        log.warn("📧 Abonnement suspendu pour client {} - Motif: {}", client.getEmail(), motif);
         return toResponse(abonnement);
     }
 
     /**
-     * Réactiver un abonnement suspendu (admin seulement)
-     * ✅ Sans motif
+     * Réactiver un abonnement suspendu (admin seulement) - AVEC MOTIF OBLIGATOIRE
      */
     @Transactional
-    public AbonnementResponse reactivateSubscription(Long abonnementId) {
+    public AbonnementResponse reactivateSubscription(Long abonnementId, String motif) {
+        if (motif == null || motif.trim().isEmpty()) {
+            throw new RuntimeException("Le motif de réactivation est obligatoire");
+        }
+
         Abonnement abonnement = getSubscriptionEntity(abonnementId);
 
         if (abonnement.getStatut() != Abonnement.StatutAbonnement.SUSPENDU) {
             throw new RuntimeException("Seul un abonnement suspendu peut être réactivé");
         }
 
-        // ✅ Vérification de null pour dateFin
         if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Impossible de réactiver un abonnement expiré");
         }
 
+        // Sauvegarder le motif et la date d'action
+        abonnement.setMotifAction(motif.trim());
+        abonnement.setDateDerniereAction(LocalDateTime.now());
         abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
         abonnementRepository.save(abonnement);
 
         applyActiveSubscriptionToClient(abonnement.getClient(), abonnement);
 
-        log.info("Abonnement réactivé pour client {}", abonnement.getClient().getEmail());
-        return toResponse(abonnement);
-    }
+        // ✅ Envoyer un email au client avec le motif
+        Client client = abonnement.getClient();
+        String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
+        emailService.sendSubscriptionReactivationNotice(
+                client.getEmail(),
+                clientNom.trim(),
+                abonnement.getOffreAbonnement().getNom(),
+                motif.trim()
+        );
 
-    /**
-     * Annuler un abonnement (admin seulement)
-     * ✅ Sans motif obligatoire
-     */
-    @Transactional
-    public AbonnementResponse cancelSubscription(Long abonnementId) {
-        Abonnement abonnement = getSubscriptionEntity(abonnementId);
-
-        if (abonnement.getStatut() != Abonnement.StatutAbonnement.ACTIF &&
-                abonnement.getStatut() != Abonnement.StatutAbonnement.SUSPENDU) {
-            throw new RuntimeException("Seuls les abonnements actifs ou suspendus peuvent être annulés");
-        }
-
-        // ✅ Vérification de null pour dateFin
-        if (abonnement.getDateFin() != null && abonnement.getDateFin().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Impossible d'annuler un abonnement expiré");
-        }
-
-        abonnement.setStatut(Abonnement.StatutAbonnement.ANNULE);
-        abonnementRepository.save(abonnement);
-
-        deactivateClientAccess(abonnement.getClient());
-
-        log.info("Abonnement annulé par admin pour client {}", abonnement.getClient().getEmail());
+        log.info("📧 Abonnement réactivé pour client {} - Motif: {}", client.getEmail(), motif);
         return toResponse(abonnement);
     }
 
@@ -325,46 +328,36 @@ public class SubscriptionService {
                 .dateDebut(abonnement.getDateDebut())
                 .dateFin(abonnement.getDateFin())
                 .statut(abonnement.getStatut().name())
+                .motifAction(abonnement.getMotifAction())  // ✅ Ajout du motif
+                .dateDerniereAction(abonnement.getDateDerniereAction())  // ✅ Ajout de la date d'action
                 .build();
     }
 
     // ==================== ACTIVATION APRÈS PAIEMENT ====================
 
-    /**
-     * Active un abonnement après paiement réussi
-     * Passe de EN_ATTENTE_VALIDATION à ACTIF
-     * À appeler uniquement après confirmation de paiement
-     */
     @Transactional
     public AbonnementResponse activateAfterPayment(Long abonnementId) {
-        // 1. Récupérer l'abonnement avec ses relations chargées
         Abonnement abonnement = abonnementRepository.findByIdWithOffre(abonnementId)
                 .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
 
-        // ✅ Force le chargement des relations si nécessaire
         Hibernate.initialize(abonnement.getOffreAbonnement());
         Hibernate.initialize(abonnement.getClient());
 
-        // 2. Vérifier qu'il est bien en attente de validation
         if (abonnement.getStatut() != Abonnement.StatutAbonnement.EN_ATTENTE_VALIDATION) {
             throw new RuntimeException("L'abonnement n'est pas en attente de validation. Statut actuel: " + abonnement.getStatut());
         }
 
-        // 3. Vérifier que l'offre existe et est active
         OffreAbonnement offre = abonnement.getOffreAbonnement();
         if (offre == null || !offre.getActive()) {
             throw new RuntimeException("L'offre associée n'est pas disponible");
         }
 
-        // 4. Activer l'abonnement
         abonnement.setStatut(Abonnement.StatutAbonnement.ACTIF);
         abonnement.setDateDebut(LocalDateTime.now());
         abonnement.setDateFin(LocalDateTime.now().plusMonths(offre.getDureeMois()));
 
-        // 5. Sauvegarder l'abonnement
         Abonnement saved = abonnementRepository.save(abonnement);
 
-        // 6. Mettre à jour le client
         Client client = saved.getClient();
         client.setAbonnementActif(saved);
         client.setStatut(Client.StatutClient.ACTIF);
@@ -373,7 +366,6 @@ public class SubscriptionService {
         client.setConnexionsRestantes(999999);
         clientRepository.save(client);
 
-        // 7. Envoyer un email de confirmation
         String clientNom = (client.getPrenom() != null ? client.getPrenom() + " " : "") + client.getNom();
         emailService.sendSubscriptionConfirmation(
                 client.getEmail(),

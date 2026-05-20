@@ -3,6 +3,7 @@ package org.erp.invera.controller.platform;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.platform.abonnementdto.AbonnementResponse;
+import org.erp.invera.dto.platform.abonnementdto.SuspensionRequest;
 import org.erp.invera.model.platform.Abonnement;
 import org.erp.invera.model.platform.Client;
 import org.erp.invera.service.platform.SubscriptionService;
@@ -62,37 +63,61 @@ public class AbonnementSuperAdminController {
     }
 
     /**
-     * Suspendre un abonnement
+     * Suspendre un abonnement avec motif
      */
     @PatchMapping("/{id}/suspend")
-    public ResponseEntity<?> suspendSubscription(@PathVariable Long id) {
+    public ResponseEntity<?> suspendSubscription(
+            @PathVariable Long id,
+            @RequestBody(required = false) SuspensionRequest request) {
         try {
-            return ResponseEntity.ok(subscriptionService.suspendSubscription(id));
+            // Vérifier que le motif est fourni
+            if (request == null || request.getMotif() == null || request.getMotif().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Le motif de suspension est obligatoire"
+                ));
+            }
+
+            AbonnementResponse response = subscriptionService.suspendSubscription(id, request.getMotif());
+
+            log.info("✅ Abonnement {} suspendu avec motif: {}", id, request.getMotif());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Abonnement suspendu avec succès",
+                    "data", response
+            ));
         } catch (RuntimeException e) {
+            log.error("❌ Erreur suspension abonnement {}: {}", id, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     /**
-     * Réactiver un abonnement suspendu
+     * Réactiver un abonnement suspendu avec motif
      */
     @PatchMapping("/{id}/reactivate")
-    public ResponseEntity<?> reactivateSubscription(@PathVariable Long id) {
+    public ResponseEntity<?> reactivateSubscription(
+            @PathVariable Long id,
+            @RequestBody(required = false) SuspensionRequest request) {
         try {
-            return ResponseEntity.ok(subscriptionService.reactivateSubscription(id));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+            // Vérifier que le motif est fourni
+            if (request == null || request.getMotif() == null || request.getMotif().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Le motif de réactivation est obligatoire"
+                ));
+            }
 
-    /**
-     * Annuler un abonnement
-     */
-    @PatchMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelSubscription(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(subscriptionService.cancelSubscription(id));
+            AbonnementResponse response = subscriptionService.reactivateSubscription(id, request.getMotif());
+
+            log.info("✅ Abonnement {} réactivé avec motif: {}", id, request.getMotif());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Abonnement réactivé avec succès",
+                    "data", response
+            ));
         } catch (RuntimeException e) {
+            log.error("❌ Erreur réactivation abonnement {}: {}", id, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

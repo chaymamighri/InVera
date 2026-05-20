@@ -57,4 +57,7 @@ public interface AbonnementRepository extends JpaRepository<Abonnement, Long> {
             LocalDateTime start,
             LocalDateTime end
     );
+
+    // Méthode pour compter les abonnements actifs
+    long countByOffreAbonnementIdAndStatut(Long offreId, Abonnement.StatutAbonnement statut);
 }
