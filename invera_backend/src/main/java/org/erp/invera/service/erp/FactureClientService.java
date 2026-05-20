@@ -106,7 +106,7 @@ public class FactureClientService {
         };
     }
 
-    private boolean existsByCommandeId(Integer commandeId, String token) {
+    public boolean existsByCommandeId(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM facture_client WHERE commande_id = ?";

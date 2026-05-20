@@ -712,6 +712,8 @@ public class CommandeClientService {
         return CommandeResponseDTO.fromEntity(commande, clientService, produitService);
     }
 
+
+
     @Transactional
     public CommandeClient confirmerCommande(Integer commandeId, String token) {
 
