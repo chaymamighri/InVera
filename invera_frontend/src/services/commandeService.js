@@ -108,21 +108,33 @@ export const commandeService = {
     }
   },
 
-  // Récupérer les commandes validées
-  getCommandesValidees: async () => {
-    try {
-      console.log('📡 Appel API: /commandes/validated');
-      const response = await api.get('/commandes/validated');
-      
-      if (response.data && response.data.success && response.data.commandes) {
-        return response.data.commandes;
-      }
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erreur getCommandesValidees:', error);
-      throw error;
+// Dans commandeService.js
+
+// Récupérer les commandes validées
+getCommandesValidees: async () => {
+  try {
+    // CORRECTION: Utiliser "/validated" au lieu de "/validees"
+    console.log('📡 Appel API: /commandes/validated');
+    const response = await api.get('/commandes/validated');
+    
+    console.log('📥 Réponse reçue:', response.data);
+    
+    // Votre backend retourne: { success: true, commandes: [...], total: X, message: "..." }
+    if (response.data && response.data.success && response.data.commandes) {
+      return response.data.commandes;
     }
-  },
+    
+    // Fallback pour d'autres formats
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ Erreur getCommandesValidees:', error);
+    return [];
+  }
+},
 
   // Créer une nouvelle commande
   async createCommande(commandeData) {
@@ -227,6 +239,58 @@ export const commandeService = {
       throw error;
     }
   },
+
+async checkInvoicesBatch(commandeIds) {
+  try {
+    console.log(`📡 Récupération de toutes les factures...`);
+    
+    // Utiliser l'endpoint existant qui fonctionne
+    const response = await api.get('/factures/all');
+    
+    let facturesList = [];
+    if (response.data && Array.isArray(response.data)) {
+      facturesList = response.data;
+    } else if (response.data && response.data.factures && Array.isArray(response.data.factures)) {
+      facturesList = response.data.factures;
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      facturesList = response.data.data;
+    }
+    
+    // Créer un Set des commandes qui ont une facture
+    const commandesAvecFacture = new Set();
+    facturesList.forEach(facture => {
+      const commandeId = facture.commandeId || facture.commande?.id || facture.commande?.idCommandeClient;
+      if (commandeId) {
+        commandesAvecFacture.add(Number(commandeId));
+      }
+    });
+    
+    // Construire la réponse pour chaque commande demandée
+    const result = {};
+    if (commandeIds && Array.isArray(commandeIds)) {
+      commandeIds.forEach(id => {
+        result[id] = commandesAvecFacture.has(Number(id));
+      });
+    }
+    
+    console.log(`✅ ${facturesList.length} factures trouvées, ${Object.keys(result).length} commandes traitées`);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Erreur checkInvoicesBatch:', error);
+    // Fallback: méthode une par une
+    const result = {};
+    for (const id of (commandeIds || [])) {
+      try {
+        const hasInvoice = await this.checkInvoiceExistsForCommande(id);
+        result[id] = hasInvoice;
+      } catch (e) {
+        result[id] = false;
+      }
+    }
+    return result;
+  }
+},
 
   // Méthode utilitaire privée
   _extractNumericId(id) {

@@ -15,17 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 // ========== CONSTANTES ==========
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1614252369475-531eba835eb1?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80';
-
-const IMAGES_BY_CATEGORY = {
-  'electronique': 'https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'informatique': 'https://images.unsplash.com/photo-1587831990711-23ca6441447b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'vetement': 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'alimentation': 'https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'decoration': 'https://images.unsplash.com/photo-1513519245088-0e12902e35a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'jardin': 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80',
-  'smartphone': 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'
-};
+// Supprimer DEFAULT_IMAGE et IMAGES_BY_CATEGORY pour éviter les images par défaut
 
 // ========== FONCTIONS UTILITAIRES ==========
 const getStatusText = (status, t = (key) => key) => {
@@ -54,40 +44,43 @@ const getStockColor = (quantiteStock, seuilMinimum) => {
   return 'text-green-600';
 };
 
-const getCategoryImage = (categorie) => {
-  if (!categorie) return DEFAULT_IMAGE;
-  
-  const categorieLower = categorie.toLowerCase();
-  for (const [key, url] of Object.entries(IMAGES_BY_CATEGORY)) {
-    if (categorieLower.includes(key)) {
-      return url;
-    }
-  }
-  return DEFAULT_IMAGE;
-};
-
+// Fonction CORRIGÉE pour normaliser l'URL de l'image
 const normalizeImageUrl = (imageUrl, categorie) => {
-  // Si pas d'URL, utiliser image par catégorie
+  // Si pas d'URL, retourner null
   if (!imageUrl || imageUrl === 'null' || imageUrl === 'undefined' || imageUrl.trim() === '') {
-    return getCategoryImage(categorie);
+    return null;
   }
   
   // Si l'URL contient des placeholders invalides
-  if (imageUrl.includes('undefined') || imageUrl.includes('null') || imageUrl.includes('iphone-15-pro-finish')) {
-    return getCategoryImage(categorie);
+  if (imageUrl.includes('undefined') || imageUrl.includes('null')) {
+    return null;
   }
   
-  // Si l'URL est relative, ajouter le préfixe du backend
-  if (imageUrl.startsWith('/uploads/')) {
+  // Si c'est déjà une URL complète avec http ou https
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  
+  // Si l'URL commence par /api/produits/uploads/
+  if (imageUrl.startsWith('/api/produits/uploads/')) {
     return `http://localhost:8081${imageUrl}`;
   }
   
-  // Si l'URL ne commence pas par http, c'est un nom de fichier
-  if (!imageUrl.startsWith('http')) {
-    return `http://localhost:8081/uploads/produits/${imageUrl}`;
+  // Si l'URL contient 'uploads/produits/'
+  if (imageUrl.includes('uploads/produits/')) {
+    // Extraire juste le nom du fichier
+    const filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+    return `http://localhost:8081/api/produits/uploads/produits/${filename}`;
   }
   
-  return imageUrl;
+  // Si l'URL est juste un nom de fichier (ex: "image123.jpg")
+  if (!imageUrl.includes('/')) {
+    return `http://localhost:8081/api/produits/uploads/produits/${imageUrl}`;
+  }
+  
+  // Pour tout autre format, essayer de construire l'URL
+  const filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+  return `http://localhost:8081/api/produits/uploads/produits/${filename}`;
 };
 
 // ========== COMPOSANT PRINCIPAL ==========
@@ -113,23 +106,18 @@ const ProductTable = ({
   isArabic = false
 }) => {
   
-  // États locaux
   const [currentProducts, setCurrentProducts] = useState([]);
   const [imageErrors, setImageErrors] = useState({});
 
-  // Calculer les produits à afficher pour la page courante
   useEffect(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     setCurrentProducts(products.slice(startIndex, endIndex));
   }, [products, currentPage, itemsPerPage]);
 
-  // Normaliser les données du produit
   const normalizeProductData = useCallback((product) => {
-    // Récupérer le nom de la catégorie
     const categorie = product.categorie?.nomCategorie || product.categorieNom || product.categorie || '';
     
-    // Récupérer la remise depuis la catégorie
     let remise = 0;
     if (product.categorie?.remiseStandard !== undefined && product.categorie?.remiseStandard !== null) {
       remise = Number(product.categorie.remiseStandard);
@@ -139,7 +127,6 @@ const ProductTable = ({
       remise = Number(product.remiseStandard);
     }
     
-    // Si aucune remise trouvée, utiliser la remise temporaire du produit (fallback)
     if (remise === 0 && product.remiseTemporaire) {
       remise = Number(product.remiseTemporaire);
     }
@@ -171,23 +158,13 @@ const ProductTable = ({
     maximumFractionDigits: 3,
   })} ${t('currencyLower') || 'dt'}`;
 
-  // Gérer l'erreur d'image
-  const handleImageError = (productId, categorie) => {
+  const handleImageError = (productId) => {
     setImageErrors(prev => ({
       ...prev,
       [productId]: true
     }));
   };
 
-  // Obtenir l'URL de l'image (avec fallback)
-  const getImageUrl = (product) => {
-    if (imageErrors[product.idProduit]) {
-      return getCategoryImage(product.categorie);
-    }
-    return product.imageUrl;
-  };
-
-  // Gérer la sélection/désélection de tous les produits
   const handleSelectAll = useCallback((e) => {
     if (e.target.checked) {
       const produitsDisponibles = currentProducts.filter(p => 
@@ -201,7 +178,7 @@ const ProductTable = ({
           libelle: p.libelle,
           prixVente: p.prixVente || 0,
           quantiteStock: p.quantiteStock || 0,
-          uniteMesure: p.uniteMesure || 'unité',
+          uniteMesure: p.uniteMesure || t('unit'),
           imageUrl: p.imageUrl,
           categorie: p.categorie,
           quantiteCommande: 1,
@@ -217,9 +194,8 @@ const ProductTable = ({
         !produitsAffichésIds.includes(sp.idProduit)
       ));
     }
-  }, [currentProducts, selectedProducts, setSelectedProducts]);
+  }, [currentProducts, selectedProducts, setSelectedProducts, t]);
 
-  // Modifier la quantité d'un produit sélectionné
   const handleChangeQuantite = useCallback((productId, newQuantite) => {
     setSelectedProducts(prev => prev.map(p => {
       if (p.idProduit === productId) {
@@ -233,12 +209,10 @@ const ProductTable = ({
     }));
   }, [setSelectedProducts]);
 
-  // Retirer un produit de la sélection
   const handleRemoveProduct = useCallback((productId) => {
     setSelectedProducts(prev => prev.filter(p => p.idProduit !== productId));
   }, [setSelectedProducts]);
 
-  // Vérifier si un produit spécifique est disponible
   const checkDisponibiliteProduit = useCallback((product) => {
     const selectedProduct = selectedProducts.find(p => p.idProduit === product.idProduit);
     if (!selectedProduct) return true;
@@ -249,7 +223,6 @@ const ProductTable = ({
     return stockDisponible >= quantiteDemandee;
   }, [selectedProducts]);
 
-  // Calculer si tous les produits de la page sont sélectionnés
   const allProductsSelected = useMemo(() => {
     if (currentProducts.length === 0) return false;
     return currentProducts.every(p => {
@@ -258,7 +231,6 @@ const ProductTable = ({
     });
   }, [currentProducts, selectedProducts]);
 
-  // Rendu de la pagination
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
@@ -323,7 +295,6 @@ const ProductTable = ({
     );
   };
 
-  // États de chargement et erreur
   if (error) {
     return (
       <div className="bg-white rounded-xl shadow border p-8 text-center">
@@ -387,12 +358,12 @@ const ProductTable = ({
                   {sortField === 'libelle' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
                 </button>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                <button onClick={() => handleSort('prixVente')} className="flex items-center gap-1">
-                  {t('price')}
-                  {sortField === 'prixVente' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
-                </button>
-              </th>
+             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+  <button onClick={() => handleSort('prixVente')} className="flex items-center gap-1">
+    {t('price')}
+    {sortField === 'prixVente' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
+  </button>
+</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 <button onClick={() => handleSort('quantiteStock')} className="flex items-center gap-1">
                   <ChartBarIcon className="h-4 w-4" />
@@ -410,7 +381,7 @@ const ProductTable = ({
               const selectedProduct = selectedProducts.find(p => p.idProduit === normalizedProduct.idProduit);
               const quantiteCommande = selectedProduct?.quantiteCommande || 1;
               const isAvailable = checkDisponibiliteProduit(normalizedProduct);
-              const imageUrl = getImageUrl(normalizedProduct);
+              const imageUrl = normalizedProduct.imageUrl;
               const isOutOfStock = normalizedProduct.status === 'RUPTURE' || normalizedProduct.quantiteStock <= 0;
               
               return (
@@ -433,12 +404,14 @@ const ProductTable = ({
                             src={imageUrl}
                             alt={normalizedProduct.libelle}
                             className="h-full w-full object-cover"
-                            onError={() => handleImageError(normalizedProduct.idProduit, normalizedProduct.categorie)}
+                            onError={() => handleImageError(normalizedProduct.idProduit)}
                             loading="lazy"
                           />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center bg-gray-200">
-                            <PhotoIcon className="h-6 w-6 text-gray-400" />
+                          <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500">
+                            <span className="text-lg font-bold text-white">
+                              {normalizedProduct.libelle?.charAt(0).toUpperCase() || 'P'}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -531,23 +504,23 @@ const ProductTable = ({
             })}
           </tbody>
         </table>
-
-        {/* États de chargement et vide */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 mt-2">{t('loadingProducts')}</p>
-          </div>
-        )}
-
-        {!loading && currentProducts.length === 0 && products.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-4 text-gray-300">📦</div>
-            <h3 className="text-lg font-medium text-gray-700 mb-2">{t('noProductsFound')}</h3>
-            <p className="text-gray-500">{t('tryChangingSearch')}</p>
-          </div>
-        )}
       </div>
+
+      {/* États de chargement et vide */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-500 mt-2">{t('loadingProducts')}</p>
+        </div>
+      )}
+
+      {!loading && currentProducts.length === 0 && products.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4 text-gray-300">📦</div>
+          <h3 className="text-lg font-medium text-gray-700 mb-2">{t('noProductsFound')}</h3>
+          <p className="text-gray-500">{t('tryChangingSearch')}</p>
+        </div>
+      )}
 
       {/* Pagination */}
       {renderPagination()}

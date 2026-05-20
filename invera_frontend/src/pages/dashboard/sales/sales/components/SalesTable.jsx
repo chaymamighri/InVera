@@ -335,14 +335,6 @@ const SalesTable = ({
                   {/* Colonne : Actions */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      {/* Bouton Voir détails */}
-                      <button
-                        onClick={(e) => handleViewDetails(commande, e)}
-                        className="p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                        title={t('viewOrderDetails') || 'Voir les détails de la commande'}
-                      >
-                        <EyeIcon className="h-4 w-4 transition-transform duration-200 hover:scale-110" />
-                      </button>
                       
                       {hasInvoice ? (
                         // Bouton VOIR FACTURE (si facture existe)

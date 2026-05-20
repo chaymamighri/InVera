@@ -25,7 +25,7 @@ const ProductsConsultationPage = () => {
   const tr = (key, params) => t(`salesPages.${key}`, params);
   const locale = localeByLanguage[language] || localeByLanguage.fr;
   const [products, setProducts] = useState([]);
-  const [allProducts, setAllProducts] = useState([]); // ✅ Tous les produits pour le filtrage côté frontend
+  const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clients, setClients] = useState([]);
@@ -54,19 +54,9 @@ const ProductsConsultationPage = () => {
   // États pour la sélection
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [newClientMode, setNewClientMode] = useState(false);
   const [remiseAppliquee, setRemiseAppliquee] = useState(0);
-  
-  // État pour nouveau client
-  const [nouveauClient, setNouveauClient] = useState({
-    nom: '',
-    prenom: '',
-    typeClient: 'PARTICULIER', 
-    telephone: '',
-    adresse: ''
-  });
 
-  // ✅ Fonction pour charger les produits (sans filtres)
+  // Fonction pour charger les produits
   const loadProducts = async () => {
     setLoading(true);
     setError(null);
@@ -93,7 +83,7 @@ const ProductsConsultationPage = () => {
         produitsData = response;
       }
       
-      // ✅ Filtrer pour ne garder que les produits actifs
+      // Filtrer pour ne garder que les produits actifs
       const produitsActifs = produitsData.filter(p => p.active === true);
       
       console.log(`✅ ${produitsActifs.length} produits actifs chargés`);
@@ -130,129 +120,91 @@ const ProductsConsultationPage = () => {
     }
   };
 
- // ✅ Fonction pour filtrer et trier les produits (côté frontend)
-const filterAndSortProducts = useCallback(() => {
-  if (!allProducts || !Array.isArray(allProducts)) return [];
-  
-  let result = [...allProducts];
-  
-  // Filtre par recherche (nom ou catégorie)
-  if (searchTerm) {
-    const term = searchTerm.toLowerCase();
-    result = result.filter(product => {
-      const libelle = (product.libelle || '').toLowerCase();
-      let categorie = '';
-      
-      if (product.categorie) {
-        if (typeof product.categorie === 'object') {
-          categorie = (product.categorie.nomCategorie || '').toLowerCase();
-        } else {
-          categorie = (product.categorie || '').toLowerCase();
-        }
-      } else if (product.categorieNom) {
-        categorie = (product.categorieNom || '').toLowerCase();
-      }
-      
-      return libelle.includes(term) || categorie.includes(term);
-    });
-  }
-  
-  // Filtre par catégorie
-  if (selectedCategory && selectedCategory !== 'Tous') {
-    result = result.filter(product => {
-      let categorie = '';
-      
-      if (product.categorie) {
-        if (typeof product.categorie === 'object') {
-          categorie = product.categorie.nomCategorie;
-        } else {
-          categorie = product.categorie;
-        }
-      } else if (product.categorieNom) {
-        categorie = product.categorieNom;
-      }
-      
-      return categorie === selectedCategory;
-    });
-  }
-  
-  // Tri
-  result.sort((a, b) => {
-    let aValue, bValue;
+  // Fonction pour filtrer et trier les produits
+  const filterAndSortProducts = useCallback(() => {
+    if (!allProducts || !Array.isArray(allProducts)) return [];
     
-    switch(sortField) {
-      case 'libelle':
-        aValue = a.libelle || '';
-        bValue = b.libelle || '';
-        break;
-      case 'prixVente':
-        aValue = Number(a.prixVente) || 0;
-        bValue = Number(b.prixVente) || 0;
-        break;
-      case 'quantiteStock':
-        aValue = Number(a.quantiteStock) || 0;
-        bValue = Number(b.quantiteStock) || 0;
-        break;
-      case 'status':
-        aValue = a.status || '';
-        bValue = b.status || '';
-        break;
-      default:
-        aValue = a[sortField] || '';
-        bValue = b[sortField] || '';
+    let result = [...allProducts];
+    
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(product => {
+        const libelle = (product.libelle || '').toLowerCase();
+        let categorie = '';
+        
+        if (product.categorie) {
+          if (typeof product.categorie === 'object') {
+            categorie = (product.categorie.nomCategorie || '').toLowerCase();
+          } else {
+            categorie = (product.categorie || '').toLowerCase();
+          }
+        } else if (product.categorieNom) {
+          categorie = (product.categorieNom || '').toLowerCase();
+        }
+        
+        return libelle.includes(term) || categorie.includes(term);
+      });
     }
     
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    } else {
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-    }
-  });
-  
-  return result;
-}, [allProducts, searchTerm, selectedCategory, sortField, sortDirection]);
-
-// ========== FONCTION DE CHARGEMENT DES PRODUITS ==========
-const loadProducts = async () => {
-  setLoading(true);
-  
-  try {
-    const response = await productService.getAllProducts();
-    const productsData = response?.data || response || [];
-    
-    setAllProducts(productsData);
-    setProducts(productsData);
-    
-    // Extraire les catégories uniques
-    const allCategories = productsData.map(product => {
-      if (product.categorie) {
-        if (typeof product.categorie === 'object') {
-          return product.categorie.nomCategorie;
+    if (selectedCategory && selectedCategory !== 'Tous') {
+      result = result.filter(product => {
+        let categorie = '';
+        
+        if (product.categorie) {
+          if (typeof product.categorie === 'object') {
+            categorie = product.categorie.nomCategorie;
+          } else {
+            categorie = product.categorie;
+          }
+        } else if (product.categorieNom) {
+          categorie = product.categorieNom;
         }
-        return product.categorie;
+        
+        return categorie === selectedCategory;
+      });
+    }
+    
+    result.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch(sortField) {
+        case 'libelle':
+          aValue = a.libelle || '';
+          bValue = b.libelle || '';
+          break;
+        case 'prixVente':
+          aValue = Number(a.prixVente) || 0;
+          bValue = Number(b.prixVente) || 0;
+          break;
+        case 'quantiteStock':
+          aValue = Number(a.quantiteStock) || 0;
+          bValue = Number(b.quantiteStock) || 0;
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        default:
+          aValue = a[sortField] || '';
+          bValue = b[sortField] || '';
       }
-      if (product.categorieNom) return product.categorieNom;
-      return null;
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
     });
     
-    const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
-    setCategories(['Tous', ...uniqueCategories]);
-    
-  } catch (err) {
-    console.error('❌ Erreur lors du chargement des produits:', err);
-    setError(err.response?.data?.message || err.message || tr('productsLoadError'));
-    setProducts([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    return result;
+  }, [allProducts, searchTerm, selectedCategory, sortField, sortDirection]);
 
-  // ✅ Produits filtrés et triés
+  // Produits filtrés et triés
   const filteredProducts = useMemo(() => filterAndSortProducts(), [filterAndSortProducts]);
   
-  // ✅ Pagination
+  // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -405,14 +357,12 @@ const loadProducts = async () => {
     }
     
     setSelectedClient(null);
-    setNewClientMode(false);
     setRemiseAppliquee(0);
     setShowCreateOrder(true);
   };
 
   const handleSelectClient = (client) => {
     setSelectedClient(client);
-    setNewClientMode(false);
     
     if (client && client.typeClient) {
       applyRemiseByClientType(client.typeClient);
@@ -428,55 +378,6 @@ const loadProducts = async () => {
     } catch (err) {
       console.error('Erreur récupération remise:', err);
       setRemiseAppliquee(0);
-    }
-  };
-
-  const handleAddNewClient = async () => {
-    try {
-      if (!nouveauClient.nom.trim() || !nouveauClient.telephone.trim()) {
-        alert(tr('requiredClientFields'));
-        return;
-      }
-      
-      const clientData = {
-        nom: nouveauClient.nom,
-        prenom: nouveauClient.prenom || '',
-        type: nouveauClient.typeClient || 'PARTICULIER',
-        telephone: nouveauClient.telephone,
-        adresse: nouveauClient.adresse || ''
-      };
-      
-      const response = await clientService.createClient(clientData);
-      let newClient = null;
-      
-      if (response && response.client) {
-        newClient = response.client;
-      } else if (response && response.data) {
-        newClient = response.data;
-      }
-      
-      if (newClient) {
-        setClients(prev => [...prev, newClient]);
-        if (!clientTypes.includes(newClient.typeClient)) {
-          setClientTypes(prev => [...prev, newClient.typeClient]);
-        }
-        
-        setSelectedClient(newClient);
-        setNewClientMode(false);
-        applyRemiseByClientType(newClient.typeClient);
-        
-        setNouveauClient({
-          nom: '',
-          prenom: '',
-          typeClient: 'PARTICULIER',
-          telephone: '',
-          adresse: ''
-        });
-      }
-      
-    } catch (err) {
-      console.error('Erreur création client:', err);
-      alert(err.response?.data?.message || tr('clientCreateError'));
     }
   };
 
@@ -556,7 +457,7 @@ const loadProducts = async () => {
     }
   };
 
-  // ✅ Handlers pour les filtres
+  // Handlers pour les filtres
   const handleSearch = (term) => {
     setSearchTerm(term);
     setCurrentPage(1);
@@ -669,14 +570,9 @@ const loadProducts = async () => {
           clientTypes={clientTypes}
           selectedClient={selectedClient}
           setSelectedClient={setSelectedClient}
-          newClientMode={newClientMode}
-          setNewClientMode={setNewClientMode}
-          nouveauClient={nouveauClient}
-          setNouveauClient={setNouveauClient}
           remiseAppliquee={remiseAppliquee}
           setRemiseAppliquee={setRemiseAppliquee}
           handleSelectClient={handleSelectClient}
-          handleAddNewClient={handleAddNewClient}
           handleCreateCommande={handleCreateCommande}
           checkDisponibilite={checkDisponibilite}
           calculerTotaux={calculerTotaux}

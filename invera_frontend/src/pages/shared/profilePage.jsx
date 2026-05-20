@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -139,43 +139,6 @@ const formatDate = (dateString, locale, fallback) => {
   });
 };
 
-const formatLastLogin = (dateString, locale, copy) => {
-  if (!dateString) return copy.never;
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
-
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) return copy.today;
-  if (date.toDateString() === yesterday.toDateString()) return copy.yesterday;
-  return date.toLocaleDateString(locale);
-};
-
-const highlightCardStyles = {
-  blue: {
-    wrapper: 'border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50',
-    label: 'text-blue-600',
-  },
-  purple: {
-    wrapper: 'border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50',
-    label: 'text-purple-600',
-  },
-};
-
-const ProfileHighlightCard = ({ label, value, helper, tone = 'blue' }) => {
-  const styles = highlightCardStyles[tone] || highlightCardStyles.blue;
-
-  return (
-    <div className={`rounded-xl border p-6 ${styles.wrapper}`}>
-      <div className={`text-sm font-medium ${styles.label}`}>{label}</div>
-      <div className="mt-2 text-2xl font-bold text-gray-800">{value}</div>
-      <div className="mt-2 text-sm text-gray-500">{helper}</div>
-    </div>
-  );
-};
-
 const ProfilePage = () => {
   const { language, isArabic } = useLanguage();
   const locale = language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR';
@@ -205,48 +168,39 @@ const ProfilePage = () => {
   const [error, setError] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
-// getLogoUrl - utilise l'endpoint public
-const getLogoUrl = () => {
-  const clientId = userData.clientId;
-  
-  if (!clientId) {
-    console.log('❌ Pas de clientId');
-    return null;
-  }
-  
-  // URL directe vers l'endpoint public
-  const url = `http://localhost:8081/api/platform/clients/public/logo/${clientId}?t=${logoTimestamp}`;
-  
-  console.log('🔍 URL logo public:', url);
-  return url;
-};
+  const getLogoUrl = () => {
+    const clientId = userData.clientId;
+    
+    if (!clientId) {
+      console.log('❌ Pas de clientId');
+      return null;
+    }
+    
+    const url = `http://localhost:8081/api/platform/clients/public/logo/${clientId}?t=${logoTimestamp}`;
+    
+    console.log('🔍 URL logo public:', url);
+    return url;
+  };
 
-// hasValidLogo - ne dépend pas de logoUrl stocké
-const hasValidLogo = () => {
-  // On tente toujours d'afficher via l'endpoint public
-  // Si l'utilisateur a un clientId, on essaie
-  const valid = userData.clientId && !logoError;
-  
-  console.log('🔍 hasValidLogo:', { 
-    clientId: userData.clientId, 
-    logoError, 
-    valid 
-  });
-  
-  return valid;
-};
+  const hasValidLogo = () => {
+    const valid = userData.clientId && !logoError;
+    
+    console.log('🔍 hasValidLogo:', { 
+      clientId: userData.clientId, 
+      logoError, 
+      valid 
+    });
+    
+    return valid;
+  };
 
-// CORRECTION 3: refreshLogo
-const refreshLogo = () => {
-  setLogoTimestamp(Date.now());
-  setLogoError(false); // ← IMPORTANT: réinitialiser l'erreur
-};
+  const refreshLogo = () => {
+    setLogoTimestamp(Date.now());
+    setLogoError(false);
+  };
 
-
-  // Vérifier si l'utilisateur peut modifier le logo
   const canEditLogo = () => {
     const role = String(userData.role || '').toUpperCase();
-    // Seuls ADMIN_CLIENT et ADMIN peuvent modifier le logo
     return role === 'ADMIN_CLIENT' || role === 'ADMIN';
   };
 
@@ -268,7 +222,6 @@ const refreshLogo = () => {
           if (!logoUrl) {
             logoUrl = localStorage.getItem('logoUrl');
           }
-          
           
           setUserData({
             id: me.id,
@@ -433,21 +386,6 @@ const refreshLogo = () => {
     return colors[Math.abs(hash) % colors.length];
   }, [userData.nom, userData.prenom]);
 
-  const profileHighlights = [
-    {
-      label: copy.memberSince,
-      value: formatDate(userData.memberSince, locale, copy.unknown),
-      helper: userData.memberSince ? copy.memberSinceHelper : copy.unavailableHelper,
-      tone: 'blue',
-    },
-    {
-      label: copy.lastLogin,
-      value: formatLastLogin(userData.lastLogin, locale, copy),
-      helper: userData.lastLogin ? copy.lastLoginHelper : copy.noLoginHelper,
-      tone: 'purple',
-    },
-  ];
-
   if (loading) {
     return (
       <>
@@ -509,7 +447,7 @@ const refreshLogo = () => {
                     </div>
                   )}
                   
-                  {/* ✅ Bouton d'édition - TOUJOURS visible pour ADMIN_CLIENT */}
+                  {/* Bouton d'édition - visible pour ADMIN_CLIENT */}
                   {canEditLogo() && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
@@ -585,13 +523,6 @@ const refreshLogo = () => {
                         {getRoleLabel(userData.role)}
                       </span>
                     </div>
-                    <div className={`flex items-center ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
-                      <div className="w-32 text-gray-500">{copy.memberSince}</div>
-                      <div className={`flex items-center font-medium text-gray-800 ${isArabic ? 'flex-row-reverse gap-2' : ''}`}>
-                        <CalendarIcon className={`h-4 w-4 text-gray-400 ${isArabic ? '' : 'mr-2'}`} />
-                        {userData.memberSince ? formatDate(userData.memberSince, locale, copy.unknown) : '—'}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -614,18 +545,6 @@ const refreshLogo = () => {
                   </div>
                 </div>
               )}
-
-              <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-                {profileHighlights.map((item) => (
-                  <ProfileHighlightCard
-                    key={item.label}
-                    label={item.label}
-                    value={item.value}
-                    helper={item.helper}
-                    tone={item.tone}
-                  />
-                ))}
-              </div>
             </div>
           </div>
         </div>

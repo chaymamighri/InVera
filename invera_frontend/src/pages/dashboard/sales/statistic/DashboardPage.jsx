@@ -17,7 +17,6 @@ import SkeletonLoader from './components/SkeletonLoader';
 import DateRangeSelector from './components/DateRangeSelector';
 import * as XLSX from 'xlsx';
 import html2pdf from 'html2pdf.js';
-import { logoBase64 } from '../../../../assets/logoBase64';
 import { useLanguage } from '../../../../context/LanguageContext';
 
 const DashboardPage = () => {
@@ -42,7 +41,93 @@ const DashboardPage = () => {
   const [filterActive, setFilterActive] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
 
+  // ✅ Récupération simplifiée du nom d'utilisateur depuis le localStorage
+  useEffect(() => {
+    const getUserName = () => {
+      try {
+        // Essayer différentes sources dans le localStorage
+        let name = localStorage.getItem('userName');
+        
+        if (!name) {
+          const prenom = localStorage.getItem('userPrenom');
+          const nom = localStorage.getItem('userNom');
+          if (prenom && nom) {
+            name = `${prenom} ${nom}`;
+          } else if (nom) {
+            name = nom;
+          }
+        }
+        
+        if (!name) {
+          const userFullName = localStorage.getItem('userFullName');
+          if (userFullName) {
+            name = userFullName;
+          }
+        }
+        
+        if (!name) {
+          const userInfo = localStorage.getItem('userInfo');
+          if (userInfo) {
+            try {
+              const info = JSON.parse(userInfo);
+              if (info.prenom && info.nom) {
+                name = `${info.prenom} ${info.nom}`;
+              } else if (info.nom) {
+                name = info.nom;
+              }
+            } catch (e) {}
+          }
+        }
+        
+        if (!name) {
+          const email = localStorage.getItem('userEmail');
+          if (email) {
+            name = email.split('@')[0];
+          }
+        }
+        
+        setCurrentUserName(name || t('dashboard.salesStatsPage.user'));
+        console.log('👤 Nom utilisateur chargé:', name);
+        
+      } catch (e) {
+        console.error('Erreur récupération nom utilisateur:', e);
+        setCurrentUserName(t('dashboard.salesStatsPage.user'));
+      }
+    };
+    
+    getUserName();
+  }, [t]);
+
+
+   useEffect(() => {
+    console.log('=== DEBUG LOCALSTORAGE ===');
+    console.log('userName:', localStorage.getItem('userName'));
+    console.log('userFullName:', localStorage.getItem('userFullName'));
+    console.log('userNom:', localStorage.getItem('userNom'));
+    console.log('userPrenom:', localStorage.getItem('userPrenom'));
+    console.log('userEmail:', localStorage.getItem('userEmail'));
+    console.log('userRole:', localStorage.getItem('userRole'));
+    console.log('clientId:', localStorage.getItem('clientId'));
+    console.log('typeCompte:', localStorage.getItem('typeCompte'));
+    
+    // Vérifier si userInfo existe
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      console.log('userInfo:', JSON.parse(userInfo));
+    }
+    
+    // Vérifier adminInfo
+    const adminInfo = localStorage.getItem('adminInfo');
+    if (adminInfo) {
+      console.log('adminInfo:', JSON.parse(adminInfo));
+    }
+    
+    console.log('=== FIN DEBUG ===');
+  }, []);
+
+  
   useEffect(() => {
     if (dateRange?.startDate && dateRange?.endDate) {
       setStartDate(dateRange.startDate);
@@ -58,6 +143,15 @@ const DashboardPage = () => {
   useEffect(() => {
     setFilterActive(hookFilterActive);
   }, [hookFilterActive]);
+
+  const formatDateForDisplay = (date) => {
+    if (!date) return '';
+    try {
+      return new Date(date).toLocaleDateString(dateLocale);
+    } catch {
+      return '';
+    }
+  };
 
   const defaultKPI = {
     caJour: 0,
@@ -77,39 +171,38 @@ const DashboardPage = () => {
   const kpi = data?.kpi || defaultKPI;
   const charts = data?.charts || defaultCharts;
 
-  // Générer les données pour l'export Excel
   const getExportData = () => {
     return {
       periode: {
-        debut: filterActive && startDate ? new Date(startDate).toLocaleDateString(dateLocale) : t('dashboard.salesStatsPage.last30Days'),
-        fin: filterActive && endDate ? new Date(endDate).toLocaleDateString(dateLocale) : new Date().toLocaleDateString(dateLocale)
+        debut: filterActive && startDate ? formatDateForDisplay(startDate) : t('dashboard.salesStatsPage.last30Days'),
+        fin: filterActive && endDate ? formatDateForDisplay(endDate) : formatDateForDisplay(new Date())
       },
       kpi: {
         chiffreAffaires: kpi.caJour,
         nombreCommandes: kpi.commandesJour,
         variation: kpi.variationJour
       },
-      topProduits: charts.topProduits.map((p, i) => ({
+      topProduits: (charts.topProduits || []).map((p, i) => ({
         rang: i + 1,
         produit: p.nom || p.libelle,
         quantite: p.quantite || p.quantiteVendue || 0,
         montant: p.total || p.montant || 0
       })),
-      evolutionCA: charts.evolutionCA.map(item => ({
+      evolutionCA: (charts.evolutionCA || []).map(item => ({
         date: item.date,
         montant: item.montant || item.value || 0
       })),
-      statusRepartition: statusData.map(s => ({
+      statusRepartition: (statusData || []).map(s => ({
         statut: s.statut,
         nombre: s.nombre,
         montant: s.montant
       })),
-      ordersEvolution: ordersEvolutionData.map(o => ({
+      ordersEvolution: (ordersEvolutionData || []).map(o => ({
         date: o.date,
         commandes: o.commandes,
         ca: o.ca
       })),
-      clientTypeRepartition: clientTypeData.map(c => ({
+      clientTypeRepartition: (clientTypeData || []).map(c => ({
         type: c.type,
         nombre: c.nombre,
         montant: c.montant
@@ -117,7 +210,6 @@ const DashboardPage = () => {
     };
   };
 
-  // Export Excel
   const exportToExcel = () => {
     const exportData = getExportData();
     
@@ -188,243 +280,244 @@ const DashboardPage = () => {
     setShowExportMenu(false);
   };
 
-// Export PDF avec le même en-tête que la facture
-const exportToPDF = async () => {
-  setExporting(true);
-  setShowExportMenu(false);
-  
-  try {
-    // Récupérer les informations de l'utilisateur connecté (sécurisé)
-    let userName = t('dashboard.salesStatsPage.user');
-
+  const exportToPDF = async () => {
+    setExporting(true);
+    setShowExportMenu(false);
     
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      const adminInfo = JSON.parse(localStorage.getItem('adminInfo') || '{}');
-      userName = userInfo?.nom || adminInfo?.nom || localStorage.getItem('userName') || t('dashboard.salesStatsPage.user');
-    } catch (e) {
-      console.warn("Erreur lecture userInfo:", e);
-    }
-
-    // Sécuriser les valeurs pour éviter les erreurs
-    const safeKpi = {
-      caJour: kpi?.caJour || 0,
-      commandesJour: kpi?.commandesJour || 0,
-      variationJour: kpi?.variationJour || 0
-    };
-    
-    const safeCharts = {
-      topProduits: charts?.topProduits || [],
-      evolutionCA: charts?.evolutionCA || []
-    };
-    
-    const safeStatusData = statusData || [];
-    const safeClientTypeData = clientTypeData || [];
-    const safeOrdersEvolutionData = ordersEvolutionData || [];
-    
-    // Formater la date de façon sécurisée
-    const formatDate = (date) => {
-      if (!date) return '';
-      try {
-        return new Date(date).toLocaleDateString(dateLocale);
-      } catch {
-        return '';
-      }
-    };
-    
-    const currentDate = new Date();
-    const formattedDate = currentDate.toLocaleString(dateLocale);
-    const formattedPeriodStart = filterActive && startDate ? formatDate(startDate) : t('dashboard.salesStatsPage.last30Days');
-    const formattedPeriodEnd = filterActive && endDate ? formatDate(endDate) : formatDate(currentDate);
-    
-    // Nettoyer les caractères problématiques
-    const cleanText = (text) => {
-      if (!text) return '';
-      return String(text).replace(/[&<>]/g, '');
-    };
-    
-    const safeUserName = cleanText(userName);
-
-    
-    // Générer le HTML de façon sécurisée
-    const generateHTML = () => {
-      let html = `<!DOCTYPE html>
-        <html>
-          <head>
-            <title>${t('dashboard.salesStatsPage.pdfTitle')}</title>
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { font-family: 'Inter', -apple-system, sans-serif; background: #f5f7fa; padding: 20px; line-height: 1.5; color: #1e293b; }
-              .dashboard-container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 30px -10px rgba(0, 20, 40, 0.15); overflow: hidden; }
-              .header { padding: 24px 28px; background: white; border-bottom: 1px solid #eef2f6; display: flex; justify-content: space-between; align-items: flex-start; }
-              .left-section { display: flex; align-items: center; gap: 20px; }
-              .logo { width: 60px; height: 60px; object-fit: contain; }
-              .company-details { border-left: 1px solid #e2e8f0; padding-left: 16px; }
-              .company-details p { margin: 3px 0; font-size: 11px; color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 400; }
-              .company-details i { color: #64748b; width: 14px; font-style: normal; font-size: 12px; opacity: 0.7; }
-              .report-info { text-align: right; }
-              .report-title { font-size: 24px; font-weight: 600; color: #0f172a; letter-spacing: -0.3px; }
-              .exported-by { font-size: 11px; color: #64748b; margin-top: 4px; }
-              .report-subtitle { color: #64748b; font-size: 11px; margin-top: 2px; }
-              .period-badge { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; margin-top: 8px; }
-              .kpi-grid { padding: 20px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-              .kpi-card { background: #f8fafc; border-radius: 14px; padding: 20px; border: 1px solid #edf2f7; text-align: center; }
-              .kpi-icon { font-size: 32px; margin-bottom: 8px; }
-              .kpi-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
-              .kpi-value { font-size: 28px; font-weight: 700; color: #2563eb; margin-top: 8px; }
-              .kpi-trend { font-size: 11px; margin-top: 4px; }
-              .trend-up { color: #10b981; }
-              .trend-down { color: #ef4444; }
-              .section { padding: 15px 28px; }
-              .section-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-              .section-title i { font-style: normal; font-size: 18px; }
-              table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #edf2f7; }
-              th { background: #f8fafc; padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; border-bottom: 1px solid #e2e8f0; }
-              td { padding: 10px; font-size: 12px; color: #334155; border-bottom: 1px solid #edf2f7; }
-              tr:last-child td { border-bottom: none; }
-              .text-right { text-align: right; }
-              .text-center { text-align: center; }
-              .font-mono { font-family: 'SF Mono', monospace; }
-              .footer { padding: 16px 28px; text-align: center; border-top: 1px solid #eef2f6; background: #fafcff; }
-              .footer p { font-size: 10px; color: #94a3b8; font-weight: 400; }
-            </style>
-          </head>
-          <body>
-            <div class="dashboard-container">
-              <div class="header">
-                <div class="left-section">
-                  <img src="${logoBase64}" alt="InVera" class="logo" />
-                  <div class="company-details">
-                    <p><i>📍</i> 123 Rue de la République, 1000 Tunis</p>
-                    <p><i>📞</i> +216 71 123 456</p>
-                    <p><i>✉️</i> contact@invera.tn</p>
-                    <p><i>🆔</i> MF: 0000000/A/M/000</p>
-                  </div>
-                </div>
-                <div class="report-info">
+      // ✅ Utiliser le nom d'utilisateur récupéré
+      let userName = currentUserName || t('dashboard.salesStatsPage.user');
+      
+      const safeKpi = {
+        caJour: kpi?.caJour || 0,
+        commandesJour: kpi?.commandesJour || 0,
+        variationJour: kpi?.variationJour || 0
+      };
+      
+      const safeCharts = {
+        topProduits: charts?.topProduits || [],
+        evolutionCA: charts?.evolutionCA || []
+      };
+      
+      const safeStatusData = statusData || [];
+      const safeClientTypeData = clientTypeData || [];
+      const safeOrdersEvolutionData = ordersEvolutionData || [];
+      
+      const formatDate = (date) => {
+        if (!date) return '';
+        try {
+          return new Date(date).toLocaleDateString(dateLocale);
+        } catch {
+          return '';
+        }
+      };
+      
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleString(dateLocale);
+      const formattedPeriodStart = filterActive && startDate ? formatDate(startDate) : t('dashboard.salesStatsPage.last30Days');
+      const formattedPeriodEnd = filterActive && endDate ? formatDate(endDate) : formatDate(currentDate);
+      
+      const cleanText = (text) => {
+        if (!text) return '';
+        return String(text).replace(/[&<>]/g, '');
+      };
+      
+      const safeUserName = cleanText(userName);
+      
+      const generateHTML = () => {
+        let html = `<!DOCTYPE html>
+          <html>
+            <head>
+              <title>${t('dashboard.salesStatsPage.pdfTitle')}</title>
+              <meta charset="UTF-8">
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: 'Inter', -apple-system, sans-serif; background: #f5f7fa; padding: 20px; line-height: 1.5; color: #1e293b; }
+                .dashboard-container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 30px -10px rgba(0, 20, 40, 0.15); overflow: hidden; }
+                .header { padding: 24px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-bottom: 1px solid #eef2f6; }
+                .report-title { font-size: 28px; font-weight: 700; color: white; text-align: center; margin-bottom: 8px; letter-spacing: -0.5px; }
+                .exported-by { font-size: 12px; color: rgba(255,255,255,0.8); text-align: center; margin-top: 4px; }
+                .period-badge { display: inline-flex; align-items: center; justify-content: center; padding: 6px 14px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: rgba(255,255,255,0.2); color: white; margin-top: 12px; text-align: center; width: fit-content; margin-left: auto; margin-right: auto; }
+                .kpi-grid { padding: 20px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                .kpi-card { background: #f8fafc; border-radius: 14px; padding: 20px; border: 1px solid #edf2f7; text-align: center; }
+                .kpi-icon { font-size: 32px; margin-bottom: 8px; }
+                .kpi-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
+                .kpi-value { font-size: 28px; font-weight: 700; color: #2563eb; margin-top: 8px; }
+                .kpi-trend { font-size: 11px; margin-top: 4px; }
+                .trend-up { color: #10b981; }
+                .trend-down { color: #ef4444; }
+                .section { padding: 15px 28px; }
+                .section-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; border-left: 3px solid #667eea; padding-left: 12px; }
+                .section-title i { font-style: normal; font-size: 18px; }
+                table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #edf2f7; }
+                th { background: #f8fafc; padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+                td { padding: 10px; font-size: 12px; color: #334155; border-bottom: 1px solid #edf2f7; }
+                tr:last-child td { border-bottom: none; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .font-mono { font-family: 'SF Mono', monospace; }
+                .footer { padding: 16px 28px; text-align: center; border-top: 1px solid #eef2f6; background: #fafcff; }
+                .footer p { font-size: 10px; color: #94a3b8; font-weight: 400; }
+              </style>
+            </head>
+            <body>
+              <div class="dashboard-container">
+                <div class="header">
                   <div class="report-title">${t('dashboard.salesStatsPage.salesReport').toUpperCase()}</div>
                   <div class="exported-by">${t('dashboard.salesStatsPage.exportedBy')} : ${safeUserName}</div>
-                  <div class="report-subtitle">${t('dashboard.salesStatsPage.onDate')} ${formattedDate}</div>
+                  <div class="exported-by">${t('dashboard.salesStatsPage.onDate')} ${formattedDate}</div>
                   <div class="period-badge">📅 ${formattedPeriodStart} - ${formattedPeriodEnd}</div>
-                </div>
-              </div>`;
-      
-      // KPIs
-      html += `<div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-icon">💰</div>
-          <div class="kpi-label">${t('dashboard.salesStatsPage.revenue')}</div>
-          <div class="kpi-value">${formatCurrency(safeKpi.caJour)}</div>
-          <div class="kpi-trend ${safeKpi.variationJour >= 0 ? 'trend-up' : 'trend-down'}">
-            ${safeKpi.variationJour >= 0 ? '▲' : '▼'} ${Math.abs(safeKpi.variationJour)}%
-          </div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon">📦</div>
-          <div class="kpi-label">${t('dashboard.salesStatsPage.orders')}</div>
-          <div class="kpi-value">${safeKpi.commandesJour}</div>
-          <div class="kpi-trend ${safeKpi.variationJour >= 0 ? 'trend-up' : 'trend-down'}">
-            ${safeKpi.variationJour >= 0 ? '▲' : '▼'} ${Math.abs(safeKpi.variationJour)}%
-          </div>
-        </div>
-      </div>`;
-      
-      // Top products
-      if (safeCharts.topProduits && safeCharts.topProduits.length > 0) {
-        html += `<div class="section">
-          <div class="section-title"><i>🏆</i> ${t('dashboard.salesStatsPage.topProducts').toUpperCase()}</div>
-          <table><thead><tr><th>${t('dashboard.salesStatsPage.rank')}</th><th>${t('dashboard.salesStatsPage.product')}</th><th class="text-right">${t('dashboard.salesStatsPage.quantity')}</th><th class="text-right">${t('dashboard.salesStatsPage.amount')}</th></tr></thead><tbody>`;
-        safeCharts.topProduits.forEach((p, i) => {
-          html += `<tr>
-            <td>${i + 1}</td>
-            <td>${p.nom || p.libelle || t('dashboard.salesStatsPage.product')}</td>
-            <td class="text-right">${p.quantite || p.quantiteVendue || 0}</td>
-            <td class="text-right font-mono">${formatCurrency(p.total || p.montant || 0)}</td>
-          </tr>`;
-        });
-        html += `</tbody></table></div>`;
-      }
-      
-      // Status breakdown
-      if (safeStatusData.length > 0) {
-        html += `<div class="section">
-          <div class="section-title"><i>📊</i> ${t('dashboard.salesStatsPage.statusBreakdown').toUpperCase()}</div>
-          <table><thead><tr><th>${t('dashboard.salesStatsPage.status')}</th><th class="text-right">${t('dashboard.salesStatsPage.count')}</th><th class="text-right">${t('dashboard.salesStatsPage.amount')}</th></tr></thead><tbody>`;
-        safeStatusData.forEach(s => {
-          html += `<tr>
-            <td>${s.statut || 'N/A'}</td>
-            <td class="text-right">${s.nombre || 0}</td>
-            <td class="text-right font-mono">${formatCurrency(s.montant || 0)}</td>
-          </tr>`;
-        });
-        html += `</tbody></table></div>`;
-      }
-      
-      // Types de clients
-      if (safeClientTypeData.length > 0) {
-        html += `<div class="section">
-          <div class="section-title"><i>👥</i> ${t('dashboard.salesStatsPage.clientTypeBreakdown').toUpperCase()}</div>
-          <table><thead><tr><th>${t('dashboard.salesStatsPage.type')}</th><th class="text-right">${t('dashboard.salesStatsPage.count')}</th><th class="text-right">${t('dashboard.salesStatsPage.amount')}</th></tr></thead><tbody>`;
-        safeClientTypeData.forEach(c => {
-          html += `<tr>
-            <td>${c.type || 'N/A'}</td>
-            <td class="text-right">${c.nombre || 0}</td>
-            <td class="text-right font-mono">${formatCurrency(c.montant || 0)}</td>
-          </tr>`;
-        });
-        html += `</tbody></table></div>`;
-      }
-      
-      // Orders evolution
-      if (safeOrdersEvolutionData.length > 0) {
-        html += `<div class="section">
-          <div class="section-title"><i>📈</i> ${t('dashboard.salesStatsPage.ordersEvolution').toUpperCase()}</div>
-          <table><thead><tr><th>${t('dashboard.salesStatsPage.date')}</th><th class="text-right">${t('dashboard.salesStatsPage.orders')}</th><th class="text-right">${t('dashboard.salesStatsPage.revenueShort')}</th></tr></thead><tbody>`;
-        safeOrdersEvolutionData.slice(0, 15).forEach(o => {
-          html += `<tr>
-            <td>${o.date || 'N/A'}</td>
-            <td class="text-right">${o.commandes || 0}</td>
-            <td class="text-right font-mono">${formatCurrency(o.ca || 0)}</td>
-          </tr>`;
-        });
-        html += `</tbody></table></div>`;
-      }
-      
-      // Footer
-      html += `<div class="footer">
-        <p>${t('dashboard.salesStatsPage.generatedReportFooter')}</p>
-        <p style="margin-top: 4px;">${formattedDate}</p>
-      </div>
+                </div>`;
+        
+        // KPIs
+        html += `<div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon">💰</div>
+            <div class="kpi-label">${t('dashboard.salesStatsPage.revenue')}</div>
+            <div class="kpi-value">${formatCurrency(safeKpi.caJour)}</div>
+            <div class="kpi-trend ${safeKpi.variationJour >= 0 ? 'trend-up' : 'trend-down'}">
+              ${safeKpi.variationJour >= 0 ? '▲' : '▼'} ${Math.abs(safeKpi.variationJour)}%
             </div>
-          </body>
-        </html>`;
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">📦</div>
+            <div class="kpi-label">${t('dashboard.salesStatsPage.orders')}</div>
+            <div class="kpi-value">${safeKpi.commandesJour}</div>
+            <div class="kpi-trend ${safeKpi.variationJour >= 0 ? 'trend-up' : 'trend-down'}">
+              ${safeKpi.variationJour >= 0 ? '▲' : '▼'} ${Math.abs(safeKpi.variationJour)}%
+            </div>
+          </div>
+        </div>`;
+        
+        // Top products
+        if (safeCharts.topProduits && safeCharts.topProduits.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">🏆 ${t('dashboard.salesStatsPage.topProducts').toUpperCase()}</div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc;">
+                  <th style="padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.rank')}</th>
+                  <th style="padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.product')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.quantity')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.amount')}</th>
+                </tr>
+              </thead>
+              <tbody>`;
+          safeCharts.topProduits.forEach((p, i) => {
+            html += `<tr style="border-bottom: 1px solid #edf2f7;">
+              <td style="padding: 10px; font-size: 12px; color: #334155;">${i + 1}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155;">${p.nom || p.libelle || t('dashboard.salesStatsPage.product')}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right;">${p.quantite || p.quantiteVendue || 0}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right; font-family: 'SF Mono', monospace;">${formatCurrency(p.total || p.montant || 0)}</td>
+            </tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Status breakdown
+        if (safeStatusData.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">📊 ${t('dashboard.salesStatsPage.statusBreakdown').toUpperCase()}</div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc;">
+                  <th style="padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.status')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.count')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.amount')}</th>
+                </tr>
+              </thead>
+              <tbody>`;
+          safeStatusData.forEach(s => {
+            html += `<tr style="border-bottom: 1px solid #edf2f7;">
+              <td style="padding: 10px; font-size: 12px; color: #334155;">${s.statut || 'N/A'}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right;">${s.nombre || 0}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right; font-family: 'SF Mono', monospace;">${formatCurrency(s.montant || 0)}</td>
+            </tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Types de clients
+        if (safeClientTypeData.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">👥 ${t('dashboard.salesStatsPage.clientTypeBreakdown').toUpperCase()}</div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc;">
+                  <th style="padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.type')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.count')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.amount')}</th>
+                </tr>
+              </thead>
+              <tbody>`;
+          safeClientTypeData.forEach(c => {
+            html += `<tr style="border-bottom: 1px solid #edf2f7;">
+              <td style="padding: 10px; font-size: 12px; color: #334155;">${c.type || 'N/A'}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right;">${c.nombre || 0}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right; font-family: 'SF Mono', monospace;">${formatCurrency(c.montant || 0)}</td>
+            </tr>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Orders evolution
+        if (safeOrdersEvolutionData.length > 0) {
+          html += `<div class="section">
+            <div class="section-title">📈 ${t('dashboard.salesStatsPage.ordersEvolution').toUpperCase()}</div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc;">
+                  <th style="padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.date')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.orders')}</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 11px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${t('dashboard.salesStatsPage.revenueShort')}</th>
+                </tr>
+              </thead>
+              <tbody>`;
+          safeOrdersEvolutionData.slice(0, 15).forEach(o => {
+            html += `<tr style="border-bottom: 1px solid #edf2f7;">
+              <td style="padding: 10px; font-size: 12px; color: #334155;">${o.date || 'N/A'}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right;">${o.commandes || 0}</td>
+              <td style="padding: 10px; font-size: 12px; color: #334155; text-align: right; font-family: 'SF Mono', monospace;">${formatCurrency(o.ca || 0)}</td>
+            </td>`;
+          });
+          html += `</tbody></table></div>`;
+        }
+        
+        // Footer
+        html += `<div class="footer">
+          <p>${t('dashboard.salesStatsPage.generatedReportFooter')}</p>
+          <p style="margin-top: 4px;">${formattedDate}</p>
+        </div>
+              </div>
+            </body>
+          </html>`;
+        
+        return html;
+      };
       
-      return html;
-    };
-    
-    const element = document.createElement('div');
-    element.innerHTML = generateHTML();
-    document.body.appendChild(element);
-    
-    const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
-      filename: `dashboard_ventes_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, letterRendering: true, useCORS: true, logging: false },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-    
-    await html2pdf().set(opt).from(element).save();
-    document.body.removeChild(element);
-    
-  } catch (error) {
-    console.error('Erreur lors de l\'export PDF:', error);
-    alert(t('dashboard.salesStatsPage.pdfError') + ': ' + error.message);
-  } finally {
-    setExporting(false);
-  }
-};
+      const element = document.createElement('div');
+      element.innerHTML = generateHTML();
+      document.body.appendChild(element);
+      
+      const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `rapport_ventes_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, letterRendering: true, useCORS: true, logging: false },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      
+      await html2pdf().set(opt).from(element).save();
+      document.body.removeChild(element);
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF:', error);
+      alert(t('dashboard.salesStatsPage.pdfError') + ': ' + error.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -516,9 +609,9 @@ const exportToPDF = async () => {
           <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
             <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
             {t('dashboard.salesStatsPage.activeFilter')} : 
-            {startDate && <span> {t('dashboard.salesStatsPage.from')} {new Date(startDate).toLocaleDateString(dateLocale)}</span>}
+            {startDate && <span> {t('dashboard.salesStatsPage.from')} {formatDateForDisplay(startDate)}</span>}
             {startDate && endDate && <span> {t('dashboard.salesStatsPage.to')} </span>}
-            {endDate && <span>{new Date(endDate).toLocaleDateString(dateLocale)}</span>}
+            {endDate && <span>{formatDateForDisplay(endDate)}</span>}
           </div>
         )}
       </div>
@@ -674,9 +767,9 @@ const exportToPDF = async () => {
           <span className="inline-flex items-center">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
             {t('dashboard.salesStatsPage.selectedPeriod')} : 
-            {startDate && <span> {t('dashboard.salesStatsPage.from')} {new Date(startDate).toLocaleDateString(dateLocale)}</span>}
+            {startDate && <span> {t('dashboard.salesStatsPage.from')} {formatDateForDisplay(startDate)}</span>}
             {startDate && endDate && <span> {t('dashboard.salesStatsPage.to')} </span>}
-            {endDate && <span>{new Date(endDate).toLocaleDateString(dateLocale)}</span>}
+            {endDate && <span>{formatDateForDisplay(endDate)}</span>}
           </span>
         </motion.div>
       )}

@@ -188,10 +188,7 @@ const ProduitCard = ({
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* ========== INFORMATIONS PRIX ========== */}
-=======
->>>>>>> 8d698ff8e43b12120212d9a31aa24519819153a9
         <div className="mb-3">
           <div className="rounded-lg bg-gray-50 p-2">
             <p className="text-xs text-gray-600">{t('dashboard.procurementProductsPage.salesPriceShort')}</p>
@@ -218,10 +215,9 @@ const ProduitCard = ({
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* ========== REMISE CORRIGÉE ========== */}
         {remise && (
-          <div className={`p-2 rounded-lg border mb-3 ${
+          <div className={`mb-3 rounded-lg border p-2 ${
             remise.type === 'temporaire' 
               ? 'bg-green-50 border-green-200' 
               : 'bg-blue-50 border-blue-200'
@@ -229,19 +225,15 @@ const ProduitCard = ({
             <p className={`text-xs ${
               remise.type === 'temporaire' ? 'text-green-700' : 'text-blue-700'
             }`}>
-              {remise.type === 'temporaire' ? 'Remise temporaire' : 'Remise standard'}
+              {remise.type === 'temporaire' 
+                ? t('dashboard.procurementProductsPage.temporaryDiscountShort') || 'Remise temporaire'
+                : t('dashboard.procurementProductsPage.standardDiscount') || 'Remise standard'}
             </p>
             <p className={`text-sm font-semibold ${
               remise.type === 'temporaire' ? 'text-green-800' : 'text-blue-800'
             }`}>
               {remise.value}%
             </p>
-=======
-        {produit.remise > 0 && (
-          <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-2">
-            <p className="text-xs text-green-700">{t('dashboard.procurementProductsPage.temporaryDiscountShort')}</p>
-            <p className="text-sm font-semibold text-green-800">{produit.remise}%</p>
->>>>>>> 8d698ff8e43b12120212d9a31aa24519819153a9
           </div>
         )}
       </div>

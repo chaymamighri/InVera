@@ -1,4 +1,4 @@
-// produits/EditProduitForm.jsx - Version UNIQUEMENT avec remise standard
+// produits/EditProduitForm.jsx - Version avec remise standard
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ProduitFormBase from './ProduitFormBase';
@@ -27,6 +27,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
 
   const [categorieRemiseStandard, setCategorieRemiseStandard] = useState(0);
   const [prixApresRemise, setPrixApresRemise] = useState(0);
+  const [prixOriginal, setPrixOriginal] = useState(0);
 
   const [fournisseursDisponibles, setFournisseursDisponibles] = useState([]);
   const [loadingFournisseurs, setLoadingFournisseurs] = useState(false);
@@ -47,14 +48,20 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     }
   }, [produit]);
 
-  // Calculer le prix après remise
+  // Calculer le prix après remise - CORRIGÉ
   useEffect(() => {
     const prixVente = parseFloat(String(formData.prixVente).replace(',', '.'));
-    if (prixVente && categorieRemiseStandard > 0) {
-      const apresRemise = prixVente * (1 - categorieRemiseStandard / 100);
-      setPrixApresRemise(apresRemise);
+    if (!isNaN(prixVente) && prixVente > 0) {
+      setPrixOriginal(prixVente);
+      if (categorieRemiseStandard > 0) {
+        const apresRemise = prixVente * (1 - categorieRemiseStandard / 100);
+        setPrixApresRemise(apresRemise);
+      } else {
+        setPrixApresRemise(prixVente);
+      }
     } else {
-      setPrixApresRemise(prixVente || 0);
+      setPrixOriginal(0);
+      setPrixApresRemise(0);
     }
   }, [formData.prixVente, categorieRemiseStandard]);
 
@@ -97,7 +104,8 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     try {
       const response = await categorieService.getCategorieById(categorieId);
-      const remise = response?.remiseStandard || 0;
+      // CORRECTION: Vérifier la structure de la réponse
+      const remise = response?.remiseStandard || response?.data?.remiseStandard || 0;
       setCategorieRemiseStandard(remise);
       console.log(`✅ Remise standard de la catégorie: ${remise}%`);
     } catch (error) {
@@ -112,12 +120,14 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     try {
       const response = await productService.getProductById(productId);
-      let produitComplet = response.produit || response;
+      let produitComplet = response?.produit || response?.data || response;
       initialiserFormulaire(produitComplet);
       
       const categorieId = produitComplet.categorieId || 
                           produitComplet.idCategorie || 
-                          produitComplet.categorie?.idCategorie;
+                          produitComplet.categorie?.idCategorie ||
+                          produitComplet.categorie?.id;
+      
       if (categorieId) {
         await fetchRemiseStandardByCategorie(categorieId);
       }
@@ -134,7 +144,8 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   const initialiserFormulaire = (produitData) => {
     let categorieId = produitData.categorieId || 
                       produitData.idCategorie || 
-                      produitData.categorie?.idCategorie;
+                      produitData.categorie?.idCategorie ||
+                      produitData.categorie?.id;
     
     let selectedCategorie = { idCategorie: '' };
     if (categorieId && categories && categories.length > 0) {
@@ -150,6 +161,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     let fournisseurId = produitData.fournisseurId || 
                         produitData.fournisseur?.idFournisseur || 
+                        produitData.fournisseur?.id ||
                         '';
     
     let prixAchat = produitData.prixAchat || '';
@@ -168,6 +180,11 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       fournisseurId: fournisseurId
     });
     
+    // Calculer le prix original pour l'affichage
+    const prixVente = parseFloat(produitData.prixVente) || 0;
+    setPrixOriginal(prixVente);
+    setPrixApresRemise(prixVente);
+    
     if (produitData.imageUrl) {
       const baseURL = 'http://localhost:8081';
       const imageUrl = produitData.imageUrl.startsWith('http') 
@@ -182,12 +199,12 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     if (!formData.libelle.trim()) newErrors.libelle = t('dashboard.procurementProductsPage.errorRequiredField');
     
-    const prixVente = parseFloat(formData.prixVente.replace(',', '.'));
+    const prixVente = parseFloat(String(formData.prixVente).replace(',', '.'));
     if (!formData.prixVente || isNaN(prixVente) || prixVente <= 0) {
       newErrors.prixVente = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
     
-    const prixAchat = parseFloat(formData.prixAchat.replace(',', '.'));
+    const prixAchat = parseFloat(String(formData.prixAchat).replace(',', '.'));
     if (!formData.prixAchat || isNaN(prixAchat) || prixAchat <= 0) {
       newErrors.prixAchat = t('dashboard.procurementProductsPage.errorPriceGreaterThanZero');
     }
@@ -279,6 +296,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     
     const formDataToSend = new FormData();
     
+    // Ajouter les champs texte
     formDataToSend.append('libelle', String(formData.libelle || ''));
     formDataToSend.append('prixVente', parseFloat(String(formData.prixVente).replace(',', '.')) || 0);
     formDataToSend.append('prixAchat', parseFloat(String(formData.prixAchat).replace(',', '.')) || 0);
@@ -301,6 +319,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
       return;
     }
     
+    // CORRECTION: Appeler onSave avec les bons paramètres
     await onSave(productId, formDataToSend);
   };
 
@@ -308,8 +327,8 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75" />
-          <div className="relative bg-white rounded-lg shadow-xl p-8">
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="relative bg-white rounded-lg shadow-xl p-8 z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">{t('dashboard.procurementProductsPage.loadingProduct')}</p>
           </div>
@@ -321,13 +340,13 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto z-10">
           
-          <div className="sticky top-0 bg-white z-10">
-            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700">
+          <div className="sticky top-0 bg-white z-20">
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
               <h3 className="text-lg font-semibold text-white">{t('dashboard.procurementProductsPage.editProductTitle')}</h3>
-              <button onClick={onClose} className="text-white hover:text-gray-200">
+              <button onClick={onClose} className="text-white hover:text-gray-200 transition-colors">
                 <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
@@ -352,6 +371,7 @@ const EditProduitForm = ({ produit, categories, onClose, onSave, userRole }) => 
               loadingFournisseurs={loadingFournisseurs}
               categorieRemiseStandard={categorieRemiseStandard}
               prixApresRemise={prixApresRemise}
+              prixOriginal={prixOriginal}
             />
           </div>
         </div>

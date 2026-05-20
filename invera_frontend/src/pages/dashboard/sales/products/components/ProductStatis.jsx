@@ -30,22 +30,6 @@ const ProductStats = ({ stats, selectedProducts, handleCreateOrder, t = (key) =>
         <p className="text-sm text-green-600 font-medium">{t('inStock')}</p>
         <p className="text-2xl font-bold text-gray-800 mt-2">{stats.enStock}</p>
       </div>
-<<<<<<< HEAD
-    
-=======
-      <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-4 border border-yellow-100">
-        <p className="text-sm text-yellow-600 font-medium">{t('lowStock')}</p>
-        <p className="text-2xl font-bold text-gray-800 mt-2">{stats.stockFaible}</p>
-      </div>
-      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
-        <p className="text-sm text-orange-600 font-medium">{t('criticalStock')}</p>
-        <p className="text-2xl font-bold text-gray-800 mt-2">{stats.stockCritique}</p>
-      </div>
-      <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 border border-red-100">
-        <p className="text-sm text-red-600 font-medium">{t('outOfStock')}</p>
-        <p className="text-2xl font-bold text-gray-800 mt-2">{stats.rupture}</p>
-      </div>
->>>>>>> 8d698ff8e43b12120212d9a31aa24519819153a9
     </div>
   );
 };

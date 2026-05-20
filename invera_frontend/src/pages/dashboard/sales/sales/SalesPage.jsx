@@ -54,107 +54,92 @@ const SalesPage = () => {
    * Vérifie pour chaque commande si une facture existe déjà
    * @param {Array} commandesList - Liste des commandes
    */
-  const checkInvoicesStatus = useCallback(async (commandesList) => {
-    const status = {};
-    
-    await Promise.all(
-      commandesList.map(async (cmd) => {
-        const commandeId = cmd.id || cmd.idCommandeClient;
-        if (!commandeId) return;
-        
-        try {
-          const hasInvoice = await commandeService.checkInvoiceExistsForCommande(commandeId);
-          status[commandeId] = hasInvoice;
-          console.log(`📊 Commande ${commandeId} - Facture existe: ${hasInvoice}`);
-        } catch (error) {
-          console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
-          status[commandeId] = false;
-        }
-      })
-    );
-    
+
+const checkInvoicesStatus = useCallback(async (commandesList) => {
+  if (!commandesList || commandesList.length === 0) return;
+  
+  const commandeIds = commandesList.map(cmd => cmd.id || cmd.idCommandeClient).filter(Boolean);
+  
+  if (commandeIds.length === 0) return;
+  
+  try {
+    // ✅ UN SEUL APPEL POUR TOUTES LES COMMANDES
+    const status = await commandeService.checkInvoicesBatch(commandeIds);
     setInvoiceStatus(status);
-  }, []);
+    console.log(`📊 Statuts factures batch:`, status);
+  } catch (error) {
+    console.error('Erreur vérification batch:', error);
+    // Fallback: méthode ancienne une par une
+    const status = {};
+    for (const cmd of commandesList) {
+      const commandeId = cmd.id || cmd.idCommandeClient;
+      if (!commandeId) continue;
+      try {
+        const hasInvoice = await commandeService.checkInvoiceExistsForCommande(commandeId);
+        status[commandeId] = hasInvoice;
+      } catch (e) {
+        status[commandeId] = false;
+      }
+    }
+    setInvoiceStatus(status);
+  }
+}, []);
 
   // ============================================
   //  CHARGEMENT DES COMMANDES
   // ============================================
-  
-  const loadCommandesValidees = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const commandesData = await commandeService.getCommandesValidees();
-      
-      const commandesTransformees = (commandesData || []).map(cmd => ({
-        id: cmd.id || cmd.idCommandeClient,
-        idCommandeClient: cmd.idCommandeClient || cmd.id,
-        referenceCommandeClient: cmd.referenceCommandeClient,
-        numeroCommande: cmd.referenceCommandeClient || cmd.numeroCommande || `CMD-${cmd.id || 'N/A'}`,
-        numero: cmd.referenceCommandeClient || cmd.numero || cmd.numeroCommande,
-        
-        // Dates
-        dateCreation: cmd.dateCreation || cmd.dateCommande || cmd.createdAt,
-        dateCommande: cmd.dateCommande || cmd.dateCreation,
-        dateValidation: cmd.dateValidation || cmd.dateConfirmation,
-        dateLivraisonPrevue: cmd.dateLivraison || cmd.dateLivraisonPrevue,
-        
-        // Statut
-        statut: cmd.statut || cmd.status,
-        
-        // Montants
-        montantTotal: cmd.montantTotal || cmd.total || cmd.totalTTC || 0,
-        total: cmd.total || cmd.montantTotal || 0,
-        sousTotal: cmd.sousTotal || cmd.totalHT || 0,
-        remiseTotal: cmd.remise || cmd.tauxRemise || 0,
-        
-        // Informations complémentaires
-        modeLivraison: cmd.modeLivraison || 'Standard',
-        modePaiement: cmd.modePaiement || tr('notSpecified'),
-        notes: cmd.notes || cmd.remarques || '',
-        
-        // Produits
-        produits: cmd.produits || cmd.items || cmd.ligneCommandes || [],
-        
-        // Client (avec fallbacks)
-        client: cmd.client ? {
-          id: cmd.client.id || cmd.client.idClient,
-          nom: cmd.client.nom || '',
-          prenom: cmd.client.prenom || '',
-          nomComplet: cmd.client.nomComplet || 
-                      `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() ||
-                      cmd.client.nom ||
-                      tr('client'),
-          entreprise: cmd.client.entreprise || cmd.client.societe || '',
-          typeClient: cmd.client.typeClient || cmd.client.type || 'STANDARD',
-          telephone: cmd.client.telephone || '',
-          email: cmd.client.email || '',
-          adresse: cmd.client.adresse || ''
-        } : {
-          id: cmd.clientId,
-          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || tr('client'),
-          entreprise: cmd.clientEntreprise || cmd.clientSociete || '',
-          typeClient: cmd.clientType || 'STANDARD',
-          telephone: cmd.clientTelephone || '',
-          email: cmd.clientEmail || '',
-          adresse: cmd.clientAdresse || ''
-        }
-      }));
-      
-      console.log('📦 Commandes transformées:', commandesTransformees.length);
-      setCommandes(commandesTransformees);
-      
-      await checkInvoicesStatus(commandesTransformees);
-      
-    } catch (err) {
-      console.error('❌ Erreur chargement:', err);
-      setError(tr('validatedOrdersLoadError'));
+
+const loadCommandesValidees = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('🔄 Chargement des commandes validées...');
+    const commandesData = await commandeService.getCommandesValidees();
+    
+    console.log('📦 Commandes reçues:', commandesData?.length || 0);
+    
+    if (!commandesData || commandesData.length === 0) {
       setCommandes([]);
-    } finally {
       setLoading(false);
+      return;
     }
-  }, [checkInvoicesStatus, tr]);
+    
+    // Transformer les données SIMPLEMENT
+    const commandesTransformees = commandesData.map(cmd => ({
+      id: cmd.id || cmd.idCommandeClient,
+      idCommandeClient: cmd.idCommandeClient || cmd.id,
+      referenceCommandeClient: cmd.referenceCommandeClient,
+      numeroCommande: cmd.referenceCommandeClient,
+      dateCreation: cmd.dateCommande || cmd.dateCreation,
+      statut: cmd.statut,
+      montantTotal: cmd.total || cmd.montantTotal || 0,
+      total: cmd.total || cmd.montantTotal || 0,
+      produits: cmd.produits || [],
+      client: cmd.client ? {
+        nom: cmd.client.nom || '',
+        prenom: cmd.client.prenom || '',
+        nomComplet: `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() || 'Client',
+        typeClient: cmd.client.typeClient || 'PARTICULIER',
+        telephone: cmd.client.telephone || '',
+        email: cmd.client.email || ''
+      } : null
+    }));
+    
+    console.log('✅ Commandes transformées:', commandesTransformees.length);
+    setCommandes(commandesTransformees);
+    
+    // Vérifier les factures
+    await checkInvoicesStatus(commandesTransformees);
+    
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    setError(tr('validatedOrdersLoadError'));
+    setCommandes([]);
+  } finally {
+    setLoading(false);
+  }
+}, []); 
 
   // Chargement initial
   useEffect(() => {

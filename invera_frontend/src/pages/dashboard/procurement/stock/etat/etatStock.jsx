@@ -386,7 +386,7 @@ const EtatStock = () => {
         </button>
       </div>
 
-      {/* Statistiques - 4 cartes */}
+      {/* Statistiques - Cartes (supprimé criticalStock) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           title={tr('totalStockValue')}
@@ -415,8 +415,8 @@ const EtatStock = () => {
         />
       </div>
 
-      {/* Deuxième ligne de statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {/* Deuxième ligne de statistiques - seulement lowStock */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
         <StatCard
           title={tr('lowStock')}
           value={formatNumber(stats.produitsFaible)}
@@ -457,7 +457,7 @@ const EtatStock = () => {
                 }
                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-700">{tr('lowOrCriticalStock')}</span>
+              <span className="text-sm text-gray-700">{tr('lowStock')}</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -511,7 +511,7 @@ const EtatStock = () => {
                   <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                     <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                     <p>{tr('noProductsForFilters')}</p>
-                  </td>
+                   </td>
                 </tr>
               ) : (
                 produitsPagines.map((produit) => (
