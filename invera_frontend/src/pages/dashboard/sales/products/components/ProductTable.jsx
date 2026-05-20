@@ -28,6 +28,32 @@ const IMAGES_BY_CATEGORY = {
 };
 
 // ========== FONCTIONS UTILITAIRES ==========
+const getStatusText = (status, t = (key) => key) => {
+  const statusMap = {
+    'EN_STOCK': t('inStock'),
+    'RUPTURE': t('outOfStock'),
+    'FAIBLE': t('lowStock'),
+    'CRITIQUE': t('criticalStock')
+  };
+  return statusMap[status] || t('unknown');
+};
+
+const getStatusBadgeColor = (status) => {
+  const colorMap = {
+    'EN_STOCK': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'RUPTURE': 'bg-red-100 text-red-800 border-red-200',
+    'FAIBLE': 'bg-amber-100 text-amber-800 border-amber-200',
+    'CRITIQUE': 'bg-orange-100 text-orange-800 border-orange-200'
+  };
+  return colorMap[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
+const getStockColor = (quantiteStock, seuilMinimum) => {
+  if (quantiteStock <= 0) return 'text-red-600';
+  if (quantiteStock <= seuilMinimum) return 'text-yellow-600';
+  return 'text-green-600';
+};
+
 const getCategoryImage = (categorie) => {
   if (!categorie) return DEFAULT_IMAGE;
   
@@ -41,26 +67,22 @@ const getCategoryImage = (categorie) => {
 };
 
 const normalizeImageUrl = (imageUrl, categorie) => {
+  // Si pas d'URL, utiliser image par catégorie
   if (!imageUrl || imageUrl === 'null' || imageUrl === 'undefined' || imageUrl.trim() === '') {
     return getCategoryImage(categorie);
   }
   
-  if (imageUrl.includes('undefined') || imageUrl.includes('null')) {
+  // Si l'URL contient des placeholders invalides
+  if (imageUrl.includes('undefined') || imageUrl.includes('null') || imageUrl.includes('iphone-15-pro-finish')) {
     return getCategoryImage(categorie);
   }
   
-  if (imageUrl.includes('uploads/produits/')) {
-    let cleanUrl = imageUrl;
-    if (!cleanUrl.startsWith('http')) {
-      cleanUrl = `http://localhost:8081/${cleanUrl}`;
-    }
-    return cleanUrl;
-  }
-  
+  // Si l'URL est relative, ajouter le préfixe du backend
   if (imageUrl.startsWith('/uploads/')) {
     return `http://localhost:8081${imageUrl}`;
   }
   
+  // Si l'URL ne commence pas par http, c'est un nom de fichier
   if (!imageUrl.startsWith('http')) {
     return `http://localhost:8081/uploads/produits/${imageUrl}`;
   }
@@ -85,24 +107,29 @@ const ProductTable = ({
   currentPage = 1,
   totalPages = 1,
   onPageChange = null,
-  itemsPerPage = 5
+  itemsPerPage = 5,
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   
+  // États locaux
   const [currentProducts, setCurrentProducts] = useState([]);
   const [imageErrors, setImageErrors] = useState({});
 
+  // Calculer les produits à afficher pour la page courante
   useEffect(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     setCurrentProducts(products.slice(startIndex, endIndex));
   }, [products, currentPage, itemsPerPage]);
 
-  // ✅ Normaliser les données du produit avec remise de la catégorie
+  // Normaliser les données du produit
   const normalizeProductData = useCallback((product) => {
     // Récupérer le nom de la catégorie
     const categorie = product.categorie?.nomCategorie || product.categorieNom || product.categorie || '';
     
-    // ✅ Récupérer la remise depuis la catégorie
+    // Récupérer la remise depuis la catégorie
     let remise = 0;
     if (product.categorie?.remiseStandard !== undefined && product.categorie?.remiseStandard !== null) {
       remise = Number(product.categorie.remiseStandard);
@@ -123,18 +150,28 @@ const ProductTable = ({
     
     return {
       idProduit: product.idProduit,
-      libelle: product.libelle || 'Produit sans nom',
+      libelle: product.libelle || t('unnamedProduct'),
       imageUrl: imageUrl,
       categorie: categorie,
-      prixVente: prixBase,
-      remiseTemporaire: remise,
+      uniteMesure: product.uniteMesure || t('unit'),
+      prixVente: Number(prixBase),
+      remiseTemporaire: Number(remise),
       prix: prixAvecRemise,
       prixInitial: prixBase,
       remise: remise,
       quantiteStock: Number(product.quantiteStock) || 0,
+      seuilMinimum: Number(product.seuilMinimum) || 5,
+      status: product.status || 'EN_STOCK',
+      statut: getStatusText(product.status, t)
     };
-  }, []);
+  }, [t]);
 
+  const formatMontant = (value) => `${Number(value || 0).toLocaleString(locale, {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  })} ${t('currencyLower') || 'dt'}`;
+
+  // Gérer l'erreur d'image
   const handleImageError = (productId, categorie) => {
     setImageErrors(prev => ({
       ...prev,
@@ -142,6 +179,7 @@ const ProductTable = ({
     }));
   };
 
+  // Obtenir l'URL de l'image (avec fallback)
   const getImageUrl = (product) => {
     if (imageErrors[product.idProduit]) {
       return getCategoryImage(product.categorie);
@@ -149,9 +187,12 @@ const ProductTable = ({
     return product.imageUrl;
   };
 
+  // Gérer la sélection/désélection de tous les produits
   const handleSelectAll = useCallback((e) => {
     if (e.target.checked) {
-      const produitsDisponibles = currentProducts.filter(p => (p.quantiteStock || 0) > 0);
+      const produitsDisponibles = currentProducts.filter(p => 
+        p.status !== 'RUPTURE' && (p.quantiteStock || 0) > 0
+      );
       
       const nouveauxProduits = produitsDisponibles
         .filter(p => !selectedProducts.some(sp => sp.idProduit === p.idProduit))
@@ -160,11 +201,13 @@ const ProductTable = ({
           libelle: p.libelle,
           prixVente: p.prixVente || 0,
           quantiteStock: p.quantiteStock || 0,
+          uniteMesure: p.uniteMesure || 'unité',
           imageUrl: p.imageUrl,
           categorie: p.categorie,
           quantiteCommande: 1,
           prix: p.prixVente || 0,
-          remiseTemporaire: p.remiseTemporaire || 0
+          remiseTemporaire: p.remiseTemporaire || 0,
+          status: p.status
         }));
       
       setSelectedProducts(prev => [...prev, ...nouveauxProduits]);
@@ -176,6 +219,7 @@ const ProductTable = ({
     }
   }, [currentProducts, selectedProducts, setSelectedProducts]);
 
+  // Modifier la quantité d'un produit sélectionné
   const handleChangeQuantite = useCallback((productId, newQuantite) => {
     setSelectedProducts(prev => prev.map(p => {
       if (p.idProduit === productId) {
@@ -189,10 +233,12 @@ const ProductTable = ({
     }));
   }, [setSelectedProducts]);
 
+  // Retirer un produit de la sélection
   const handleRemoveProduct = useCallback((productId) => {
     setSelectedProducts(prev => prev.filter(p => p.idProduit !== productId));
   }, [setSelectedProducts]);
 
+  // Vérifier si un produit spécifique est disponible
   const checkDisponibiliteProduit = useCallback((product) => {
     const selectedProduct = selectedProducts.find(p => p.idProduit === product.idProduit);
     if (!selectedProduct) return true;
@@ -203,33 +249,35 @@ const ProductTable = ({
     return stockDisponible >= quantiteDemandee;
   }, [selectedProducts]);
 
+  // Calculer si tous les produits de la page sont sélectionnés
   const allProductsSelected = useMemo(() => {
     if (currentProducts.length === 0) return false;
     return currentProducts.every(p => {
-      const isOutOfStock = (p.quantiteStock || 0) <= 0;
+      const isOutOfStock = p.status === 'RUPTURE' || (p.quantiteStock || 0) <= 0;
       return isOutOfStock || selectedProducts.some(sp => sp.idProduit === p.idProduit);
     });
   }, [currentProducts, selectedProducts]);
 
+  // Rendu de la pagination
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
     return (
       <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
         <div className="text-sm text-gray-700 mb-3 sm:mb-0">
-          Page <span className="font-semibold">{currentPage}</span> sur <span className="font-semibold">{totalPages}</span>
+          {t('pageIndicator', { current: currentPage, total: totalPages })}
           {' • '}
-          <span className="font-semibold">{products.length}</span> produit{products.length !== 1 ? 's' : ''}
+          {t('productTotalCount', { count: products.length })}
         </div>
         
         <div className="flex items-center space-x-2">
           <button
             onClick={() => onPageChange?.(currentPage - 1)}
             disabled={currentPage === 1}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
             <ChevronLeftIcon className="h-4 w-4 mr-1" />
-            Précédent
+            {t('previous')}
           </button>
           
           <div className="flex items-center space-x-1">
@@ -265,9 +313,9 @@ const ProductTable = ({
           <button
             onClick={() => onPageChange?.(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
-            Suivant
+            {t('next')}
             <ChevronRightIcon className="h-4 w-4 ml-1" />
           </button>
         </div>
@@ -275,30 +323,31 @@ const ProductTable = ({
     );
   };
 
+  // États de chargement et erreur
   if (error) {
     return (
       <div className="bg-white rounded-xl shadow border p-8 text-center">
         <XCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-700 mb-2">Erreur de chargement</h3>
+        <h3 className="text-lg font-medium text-gray-700 mb-2">{t('loadingError')}</h3>
         <p className="text-gray-500">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow border overflow-hidden">
+    <div className="bg-white rounded-xl shadow border overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* En-tête */}
       <div className="px-6 py-4 border-b bg-gray-50">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Catalogue Produits</h2>
+            <h2 className="text-lg font-semibold text-gray-800">{t('productCatalog')}</h2>
             <p className="text-sm text-gray-600 mt-1">
               {selectedProducts.length > 0 ? (
                 <span className="font-medium text-blue-600">
-                  {selectedProducts.length} produit{selectedProducts.length !== 1 ? 's' : ''} sélectionné{selectedProducts.length !== 1 ? 's' : ''}
+                  {t('selectedProductsCount', { count: selectedProducts.length })}
                 </span>
               ) : (
-                <span>{products.length} produit{products.length !== 1 ? 's' : ''} disponible{products.length !== 1 ? 's' : ''}</span>
+                <span>{t('availableProductsCount', { count: products.length })}</span>
               )}
             </p>
           </div>
@@ -308,8 +357,8 @@ const ProductTable = ({
               <div className="flex items-center space-x-3">
                 <ShoppingCartIcon className="h-5 w-5 text-blue-600" />
                 <p className="text-sm text-gray-700">
-                  Total: <span className="font-bold text-blue-600 text-lg">
-                    {calculerTotaux(selectedProducts).sousTotal.toFixed(2)} dt
+                  {t('total')}: <span className="font-bold text-blue-600 text-lg">
+                    {formatMontant(calculerTotaux(selectedProducts).sousTotal)}
                   </span>
                 </p>
               </div>
@@ -331,11 +380,27 @@ const ProductTable = ({
                   onChange={handleSelectAll}
                 />
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remise</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <button onClick={() => handleSort('libelle')} className="flex items-center gap-1">
+                  <CubeIcon className="h-4 w-4" />
+                  {t('product')}
+                  {sortField === 'libelle' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <button onClick={() => handleSort('prixVente')} className="flex items-center gap-1">
+                  {t('price')}
+                  {sortField === 'prixVente' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <button onClick={() => handleSort('quantiteStock')} className="flex items-center gap-1">
+                  <ChartBarIcon className="h-4 w-4" />
+                  {t('stock')}
+                  {sortField === 'quantiteStock' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />)}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('actions')}</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -346,10 +411,7 @@ const ProductTable = ({
               const quantiteCommande = selectedProduct?.quantiteCommande || 1;
               const isAvailable = checkDisponibiliteProduit(normalizedProduct);
               const imageUrl = getImageUrl(normalizedProduct);
-              const isOutOfStock = normalizedProduct.quantiteStock <= 0;
-              const afficherRemise = normalizedProduct.remise > 0;
-              const prixFinal = normalizedProduct.prix;
-              const prixOriginal = normalizedProduct.prixInitial;
+              const isOutOfStock = normalizedProduct.status === 'RUPTURE' || normalizedProduct.quantiteStock <= 0;
               
               return (
                 <tr key={normalizedProduct.idProduit} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -382,35 +444,33 @@ const ProductTable = ({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-sm font-medium text-gray-900">{normalizedProduct.libelle}</h3>
-                        <p className="text-xs text-gray-500">{normalizedProduct.categorie || 'Sans catégorie'}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(normalizedProduct.status)}`}>
+                            {normalizedProduct.statut}
+                          </span>
+                          <span className="text-xs text-gray-500">{normalizedProduct.uniteMesure}</span>
+                        </div>
+                        {normalizedProduct.remiseTemporaire > 0 && (
+                          <span className="inline-block mt-1 text-xs text-red-600 font-medium">
+                            {t('discount')} {normalizedProduct.remiseTemporaire}%
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
                   
                   <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900">{prixFinal.toFixed(3)} dt</div>
-                    {afficherRemise && (
-                      <div className="text-xs text-gray-400 line-through">{prixOriginal.toFixed(3)} dt</div>
+                    <div className="font-bold text-gray-900">{formatMontant(normalizedProduct.prix)}</div>
+                    {normalizedProduct.remise > 0 && (
+                      <div className="text-xs text-gray-500 line-through">{formatMontant(normalizedProduct.prixInitial)}</div>
                     )}
                   </td>
                   
                   <td className="px-6 py-4">
-                    {afficherRemise ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {normalizedProduct.remise}%
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">-</span>
-                    )}
-                  </td>
-                  
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">
-                      {normalizedProduct.quantiteStock} unités
+                    <div className={`font-medium ${getStockColor(normalizedProduct.quantiteStock, normalizedProduct.seuilMinimum)}`}>
+                      {normalizedProduct.quantiteStock} {t('units')}
                     </div>
-                    {isOutOfStock && (
-                      <span className="text-xs text-red-600 font-medium">Rupture de stock</span>
-                    )}
+                    <div className="text-xs text-gray-500">{t('threshold')}: {normalizedProduct.seuilMinimum}</div>
                   </td>
                   
                   <td className="px-6 py-4">
@@ -442,13 +502,13 @@ const ProductTable = ({
                         </div>
                         <button
                           onClick={() => handleRemoveProduct(normalizedProduct.idProduit)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Retirer"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                          title={t('remove')}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
                         {!isAvailable && (
-                          <span className="text-xs text-red-600 font-medium">Stock insuffisant</span>
+                          <span className="text-xs text-red-600">{t('stockInsufficient')}</span>
                         )}
                       </div>
                     ) : (
@@ -462,7 +522,7 @@ const ProductTable = ({
                         }`}
                       >
                         <ShoppingCartIcon className="h-4 w-4" />
-                        {isOutOfStock ? 'Rupture' : 'Ajouter'}
+                        {isOutOfStock ? t('outOfStock') : t('add')}
                       </button>
                     )}
                   </td>
@@ -472,38 +532,41 @@ const ProductTable = ({
           </tbody>
         </table>
 
+        {/* États de chargement et vide */}
         {loading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 mt-2">Chargement des produits...</p>
+            <p className="text-gray-500 mt-2">{t('loadingProducts')}</p>
           </div>
         )}
 
         {!loading && currentProducts.length === 0 && products.length === 0 && (
           <div className="text-center py-12">
             <div className="text-4xl mb-4 text-gray-300">📦</div>
-            <h3 className="text-lg font-medium text-gray-700 mb-2">Aucun produit trouvé</h3>
-            <p className="text-gray-500">Essayez de modifier vos critères de recherche</p>
+            <h3 className="text-lg font-medium text-gray-700 mb-2">{t('noProductsFound')}</h3>
+            <p className="text-gray-500">{t('tryChangingSearch')}</p>
           </div>
         )}
       </div>
 
+      {/* Pagination */}
       {renderPagination()}
 
+      {/* Footer avec résumé */}
       {selectedProducts.length > 0 && (
         <div className="border-t p-4 bg-blue-50">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-sm text-gray-700">
-                <span className="font-bold">{selectedProducts.length}</span> produit{selectedProducts.length !== 1 ? 's' : ''} sélectionné{selectedProducts.length !== 1 ? 's' : ''}
+                <span className="font-bold">{selectedProducts.length}</span> {t('selectedProducts')}
               </p>
               <p className="text-lg font-bold text-blue-600">
-                Total: {calculerTotaux(selectedProducts).sousTotal.toFixed(3)} dt
+                {t('total')}: {formatMontant(calculerTotaux(selectedProducts).sousTotal)}
               </p>
               {!checkDisponibilite(selectedProducts) && (
                 <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
                   <XCircleIcon className="h-4 w-4" />
-                  Stock insuffisant pour certains produits
+                  {t('someProductsUnavailable')}
                 </p>
               )}
             </div>
@@ -513,7 +576,7 @@ const ProductTable = ({
                 onClick={() => setSelectedProducts([])}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                Vider le panier
+                {t('clearCart')}
               </button>
               <button
                 onClick={() => handleCreateOrder?.()}
@@ -524,7 +587,7 @@ const ProductTable = ({
                     : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                Passer commande
+                {t('placeOrder')}
               </button>
             </div>
           </div>

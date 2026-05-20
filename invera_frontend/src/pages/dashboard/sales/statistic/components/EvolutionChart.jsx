@@ -35,8 +35,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, TrendingUp } from 'lucide-react';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const EvolutionChart = ({ data, formatCurrency }) => {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'en' ? 'en-US' : language === 'ar' ? 'ar-TN' : 'fr-FR';
   
   // ============================================
   //  FILTRAGE DES DONNÉES
@@ -66,7 +69,7 @@ const EvolutionChart = ({ data, formatCurrency }) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
     
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(dateLocale, {
       day: '2-digit',
       month: 'short'
     });
@@ -81,14 +84,14 @@ const EvolutionChart = ({ data, formatCurrency }) => {
     return (
       <div className="h-64 w-full flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-lg border-2 border-dashed border-gray-200">
         <div className="text-5xl mb-4 animate-pulse">📊</div>
-        <p className="text-sm font-medium text-gray-500">Aucune donnée à afficher</p>
+        <p className="text-sm font-medium text-gray-500">{t('dashboard.salesStatsPage.noDataToDisplay')}</p>
         <p className="text-xs text-gray-400 mt-2 text-center max-w-xs px-4">
-          Sélectionnez une période dans le calendrier<br />
-          pour visualiser l'évolution du chiffre d'affaires
+          {t('dashboard.salesStatsPage.selectPeriodInCalendar')}<br />
+          {t('dashboard.salesStatsPage.visualizeRevenueEvolution')}
         </p>
         <div className="flex items-center gap-2 mt-4 text-blue-500">
           <Calendar className="w-4 h-4" />
-          <span className="text-xs">Cliquez sur le calendrier pour commencer</span>
+          <span className="text-xs">{t('dashboard.salesStatsPage.clickCalendarToStart')}</span>
         </div>
       </div>
     );
@@ -99,13 +102,13 @@ const EvolutionChart = ({ data, formatCurrency }) => {
     return (
       <div className="h-64 w-full flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-lg border-2 border-dashed border-gray-200">
         <div className="text-5xl mb-4">📉</div>
-        <p className="text-sm font-medium text-gray-500">Aucune vente sur cette période</p>
+        <p className="text-sm font-medium text-gray-500">{t('dashboard.salesStatsPage.noSaleForPeriod')}</p>
         <p className="text-xs text-gray-400 mt-2 text-center max-w-xs px-4">
-          {data.length} jour(s) sans chiffre d'affaires
+          {t('dashboard.salesStatsPage.daysWithoutRevenue', { count: data.length })}
         </p>
         <div className="flex items-center gap-2 mt-4 text-amber-500">
           <TrendingUp className="w-4 h-4" />
-          <span className="text-xs">Essayez une autre période</span>
+          <span className="text-xs">{t('dashboard.salesStatsPage.tryAnotherPeriod')}</span>
         </div>
       </div>
     );
@@ -131,9 +134,9 @@ const EvolutionChart = ({ data, formatCurrency }) => {
       {filteredData.length < data.length && (
         <div className="mb-3 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
-          Affichage des {filteredData.length} jour(s) avec ventes
+          {t('dashboard.salesStatsPage.showingSalesDays', { count: filteredData.length })}
           <span className="text-gray-400">
-            ({data.length - filteredData.length} jour(s) sans vente masqué(s))
+            ({t('dashboard.salesStatsPage.hiddenDaysWithoutSales', { count: data.length - filteredData.length })})
           </span>
         </div>
       )}
@@ -188,14 +191,14 @@ const EvolutionChart = ({ data, formatCurrency }) => {
       <div className="flex justify-between mt-4 pt-3 border-t text-xs text-gray-500">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-          <span>Période: {data.length} jours</span>
+          <span>{t('dashboard.salesStatsPage.period')}: {t('dashboard.salesStatsPage.days', { count: data.length })}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-          <span>Jours avec ventes: {filteredData.length}</span>
+          <span>{t('dashboard.salesStatsPage.salesDays')}: {filteredData.length}</span>
         </div>
         <div>
-          CA total: {formatCurrency(filteredData.reduce((sum, d) => sum + d.valeur, 0))}
+          {t('dashboard.salesStatsPage.totalRevenue')}: {formatCurrency(filteredData.reduce((sum, d) => sum + d.valeur, 0))}
         </div>
       </div>
     </div>

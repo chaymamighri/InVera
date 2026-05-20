@@ -8,6 +8,7 @@
  * @param {boolean} loading - État de chargement
  * @param {Function} onGenerateInvoice - Génère une facture (commandeId) => void
  * @param {Function} onViewInvoice - Consulte une facture (commandeId) => void
+ * @param {Function} onViewDetails - Voir les détails de la commande
  * @param {Object} invoiceStatus - Statut des factures { commandeId: boolean }
  */
 
@@ -16,7 +17,6 @@ import {
   EyeIcon,
   DocumentArrowDownIcon,
   CheckCircleIcon,
-  ShoppingBagIcon,
   UserCircleIcon,
   CalendarIcon,
   CubeIcon,
@@ -34,7 +34,11 @@ const SalesTable = ({
   loading, 
   onGenerateInvoice, 
   onViewInvoice,
-  invoiceStatus = {} 
+  onViewDetails,
+  invoiceStatus = {},
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   // États
   const [invoiceLoading, setInvoiceLoading] = useState({});
@@ -54,8 +58,8 @@ const SalesTable = ({
       
       switch (sortConfig.key) {
         case 'date':
-          aValue = new Date(a.dateCreation);
-          bValue = new Date(b.dateCreation);
+          aValue = new Date(a.dateCreation || a.dateCommande);
+          bValue = new Date(b.dateCreation || b.dateCommande);
           break;
         case 'numero':
           aValue = a.referenceCommandeClient || a.numeroCommande || `CMD-${a.id || a.idCommandeClient}`;
@@ -89,7 +93,7 @@ const SalesTable = ({
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
-    setCurrentPage(1); // Reset à la première page quand on trie
+    setCurrentPage(1);
   };
 
   // Récupère l'icône de tri pour une colonne
@@ -121,7 +125,7 @@ const SalesTable = ({
     if (!dateString) return '-';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
@@ -134,11 +138,19 @@ const SalesTable = ({
   // Formate un montant en dinars
   const formatCurrency = (amount) => {
     const value = parseFloat(amount || 0);
-    if (isNaN(value)) return '0,00 dt';
-    return new Intl.NumberFormat('fr-FR', {
+    if (isNaN(value)) return `0,00 ${t('currencyLower') || 'dt'}`;
+    return new Intl.NumberFormat(locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(value) + ' dt';
+    }).format(value) + ` ${t('currencyLower') || 'dt'}`;
+  };
+
+  // Voir les détails de la commande
+  const handleViewDetails = (commande, e) => {
+    e?.stopPropagation();
+    if (onViewDetails) {
+      onViewDetails(commande);
+    }
   };
 
   // Génère une facture pour une commande
@@ -177,249 +189,262 @@ const SalesTable = ({
           <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-200 border-t-blue-600"></div>
         </div>
         <h3 className="text-sm font-semibold text-gray-700 mb-1">
-          Chargement des commandes
+          {t('loadingOrders') || 'Chargement des commandes...'}
         </h3>
-        <p className="text-xs text-gray-400">Veuillez patienter...</p>
+        <p className="text-xs text-gray-400">{t('pleaseWait') || 'Veuillez patienter'}</p>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        
-        {/* En-tête du tableau */}
-        <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
-                <DocumentTextIcon className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-gray-800">
-                  Commandes validées
-                </h3>
-                <span className="text-xs text-gray-500">
-                  {sortedCommandes.length} commande{sortedCommandes.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
+      
+      {/* En-tête du tableau */}
+      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
+              <DocumentTextIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-800">
+                {t('validatedOrdersTitle') || 'Commandes validées'}
+              </h3>
+              <span className="text-xs text-gray-500">
+                {t('orderCount', { count: commandes.length }) || `${commandes.length} commande${commandes.length !== 1 ? 's' : ''}`}
+              </span>
             </div>
           </div>
         </div>
-
-        {/* Tableau responsive */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead>
-              <tr className="bg-gray-50/80">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
-                    onClick={() => handleSort('numero')}>
-                  <div className="flex items-center gap-2">
-                    N° Commande
-                    {getSortIcon('numero')}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
-                    onClick={() => handleSort('client')}>
-                  <div className="flex items-center gap-2">
-                    Client
-                    {getSortIcon('client')}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
-                    onClick={() => handleSort('date')}>
-                  <div className="flex items-center gap-2">
-                    Date
-                    {getSortIcon('date')}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                  Articles
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
-                    onClick={() => handleSort('total')}>
-                  <div className="flex items-center gap-2">
-                    Total
-                    {getSortIcon('total')}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {currentCommandes.map((commande) => {
-                const commandeId = commande.id || commande.idCommandeClient;
-                const hasInvoice = invoiceStatus[commandeId];
-                
-                return (
-                  <tr key={commandeId} className="hover:bg-gray-50/50 transition-colors">
-                    
-                    {/* Colonne : N° Commande */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${hasInvoice ? 'bg-green-50' : 'bg-emerald-50'}`}>
-                          {hasInvoice ? (
-                            <DocumentTextIcon className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
-                          )}
-                        </div>
-                        <span className="text-sm font-medium text-gray-800">
-                          {commande.referenceCommandeClient || commande.numeroCommande || `CMD-${commandeId}`}
-                        </span>
-                        {hasInvoice && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-medium rounded-full">
-                            Facturée
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Colonne : Client */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {commande.client?.entreprise ? (
-                          <BuildingOfficeIcon className="h-4 w-4 text-indigo-400" />
-                        ) : (
-                          <UserCircleIcon className="h-4 w-4 text-blue-400" />
-                        )}
-                        <span className="text-sm text-gray-700">
-                          {commande.client?.nomComplet || commande.client?.nom || 'Client'}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Colonne : Date */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-gray-300" />
-                        <span className="text-sm text-gray-600">
-                          {formatDate(commande.dateCreation)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Colonne : Nombre d'articles */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <CubeIcon className="h-4 w-4 text-gray-300" />
-                        <span className="text-sm text-gray-700">
-                          {commande.produits?.length || 0}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Colonne : Total */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <CurrencyDollarIcon className="h-4 w-4 text-gray-300" />
-                        <span className="text-sm font-semibold text-gray-800">
-                          {formatCurrency(commande.montantTotal || commande.total)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Colonne : Action (un seul bouton) */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end">
-                        {hasInvoice ? (
-                          // Bouton VOIR FACTURE (si facture existe)
-                          <button
-                            onClick={(e) => handleViewInvoiceClick(commandeId, e)}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm hover:shadow"
-                            title="Voir la facture"
-                          >
-                            <DocumentTextIcon className="h-4 w-4" />
-                            Voir facture
-                          </button>
-                        ) : (
-                          // Bouton GÉNÉRER FACTURE (si pas de facture)
-                          <button
-                            onClick={(e) => handleGenerateInvoice(commandeId, e)}
-                            disabled={invoiceLoading[commandeId]}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 shadow-sm hover:shadow"
-                            title="Générer la facture"
-                          >
-                            {invoiceLoading[commandeId] ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                            ) : (
-                              <DocumentArrowDownIcon className="h-4 w-4" />
-                            )}
-                            Générer
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {sortedCommandes.length > 0 && (
-          <div className="px-6 py-3 bg-gray-50/50 border-t border-gray-100">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              
-              {/* Sélecteur nombre d'éléments par page */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-500">Afficher</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                >
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                </select>
-                <span className="text-xs text-gray-500">par page</span>
-              </div>
-
-              {/* Informations de pagination */}
-              <div className="flex items-center justify-between sm:justify-end gap-4">
-                <span className="text-xs text-gray-500">
-                  {startIndex + 1} - {Math.min(endIndex, sortedCommandes.length)} sur {sortedCommandes.length}
-                </span>
-                
-                {/* Boutons navigation */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                    title="Page précédente"
-                  >
-                    <ChevronLeftIcon className="h-4 w-4" />
-                  </button>
-                  
-                  <span className="text-xs text-gray-600 min-w-[70px] text-center">
-                    Page {currentPage} / {totalPages}
-                  </span>
-                  
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                    title="Page suivante"
-                  >
-                    <ChevronRightIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-    </>
+
+      {/* Tableau responsive */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-100">
+          <thead>
+            <tr className="bg-gray-50/80">
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => handleSort('numero')}>
+                <div className="flex items-center gap-2">
+                  {t('orderNumber') || 'N° Commande'}
+                  {getSortIcon('numero')}
+                </div>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => handleSort('client')}>
+                <div className="flex items-center gap-2">
+                  {t('client') || 'Client'}
+                  {getSortIcon('client')}
+                </div>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => handleSort('date')}>
+                <div className="flex items-center gap-2">
+                  {t('date') || 'Date'}
+                  {getSortIcon('date')}
+                </div>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                {t('items') || 'Articles'}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 transition-colors group"
+                  onClick={() => handleSort('total')}>
+                <div className="flex items-center gap-2">
+                  {t('total') || 'Total'}
+                  {getSortIcon('total')}
+                </div>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
+                {t('actions') || 'Actions'}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {currentCommandes.map((commande) => {
+              const commandeId = commande.id || commande.idCommandeClient;
+              const hasInvoice = invoiceStatus[commandeId];
+              
+              return (
+                <tr key={commandeId} className="hover:bg-gray-50/50 transition-colors">
+                  
+                  {/* Colonne : N° Commande */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-lg ${hasInvoice ? 'bg-green-50' : 'bg-emerald-50'}`}>
+                        {hasInvoice ? (
+                          <DocumentTextIcon className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-gray-800">
+                        {commande.referenceCommandeClient || commande.numeroCommande || `CMD-${commandeId}`}
+                      </span>
+                      {hasInvoice && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-medium rounded-full">
+                          {t('invoiced') || 'Facturée'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Colonne : Client */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {commande.client?.entreprise ? (
+                        <BuildingOfficeIcon className="h-4 w-4 text-indigo-400" />
+                      ) : (
+                        <UserCircleIcon className="h-4 w-4 text-blue-400" />
+                      )}
+                      <span className="text-sm text-gray-700">
+                        {commande.client?.nomComplet || commande.client?.nom || t('client') || 'Client'}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Colonne : Date */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-gray-300" />
+                      <span className="text-sm text-gray-600">
+                        {formatDate(commande.dateCreation || commande.dateCommande)}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Colonne : Nombre d'articles */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <CubeIcon className="h-4 w-4 text-gray-300" />
+                      <span className="text-sm text-gray-700">
+                        {commande.produits?.length || 0}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Colonne : Total */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1">
+                      <CurrencyDollarIcon className="h-4 w-4 text-gray-300" />
+                      <span className="text-sm font-semibold text-gray-800">
+                        {formatCurrency(commande.montantTotal || commande.total)}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Colonne : Actions */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Bouton Voir détails */}
+                      <button
+                        onClick={(e) => handleViewDetails(commande, e)}
+                        className="p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50/80 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        title={t('viewOrderDetails') || 'Voir les détails de la commande'}
+                      >
+                        <EyeIcon className="h-4 w-4 transition-transform duration-200 hover:scale-110" />
+                      </button>
+                      
+                      {hasInvoice ? (
+                        // Bouton VOIR FACTURE (si facture existe)
+                        <button
+                          onClick={(e) => handleViewInvoiceClick(commandeId, e)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors"
+                          title={t('viewInvoice') || 'Voir la facture'}
+                        >
+                          <DocumentTextIcon className="h-3.5 w-3.5" />
+                          {t('view') || 'Voir'}
+                        </button>
+                      ) : (
+                        // Bouton GÉNÉRER FACTURE (si pas de facture)
+                        <button
+                          onClick={(e) => handleGenerateInvoice(commandeId, e)}
+                          disabled={invoiceLoading[commandeId]}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                          title={t('generateInvoice') || 'Générer la facture'}
+                        >
+                          {invoiceLoading[commandeId] ? (
+                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          ) : (
+                            <>
+                              <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+                              {t('generate') || 'Générer'}
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {sortedCommandes.length > 0 && (
+        <div className="px-6 py-3 bg-gray-50/50 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            
+            {/* Sélecteur nombre d'éléments par page */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">{t('show') || 'Afficher'}</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span className="text-xs text-gray-500">{t('perPage') || 'par page'}</span>
+            </div>
+
+            {/* Informations de pagination */}
+            <div className="flex items-center justify-between sm:justify-end gap-4">
+              <span className="text-xs text-gray-500">
+                {t('paginationRange', { 
+                  start: startIndex + 1, 
+                  end: Math.min(endIndex, sortedCommandes.length), 
+                  total: sortedCommandes.length 
+                }) || `${startIndex + 1} - ${Math.min(endIndex, sortedCommandes.length)} sur ${sortedCommandes.length}`}
+              </span>
+              
+              {/* Boutons navigation */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
+                  title={t('previousPage') || 'Page précédente'}
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                
+                <span className="text-xs text-gray-600 min-w-[70px] text-center">
+                  {t('pageIndicator', { current: currentPage, total: totalPages }) || `Page ${currentPage} sur ${totalPages}`}
+                </span>
+                
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
+                  title={t('nextPage') || 'Page suivante'}
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

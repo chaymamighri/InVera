@@ -6,14 +6,15 @@ import {
   PhoneIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const UNITE_MESURE_OPTIONS = [
-  { value: 'PIECE', label: 'Pièce' },
-  { value: 'KILOGRAMME', label: 'Kilogramme' },
-  { value: 'GRAMME', label: 'Gramme' },
-  { value: 'LITRE', label: 'Litre' },
-  { value: 'MILLILITRE', label: 'Millilitre' },
-  { value: 'METRE', label: 'Mètre' },
+  { value: 'PIECE', labelKey: 'unitPiece' },
+  { value: 'KILOGRAMME', labelKey: 'unitKilogram' },
+  { value: 'GRAMME', labelKey: 'unitGram' },
+  { value: 'LITRE', labelKey: 'unitLiter' },
+  { value: 'MILLILITRE', labelKey: 'unitMilliliter' },
+  { value: 'METRE', labelKey: 'unitMeter' },
 ];
 
 const ProduitFormBase = ({
@@ -21,9 +22,9 @@ const ProduitFormBase = ({
   errors,
   categories,
   handleChange,
-  handleImageChange,    
-  handleRemoveImage,      
-  imagePreview,       
+  handleImageChange,
+  handleRemoveImage,
+  imagePreview,
   handleCategorieChange,
   handleSubmit,
   onClose,
@@ -35,13 +36,18 @@ const ProduitFormBase = ({
   categorieRemiseStandard = 0,
   prixApresRemise = 0,
 }) => {
+  const { t, isArabic } = useLanguage();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
           <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 transition-colors hover:bg-gray-100"
+            title={t('dashboard.procurementProductsPage.cancel')}
+          >
             <XMarkIcon className="h-5 w-5 text-gray-600" />
           </button>
         </div>
@@ -50,21 +56,18 @@ const ProduitFormBase = ({
           
           {/* Informations générales */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">Informations générales</h3>
+            <h3 className="text-lg font-semibold text-gray-700">
+              {t('dashboard.procurementProductsPage.productGeneralInfo')}
+            </h3>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Libellé <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="libelle"
-                value={formData.libelle || ''}
-                onChange={handleChange}
-                className={`w-full border ${errors.libelle ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              />
-              {errors.libelle && <p className="mt-1 text-sm text-red-600">{errors.libelle}</p>}
-            </div>
+            <FieldErrorTextInput
+              label={t('dashboard.procurementProductsPage.productNameLabel')}
+              name="libelle"
+              value={formData.libelle || ''}
+              error={errors.libelle}
+              onChange={handleChange}
+              required
+            />
 
             {/* Prix d'achat et Prix de vente */}
             <div className="grid grid-cols-2 gap-4">
@@ -83,34 +86,30 @@ const ProduitFormBase = ({
                 {errors.prixAchat && <p className="mt-1 text-sm text-red-600">{errors.prixAchat}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prix de vente <span className="text-red-500">*</span> DT
-                </label>
-                <input
-                  type="text"
-                  name="prixVente"
-                  value={formData.prixVente || ''}
-                  onChange={handleChange}
-                  className={`w-full border ${errors.prixVente ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                  placeholder="0"
-                />
-                {errors.prixVente && <p className="mt-1 text-sm text-red-600">{errors.prixVente}</p>}
-              </div>
+              <FieldErrorTextInput
+                label={`${t('dashboard.procurementProductsPage.salesPriceLabel')} DT`}
+                name="prixVente"
+                value={formData.prixVente || ''}
+                error={errors.prixVente}
+                onChange={handleChange}
+                placeholder="0"
+                required
+              />
             </div>
 
-            {/* Catégorie */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Catégorie <span className="text-red-500">*</span>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t('dashboard.procurementProductsPage.categoryLabel')} <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.categorie?.idCategorie || ''}
                 onChange={handleCategorieChange}
-                className={`w-full border ${errors.categorie ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                className={`w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                  errors.categorie ? 'border-red-500' : 'border-gray-300'
+                }`}
               >
-                <option value="">Sélectionner une catégorie</option>
-                {categories && categories.map(cat => (
+                <option value="">{t('dashboard.procurementProductsPage.categorySelectPlaceholder')}</option>
+                {categories?.map((cat) => (
                   <option key={cat.idCategorie} value={cat.idCategorie}>
                     {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
                     {cat.remiseStandard > 0 ? ` (remise: ${cat.remiseStandard}%)` : ''}
@@ -145,49 +144,61 @@ const ProduitFormBase = ({
 
           {/* SECTION FOURNISSEUR */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">🏢 Fournisseur</h3>
-            
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <h3 className="text-lg font-semibold text-gray-700">
+              {t('dashboard.procurementProductsPage.supplierSectionTitle')}
+            </h3>
+
+            <div className="rounded-lg border bg-gray-50 p-4">
               {loadingFournisseurs ? (
-                <div className="text-center py-4 text-gray-500">Chargement des fournisseurs...</div>
+                <div className="py-4 text-center text-gray-500">
+                  {t('dashboard.procurementProductsPage.loadingSuppliers')}
+                </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fournisseur <span className="text-red-500">*</span>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('dashboard.procurementProductsPage.supplierLabel')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="fournisseurId"
                     value={formData.fournisseurId || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
+                      errors.fournisseurId ? 'border-red-500' : ''
+                    }`}
                     required
                   >
-                    <option value="">-- Sélectionner un fournisseur --</option>
-                    {fournisseursDisponibles.map(f => (
-                      <option key={f.idFournisseur} value={f.idFournisseur}>
-                        {f.nomFournisseur} - {f.email}
+                    <option value="">{t('dashboard.procurementProductsPage.selectSupplierPlaceholder')}</option>
+                    {fournisseursDisponibles.map((fournisseur) => (
+                      <option key={fournisseur.idFournisseur} value={fournisseur.idFournisseur}>
+                        {fournisseur.nomFournisseur} - {fournisseur.email}
                       </option>
                     ))}
                   </select>
                   
                   {formData.fournisseurId && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs text-blue-600 mb-1">Informations du fournisseur</p>
+                    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                      <p className="mb-1 text-xs text-blue-600">
+                        {t('dashboard.procurementProductsPage.supplierInfoTitle')}
+                      </p>
                       {(() => {
-                        const fournisseur = fournisseursDisponibles.find(f => f.idFournisseur === formData.fournisseurId);
+                        const fournisseur = fournisseursDisponibles.find(
+                          (item) => String(item.idFournisseur) === String(formData.fournisseurId)
+                        );
                         if (!fournisseur) return null;
                         return (
                           <div className="space-y-1 text-sm">
                             <p className="flex items-center gap-1">
                               <EnvelopeIcon className="h-3 w-3 text-gray-500" />
-                              {fournisseur.email || 'Email non renseigné'}
+                              {fournisseur.email || t('dashboard.procurementProductsPage.emailNotProvided')}
                             </p>
                             <p className="flex items-center gap-1">
                               <PhoneIcon className="h-3 w-3 text-gray-500" />
-                              {fournisseur.telephone || 'Téléphone non renseigné'}
+                              {fournisseur.telephone || t('dashboard.procurementProductsPage.phoneNotProvided')}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {fournisseur.adresse ? `${fournisseur.adresse}, ${fournisseur.ville || ''} ${fournisseur.pays || ''}` : 'Adresse non renseignée'}
+                              {fournisseur.adresse
+                                ? `${fournisseur.adresse}, ${fournisseur.ville || ''} ${fournisseur.pays || ''}`
+                                : t('dashboard.procurementProductsPage.addressNotProvided')}
                             </p>
                           </div>
                         );
@@ -199,14 +210,15 @@ const ProduitFormBase = ({
             </div>
           </div>
 
-          {/* Gestion du stock */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">Gestion du stock</h3>
+            <h3 className="text-lg font-semibold text-gray-700">
+              {t('dashboard.procurementProductsPage.stockManagementTitle')}
+            </h3>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stock actuel
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('dashboard.procurementProductsPage.currentStockLabel')}
                 </label>
                 <input
                   type="number"
@@ -216,14 +228,16 @@ const ProduitFormBase = ({
                   disabled={stockDisabled}
                   min="0"
                   step="1"
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    stockDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                    stockDisabled ? 'cursor-not-allowed bg-gray-100 text-gray-500' : 'bg-white'
                   }`}
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Seuil minimum</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('dashboard.procurementProductsPage.minimumThresholdLabel')}
+                </label>
                 <input
                   type="number"
                   name="seuilMinimum"
@@ -231,22 +245,27 @@ const ProduitFormBase = ({
                   onChange={handleChange}
                   min="0"
                   step="1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+                    errors.seuilMinimum ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.seuilMinimum && <p className="mt-1 text-sm text-red-600">{errors.seuilMinimum}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unité de mesure <span className="text-red-500">*</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('dashboard.procurementProductsPage.measurementUnitLabel')} <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="uniteMesure"
                   value={formData.uniteMesure || 'PIECE'}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 >
-                  {UNITE_MESURE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                  {UNITE_MESURE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {t(`dashboard.procurementProductsPage.${option.labelKey}`)}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -329,20 +348,21 @@ const ProduitFormBase = ({
             )}
           </div>
 
-          {/* Boutons d'action */}
-          <div className="sticky bottom-0 bg-white border-t pt-4 flex justify-end gap-3">
+          <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50"
             >
-              Annuler
+              {t('dashboard.procurementProductsPage.cancel')}
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+              className="rounded-lg bg-emerald-600 px-6 py-2 text-white transition-colors hover:bg-emerald-700"
             >
-              {isEditMode ? 'Modifier' : 'Créer'} le produit
+              {isEditMode
+                ? t('dashboard.procurementProductsPage.updateProductButton')
+                : t('dashboard.procurementProductsPage.createProductButton')}
             </button>
           </div>
         </form>
@@ -350,5 +370,24 @@ const ProduitFormBase = ({
     </div>
   );
 };
+
+const FieldErrorTextInput = ({ label, name, value, error, onChange, placeholder, required }) => (
+  <div>
+    <label className="mb-1 block text-sm font-medium text-gray-700">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <input
+      type="text"
+      name={name}
+      value={value}
+      onChange={onChange}
+      className={`w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 ${
+        error ? 'border-red-500' : 'border-gray-300'
+      }`}
+      placeholder={placeholder}
+    />
+    {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+  </div>
+);
 
 export default ProduitFormBase;

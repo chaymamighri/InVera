@@ -1,30 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { BuildingOfficeIcon, IdentificationIcon } from '@heroicons/react/24/outline';
 
-/**
- * Composant ClientFormModal - Formulaire de création/modification client
- * @param {boolean} open - Ouvre/ferme la modale
- * @param {function} onClose - Ferme la modale
- * @param {object} client - Données client (pour modification)
- * @param {function} onSuccess - Callback après succès
- * @param {function} checkTelephone - Vérifie si téléphone existe
- * @param {function} checkMatriculeFiscale - Vérifie si matricule fiscale existe
- * @param {function} getRemiseForType - Récupère remise selon type client
- * @param {array} clientTypes - Liste des types de clients
- * @param {function} createClient - Envoie données à l'API
- */
-
-const ClientFormModal = ({ 
-  open, 
-  onClose, 
-  client, 
+const ClientFormModal = ({
+  open,
+  onClose,
+  client,
   onSuccess,
   checkTelephone,
   checkMatriculeFiscale,
   getRemiseForType,
   clientTypes,
-  createClient
+  createClient,
+  t,
+  isArabic,
 }) => {
   const [formData, setFormData] = useState({
     nom: '',
@@ -53,15 +42,17 @@ const ClientFormModal = ({
   const [telephoneExists, setTelephoneExists] = useState(false);
   const [matriculeExists, setMatriculeExists] = useState(false);
   const [remiseInfo, setRemiseInfo] = useState(null);
-  
   const fetchingRemise = useRef(false);
   const previousTypeClient = useRef('');
   const debounceTimer = useRef(null);
 
   const getTypeClientLabel = (type) => {
     const labels = {
-      'PARTICULIER': 'Particulier',
-      'ENTREPRISE': 'Entreprise',
+      PARTICULIER: t('salesPages.individual'),
+      VIP: t('salesPages.vip'),
+      PROFESSIONNEL: t('salesPages.company'),
+      ENTREPRISE: t('salesPages.company'),
+      FIDELE: t('salesPages.loyalCustomer'),
     };
     return labels[type] || type;
   };
@@ -104,17 +95,14 @@ const ClientFormModal = ({
   useEffect(() => {
     const fetchRemise = async () => {
       if (!formData.typeClient || !getRemiseForType) return;
-      if (fetchingRemise.current) return;
-      if (previousTypeClient.current === formData.typeClient) return;
-      
+      if (fetchingRemise.current || previousTypeClient.current === formData.typeClient) return;
+
       fetchingRemise.current = true;
       previousTypeClient.current = formData.typeClient;
-      
+
       try {
         const response = await getRemiseForType(formData.typeClient);
-        if (response?.success) {
-          setRemiseInfo(response);
-        }
+        setRemiseInfo(response?.success ? response : null);
       } catch (error) {
         console.error('Erreur chargement remise:', error);
         setRemiseInfo(null);
@@ -122,7 +110,7 @@ const ClientFormModal = ({
         fetchingRemise.current = false;
       }
     };
-    
+
     fetchRemise();
   }, [formData.typeClient, getRemiseForType]);
 
@@ -286,7 +274,7 @@ const ClientFormModal = ({
         setErrors(prev => ({ ...prev, telephone: error }));
       }
     } catch (error) {
-      console.error('Erreur vérification téléphone:', error);
+      console.error('Erreur verification telephone:', error);
     }
   };
 
@@ -362,7 +350,7 @@ const ClientFormModal = ({
     setLoading(true);
     try {
       const response = await createClient(dataToSend);
-      
+
       if (response?.success) {
         if (onSuccess) {
           onSuccess(response.message || (client ? 'Client modifié avec succès' : 'Client créé avec succès'));
@@ -392,7 +380,7 @@ const ClientFormModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+    <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100 border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-indigo-600 px-6 py-5">
@@ -404,13 +392,10 @@ const ClientFormModal = ({
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-white">
-                {client ? 'Modifier le client' : 'Nouveau client'}
+                {client ? t('salesPages.editClient') : t('salesPages.newClient')}
               </h2>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-all p-1.5 hover:bg-white/20 rounded-lg"
-            >
+            <button onClick={onClose} className="text-white/80 hover:text-white transition-all p-1.5 hover:bg-white/20 rounded-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -418,15 +403,13 @@ const ClientFormModal = ({
           </div>
         </div>
 
-        {/* Formulaire */}
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             {/* SECTION 1: IDENTITÉ */}
             <div className="space-y-3">
               <h3 className="text-md font-semibold text-indigo-700 flex items-center gap-2">
                 <span className="w-1 h-5 bg-indigo-500 rounded-full"></span>
-                Identité
+                {t('salesPages.identity')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -469,7 +452,7 @@ const ClientFormModal = ({
             <div className="space-y-3">
               <h3 className="text-md font-semibold text-emerald-700 flex items-center gap-2">
                 <span className="w-1 h-5 bg-emerald-500 rounded-full"></span>
-                Contact
+                {t('salesPages.contact')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -560,6 +543,15 @@ const ClientFormModal = ({
                       </option>
                     ))}
                 </select>
+
+                {remiseInfo?.remise > 0 && (
+                  <div className="mt-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                    <p className="text-sm text-purple-700 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                      Remise de {remiseInfo.remise}% applicable à ce type de client
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -639,7 +631,7 @@ const ClientFormModal = ({
                 onClick={onClose}
                 className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all hover:shadow-sm"
               >
-                Annuler
+                {t('salesPages.cancel')}
               </button>
               <button
                 type="submit"
@@ -648,11 +640,11 @@ const ClientFormModal = ({
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    <span>En cours...</span>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>{t('salesPages.inProgress')}</span>
                   </>
                 ) : (
-                  <span>{client ? 'Modifier' : 'Créer'}</span>
+                  <span>{client ? t('salesPages.edit') : t('salesPages.create')}</span>
                 )}
               </button>
             </div>

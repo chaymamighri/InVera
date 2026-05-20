@@ -1,5 +1,6 @@
 /**
- * OrdersEvolutionChart - Version Recharts sans icônes et sans valeurs sur les barres
+ * OrdersEvolutionChart - Graphique d'évolution des commandes
+ * Version avec Recharts et option alternative avec SVG animé
  */
 
 import React from 'react';
@@ -13,13 +14,15 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
+import { useLanguage } from '../../../../../context/LanguageContext';
 
 const OrdersEvolutionChart = ({ data, formatCurrency }) => {
+  const { t } = useLanguage();
   
   if (!data || data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
-        Aucune donnée disponible
+        {t('dashboard.salesStatsPage.noDataAvailable')}
       </div>
     );
   }
@@ -40,6 +43,7 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
   }));
 
   const maxCommandes = Math.max(...chartData.map(d => d.commandes), 1);
+  const maxCA = Math.max(...chartData.map(d => d.ca), 1);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -53,24 +57,27 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
           </div>
           {commandesData && (
             <div className="flex justify-between gap-4 mb-1">
-              <span>Commandes :</span>
+              <span>{t('dashboard.salesStatsPage.orders')} :</span>
               <span className="font-medium text-blue-300">{commandesData.value}</span>
             </div>
           )}
           {caData && caData.value > 0 && (
             <div className="flex justify-between gap-4">
-              <span>Chiffre d'affaires :</span>
+              <span>{t('dashboard.salesStatsPage.revenueShort')} :</span>
               <span className="font-medium text-green-300">{formatCurrency(caData.value)}</span>
             </div>
           )}
           {caData && caData.value === 0 && (
-            <div className="text-gray-400 text-[10px] mt-1">Aucune vente</div>
+            <div className="text-gray-400 text-[10px] mt-1">{t('dashboard.salesStatsPage.noSale')}</div>
           )}
         </div>
       );
     }
     return null;
   };
+
+  const totalCommandes = data.reduce((sum, p) => sum + p.commandes, 0);
+  const totalCA = data.reduce((sum, p) => sum + p.ca, 0);
 
   return (
     <div className="space-y-4">
@@ -99,7 +106,7 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
               tickFormatter={(value) => Math.floor(value).toString()}
               allowDecimals={false}
               label={{ 
-                value: 'Nombre de commandes', 
+                value: t('dashboard.salesStatsPage.orderCountLabel'), 
                 angle: -90, 
                 position: 'insideLeft',
                 fontSize: 11,
@@ -117,7 +124,7 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
                 return value.toString();
               }}
               label={{ 
-                value: 'Chiffre d\'affaires', 
+                value: t('dashboard.salesStatsPage.revenueLabel'), 
                 angle: 90, 
                 position: 'insideRight',
                 fontSize: 11,
@@ -127,22 +134,21 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
             
             <Tooltip content={<CustomTooltip />} />
             
-            {/* Barres SANS les labels au-dessus */}
+            {/* Barres sans les labels au-dessus */}
             <Bar 
               yAxisId="left"
               dataKey="commandes" 
-              name="Commandes"
+              name={t('dashboard.salesStatsPage.orders')}
               fill="#3b82f6" 
               radius={[4, 4, 0, 0]}
               barSize={40}
-              // label supprimé - plus de valeurs au-dessus des barres
             />
             
             <Line 
               yAxisId="right"
               type="monotone" 
               dataKey="ca" 
-              name="CA"
+              name={t('dashboard.salesStatsPage.revenueShort')}
               stroke="#10b981" 
               strokeWidth={3}
               dot={{ r: 4, fill: '#10b981', strokeWidth: 2 }}
@@ -156,19 +162,23 @@ const OrdersEvolutionChart = ({ data, formatCurrency }) => {
       <div className="flex items-center justify-center gap-8 pt-2 pb-1 border-t border-gray-100">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-blue-500 rounded"></div>
-          <span className="text-xs text-gray-600">Nombre de commandes</span>
+          <span className="text-xs text-gray-600">{t('dashboard.salesStatsPage.orderCount')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-0.5 bg-green-500 rounded"></div>
           <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="text-xs text-gray-600">Chiffre d'affaires</span>
+          <span className="text-xs text-gray-600">{t('dashboard.salesStatsPage.revenue')}</span>
         </div>
       </div>
 
       {/* Totaux */}
       <div className="border-t pt-3 mt-2 text-xs text-gray-500 flex justify-between px-2">
-        <span>Total commandes : {data.reduce((sum, p) => sum + p.commandes, 0)}</span>
-        <span>Total CA : {formatCurrency(data.reduce((sum, p) => sum + p.ca, 0))}</span>
+        <span>
+          📦 {t('dashboard.salesStatsPage.totalOrders')}: {totalCommandes}
+        </span>
+        <span>
+          💰 {t('dashboard.salesStatsPage.totalRevenue')}: {formatCurrency(totalCA)}
+        </span>
       </div>
     </div>
   );

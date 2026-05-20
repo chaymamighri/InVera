@@ -13,8 +13,19 @@ import SalesFilters from './components/SalesFilter';
 import SalesTable from './components/SalesTable'; 
 import InvoiceModal from '../invoicing/components/InvoiceModal'; 
 import { commandeService } from '../../../../services/commandeService'; 
+import { useLanguage } from '../../../../context/LanguageContext';
+
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
 
 const SalesPage = () => {
+  const { t, language, isArabic } = useLanguage();
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
+  const tr = (key, params) => t(`salesPages.${key}`, params);
+  
   // ===== ÉTATS =====
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +50,10 @@ const SalesPage = () => {
   //  VÉRIFICATION DES FACTURES EXISTANTES
   // ============================================
   
+  /**
+   * Vérifie pour chaque commande si une facture existe déjà
+   * @param {Array} commandesList - Liste des commandes
+   */
   const checkInvoicesStatus = useCallback(async (commandesList) => {
     const status = {};
     
@@ -72,22 +87,59 @@ const SalesPage = () => {
       
       const commandesData = await commandeService.getCommandesValidees();
       
-      const commandesTransformees = commandesData.map(cmd => ({
+      const commandesTransformees = (commandesData || []).map(cmd => ({
         id: cmd.id || cmd.idCommandeClient,
+        idCommandeClient: cmd.idCommandeClient || cmd.id,
         referenceCommandeClient: cmd.referenceCommandeClient,
-        numeroCommande: cmd.referenceCommandeClient || `CMD-${cmd.id}`,
-        dateCreation: cmd.dateCreation || cmd.dateCommande,
-        montantTotal: cmd.montantTotal || cmd.total || 0,
-        produits: cmd.produits || cmd.items || [],
+        numeroCommande: cmd.referenceCommandeClient || cmd.numeroCommande || `CMD-${cmd.id || 'N/A'}`,
+        numero: cmd.referenceCommandeClient || cmd.numero || cmd.numeroCommande,
+        
+        // Dates
+        dateCreation: cmd.dateCreation || cmd.dateCommande || cmd.createdAt,
+        dateCommande: cmd.dateCommande || cmd.dateCreation,
+        dateValidation: cmd.dateValidation || cmd.dateConfirmation,
+        dateLivraisonPrevue: cmd.dateLivraison || cmd.dateLivraisonPrevue,
+        
+        // Statut
+        statut: cmd.statut || cmd.status,
+        
+        // Montants
+        montantTotal: cmd.montantTotal || cmd.total || cmd.totalTTC || 0,
+        total: cmd.total || cmd.montantTotal || 0,
+        sousTotal: cmd.sousTotal || cmd.totalHT || 0,
+        remiseTotal: cmd.remise || cmd.tauxRemise || 0,
+        
+        // Informations complémentaires
+        modeLivraison: cmd.modeLivraison || 'Standard',
+        modePaiement: cmd.modePaiement || tr('notSpecified'),
+        notes: cmd.notes || cmd.remarques || '',
+        
+        // Produits
+        produits: cmd.produits || cmd.items || cmd.ligneCommandes || [],
+        
+        // Client (avec fallbacks)
         client: cmd.client ? {
           id: cmd.client.id || cmd.client.idClient,
-          nomComplet: `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() || 'Client',
-          entreprise: cmd.client.entreprise || '',
-          typeClient: cmd.client.typeClient || 'STANDARD',
+          nom: cmd.client.nom || '',
+          prenom: cmd.client.prenom || '',
+          nomComplet: cmd.client.nomComplet || 
+                      `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() ||
+                      cmd.client.nom ||
+                      tr('client'),
+          entreprise: cmd.client.entreprise || cmd.client.societe || '',
+          typeClient: cmd.client.typeClient || cmd.client.type || 'STANDARD',
           telephone: cmd.client.telephone || '',
           email: cmd.client.email || '',
           adresse: cmd.client.adresse || ''
-        } : null
+        } : {
+          id: cmd.clientId,
+          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || tr('client'),
+          entreprise: cmd.clientEntreprise || cmd.clientSociete || '',
+          typeClient: cmd.clientType || 'STANDARD',
+          telephone: cmd.clientTelephone || '',
+          email: cmd.clientEmail || '',
+          adresse: cmd.clientAdresse || ''
+        }
       }));
       
       console.log('📦 Commandes transformées:', commandesTransformees.length);
@@ -97,12 +149,12 @@ const SalesPage = () => {
       
     } catch (err) {
       console.error('❌ Erreur chargement:', err);
-      setError('Impossible de charger les commandes validées.');
+      setError(tr('validatedOrdersLoadError'));
       setCommandes([]);
     } finally {
       setLoading(false);
     }
-  }, [checkInvoicesStatus]);
+  }, [checkInvoicesStatus, tr]);
 
   // Chargement initial
   useEffect(() => {
@@ -113,35 +165,55 @@ const SalesPage = () => {
   //  GESTION DES FACTURES
   // ============================================
   
-  // Affiche la facture dans le modal
+  /**
+   * Affiche la facture dans le modal
+   * @param {Object} invoiceData - Données de la facture
+   * @param {string|number} commandeId - ID de la commande associée
+   */
   const displayInvoiceInModal = useCallback((invoiceData, commandeId) => {
     const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
     
     console.log('📄 Données facture reçues:', invoiceData);
     
+    // Calcul de la date d'échéance (date facture + 30 jours)
+    let dueDate = null;
+    if (invoiceData.dateFacture) {
+      try {
+        const dateFacture = new Date(invoiceData.dateFacture);
+        if (!isNaN(dateFacture.getTime())) {
+          const dueDateObj = new Date(dateFacture);
+          dueDateObj.setDate(dueDateObj.getDate() + 30);
+          dueDate = dueDateObj.toISOString();
+        }
+      } catch (error) {
+        console.error('Erreur calcul date échéance:', error);
+      }
+    }
+    
     // Construction de l'objet facture pour le modal
     const factureData = {
-      id: invoiceData.idFactureClient,
-      idFactureClient: invoiceData.idFactureClient,
-      referenceFactureClient: invoiceData.referenceFactureClient,
-      reference: invoiceData.referenceFactureClient,
-      invoiceNumber: invoiceData.referenceFactureClient,
+      id: invoiceData.idFactureClient || invoiceData.id || invoiceData.factureId || `FAC-${commandeId}`,
+      referenceFactureClient: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
+      reference: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
+      invoiceNumber: invoiceData.referenceFactureClient || invoiceData.reference || `FAC-${commandeId}`,
       dateFacture: invoiceData.dateFacture,
       date: invoiceData.dateFacture,
+      dueDate: dueDate,
       
       client: {
-        nomComplet: commande?.client?.nomComplet || 'Client',
-        email: commande?.client?.email || '',
-        telephone: commande?.client?.telephone || '',
-        adresse: commande?.client?.adresse || '',
-        typeClient: commande?.client?.typeClient || 'PARTICULIER'
+        nomComplet: commande?.client?.nomComplet || 
+                    (commande?.client?.prenom ? `${commande.client.prenom} ${commande.client.nom}`.trim() : tr('client')),
+        email: commande?.client?.email || invoiceData.client?.email || '',
+        telephone: commande?.client?.telephone || invoiceData.client?.telephone || '',
+        adresse: commande?.client?.adresse || invoiceData.client?.adresse || '',
+        typeClient: commande?.client?.typeClient || invoiceData.client?.typeClient || 'PARTICULIER'
       },
       
       commande: commande ? {
         id: commande.id,
         reference: commande.referenceCommandeClient || commande.numeroCommande,
         lignesCommande: commande.produits?.map(p => ({
-          produit: { libelle: p.libelle || p.nom || 'Produit' },
+          produit: { libelle: p.libelle || tr('product') },
           quantite: p.quantite,
           prix_unitaire: p.prixUnitaire,
           total: p.sousTotal || (p.quantite * p.prixUnitaire)
@@ -152,7 +224,7 @@ const SalesPage = () => {
       total: invoiceData.montantTotal || commande?.total || 0,
       
       items: commande?.produits?.map(p => ({
-        description: p.libelle || p.nom || 'Produit',
+        description: p.libelle || tr('product'),
         quantity: p.quantite,
         unitPrice: p.prixUnitaire,
         total: p.sousTotal || (p.quantite * p.prixUnitaire)
@@ -161,7 +233,7 @@ const SalesPage = () => {
       statut: invoiceData.statut || 'NON_PAYE',
       status: invoiceData.statut === 'NON_PAYE' ? 'en_attente' : 'payée',
       commandeId: commandeId,
-      paymentMethod: commande?.modePaiement || 'Non spécifié',
+      paymentMethod: commande?.modePaiement || tr('notSpecified'),
       notes: commande?.notes || ''
     };
     
@@ -171,15 +243,19 @@ const SalesPage = () => {
     setSelectedCommandeId(commandeId);
     setIsInvoiceModalOpen(true);
     
+    // Mise à jour du statut de la facture
     setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-  }, [commandes]);
+  }, [commandes, tr]);
 
-  // Génère ou récupère une facture et l'affiche dans le modal
+  /**
+   * Génère une nouvelle facture pour une commande
+   * @param {string|number} commandeId - ID de la commande
+   */
   const handleGenerateInvoice = async (commandeId) => {
     setInvoiceLoading(prev => ({ ...prev, [commandeId]: true }));
     
     try {
-      console.log('📄 Génération/récupération facture pour commande:', commandeId);
+      console.log('📄 Génération facture pour commande:', commandeId);
       
       // 1. Vérifier si une facture existe déjà
       let invoice = await commandeService.getInvoiceByCommandeId(commandeId);
@@ -218,11 +294,13 @@ const SalesPage = () => {
     }
   };
 
-  // Consulte une facture existante (l'affiche dans le modal)
+  /**
+   * Consulte une facture existante
+   * @param {string|number} commandeId - ID de la commande
+   */
   const handleViewInvoice = useCallback(async (commandeId) => {
     try {
       console.log('📄 Consultation facture pour commande:', commandeId);
-      
       const invoice = await commandeService.getInvoiceByCommandeId(commandeId);
       
       if (invoice) {
@@ -235,6 +313,28 @@ const SalesPage = () => {
       toast.error(error.message || 'Erreur lors de la consultation');
     }
   }, [displayInvoiceInModal]);
+
+  /**
+   * Télécharge la facture au format PDF
+   * @param {string|number} factureId - ID de la facture
+   */
+  const handleDownloadPDF = async (factureId) => {
+    try {
+      const pdfResponse = await commandeService.downloadInvoicePDF(factureId);
+      const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `facture-${factureId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('❌ Erreur téléchargement PDF:', error);
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
 
   // Mise à jour du statut de la facture
   const handleInvoiceStatusChange = async (factureId, newStatus) => {
@@ -303,7 +403,7 @@ const SalesPage = () => {
   const hasActiveFilters = filters.searchTerm?.trim() !== '' || filters.dateRange?.from !== '';
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className={`space-y-6 p-4 md:p-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       
       {/* En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -313,13 +413,15 @@ const SalesPage = () => {
               <ShoppingCartIcon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Commandes Validées
-              </h1>
-              <p className="text-gray-600">
-                {filteredResult.length} commande{filteredResult.length !== 1 ? 's' : ''} affichée{filteredResult.length !== 1 ? 's' : ''}
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  {tr('validatedOrdersTitle')}
+                </h1>
+              </div>
+              <p className="text-gray-600 flex items-center gap-2">
+                <span>{tr('ordersDisplayed', { count: filteredResult.length })}</span>
                 {hasActiveFilters && filteredResult.length === 0 && (
-                  <span className="text-amber-600 text-sm ml-2">(aucun résultat)</span>
+                  <span className="text-amber-600 text-sm">({tr('noResult')})</span>
                 )}
               </p>
             </div>
@@ -328,9 +430,15 @@ const SalesPage = () => {
           {error && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5" />
-              <div>
-                <p className="text-red-600 text-sm font-medium">Erreur</p>
+              <div className="flex-1">
+                <p className="text-red-600 text-sm font-medium">{tr('error')}</p>
                 <p className="text-red-500 text-xs">{error}</p>
+                <button 
+                  onClick={() => setError(null)}
+                  className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                >
+                  {tr('hide')}
+                </button>
               </div>
             </div>
           )}
@@ -342,6 +450,9 @@ const SalesPage = () => {
         filters={filters} 
         onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
         totalFiltered={filteredResult.length} 
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {/* Tableau des commandes */}
@@ -352,6 +463,10 @@ const SalesPage = () => {
         invoiceStatus={invoiceStatus}
         onGenerateInvoice={handleGenerateInvoice}
         onViewInvoice={handleViewInvoice}
+        filters={filters} 
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {/* Modal de facture */}
@@ -364,6 +479,9 @@ const SalesPage = () => {
         }}
         facture={selectedFacture}
         commandeId={selectedCommandeId}
+        t={tr}
+        isArabic={isArabic}
+        onDownloadPDF={handleDownloadPDF}
         onStatusChange={handleInvoiceStatusChange}
       />
     </div>

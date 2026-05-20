@@ -35,8 +35,9 @@ import { useSearchParams } from 'react-router-dom';
 import { ArchiveBoxIcon, ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useCommandeFournisseur } from '../../../../hooks/useCommandeFournisseur';
+import commandeFournisseurService from '../../../../services/commandeFournisseurService';
 import procurementReminderService from '../../../../services/procurementReminderService';
-import CommandeModal from './components/commandeModal';
+import CommandeModal from './components/CommandeModal';
 import CommandeDetailsModal from './components/CommandeDetailsModal';
 import ReceptionModal from './components/ReceptionModal';
 import StatsCartes from './components/StatsCartes';
@@ -54,6 +55,7 @@ export const StatutCommande = {
 export const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'N/A';
 
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
@@ -67,10 +69,13 @@ export const formatDate = (dateString) => {
 export const formatPrice = (price) => {
   if (price === null || price === undefined) return 'N/A';
 
+  const amount = Number(price);
+  if (!Number.isFinite(amount)) return 'N/A';
+
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'TND',
-  }).format(price);
+  }).format(amount);
 };
 
 export const getStatusBadge = (statut) => {
@@ -122,6 +127,7 @@ const CommandesFournisseurs = () => {
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [actionInProgress, setActionInProgress] = useState(null);
+  const commandesList = Array.isArray(commandes) ? commandes : [];
 
   useEffect(() => {
     if (showArchives) {
@@ -133,8 +139,8 @@ const CommandesFournisseurs = () => {
 
   useEffect(() => {
     if (showArchives || loading) return;
-    procurementReminderService.syncCommandes(commandes);
-  }, [commandes, loading, showArchives]);
+    procurementReminderService.syncCommandes(commandesList);
+  }, [commandesList, loading, showArchives]);
 
   useEffect(() => {
     if (!focusedCommandeId || !focusedReminderStage) return;
@@ -150,8 +156,8 @@ const CommandesFournisseurs = () => {
   };
 
   const focusedCommande = useMemo(() => {
-    return commandes.find((commande) => String(commande.idCommandeFournisseur) === String(focusedCommandeId)) || null;
-  }, [commandes, focusedCommandeId]);
+    return commandesList.find((commande) => String(commande?.idCommandeFournisseur) === String(focusedCommandeId)) || null;
+  }, [commandesList, focusedCommandeId]);
 
   const focusMessage = useMemo(() => {
     if (focusedNotificationType === 'APPROVED') {
@@ -170,30 +176,41 @@ const CommandesFournisseurs = () => {
   }, [focusedNotificationType, focusedReminderStage]);
 
   const stats = useMemo(() => {
-    if (!commandes.length || showArchives) return null;
+    if (!commandesList.length || showArchives) return null;
 
     return {
-      total: commandes.length,
-      enAttente: commandes.filter(
+      total: commandesList.length,
+      enAttente: commandesList.filter(
         (commande) => commande.statut === StatutCommande.BROUILLON || commande.statut === StatutCommande.VALIDEE
       ).length,
-      totalHT: commandes.reduce((total, commande) => total + (commande.totalHT || 0), 0),
-      totalTTC: commandes.reduce((total, commande) => total + (commande.totalTTC || 0), 0),
+      totalHT: commandesList.reduce((total, commande) => total + (commande?.totalHT || 0), 0),
+      totalTTC: commandesList.reduce((total, commande) => total + (commande?.totalTTC || 0), 0),
     };
-  }, [commandes, showArchives]);
+  }, [commandesList, showArchives]);
 
-  const filteredCommandes = useMemo(() => {
-    return commandes.filter((commande) => {
-      const matchesSearch =
-        commande.numeroCommande?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commande.fournisseur?.nomFournisseur?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commande.fournisseur?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+const filteredCommandes = useMemo(() => {
+  const normalizedSearchTerm = searchTerm.toLowerCase();
 
-      const matchesStatut = !selectedStatut || commande.statut === selectedStatut;
-      
-      return matchesSearch && matchesStatut;
-    });
-  }, [commandes, searchTerm, selectedStatut]);
+  const filtered = commandesList.filter((commande) => {
+    const numeroCommande = (commande?.numeroCommande || '').toLowerCase();
+    const fournisseurNom = (commande?.fournisseur?.nomFournisseur || '').toLowerCase();
+    const fournisseurEmail = (commande?.fournisseur?.email || '').toLowerCase();
+
+    const matchesSearch =
+      numeroCommande.includes(normalizedSearchTerm) ||
+      fournisseurNom.includes(normalizedSearchTerm) ||
+      fournisseurEmail.includes(normalizedSearchTerm);
+
+    const matchesStatut = !selectedStatut || commande?.statut === selectedStatut;
+    
+    return matchesSearch && matchesStatut;
+  });
+  
+  console.log("Commandes après filtre:", filtered.length);
+  console.log("Commandes VALIDEE dans le résultat:", filtered.filter(c => c.statut === 'VALIDEE').length);
+  
+  return filtered;
+}, [commandesList, searchTerm, selectedStatut]);
 
   const handleShowArchives = () => {
     setShowArchives((prev) => !prev);
@@ -228,17 +245,47 @@ const CommandesFournisseurs = () => {
     }
   };
 
-  const handleRecevoirClick = (commande) => {
-    setSelectedCommande(commande);
-    setIsReceptionModalOpen(true);
+  const handleRecevoirClick = async (commande) => {
+    const commandeId = commande?.idCommandeFournisseur;
+    if (!commandeId) {
+      toast.error('Commande introuvable');
+      return;
+    }
+
+    try {
+      setActionInProgress(`recevoir-${commandeId}`);
+      const commandeComplete = await commandeFournisseurService.getCommandeById(commandeId);
+      setSelectedCommande(commandeComplete);
+      setIsReceptionModalOpen(true);
+    } catch (detailsError) {
+      console.error('Erreur chargement commande reception:', detailsError);
+      toast.error('Impossible de charger les details de reception');
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleViewDetails = async (commande) => {
+    const commandeId = commande?.idCommandeFournisseur;
+    if (!commandeId) {
+      toast.error('Commande introuvable');
+      return;
+    }
+
+    try {
+      setActionInProgress(`details-${commandeId}`);
+      const commandeComplete = await commandeFournisseurService.getCommandeById(commandeId);
+      setSelectedCommande(commandeComplete);
+      setIsDetailsModalOpen(true);
+    } catch (detailsError) {
+      console.error('Erreur chargement details commande:', detailsError);
+      toast.error('Impossible de charger les details de la commande');
+    } finally {
+      setActionInProgress(null);
+    }
   };
 
   const handleReceptionConfirm = async (receptionData) => {
-    if (!selectedCommande) {
-      toast.error("Erreur: commande non trouvée");
-      return;
-    }
-    
     try {
       setActionInProgress(`reception-${selectedCommande.idCommandeFournisseur}`);
       await recevoirCommande(selectedCommande.idCommandeFournisseur, receptionData);
@@ -258,39 +305,42 @@ const CommandesFournisseurs = () => {
     }
   };
 
-  // handleStatusChange pour gérer toutes les actions
-  const handleStatusChange = async (id, action) => {
-    try {
-      setActionInProgress(`${action}-${id}`);
-
-      switch (action) {
-        case 'envoyer':
-          await envoyerCommande(id);
-          toast.success('Commande envoyee avec succes');
-          break;
-        
-        case 'renvoyer_attente':  
-          await renvoyerAttente(id);
-          toast.success('Commande renvoyee en attente apres correction');
-          break;
-        
-        default:
-          console.warn('Action non reconnue:', action);
-          return;
-      }
-
-      if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
-        clearFocus();
-      }
-
-      await fetchCommandes();
-    } catch (statusError) {
-      console.error('Erreur changement statut:', statusError);
-    } finally {
-      setActionInProgress(null);
+ // handleStatusChange pour gérer toutes les actions
+const handleStatusChange = async (id, action) => {
+  setActionInProgress(`${action}-${id}`);
+  
+  try {
+    switch (action) {
+      case 'envoyer':
+        await envoyerCommande(id);
+        toast.success('Commande envoyée avec succès');
+        break;
+      
+      case 'renvoyer_attente':  
+        await renvoyerAttente(id);
+        toast.success('Commande renvoyée en attente après correction');
+        break;
+      
+      default:
+        console.warn('Action non reconnue:', action);
+        return;
     }
-  };
-
+    
+    // Rafraîchir la liste des commandes
+    await fetchCommandes();
+    
+    // Nettoyer le focus si nécessaire
+    if (focusedCommandeId && String(id) === String(focusedCommandeId)) {
+      clearFocus();
+    }
+    
+  } catch (statusError) {
+    console.error('Erreur changement statut:', statusError);
+    toast.error(`Erreur lors de l'action: ${action}`);
+  } finally {
+    setActionInProgress(null);
+  }
+};
   const handleRestore = async (id) => {
     try {
       setActionInProgress(`restore-${id}`);
@@ -308,12 +358,14 @@ const CommandesFournisseurs = () => {
     }
   };
 
+  // ✅ MODIFICATION : handleDelete - Permet suppression pour BROUILLON et REJETEE
   const handleDelete = (commande) => {
     if (showArchives) {
       toast.info('Utilisez le bouton de restauration pour reactiver la commande');
       return;
     }
 
+    // Permettre suppression pour BROUILLON et REJETEE
     if (commande.statut !== StatutCommande.BROUILLON && commande.statut !== StatutCommande.REJETEE) {
       toast.error('Seules les commandes en brouillon ou rejetees peuvent etre supprimees');
       return;
@@ -377,7 +429,7 @@ const CommandesFournisseurs = () => {
     );
   }
 
-  if (loading && !commandes.length) {
+  if (loading && !commandesList.length) {
     return (
       <div className="flex items-center justify-center h-64">
         <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-500" />
@@ -412,10 +464,7 @@ const CommandesFournisseurs = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setSelectedCommande(focusedCommande);
-                setIsDetailsModalOpen(true);
-              }}
+              onClick={() => handleViewDetails(focusedCommande)}
               className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 text-sm font-medium"
             >
               Voir details
@@ -465,10 +514,7 @@ const CommandesFournisseurs = () => {
 
       <TableauCommandes
         commandes={filteredCommandes}
-        onView={(commande) => {
-          setSelectedCommande(commande);
-          setIsDetailsModalOpen(true);
-        }}
+        onView={handleViewDetails}
         onEdit={
           !showArchives
             ? (commande) => {
@@ -490,6 +536,7 @@ const CommandesFournisseurs = () => {
         showArchives={showArchives}
         highlightedCommandeId={focusedCommandeId}
         highlightedReminderStage={focusedReminderStage}
+        highlightedNotificationType={focusedNotificationType}
       />
 
       <CommandeModal
@@ -512,6 +559,8 @@ const CommandesFournisseurs = () => {
         commande={selectedCommande}
         onConfirm={handleReceptionConfirm}
       />
+
+  
     </div>
   );
 };

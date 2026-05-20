@@ -1,50 +1,57 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  ArrowPathIcon, 
-  ArrowUpIcon, 
-  ArrowDownIcon, 
-  ChevronLeftIcon, 
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowPathIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
-  ArrowsUpDownIcon,
 } from '@heroicons/react/24/outline';
+import { useLanguage } from '../../../../../../context/LanguageContext';
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-};
-
-const TYPE_DOCUMENT_LABELS = {
-  COMMANDE_FOURNISSEUR: 'Commande fournisseur',
-  COMMANDE_CLIENT: 'Commande client',
-  INIT_STOCK: 'Stock initial',
-  INITIALISATION: 'Stock initial',
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
 };
 
 const MovementTable = ({ movements }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortDirection, setSortDirection] = useState('desc');
+  const { t, language, isArabic } = useLanguage();
+  const tr = (key, params) => t(`dashboard.procurementMovementsPage.${key}`, params);
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
 
   useEffect(() => {
     setCurrentPage(1);
   }, [movements]);
 
-  const toggleSortDirection = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    setCurrentPage(1);
+  const formatDate = (dateString) => {
+    if (!dateString) return tr('notAvailable');
+    return new Intl.DateTimeFormat(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(dateString));
+  };
+
+  const getDocumentLabel = (typeDocument) => {
+    const labels = {
+      COMMANDE_FOURNISSEUR: tr('supplierOrder'),
+      COMMANDE_CLIENT: tr('customerOrder'),
+      INIT_STOCK: tr('initialStock'),
+      INITIALISATION: tr('initialStock'),
+    };
+
+    return labels[typeDocument?.toUpperCase?.()] ?? typeDocument ?? '-';
   };
 
   const sortedMovements = useMemo(() => {
-    if (!movements || movements.length === 0) return movements;
+    if (!movements || movements.length === 0) return [];
     return [...movements].sort((a, b) => {
       const dateA = new Date(a.dateMouvement);
       const dateB = new Date(b.dateMouvement);
@@ -54,12 +61,7 @@ const MovementTable = ({ movements }) => {
 
   const totalItems = sortedMovements.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-
   const safeCurrentPage = Math.min(currentPage, totalPages || 1);
-  if (safeCurrentPage !== currentPage && totalPages > 0) {
-    setCurrentPage(safeCurrentPage);
-  }
-
   const startIndex = (safeCurrentPage - 1) * itemsPerPage;
   const endIndex = Math.min(safeCurrentPage * itemsPerPage, totalItems);
   const paginatedMovements = sortedMovements.slice(startIndex, endIndex);
@@ -68,41 +70,28 @@ const MovementTable = ({ movements }) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  const goToFirstPage = () => goToPage(1);
-  const goToLastPage = () => goToPage(totalPages);
-  const goToPreviousPage = () => goToPage(safeCurrentPage - 1);
-  const goToNextPage = () => goToPage(safeCurrentPage + 1);
-
   const handleItemsPerPageChange = (e) => {
-    setItemsPerPage(parseInt(e.target.value));
+    setItemsPerPage(parseInt(e.target.value, 10));
     setCurrentPage(1);
-  };
-
-  const getSortIcon = () => {
-    if (sortDirection === 'asc') return <ArrowUpIcon className="w-4 h-4 text-blue-600" />;
-    if (sortDirection === 'desc') return <ArrowDownIcon className="w-4 h-4 text-blue-600" />;
-    return <ArrowsUpDownIcon className="w-4 h-4 text-gray-400" />;
   };
 
   const renderPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
     let startPage = Math.max(1, safeCurrentPage - Math.floor(maxVisible / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-    
+    const endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
     if (endPage - startPage + 1 < maxVisible) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(
         <button
           key={i}
           onClick={() => goToPage(i)}
           className={`px-3 py-1 rounded-md text-sm transition-colors ${
-            safeCurrentPage === i
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-700 hover:bg-gray-100'
+            safeCurrentPage === i ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
           {i}
@@ -117,22 +106,22 @@ const MovementTable = ({ movements }) => {
       ENTREE: {
         className: 'bg-green-100 text-green-800',
         icon: <ArrowUpIcon className="w-3 h-3" />,
-        label: 'Entrée'
+        label: tr('entry'),
       },
       INIT_STOCK: {
         className: 'bg-blue-100 text-blue-800',
         icon: <ArrowPathIcon className="w-3 h-3" />,
-        label: 'Stock initial'
+        label: tr('initialStock'),
       },
       SORTIE: {
         className: 'bg-red-100 text-red-800',
         icon: <ArrowDownIcon className="w-3 h-3" />,
-        label: 'Sortie'
-      }
+        label: tr('exit'),
+      },
     };
 
     const config = badgeConfig[typeMouvement] || badgeConfig.SORTIE;
-    
+
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.className}`}>
         {config.icon}
@@ -146,11 +135,16 @@ const MovementTable = ({ movements }) => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="text-center py-12 text-gray-500">
           <ArrowPathIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p>Aucun mouvement de stock enregistré</p>
+          <p>{tr('noMovements')}</p>
         </div>
       </div>
     );
   }
+
+  const PrevIcon = isArabic ? ChevronRightIcon : ChevronLeftIcon;
+  const NextIcon = isArabic ? ChevronLeftIcon : ChevronRightIcon;
+  const FirstIcon = isArabic ? ChevronDoubleRightIcon : ChevronDoubleLeftIcon;
+  const LastIcon = isArabic ? ChevronDoubleLeftIcon : ChevronDoubleRightIcon;
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -159,32 +153,27 @@ const MovementTable = ({ movements }) => {
           <thead className="bg-gray-50">
             <tr>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={toggleSortDirection}
+                className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors`}
+                onClick={() => {
+                  setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                  setCurrentPage(1);
+                }}
               >
                 <div className="flex items-center gap-1">
-                  Date
-                  <span className="ml-1">{getSortIcon()}</span>
+                  {tr('date')}
+                  {sortDirection === 'asc' ? (
+                    <ArrowUpIcon className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <ArrowDownIcon className="w-4 h-4 text-blue-600" />
+                  )}
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Produit
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Quantité
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stock avant
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stock après
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Document
-              </th>
+              <TableHeader align={isArabic ? 'right' : 'left'}>{tr('product')}</TableHeader>
+              <TableHeader align="center">{tr('type')}</TableHeader>
+              <TableHeader align="right">{tr('quantity')}</TableHeader>
+              <TableHeader align="right">{tr('stockBefore')}</TableHeader>
+              <TableHeader align="right">{tr('stockAfter')}</TableHeader>
+              <TableHeader align={isArabic ? 'right' : 'left'}>{tr('document')}</TableHeader>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -196,24 +185,17 @@ const MovementTable = ({ movements }) => {
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-900">{movement.produitLibelle}</div>
                 </td>
-                <td className="px-6 py-4 text-center">
-                  {getTypeBadge(movement.typeMouvement)}
-                </td>
+                <td className="px-6 py-4 text-center">{getTypeBadge(movement.typeMouvement)}</td>
                 <td className="px-6 py-4 text-center font-medium tabular-nums">
-                  {movement.quantite}
+                  {Number(movement.quantite || 0).toLocaleString(locale)}
                 </td>
                 <td className="px-6 py-4 text-center text-gray-500 tabular-nums">
-                  {movement.stockAvant}
+                  {Number(movement.stockAvant || 0).toLocaleString(locale)}
                 </td>
                 <td className="px-6 py-4 text-center font-medium text-blue-600 tabular-nums">
-                  {movement.stockApres}
+                  {Number(movement.stockApres || 0).toLocaleString(locale)}
                 </td>
-               <td className="px-6 py-4 text-sm text-gray-500">
-  {movement.typeDocument?.toUpperCase() === 'INIT_STOCK' || 
-   movement.typeDocument?.toUpperCase() === 'INITIALISATION'
-    ? 'Stock initial'
-    : TYPE_DOCUMENT_LABELS[movement.typeDocument] ?? movement.typeDocument ?? '-'}
-</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{getDocumentLabel(movement.typeDocument)}</td>
               </tr>
             ))}
           </tbody>
@@ -223,7 +205,7 @@ const MovementTable = ({ movements }) => {
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Afficher :</span>
+            <span className="text-sm text-gray-500">{tr('showLabel')}</span>
             <select
               value={itemsPerPage}
               onChange={handleItemsPerPageChange}
@@ -235,54 +217,49 @@ const MovementTable = ({ movements }) => {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-gray-500">par page</span>
+            <span className="text-sm text-gray-500">{tr('perPage')}</span>
           </div>
 
           <div className="text-sm text-gray-500">
-            Affichage de {startIndex + 1} à {endIndex} sur {totalItems} mouvements
+            {tr('paginationInfo', { start: startIndex + 1, end: endIndex, total: totalItems })}
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              onClick={goToFirstPage}
-              disabled={safeCurrentPage === 1}
-              className={`p-2 rounded-lg transition-colors ${safeCurrentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'}`}
-              title="Première page"
-            >
-              <ChevronDoubleLeftIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={goToPreviousPage}
-              disabled={safeCurrentPage === 1}
-              className={`p-2 rounded-lg transition-colors ${safeCurrentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'}`}
-              title="Page précédente"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-1 mx-1">
-              {renderPageNumbers()}
-            </div>
-            <button
-              onClick={goToNextPage}
-              disabled={safeCurrentPage === totalPages}
-              className={`p-2 rounded-lg transition-colors ${safeCurrentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'}`}
-              title="Page suivante"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={goToLastPage}
-              disabled={safeCurrentPage === totalPages}
-              className={`p-2 rounded-lg transition-colors ${safeCurrentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'}`}
-              title="Dernière page"
-            >
-              <ChevronDoubleRightIcon className="w-5 h-5" />
-            </button>
+            <PageButton onClick={() => goToPage(1)} disabled={safeCurrentPage === 1} title={tr('firstPage')} Icon={FirstIcon} />
+            <PageButton onClick={() => goToPage(safeCurrentPage - 1)} disabled={safeCurrentPage === 1} title={tr('previousPage')} Icon={PrevIcon} />
+            <div className="flex items-center gap-1 mx-1">{renderPageNumbers()}</div>
+            <PageButton onClick={() => goToPage(safeCurrentPage + 1)} disabled={safeCurrentPage === totalPages} title={tr('nextPage')} Icon={NextIcon} />
+            <PageButton onClick={() => goToPage(totalPages)} disabled={safeCurrentPage === totalPages} title={tr('lastPage')} Icon={LastIcon} />
           </div>
         </div>
       )}
     </div>
   );
 };
+
+const TableHeader = ({ children, align }) => {
+  const alignClass = {
+    left: 'text-left',
+    right: 'text-right',
+    center: 'text-center',
+  }[align];
+
+  return (
+    <th className={`px-6 py-3 ${alignClass} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+      {children}
+    </th>
+  );
+};
+
+const PageButton = ({ onClick, disabled, title, Icon }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`p-2 rounded-lg transition-colors ${disabled ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'}`}
+    title={title}
+  >
+    <Icon className="w-5 h-5" />
+  </button>
+);
 
 export default MovementTable;

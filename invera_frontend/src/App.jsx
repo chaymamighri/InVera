@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 
 import Header from './components/Header';
+import AdminClientChatbot from './components/AdminClientChatbot';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { SidebarProvider } from './context/SidebarContext';
@@ -55,8 +56,6 @@ import ConditionsInvera from './pages/public/ConditionsInvera';
 import PaymentsView from './pages/superAdmin/paiement/PaymentsView';
 import ContactUsPage from './pages/public/ContactUsPage';
 
-//import PaymentPage from './pages/public/PaymentPage';
-
 const ROLE_MAPPING = {
   SUPER_ADMIN: 'super_admin',
   ROLE_SUPER_ADMIN: 'super_admin',
@@ -74,6 +73,11 @@ const normalizeBackendRole = (role) => {
   if (!role) return null;
   const normalized = String(role).trim().toUpperCase();
   return ROLE_MAPPING[normalized] || null;
+};
+
+const isAdminClientRole = (role) => {
+  const normalized = String(role || '').trim().toUpperCase().replace(/^ROLE_/, '');
+  return normalized === 'ADMIN_CLIENT';
 };
 
 const getUserData = () => {
@@ -116,6 +120,7 @@ const Layout = ({ children, userRole }) => (
   <div className="min-h-screen flex flex-col">
     <Header userRole={userRole} />
     <main className="flex-grow bg-gray-50">{children}</main>
+    {isAdminClientRole(userRole) && <AdminClientChatbot />}
   </div>
 );
 
@@ -281,34 +286,8 @@ function App() {
               }
             />
 
-            {/* PAYMENT */}
-
            
-{/*route
-<Route
-  path="/paiement/succes"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>
-<Route
-  path="/paiement/echec"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>
-<Route
-  path="/paiement/annuler"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>*/}
+
 
             {/* AUTH */}
 

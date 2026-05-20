@@ -84,10 +84,14 @@ const FALLBACK_TEXTS = {
 };
 
 const ClientManagePage = () => {
-  const { t } = useLanguage();
+  const { t, isArabic } = useLanguage();
   
   const safeT = (key) => {
     const translated = t(key);
+  // ✅ Fonction de traduction avec fallback
+  const safeT = (key, params) => {
+    const translated = t(key, params);
+    // Si la traduction retourne la clé elle-même (non trouvée) ou est vide
     if (!translated || translated === key) {
       return FALLBACK_TEXTS[key] || key;
     }
@@ -168,6 +172,32 @@ const ClientManagePage = () => {
     setOpenDetailsModal(true);
   };
 
+  // Fonctions pour la suppression
+  const handleDeleteClick = (client) => {
+    setClientToDelete(client);
+    setOpenDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!clientToDelete) return;
+    
+    try {
+      await deleteClient(clientToDelete.idClient);
+      toast.success(safeT('salesPages.clientDeletedSuccess'));
+      fetchClients();
+    } catch (error) {
+      toast.error(error.message || safeT('salesPages.deleteError'));
+    } finally {
+      setOpenDeleteModal(false);
+      setClientToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setOpenDeleteModal(false);
+    setClientToDelete(null);
+  };
+
   const handleModalClose = () => {
     setOpenModal(false);
     setSelectedClient(null);
@@ -222,7 +252,7 @@ const ClientManagePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className={`min-h-screen bg-gray-50 p-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center">
@@ -339,7 +369,6 @@ const ClientManagePage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        {/* ❌ BOUTON SUPPRESSION SUPPRIMÉ */}
                       </div>
                     </td>
                   </tr>
@@ -470,6 +499,7 @@ const ClientManagePage = () => {
         clientTypes={clientTypes}
         createClient={createClient}
         t={safeT}
+        isArabic={isArabic}
       />
 
       <UpdateClientModal
@@ -480,6 +510,7 @@ const ClientManagePage = () => {
         updateClient={updateClient}
         checkMatriculeFiscale={checkMatriculeFiscale} 
         t={safeT}
+        isArabic={isArabic}
       />
 
       <ClientDetailsModal
@@ -487,10 +518,22 @@ const ClientManagePage = () => {
         onClose={handleDetailsModalClose}
         client={selectedClient}
         t={safeT}
+        isArabic={isArabic}
       />
 
+      {/* Modal de confirmation de suppression */}
+      <ConfirmDeleteModal
+        isOpen={openDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
+        t={safeT}
+        isArabic={isArabic}
+      />
     </div>
   );
+},
+
 };
 
 export default ClientManagePage;

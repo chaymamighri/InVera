@@ -162,8 +162,22 @@ const ValidationCommande = () => {
       setRawCommandes(allCommandes);
 
       const commandesEnAttente = allCommandes.filter((cmd) => cmd.statut === 'BROUILLON');
+      const commandesAvecDetails = await Promise.all(
+        commandesEnAttente.map(async (cmd) => {
+          if (Array.isArray(cmd.lignesCommande) && cmd.lignesCommande.length > 0) {
+            return cmd;
+          }
 
-      const formattedCommandes = commandesEnAttente.map((cmd) => ({
+          try {
+            return await commandeFournisseurService.getCommandeById(cmd.idCommandeFournisseur);
+          } catch (detailsError) {
+            console.error('Erreur chargement lignes commande:', detailsError);
+            return cmd;
+          }
+        })
+      );
+
+      const formattedCommandes = commandesAvecDetails.map((cmd) => ({
         id: cmd.idCommandeFournisseur,
         reference: cmd.numeroCommande || `CMD-${cmd.idCommandeFournisseur}`,
         fournisseur: cmd.fournisseur?.nomFournisseur || cmd.nomFournisseur || '-',
@@ -288,13 +302,23 @@ const ValidationCommande = () => {
     }
   };
 
-  const handleViewDetails = (formattedCommande) => {
-    const rawCommande = rawCommandes.find((c) => c.idCommandeFournisseur === formattedCommande.id);
-    if (rawCommande) {
-      setSelectedCommande(rawCommande);
-      setIsDetailsModalOpen(true);
-    } else {
+  const handleViewDetails = async (formattedCommande) => {
+    const commandeId = formattedCommande?.id;
+    if (!commandeId) {
       toast.error(text.detailsError);
+      return;
+    }
+
+    try {
+      setActionInProgress(`details-${commandeId}`);
+      const commandeComplete = await commandeFournisseurService.getCommandeById(commandeId);
+      setSelectedCommande(commandeComplete);
+      setIsDetailsModalOpen(true);
+    } catch (detailsError) {
+      console.error('Erreur chargement details commande:', detailsError);
+      toast.error(text.detailsError);
+    } finally {
+      setActionInProgress(null);
     }
   };
 

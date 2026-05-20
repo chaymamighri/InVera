@@ -1,14 +1,17 @@
-// components/stock/FilterBar.jsx
 import React from 'react';
+import { useLanguage } from '../../../../../../context/LanguageContext';
 
 const FilterBar = ({ filters, onFilterChange, onReset }) => {
+  const { t } = useLanguage();
+  const tr = (key, params) => t(`dashboard.procurementMovementsPage.${key}`, params);
+
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h3 className="font-medium text-gray-700 mb-4">Filtres</h3>
-      
+      <h3 className="font-medium text-gray-700 mb-4">{tr('filters')}</h3>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Date début</label>
+          <label className="block text-xs text-gray-500 mb-1">{tr('startDate')}</label>
           <input
             type="date"
             value={filters.dateDebut}
@@ -17,7 +20,7 @@ const FilterBar = ({ filters, onFilterChange, onReset }) => {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Date fin</label>
+          <label className="block text-xs text-gray-500 mb-1">{tr('endDate')}</label>
           <input
             type="date"
             value={filters.dateFin}
@@ -26,16 +29,16 @@ const FilterBar = ({ filters, onFilterChange, onReset }) => {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Type</label>
+          <label className="block text-xs text-gray-500 mb-1">{tr('type')}</label>
           <select
             value={filters.type}
             onChange={(e) => onFilterChange('type', e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">Tous les types</option>
-            <option value="ENTREE">Entrées</option>
-            <option value="SORTIE">Sorties</option>
-            <option value="INIT_STOCK">Stock initial</option>  {/* ✅ corrigé */}
+            <option value="">{tr('allTypes')}</option>
+            <option value="ENTREE">{tr('entries')}</option>
+            <option value="SORTIE">{tr('exits')}</option>
+            <option value="INIT_STOCK">{tr('initialStock')}</option>
           </select>
         </div>
         <div className="md:col-span-3 flex justify-end">
@@ -43,7 +46,7 @@ const FilterBar = ({ filters, onFilterChange, onReset }) => {
             onClick={onReset}
             className="px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm transition-colors"
           >
-            Réinitialiser
+            {tr('reset')}
           </button>
         </div>
       </div>

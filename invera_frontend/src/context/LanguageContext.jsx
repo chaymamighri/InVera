@@ -34,6 +34,17 @@ const resolveTranslation = (language, key) => {
   return typeof current === 'string' ? current : null;
 };
 
+const resolveTranslationWithAliases = (language, key) => {
+  const directValue = resolveTranslation(language, key);
+  if (directValue) return directValue;
+
+  if (key.startsWith('salesPages.')) {
+    return resolveTranslation(language, `dashboard.${key}`);
+  }
+
+  return null;
+};
+
 const LanguageContext = createContext(null);
 
 export const LanguageProvider = ({ children }) => {
@@ -105,8 +116,8 @@ export const LanguageProvider = ({ children }) => {
 
   const t = (key, params = {}) => {
     const value =
-      resolveTranslation(language, key) ??
-      resolveTranslation(DEFAULT_LANGUAGE, key) ??
+      resolveTranslationWithAliases(language, key) ??
+      resolveTranslationWithAliases(DEFAULT_LANGUAGE, key) ??
       key;
 
     return interpolate(value, params);

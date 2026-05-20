@@ -9,6 +9,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+import aiImage from "../../assets/images/welcome/ai.png";
+import approvisionnementImage from "../../assets/images/welcome/aprovisionnement.png";
+import factureImage from "../../assets/images/welcome/facture.png";
+import mobileImage from "../../assets/images/welcome/mobile.png";
+import statistiquesImage from "../../assets/images/welcome/statestiques.png";
+import ventesImage from "../../assets/images/welcome/ventes.png";
 import { useLanguage } from "../../context/LanguageContext";
 
 const MoreInformationPage = () => {
@@ -16,47 +22,47 @@ const MoreInformationPage = () => {
 
   const translations = {
     fr: {
-      title: "Découvrez toutes les fonctionnalités",
+      title: "Decouvrez toutes les fonctionnalites",
       description:
-        "Une plateforme ERP moderne conçue pour centraliser toutes les opérations de votre entreprise.",
+        "Une plateforme ERP moderne concue pour centraliser les operations essentielles de votre entreprise.",
 
       statistiques: {
         title: "Statistiques",
-        heading: "Analysez votre activité en temps réel",
+        heading: "Analysez votre activite en temps reel",
         description:
-          "Suivez vos ventes, vos performances commerciales, vos achats et vos indicateurs clés grâce à des tableaux de bord modernes.",
+          "Accedez a des tableaux de bord structures pour suivre les ventes, les achats, la marge et les indicateurs de performance avec une lecture immediate.",
         link: "Voir les statistiques",
       },
 
       documents: {
         title: "Documents",
-        heading: "Centralisez tous vos documents ERP",
+        heading: "Structurez votre facturation et vos documents commerciaux",
         description:
-          "Gérez vos factures, devis, bons de commande et documents commerciaux depuis une seule plateforme.",
+          "Pilotez la facturation, les devis et les documents commerciaux depuis un environnement unique, avec un suivi clair, une organisation rigoureuse et une execution fluide.",
         link: "Voir les documents",
       },
 
       multiplatform: {
         title: "Web & Mobile",
-        heading: "Une expérience multiplateforme",
+        heading: "Une experience multiplateforme",
         description:
-          "Accédez à InVera depuis ordinateur, tablette ou mobile avec une expérience fluide et synchronisée.",
-        link: "Découvrir la plateforme",
+          "Travaillez sur ordinateur, tablette ou mobile avec une interface coherente, des donnees synchronisees et un acces continu aux operations essentielles.",
+        link: "Decouvrir la plateforme",
       },
 
       ai: {
         title: "Assistant AI",
-        heading: "Un assistant intelligent intégré",
+        heading: "Un assistant intelligent integre",
         description:
-          "Interagissez avec un assistant AI capable de répondre aux questions et assister les utilisateurs.",
-        link: "Découvrir AI",
+          "Appuyez-vous sur un assistant integre pour retrouver rapidement l'information utile, orienter les utilisateurs et fluidifier les taches quotidiennes.",
+        link: "Decouvrir AI",
       },
 
       approvisionnement: {
         title: "Approvisionnement",
         heading: "Optimisez vos achats et fournisseurs",
         description:
-          "Pilotez vos commandes fournisseurs, vos stocks et vos approvisionnements avec une visibilité complète.",
+          "Structurez les demandes d'achat, les commandes fournisseurs et le suivi des stocks avec une visibilite complete sur les engagements.",
         link: "Voir approvisionnement",
       },
 
@@ -64,7 +70,7 @@ const MoreInformationPage = () => {
         title: "Ventes",
         heading: "Boostez votre performance commerciale",
         description:
-          "Suivez vos ventes, vos clients et vos opérations commerciales avec des outils modernes.",
+          "Supervisez le cycle commercial, du prospect au document final, avec un suivi clair des clients, des opportunites et des resultats.",
         link: "Voir les ventes",
       },
     },
@@ -72,21 +78,21 @@ const MoreInformationPage = () => {
     en: {
       title: "Discover all features",
       description:
-        "A modern ERP platform designed to centralize all your business operations.",
+        "A modern ERP platform designed to centralize the essential operations of your business.",
 
       statistiques: {
         title: "Statistics",
         heading: "Analyze your business in real time",
         description:
-          "Track sales, purchases, and KPIs with modern dashboards.",
+          "Use structured dashboards to monitor sales, purchasing, margins, and core performance indicators with immediate clarity.",
         link: "View statistics",
       },
 
       documents: {
         title: "Documents",
-        heading: "Centralize all your ERP documents",
+        heading: "Structure invoicing and commercial documents in one flow",
         description:
-          "Manage invoices, quotations, and commercial documents from one platform.",
+          "Manage invoicing, quotations, and commercial documents from one controlled environment with clear follow-up, stronger organization, and smoother execution.",
         link: "View documents",
       },
 
@@ -94,7 +100,7 @@ const MoreInformationPage = () => {
         title: "Web & Mobile",
         heading: "A multiplatform experience",
         description:
-          "Access InVera from desktop, tablet, or mobile seamlessly.",
+          "Work from desktop, tablet, or mobile with a consistent interface, synchronized data, and continuous access to key operations.",
         link: "Discover platform",
       },
 
@@ -102,7 +108,7 @@ const MoreInformationPage = () => {
         title: "AI Assistant",
         heading: "An integrated intelligent assistant",
         description:
-          "Interact with an AI assistant capable of answering questions and helping users.",
+          "Rely on an integrated assistant to surface useful information faster, guide users, and streamline recurring daily tasks.",
         link: "Discover AI",
       },
 
@@ -110,7 +116,7 @@ const MoreInformationPage = () => {
         title: "Procurement",
         heading: "Optimize purchasing and suppliers",
         description:
-          "Manage supplier orders and procurement operations efficiently.",
+          "Structure purchase requests, supplier orders, and stock follow-up with full visibility into procurement commitments.",
         link: "View procurement",
       },
 
@@ -118,7 +124,7 @@ const MoreInformationPage = () => {
         title: "Sales",
         heading: "Boost your sales performance",
         description:
-          "Track sales and customers with modern tools.",
+          "Oversee the commercial cycle from lead to final document with clear tracking of customers, opportunities, and outcomes.",
         link: "View sales",
       },
     },
@@ -126,29 +132,29 @@ const MoreInformationPage = () => {
     ar: {
       title: "اكتشف جميع الميزات",
       description:
-        "منصة ERP حديثة مصممة لتجميع جميع عمليات مؤسستك.",
+        "منصة ERP حديثة مصممة لتجميع العمليات الاساسية لمؤسستك داخل بيئة عمل واحدة.",
 
       statistiques: {
-        title: "الإحصائيات",
-        heading: "حلّل نشاطك في الوقت الحقيقي",
+        title: "الاحصائيات",
+        heading: "حلل نشاطك في الوقت الحقيقي",
         description:
-          "تابع المبيعات والمشتريات ومؤشرات الأداء عبر لوحات تحكم حديثة.",
-        link: "عرض الإحصائيات",
+          "اطلع على لوحات قيادة منظمة لمتابعة المبيعات والمشتريات والهامش ومؤشرات الاداء بوضوح وسرعة.",
+        link: "عرض الاحصائيات",
       },
 
       documents: {
         title: "الوثائق",
-        heading: "مركزة جميع وثائق ERP الخاصة بك",
+        heading: "نظم الفوترة والوثائق التجارية داخل مسار واحد",
         description:
-          "قم بإدارة الفواتير ووثائقك التجارية من منصة واحدة.",
+          "ادر الفوترة وعروض الاسعار والوثائق التجارية من داخل بيئة موحدة توفر متابعة واضحة وتنظيما ادق وتنفيذا اكثر سلاسة.",
         link: "عرض الوثائق",
       },
 
       multiplatform: {
-        title: "ويب و موبايل",
+        title: "ويب وموبايل",
         heading: "تجربة متعددة المنصات",
         description:
-          "استخدم InVera من الكمبيوتر أو الهاتف بسهولة.",
+          "اعمل من الكمبيوتر او الجهاز اللوحي او الهاتف بواجهة موحدة وبيانات متزامنة ووصول مستمر للعمليات الاساسية.",
         link: "اكتشف المنصة",
       },
 
@@ -156,23 +162,23 @@ const MoreInformationPage = () => {
         title: "المساعد الذكي",
         heading: "مساعد ذكي مدمج",
         description:
-          "تفاعل مع مساعد ذكي قادر على الإجابة عن الأسئلة.",
+          "استفد من مساعد مدمج للوصول السريع الى المعلومات وتوجيه المستخدمين وتسريع المهام اليومية المتكررة.",
         link: "اكتشف الذكاء الاصطناعي",
       },
 
       approvisionnement: {
         title: "التزويد",
-        heading: "قم بتحسين عمليات الشراء",
+        heading: "حسن عمليات الشراء",
         description:
-          "تحكم في الموردين والمخزون وعمليات التزويد.",
+          "نظم طلبات الشراء واوامر الموردين ومتابعة المخزون مع رؤية كاملة للالتزامات واحتياجات التزويد.",
         link: "عرض التزويد",
       },
 
       ventes: {
         title: "المبيعات",
-        heading: "طوّر أداءك التجاري",
+        heading: "طور اداءك التجاري",
         description:
-          "تابع المبيعات والعملاء باستخدام أدوات حديثة.",
+          "ادر الدورة التجارية من الفرصة الى الوثيقة النهائية مع متابعة واضحة للعملاء والنتائج التجارية.",
         link: "عرض المبيعات",
       },
     },
@@ -184,69 +190,47 @@ const MoreInformationPage = () => {
     {
       id: "documents",
       icon: <FileText size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1200&auto=format&fit=crop",
+      image: factureImage,
     },
-
     {
       id: "statistiques",
       icon: <BarChart3 size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&auto=format&fit=crop",
+      image: statistiquesImage,
     },
-
     {
       id: "multiplatform",
       icon: <Smartphone size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1200&auto=format&fit=crop",
+      image: mobileImage,
     },
-
     {
       id: "ai",
       icon: <Bot size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=1200&auto=format&fit=crop",
+      image: aiImage,
     },
-
     {
       id: "approvisionnement",
       icon: <ShoppingCart size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop",
+      image: approvisionnementImage,
     },
-
     {
       id: "ventes",
       icon: <TrendingUp size={18} />,
-      image:
-        "https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=1200&auto=format&fit=crop",
+      image: ventesImage,
     },
   ];
 
   const [activeTab, setActiveTab] = useState("documents");
 
-  const activeContent = tabs.find(
-    (tab) => tab.id === activeTab
-  );
-
+  const activeContent = tabs.find((tab) => tab.id === activeTab);
   const current = t[activeTab];
-  const currentIndex = tabs.findIndex(
-    (tab) => tab.id === activeTab
-  );
-  const nextTab =
-    tabs[(currentIndex + 1) % tabs.length];
+  const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const nextTab = tabs[(currentIndex + 1) % tabs.length];
   const nextContent = t[nextTab.id];
 
   return (
     <section className="w-full bg-[#f8fbff] py-24">
-
       <div className="max-w-[1550px] mx-auto px-5 lg:px-8">
-
-        {/* TITLE */}
-
         <div className="text-center mb-14">
-
           <h2 className="text-4xl font-bold text-slate-900 md:text-[42px]">
             {t.title}
           </h2>
@@ -254,15 +238,10 @@ const MoreInformationPage = () => {
           <p className="mt-4 text-base text-slate-600 max-w-3xl mx-auto md:text-lg">
             {t.description}
           </p>
-
         </div>
 
-        {/* BUTTONS */}
-
         <div className="flex flex-wrap justify-center gap-4 mb-12">
-
           {tabs.map((tab) => {
-
             const isActive = activeTab === tab.id;
 
             return (
@@ -280,32 +259,20 @@ const MoreInformationPage = () => {
                 `}
               >
                 {tab.icon}
-
                 {t[tab.id].title}
               </button>
             );
           })}
-
         </div>
 
-        {/* STANDARD CARD */}
-
         <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.08)]">
-
           <div className="grid lg:grid-cols-2 min-h-[460px]">
-
-            {/* LEFT */}
-
             <div className="flex items-center">
-
               <div className="px-10 py-10 lg:px-12">
-
                 <div className="mb-6">
-
                   <h3 className="max-w-[560px] text-[34px] leading-[1.12] font-bold text-[#071437] lg:text-[40px]">
                     {current.heading}
                   </h3>
-
                 </div>
 
                 <p className="max-w-[620px] text-[18px] leading-[34px] text-slate-500">
@@ -318,32 +285,21 @@ const MoreInformationPage = () => {
                   className="mt-9 flex items-center gap-2 text-[17px] font-semibold text-[#3b82f6] hover:text-[#2563eb] transition-all"
                 >
                   {nextContent.link}
-
                   <ChevronRight size={22} />
                 </button>
-
               </div>
-
             </div>
 
-            {/* RIGHT */}
-
             <div className="relative bg-[#f4f8ff] min-h-[460px]">
-
               <img
                 src={activeContent.image}
                 alt={current.title}
                 className="absolute inset-0 h-full w-full object-cover"
               />
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </section>
   );
 };

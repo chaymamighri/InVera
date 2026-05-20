@@ -35,7 +35,25 @@ const DEFAULT_TRANSLATIONS = {
   'salesPages.reject': 'Annuler',
   'salesPages.noOrdersFound': 'Aucune commande trouvée',
   'salesPages.noOrdersMatch': 'Aucune commande ne correspond à vos critères de recherche.',
-  'salesPages.processed': 'Traitée'
+  'salesPages.processed': 'Traitée',
+  'salesPages.unknownDate': 'Date inconnue',
+  'salesPages.unknownClient': 'Client inconnu',
+  'salesPages.noProduct': 'Aucun produit',
+  'salesPages.productCount': '{{count}} produit(s)',
+  'salesPages.otherCount': '{{count}} autre(s)',
+  'salesPages.ordersFound': '{{count}} commande(s) trouvée(s)',
+  'salesPages.ordersDisplayed': '{{count}} affichée(s)',
+  'salesPages.paginationInfo': 'Affichage de {{start}} à {{end}} sur {{total}} commandes',
+  'salesPages.show': 'Afficher',
+  'salesPages.perPage': 'par page',
+  'salesPages.previousPage': 'Page précédente',
+  'salesPages.nextPage': 'Page suivante',
+  'salesPages.stockInsufficient': 'Stock insuffisant',
+  'salesPages.cannotValidateOrder': 'Impossible de valider cette commande',
+  'salesPages.solution': 'Solution',
+  'salesPages.restockBeforeValidate': 'Rapprovisionnez le stock avant de valider la commande.',
+  'salesPages.close': 'Fermer',
+  'salesPages.currencyLower': 'dt'
 };
 
 // ✅ Mapping des statuts pour l'affichage
@@ -69,14 +87,16 @@ const OrderTable = ({
   toNumber = (value) => Number(value) || 0,
   validationError,
   setValidationError = () => {},
-  t
+  t,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
-  const safeT = (key) => {
+  const safeT = (key, params) => {
     if (typeof t !== 'function') {
       return DEFAULT_TRANSLATIONS[key] || key;
     }
 
-    const translated = t(key);
+    const translated = t(key, params);
     return !translated || translated === key
       ? (DEFAULT_TRANSLATIONS[key] || key)
       : translated;
@@ -86,11 +106,11 @@ const OrderTable = ({
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Date inconnue';
+    if (!dateString) return safeT('salesPages.unknownDate');
 
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -103,10 +123,10 @@ const OrderTable = ({
   };
 
   const formatMontant = (montant) => {
-    return toNumber(montant).toLocaleString('fr-TN', {
+    return toNumber(montant).toLocaleString(locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }) + ' dt';
+    }) + ` ${safeT('salesPages.currencyLower')}`;
   };
 
   const calculerPourcentageRemise = (sousTotal, remise) => {
@@ -201,7 +221,7 @@ const OrderTable = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
       {validationError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -211,7 +231,7 @@ const OrderTable = ({
                   <ExclamationTriangleIcon className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">
-                  Stock insuffisant
+                  {safeT('salesPages.stockInsufficient')}
                 </h3>
               </div>
             </div>
@@ -223,7 +243,7 @@ const OrderTable = ({
                 </div>
                 <div>
                   <p className="text-gray-800 font-medium mb-1">
-                    Impossible de valider cette commande
+                    {safeT('salesPages.cannotValidateOrder')}
                   </p>
                   <p className="text-gray-600 text-sm">
                     {validationError}
@@ -233,7 +253,7 @@ const OrderTable = ({
 
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-red-700">
-                  <span className="font-medium">💡 Solution :</span> Rapprovisionnez le stock avant de valider la commande.
+                  <span className="font-medium">{safeT('salesPages.solution')}:</span> {safeT('salesPages.restockBeforeValidate')}
                 </p>
               </div>
 
@@ -242,7 +262,7 @@ const OrderTable = ({
                 onClick={closeErrorPopup}
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
-                Fermer
+                {safeT('salesPages.close')}
               </button>
             </div>
           </div>
@@ -253,8 +273,8 @@ const OrderTable = ({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600 mt-1">
-              {commandes.length} commande{commandes.length !== 1 ? 's' : ''} trouvée{commandes.length !== 1 ? 's' : ''}
-              {currentCommandes.length < commandes.length && ` (${currentCommandes.length} affichées)`}
+              {safeT('salesPages.ordersFound', { count: commandes.length })}
+              {currentCommandes.length < commandes.length && ` (${safeT('salesPages.ordersDisplayed', { count: currentCommandes.length })})`}
             </p>
           </div>
         </div>
@@ -354,7 +374,7 @@ const OrderTable = ({
                       <div className="font-medium text-gray-900 text-sm flex items-center">
                         <UserCircleIcon className="h-3 w-3 text-gray-400 mr-1.5" />
                         <span className="truncate max-w-[120px]">
-                          {commande.client?.prenom} {commande.client?.nom || 'Client inconnu'}
+                          {commande.client?.prenom} {commande.client?.nom || safeT('salesPages.unknownClient')}
                         </span>
                       </div>
                       {commande.client?.typeClient && (
@@ -380,13 +400,13 @@ const OrderTable = ({
                         <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-1.5">
                           {commande.produits?.length || 0}
                         </span>
-                        produit{commande.produits?.length !== 1 ? 's' : ''}
+                        {safeT('salesPages.productCount', { count: commande.produits?.length || 0 })}
                       </div>
 
                       <div className="text-xs text-gray-500 mt-1 truncate max-w-[180px]">
                         {(() => {
                           if (!commande.produits || commande.produits.length === 0) {
-                            return <span className="text-gray-400 italic">Aucun produit</span>;
+                            return <span className="text-gray-400 italic">{safeT('salesPages.noProduct')}</span>;
                           }
 
                           const produitsAAfficher = commande.produits
@@ -394,7 +414,7 @@ const OrderTable = ({
                             .slice(0, 2);
 
                           if (produitsAAfficher.length === 0) {
-                            return `${commande.produits.length} produit(s)`;
+                            return safeT('salesPages.productCount', { count: commande.produits.length });
                           }
 
                           const affichage = produitsAAfficher.map((p) => {
@@ -403,7 +423,7 @@ const OrderTable = ({
                           }).join(', ');
 
                           if (commande.produits.length > 2) {
-                            return `${affichage} + ${commande.produits.length - 2} autre(s)`;
+                            return `${affichage} + ${safeT('salesPages.otherCount', { count: commande.produits.length - 2 })}`;
                           }
 
                           return affichage;
@@ -509,14 +529,12 @@ const OrderTable = ({
         <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="text-sm text-gray-700">
-              Affichage de <span className="font-medium">{startIndex + 1}</span> à{' '}
-              <span className="font-medium">{endIndex}</span> sur{' '}
-              <span className="font-medium">{commandes.length}</span> commandes
+              {safeT('salesPages.paginationInfo', { start: startIndex + 1, end: endIndex, total: commandes.length })}
             </div>
 
             <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="text-sm text-gray-700 flex items-center">
-                <span className="mr-2">Afficher :</span>
+                <span className={isArabic ? 'ml-2' : 'mr-2'}>{safeT('salesPages.show')}:</span>
                 <select
                   value={itemsPerPage}
                   onChange={handleItemsPerPageChange}
@@ -528,7 +546,7 @@ const OrderTable = ({
                   <option value="50">50</option>
                   <option value="100">100</option>
                 </select>
-                <span className="ml-2">par page</span>
+                <span className={isArabic ? 'mr-2' : 'ml-2'}>{safeT('salesPages.perPage')}</span>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -541,7 +559,7 @@ const OrderTable = ({
                       ? 'border-gray-200 text-gray-400 cursor-not-allowed'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400'
                   } transition-colors`}
-                  aria-label="Page précédente"
+                  aria-label={safeT('salesPages.previousPage')}
                 >
                   <ChevronLeftIcon className="h-4 w-4" />
                 </button>
@@ -582,7 +600,7 @@ const OrderTable = ({
                       ? 'border-gray-200 text-gray-400 cursor-not-allowed'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400'
                   } transition-colors`}
-                  aria-label="Page suivante"
+                  aria-label={safeT('salesPages.nextPage')}
                 >
                   <ChevronRightIcon className="h-4 w-4" />
                 </button>

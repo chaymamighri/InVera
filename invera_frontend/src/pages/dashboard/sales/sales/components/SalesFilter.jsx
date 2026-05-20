@@ -6,12 +6,15 @@
  * FONCTIONNALITÉS :
  * - Recherche par texte (n° commande, client, produit)
  * - Filtre par date de création
+ * - Tri des résultats
  * - Réinitialisation des filtres
  * - Affichage des filtres actifs
  * 
  * @param {Object} filters - État des filtres
  * @param {string} filters.searchTerm - Terme de recherche
  * @param {Object} filters.dateRange - Plage de dates { from, to }
+ * @param {string} filters.sortBy - Champ de tri
+ * @param {string} filters.sortOrder - Ordre de tri ('asc' ou 'desc')
  * @param {Function} onFilterChange - (key, value) => void
  * @param {number} totalFiltered - Nombre de résultats après filtrage
  */
@@ -22,14 +25,32 @@ import {
   CalendarIcon,
   FunnelIcon,
   ArrowPathIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowsUpDownIcon
 } from '@heroicons/react/24/outline';
 
-const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
+const SalesFilters = ({ 
+  filters, 
+  onFilterChange, 
+  totalFiltered = 0, 
+  t = (key) => key, 
+  locale = 'fr-FR', 
+  isArabic = false 
+}) => {
+  // Options de tri disponibles
+  const sortOptions = [
+    { value: 'date_creation', label: t('creationDate') },
+    { value: 'numero_commande', label: t('orderNumber') },
+    { value: 'client', label: t('client') },
+    { value: 'montant', label: t('amount') }
+  ];
+
   // Valeurs par défaut des filtres
   const defaultFilters = {
     searchTerm: '',
-    dateRange: { from: '', to: '' }
+    dateRange: { from: '', to: '' },
+    sortBy: 'date_creation',
+    sortOrder: 'desc'
   };
 
   // Vérifie si des filtres sont actifs (recherche ou date)
@@ -38,10 +59,18 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
            filters.dateRange?.from?.trim() !== '';
   };
 
+  // Vérifie si le tri est modifié par rapport aux valeurs par défaut
+  const isSortModified = () => {
+    return filters.sortBy !== defaultFilters.sortBy || 
+           filters.sortOrder !== defaultFilters.sortOrder;
+  };
+
   // Réinitialise tous les filtres
   const handleReset = () => {
     onFilterChange('searchTerm', defaultFilters.searchTerm);
     onFilterChange('dateRange', defaultFilters.dateRange);
+    onFilterChange('sortBy', defaultFilters.sortBy);
+    onFilterChange('sortOrder', defaultFilters.sortOrder);
   };
 
   // Gère le changement de date
@@ -55,13 +84,18 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
     onFilterChange('dateRange', { from: '', to: '' });
   };
 
+  // Inverse l'ordre de tri
+  const handleSortToggle = () => {
+    onFilterChange('sortOrder', filters.sortOrder === 'desc' ? 'asc' : 'desc');
+  };
+
   // Formate une date pour l'affichage (ex: "15 janvier 2024")
   const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString;
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric'
@@ -74,13 +108,13 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
   // Génère le libellé des filtres actifs (ex: "recherche & date")
   const getActiveFilterLabel = () => {
     const activeFilters = [];
-    if (filters.searchTerm) activeFilters.push('recherche');
-    if (filters.dateRange?.from) activeFilters.push('date');
+    if (filters.searchTerm) activeFilters.push(t('search'));
+    if (filters.dateRange?.from) activeFilters.push(t('date'));
     return activeFilters.join(' & ');
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200" dir={isArabic ? 'rtl' : 'ltr'}>
       
       {/* ===== EN-TÊTE ===== */}
       <div className="flex items-center justify-between mb-6">
@@ -100,7 +134,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           
           <div>
             <h3 className="font-semibold text-gray-900">
-              Filtres de commandes
+              {t('orderFilters')}
               {hasActiveFilters() && (
                 <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
                   {getActiveFilterLabel()}
@@ -109,8 +143,8 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             </h3>
             <p className="text-sm text-gray-500 mt-0.5">
               {hasActiveFilters() 
-                ? `${totalFiltered} commande${totalFiltered > 1 ? 's' : ''} trouvée${totalFiltered > 1 ? 's' : ''}`
-                : 'Filtrer les commandes validées'
+                ? t('ordersFound', { count: totalFiltered })
+                : t('filterValidatedOrders')
               }
             </p>
           </div>
@@ -129,18 +163,18 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                       hover:shadow-md active:scale-95"
           >
             <ArrowPathIcon className="h-4 w-4" />
-            Réinitialiser
+            {t('reset')}
           </button>
         )}
       </div>
 
       {/* ===== CHAMPS DE FILTRAGE ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         
         {/* 1. Recherche textuelle */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Rechercher
+            {t('search')}
           </label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -150,7 +184,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
             </div>
             <input
               type="text"
-              placeholder="N° commande, client..."
+              placeholder={t('searchOrderPlaceholder')}
               className={`w-full pl-10 pr-10 py-2.5 border rounded-lg transition-all duration-200
                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                         hover:border-gray-400
@@ -166,7 +200,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 onClick={() => onFilterChange('searchTerm', '')}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center
                          text-gray-400 hover:text-gray-600 transition-colors"
-                title="Effacer la recherche"
+                title={t('clearSearch')}
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
@@ -175,7 +209,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {filters.searchTerm && (
             <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-blue-600 rounded-full"></span>
-              Recherche : "{filters.searchTerm}"
+              {t('searchFilterLabel', { value: filters.searchTerm })}
             </p>
           )}
         </div>
@@ -183,7 +217,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
         {/* 2. Filtre par date */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Date de création
+            {t('creationDate')}
           </label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -208,7 +242,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 onClick={handleClearDate}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center
                          text-gray-400 hover:text-gray-600 transition-colors"
-                title="Effacer la date"
+                title={t('clearDate')}
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
@@ -220,6 +254,71 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               {formatDate(filters.dateRange.from)}
             </p>
           )}
+        </div>
+
+        {/* 3. Tri */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            {t('sortBy')}
+          </label>
+          <div className="flex gap-2">
+            {/* Sélecteur du champ de tri */}
+            <div className="relative flex-1 group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <ArrowsUpDownIcon className={`h-5 w-5 transition-colors duration-200 ${
+                  isSortModified() ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                }`} />
+              </div>
+              <select
+                className={`w-full pl-10 pr-8 py-2.5 border rounded-lg 
+                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                         transition-all duration-200 hover:border-gray-400 
+                         appearance-none bg-white cursor-pointer
+                         ${isSortModified() 
+                           ? 'border-blue-300 bg-blue-50/30 ring-1 ring-blue-200' 
+                           : 'border-gray-300'
+                         }`}
+                value={filters.sortBy || 'date_creation'}
+                onChange={(e) => onFilterChange('sortBy', e.target.value)}
+              >
+                {sortOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Bouton d'inversion de l'ordre (asc/desc) */}
+            <button
+              onClick={handleSortToggle}
+              className={`
+                flex items-center justify-center w-12 px-3 py-2.5 border rounded-lg 
+                transition-all duration-200 hover:shadow-md active:scale-95
+                ${filters.sortOrder === 'desc' 
+                  ? 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300 text-gray-700 hover:from-gray-100 hover:to-gray-200' 
+                  : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-indigo-100'
+                }
+                ${isSortModified() ? 'ring-1 ring-offset-1 ring-blue-200' : ''}
+              `}
+              title={filters.sortOrder === 'desc' ? t('descendingOrder') : t('ascendingOrder')}
+            >
+              {filters.sortOrder === 'desc' ? (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13l-7 7-7-7m14-8l-7 7-7-7" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 11l7-7 7 7M5 19l7-7 7 7" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -233,12 +332,12 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
               </span>
               <span className="text-sm font-semibold text-gray-700">
-                Filtres appliqués
+                {t('appliedFilters')}
               </span>
               <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium">
                 {[
-                  filters.searchTerm && 'R',
-                  filters.dateRange?.from && 'D'
+                  filters.searchTerm && t('searchShort'),
+                  filters.dateRange?.from && t('dateShort')
                 ].filter(Boolean).join('')}
               </span>
             </div>
@@ -254,14 +353,14 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                             hover:shadow-md transition-shadow duration-200
                             animate-slideIn">
                 <MagnifyingGlassIcon className="h-3.5 w-3.5" />
-                <span className="font-medium">Recherche:</span>
+                <span className="font-medium">{t('search')}:</span>
                 <span className="truncate max-w-[150px] font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded">
                   "{filters.searchTerm}"
                 </span>
                 <button
                   onClick={() => onFilterChange('searchTerm', '')}
                   className="ml-1 p-0.5 hover:bg-blue-200/50 rounded transition-colors"
-                  title="Supprimer ce filtre"
+                  title={t('removeFilter')}
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
@@ -277,14 +376,14 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
                             hover:shadow-md transition-shadow duration-200
                             animate-slideIn">
                 <CalendarIcon className="h-3.5 w-3.5" />
-                <span className="font-medium">Date:</span>
+                <span className="font-medium">{t('date')}:</span>
                 <span className="bg-white/70 px-1.5 py-0.5 rounded text-xs font-mono">
                   {formatDate(filters.dateRange.from)}
                 </span>
                 <button
                   onClick={handleClearDate}
                   className="ml-1 p-0.5 hover:bg-emerald-200/50 rounded transition-colors"
-                  title="Supprimer ce filtre"
+                  title={t('removeFilter')}
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
@@ -295,11 +394,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {/* Indicateur de nombre de résultats */}
           <div className="mt-3 text-xs text-gray-500 flex items-center gap-2">
             <span className="font-medium text-gray-700">{totalFiltered}</span>
-            <span>commande{totalFiltered > 1 ? 's' : ''} trouvée{totalFiltered > 1 ? 's' : ''}</span>
+            <span>{t('ordersFound', { count: totalFiltered })}</span>
             {totalFiltered === 0 && (
               <span className="text-amber-600 flex items-center gap-1">
                 <span className="w-1 h-1 bg-amber-600 rounded-full"></span>
-                Aucun résultat
+                {t('noResult')}
               </span>
             )}
           </div>
@@ -316,11 +415,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
               <div className="absolute inset-0 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-20"></div>
             </div>
             <span className="text-sm text-gray-600">
-              État des commandes :
+              {t('ordersState')}:
               <span className="ml-1.5 px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 
                              text-white text-xs font-medium rounded-full 
                              shadow-sm shadow-emerald-200">
-                Validée ✓
+                {t('validated')}
               </span>
             </span>
           </div>
@@ -329,28 +428,28 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0 }) => {
           {!hasActiveFilters() && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
-              Toutes les commandes
+              {t('allOrders')}
             </span>
           )}
           
           {hasActiveFilters() && totalFiltered > 0 && (
             <span className="text-xs text-blue-600 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-blue-600 rounded-full"></span>
-              {totalFiltered} résultat{totalFiltered > 1 ? 's' : ''}
+              {t('resultsCount', { count: totalFiltered })}
             </span>
           )}
           
           {hasActiveFilters() && totalFiltered === 0 && (
             <span className="text-xs text-amber-600 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-amber-600 rounded-full"></span>
-              Aucun résultat
+              {t('noResult')}
             </span>
           )}
         </div>
       </div>
 
       {/* Animations CSS */}
-      <style >{`
+      <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }

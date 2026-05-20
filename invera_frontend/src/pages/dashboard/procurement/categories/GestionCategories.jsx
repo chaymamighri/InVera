@@ -1,9 +1,9 @@
 /**
- * GestionCategories - Gestion des catégories de produits
- * 
- * RÔLE : Gérer les catégories de produits (CRUD)
+ * GestionCategories - Gestion des categories de produits
+ *
+ * ROLE : Gerer les categories de produits (CRUD)
  * ROUTE : /dashboard/procurement/categories
- * 
+ *
  * FONCTIONNALITÉS :
  * - Liste des catégories avec tableau
  * - Création de catégorie (nom, description, taux TVA, remise standard)
@@ -18,12 +18,14 @@ import {
   PlusIcon, 
   PencilIcon, 
   XMarkIcon, 
-  TagIcon   // ✅ Remplacé PercentIcon par TagIcon (existe dans Heroicons)
+  TagIcon
 } from '@heroicons/react/24/outline';
-import categorieService from '../../../../services/categorieService';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../../../../context/LanguageContext';
+import categorieService from '../../../../services/categorieService';
 
 const GestionCategories = () => {
+  const { t, isArabic } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,20 +36,17 @@ const GestionCategories = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
-  // États pour le modal de confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
 
-  // Récupérer toutes les catégories
   const fetchCategories = async () => {
     setLoading(true);
     try {
       const data = await categorieService.getAllCategories();
       setCategories(data);
     } catch (err) {
-      console.error('Erreur lors du chargement des catégories:', err);
-      toast.error(err.message || 'Impossible de charger les catégories');
+      console.error('Erreur lors du chargement des categories:', err);
+      toast.error(err.message || t('dashboard.procurementCategoriesPage.loadError'));
     } finally {
       setLoading(false);
     }
@@ -57,7 +56,6 @@ const GestionCategories = () => {
     fetchCategories();
   }, []);
 
-  // Réinitialiser le formulaire
   const resetForm = () => {
     setFormData({
       nomCategorie: '',
@@ -69,7 +67,6 @@ const GestionCategories = () => {
     setEditingId(null);
   };
 
-  // Gérer les changements dans le formulaire
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let parsedValue = value;
@@ -85,7 +82,6 @@ const GestionCategories = () => {
     }));
   };
 
-  // Préparer le formulaire pour la modification
   const handleEdit = (categorie) => {
     setFormData({
       nomCategorie: categorie.nomCategorie,
@@ -95,22 +91,14 @@ const GestionCategories = () => {
     });
     setIsEditing(true);
     setEditingId(categorie.idCategorie);
-    // Scroll vers le formulaire
     document.getElementById('form-categorie')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Annuler la modification
-  const handleCancelEdit = () => {
-    resetForm();
-  };
-
-  // Ajouter ou modifier une catégorie
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation
     if (!formData.nomCategorie.trim()) {
-      toast.error('Le nom de la catégorie est requis');
+      toast.error(t('dashboard.procurementCategoriesPage.nameRequired'));
       return;
     }
 
@@ -135,86 +123,85 @@ const GestionCategories = () => {
       };
 
       if (isEditing) {
-        // Mode modification
         await categorieService.updateCategorie(editingId, payload);
         toast.success(`✏️ Catégorie "${formData.nomCategorie}" modifiée avec succès !`);
       } else {
-        // Mode création
         await categorieService.createCategorie(payload);
         toast.success(`✅ Catégorie "${formData.nomCategorie}" ajoutée avec succès !`);
       }
-      
-      // Réinitialiser le formulaire
+
       resetForm();
-      // Rafraîchir la liste
       fetchCategories();
     } catch (err) {
-      console.error('Erreur lors de l\'opération:', err);
-      toast.error(err.message || 'Erreur lors de l\'opération');
+      console.error("Erreur lors de l'operation:", err);
+      toast.error(err.message || t('dashboard.procurementCategoriesPage.operationError'));
     }
   };
 
-  // Ouvrir le modal de confirmation de suppression
   const openDeleteModal = (categorie) => {
     setCategoryToDelete(categorie);
     setShowDeleteModal(true);
   };
 
-  // Fermer le modal
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setCategoryToDelete(null);
   };
 
-  // Supprimer une catégorie
   const handleDelete = async () => {
     if (!categoryToDelete) return;
 
     try {
       await categorieService.deleteCategorie(categoryToDelete.idCategorie);
-      toast.success(`🗑️ Catégorie "${categoryToDelete.nomCategorie}" supprimée avec succès !`);
+      toast.success(
+        `🗑️ Catégorie "${categoryToDelete.nomCategorie}" supprimée avec succès !`
+      );
       fetchCategories();
       closeDeleteModal();
     } catch (err) {
       console.error('Erreur lors de la suppression:', err);
-      toast.error(err.message || '❌ Erreur lors de la suppression de la catégorie');
+      toast.error(err.message || t('dashboard.procurementCategoriesPage.deleteError'));
     }
   };
 
+  const direction = isArabic ? 'rtl' : 'ltr';
+  const textAlign = isArabic ? 'text-right' : '';
+
   return (
-    <div className="space-y-6">
-      {/* Modal de confirmation de suppression */}
+    <div className={`space-y-6 ${textAlign}`} dir={direction}>
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Confirmer la suppression</h3>
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Confirmer la suppression
+              </h3>
               <button
                 onClick={closeDeleteModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 transition-colors hover:text-gray-600"
               >
-                <XMarkIcon className="w-6 h-6" />
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             <div className="mb-6">
               <p className="text-gray-700">
-                Êtes-vous sûr de vouloir supprimer la catégorie 
-                <span className="font-semibold text-red-600"> "{categoryToDelete?.nomCategorie}"</span> ?
+                Êtes-vous sûr de vouloir supprimer la catégorie{' '}
+                <span className="font-semibold">{categoryToDelete?.nomCategorie}</span> ?
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Cette action est irréversible. Les produits associés à cette catégorie ne seront pas supprimés.
+              <p className="mt-2 text-sm text-gray-500">
+                Cette action est irréversible et peut affecter les produits associés.
               </p>
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={closeDeleteModal}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300"
               >
                 Annuler
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
               >
                 Supprimer
               </button>
@@ -224,36 +211,36 @@ const GestionCategories = () => {
       )}
 
       {/* Formulaire d'ajout/modification */}
-      <div id="form-categorie" className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+      <div id="form-categorie" className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             {isEditing ? (
               <>
-                <PencilIcon className="w-5 h-5 mr-2 text-yellow-600" />
+                <PencilIcon className="h-5 w-5 text-yellow-600" />
                 Modifier la catégorie
               </>
             ) : (
               <>
-                <PlusIcon className="w-5 h-5 mr-2 text-green-600" />
-                Ajouter une nouvelle catégorie
+                <PlusIcon className="h-5 w-5 text-green-600" />
+                Ajouter une catégorie
               </>
             )}
           </h2>
           {isEditing && (
             <button
-              onClick={handleCancelEdit}
-              className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+              onClick={resetForm}
+              className="rounded-lg px-3 py-1 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             >
               Annuler
             </button>
           )}
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Nom de la catégorie */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Nom de la catégorie <span className="text-red-500">*</span>
               </label>
               <input
@@ -261,36 +248,38 @@ const GestionCategories = () => {
                 name="nomCategorie"
                 value={formData.nomCategorie}
                 onChange={handleInputChange}
-                placeholder="Ex: Électronique, Vêtements, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Ex: Électronique, Vêtements..."
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                 required
               />
             </div>
 
-            {/* Taux de TVA */}
+            {/* Taux TVA */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Taux de TVA (%) <span className="text-red-500">*</span>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Taux TVA (%) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
                 name="tauxTVA"
                 value={formData.tauxTVA}
                 onChange={handleInputChange}
-                placeholder="Ex: 20, 10, 5.5"
+                placeholder="Ex: 19, 20, 7"
                 step="0.01"
                 min="0"
                 max="100"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                 required
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Taux de TVA applicable aux produits de cette catégorie
+              </p>
             </div>
 
             {/* Remise standard */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Remise standard (%) 
-                <span className="text-gray-400 text-xs ml-1"></span>
               </label>
               <div className="relative">
                 <input
@@ -302,19 +291,18 @@ const GestionCategories = () => {
                   step="0.1"
                   min="0"
                   max="100"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pr-10"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 focus:border-transparent focus:ring-2 focus:ring-green-500"
                 />
-                <TagIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <TagIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs text-gray-500">
                 Remise automatique appliquée à tous les produits de cette catégorie
               </p>
             </div>
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Description
             </label>
             <textarea
@@ -323,29 +311,28 @@ const GestionCategories = () => {
               onChange={handleInputChange}
               rows="3"
               placeholder="Description de la catégorie..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
             />
           </div>
 
-          {/* Bouton d'ajout/modification */}
           <div className="flex justify-end">
             <button
               type="submit"
-              className={`px-6 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 ${
+              className={`flex items-center gap-2 rounded-lg px-6 py-2 text-white transition-all duration-200 ${
                 isEditing
                   ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700'
                   : 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600'
-              } text-white`}
+              }`}
             >
               {isEditing ? (
                 <>
-                  <PencilIcon className="w-5 h-5" />
-                  <span>Modifier la catégorie</span>
+                  <PencilIcon className="h-5 w-5" />
+                  <span>Modifier</span>
                 </>
               ) : (
                 <>
-                  <PlusIcon className="w-5 h-5" />
-                  <span>Ajouter la catégorie</span>
+                  <PlusIcon className="h-5 w-5" />
+                  <span>Ajouter</span>
                 </>
               )}
             </button>
@@ -354,13 +341,13 @@ const GestionCategories = () => {
       </div>
 
       {/* Liste des catégories */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-800">
             Liste des catégories
             {categories.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                ({categories.length} catégorie{categories.length > 1 ? 's' : ''})
+              <span className="mx-2 text-sm font-normal text-gray-500">
+                ({categories.length} {categories.length > 1 ? 'catégories' : 'catégorie'})
               </span>
             )}
           </h2>
@@ -368,62 +355,60 @@ const GestionCategories = () => {
 
         {loading ? (
           <div className="p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-green-600" />
             <p className="mt-2 text-gray-500">Chargement...</p>
           </div>
         ) : categories.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p>Aucune catégorie trouvée</p>
-            <p className="text-sm mt-1">Ajoutez votre première catégorie via le formulaire ci-dessus</p>
+            <p className="mt-1 text-sm">Ajoutez votre première catégorie en utilisant le formulaire ci-dessus.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Nom
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Description
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     TVA
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Remise
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {categories.map((categorie) => (
-                  <tr key={categorie.idCategorie} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <tr key={categorie.idCategorie} className="transition-colors hover:bg-gray-50">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       {categorie.idCategorie}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {categorie.nomCategorie}
-                      </div>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{categorie.nomCategorie}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 max-w-xs truncate">
+                      <div className="max-w-xs truncate text-sm text-gray-500">
                         {categorie.description || '-'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
                         {categorie.tauxTVA ? `${categorie.tauxTVA}%` : '19%'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                         categorie.remiseStandard && categorie.remiseStandard > 0 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-gray-100 text-gray-500'
@@ -431,21 +416,23 @@ const GestionCategories = () => {
                         {categorie.remiseStandard ? `${categorie.remiseStandard}%` : '0%'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                      <button
-                        onClick={() => handleEdit(categorie)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors p-2 hover:bg-blue-50 rounded-lg"
-                        title="Modifier"
-                      >
-                        <PencilIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(categorie)}
-                        className="text-red-600 hover:text-red-800 transition-colors p-2 hover:bg-red-50 rounded-lg"
-                        title="Supprimer"
-                      >
-                        <TrashIcon className="w-5 h-5" />
-                      </button>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(categorie)}
+                          className="rounded-lg p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                          title="Modifier"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => openDeleteModal(categorie)}
+                          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
+                          title="Supprimer"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -40,7 +40,10 @@ const OrderDetailsModal = ({
   onClose, 
   onGenerateInvoice,
   onViewInvoice,
-  hasInvoice = false // Nouvelle prop pour savoir si une facture existe
+  hasInvoice = false, // Nouvelle prop pour savoir si une facture existe
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -50,6 +53,10 @@ const OrderDetailsModal = ({
   const produits = commande.produits || [];
   const total = parseFloat(commande.montantTotal || commande.total || 0);
   const hasContact = client.telephone || client.email || client.adresse;
+  const formatMontant = (value) => `${Number(value || 0).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${t('currencyLower')}`;
 
   const handleGenerateInvoice = async () => {
     if (!onGenerateInvoice) return;
@@ -73,7 +80,7 @@ const OrderDetailsModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
         
         {/* Header avec badge de statut facture */}
@@ -93,16 +100,16 @@ const OrderDetailsModal = ({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  Commande {commande.referenceCommandeClient || commande.numeroCommande || `#${commande.id}`}
+                  {t('order')} {commande.referenceCommandeClient || commande.numeroCommande || `#${commande.id}`}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs bg-white/30 text-white px-2.5 py-1 rounded-full">
-                    Validée
+                    {t('validated')}
                   </span>
                   {hasInvoice && (
                     <span className="text-xs bg-blue-500/30 text-white px-2.5 py-1 rounded-full flex items-center gap-1">
                       <DocumentTextIcon className="h-3 w-3" />
-                      Facturée
+                      {t('invoiced')}
                     </span>
                   )}
                 </div>
@@ -119,10 +126,10 @@ const OrderDetailsModal = ({
           
           {/* Client */}
           <div className="mb-6 pb-4 border-b border-gray-200">
-            <p className="text-xs font-medium text-gray-500 uppercase mb-3">CLIENT</p>
+            <p className="text-xs font-medium text-gray-500 uppercase mb-3">{t('client')}</p>
             
             <p className="font-medium text-gray-900">
-              {client.nomComplet || client.nom || 'Client'}
+              {client.nomComplet || client.nom || t('client')}
             </p>
             {client.entreprise && (
               <p className="text-sm text-gray-600 flex items-center mt-1">
@@ -158,7 +165,7 @@ const OrderDetailsModal = ({
           {/* Produits */}
           <div className="mb-6">
             <p className="text-xs font-medium text-gray-500 uppercase mb-3">
-              ARTICLES ({produits.length})
+              {t('itemsUpper')} ({produits.length})
             </p>
             
             {produits.length > 0 ? (
@@ -171,21 +178,21 @@ const OrderDetailsModal = ({
                     <div key={p.id || idx} className="flex justify-between items-start py-2 border-b border-gray-100">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {p.nom || p.libelle || `Produit ${idx + 1}`}
+                          {p.nom || p.libelle || `${t('product')} ${idx + 1}`}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {quantite} × {prix.toFixed(2)} dt
+                          {quantite} × {formatMontant(prix)}
                         </p>
                       </div>
                       <p className="text-sm font-medium text-gray-900">
-                        {(quantite * prix).toFixed(2)} dt
+                        {formatMontant(quantite * prix)}
                       </p>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 italic">Aucun article</p>
+              <p className="text-sm text-gray-500 italic">{t('noItems')}</p>
             )}
           </div>
 
@@ -196,17 +203,17 @@ const OrderDetailsModal = ({
               : 'bg-green-50 border-green-200'
           }`}>
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Total Commande</span>
+              <span className="text-sm font-medium text-gray-700">{t('orderTotal')}</span>
               <span className={`text-2xl font-bold ${
                 hasInvoice ? 'text-blue-700' : 'text-green-700'
               }`}>
-                {total.toFixed(2)} dt
+                {formatMontant(total)}
               </span>
             </div>
             {hasInvoice && (
               <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                 <DocumentTextIcon className="h-3 w-3" />
-                Une facture a déjà été générée pour cette commande
+                {t('invoiceAlreadyGenerated')}
               </p>
             )}
           </div>
@@ -220,7 +227,7 @@ const OrderDetailsModal = ({
               className="px-5 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium"
             >
               <ArrowLeftIcon className="h-4 w-4" />
-              Retour
+              {t('back')}
             </button>
 
             {hasInvoice ? (
@@ -230,7 +237,7 @@ const OrderDetailsModal = ({
                 className="flex-1 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center gap-2 text-sm font-medium shadow-sm"
               >
                 <EyeIcon className="h-5 w-5" />
-                Consulter la facture
+                {t('viewInvoice')}
               </button>
             ) : (
               // Si pas de facture → Bouton GÉNÉRER
@@ -242,12 +249,12 @@ const OrderDetailsModal = ({
                 {isGenerating ? (
                   <>
                     <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                    <span>Génération...</span>
+                    <span>{t('generating')}</span>
                   </>
                 ) : (
                   <>
                     <DocumentTextIcon className="h-5 w-5" />
-                    <span>Générer la facture</span>
+                    <span>{t('generateInvoice')}</span>
                   </>
                 )}
               </button>

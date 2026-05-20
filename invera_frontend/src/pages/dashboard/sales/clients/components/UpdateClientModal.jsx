@@ -1,9 +1,17 @@
-// UpdateClientModal.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { BuildingOfficeIcon, IdentificationIcon } from '@heroicons/react/24/outline';
 
-const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, checkMatriculeFiscale }) => {
+const UpdateClientModal = ({ 
+  open, 
+  onClose, 
+  client, 
+  onSuccess, 
+  updateClient, 
+  checkMatriculeFiscale,
+  t = (key) => key, 
+  isArabic = false 
+}) => {
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -14,7 +22,6 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
     raisonSociale: '',
     matriculeFiscale: ''
   });
-  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [clientRemise, setClientRemise] = useState(0);
@@ -45,34 +52,34 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
     const newErrors = {};
 
     if (!formData.nom?.trim()) {
-      newErrors.nom = 'Le nom est requis';
+      newErrors.nom = t('salesPages.nameRequired');
     }
 
     if (!formData.prenom?.trim()) {
-      newErrors.prenom = 'Le prénom est requis';
+      newErrors.prenom = t('salesPages.firstNameRequired');
     }
 
     if (!formData.telephone?.trim()) {
-      newErrors.telephone = 'Le téléphone est requis';
+      newErrors.telephone = t('salesPages.phoneRequired');
     } else if (!/^[0-9+\-\s]{8,}$/.test(formData.telephone)) {
-      newErrors.telephone = 'Numéro de téléphone invalide';
+      newErrors.telephone = t('salesPages.invalidPhone');
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email invalide';
+      newErrors.email = t('salesPages.invalidEmail');
     }
 
     if (!formData.typeClient) {
-      newErrors.typeClient = 'Le type de client est requis';
+      newErrors.typeClient = t('salesPages.clientTypeRequired');
     }
 
     // Validation des champs entreprise si le type est ENTREPRISE
     if (formData.typeClient === 'ENTREPRISE') {
       if (!formData.raisonSociale?.trim()) {
-        newErrors.raisonSociale = 'La raison sociale est requise pour les entreprises';
+        newErrors.raisonSociale = t('salesPages.companyNameRequired');
       }
       if (!formData.matriculeFiscale?.trim()) {
-        newErrors.matriculeFiscale = 'Le matricule fiscal est requis pour les entreprises';
+        newErrors.matriculeFiscale = t('salesPages.taxNumberRequired');
       }
     }
 
@@ -87,7 +94,7 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
     try {
       const response = await checkMatriculeFiscale(matricule);
       if (response?.exists) {
-        setMatriculeError('Ce matricule fiscal est déjà utilisé');
+        setMatriculeError(t('salesPages.taxNumberAlreadyUsed'));
       } else {
         setMatriculeError('');
       }
@@ -146,7 +153,6 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
     }
 
     setLoading(true);
-
     try {
       const updateData = {
         nom: formData.nom.trim(),
@@ -169,7 +175,7 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
       console.log('✅ Réponse reçue:', response);
 
       if (response?.success) {
-        onSuccess('Client modifié avec succès');
+        onSuccess(t('salesPages.clientUpdatedSuccess'));
         onClose();
       }
     } catch (error) {
@@ -189,14 +195,14 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
             toast.error('Données invalides: ' + (data.message || 'Vérifiez les champs'));
           }
         } else if (status === 404) {
-          toast.error('Client non trouvé');
+          toast.error(t('salesPages.clientNotFound'));
         } else if (status === 409) {
-          toast.error('Ce numéro de téléphone ou matricule fiscal est déjà utilisé');
+          toast.error(t('salesPages.phoneOrTaxNumberAlreadyUsed'));
         } else {
-          toast.error('Erreur lors de la modification du client');
+          toast.error(t('salesPages.updateError'));
         }
       } else {
-        toast.error('Erreur de connexion au serveur');
+        toast.error(t('salesPages.updateError'));
       }
     } finally {
       setLoading(false);
@@ -206,23 +212,17 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
-        {/* Header */}
         <div className="bg-blue-600 px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              <h2 className="text-xl font-semibold text-white">
-                Modifier le client
-              </h2>
+              <h2 className="text-xl font-semibold text-white">{t('salesPages.editClient')}</h2>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
-            >
+            <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -230,229 +230,129 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
           </div>
         </div>
 
-        {/* Formulaire */}
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* SECTION 1: IDENTITÉ */}
-            <div className="space-y-3">
-              <h3 className="text-md font-medium text-gray-700">Identité</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Nom <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="nom"
-                    value={formData.nom}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Dupont"
-                  />
-                  {errors.nom && (
-                    <p className="text-xs text-red-500 mt-1">{errors.nom}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Prénom <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="prenom"
-                    value={formData.prenom}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Jean"
-                  />
-                  {errors.prenom && (
-                    <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>
-                  )}
-                </div>
-              </div>
+            <h3 className="text-md font-medium text-gray-700">{t('salesPages.identity')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label={t('salesPages.name')} required name="nom" value={formData.nom} onChange={handleChange} error={errors.nom} placeholder="Dupont" />
+              <Field label={t('salesPages.firstName')} required name="prenom" value={formData.prenom} onChange={handleChange} error={errors.prenom} placeholder="Jean" />
             </div>
 
-            {/* SECTION 2: CONTACT */}
-            <div className="space-y-3">
-              <h3 className="text-md font-medium text-gray-700">Contact</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="jean.dupont@email.com"
-                  />
-                  {errors.email && (
-                    <p className="text-xs text-red-500 mt-1">{errors.email}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Téléphone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="telephone"
-                    value={formData.telephone}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="01 23 45 67 89"
-                  />
-                  {errors.telephone && (
-                    <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>
-                  )}
-                </div>
-              </div>
+            <h3 className="text-md font-medium text-gray-700">{t('salesPages.contact')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label={t('salesPages.email')} type="email" name="email" value={formData.email} onChange={handleChange} error={errors.email} placeholder="client@email.com" />
+              <Field label={t('salesPages.phone')} required type="tel" name="telephone" value={formData.telephone} onChange={handleChange} error={errors.telephone} placeholder="98 765 432" />
             </div>
 
-            {/* SECTION 3: ADRESSE */}
+            <h3 className="text-md font-medium text-gray-700">{t('salesPages.address')}</h3>
+            <textarea
+              name="adresse"
+              value={formData.adresse}
+              onChange={handleChange}
+              rows="2"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder={t('salesPages.addressPlaceholder')}
+            />
+
+            {/* SECTION CATÉGORIE */}
             <div className="space-y-3">
-              <h3 className="text-md font-medium text-gray-700">Adresse</h3>
+              <h3 className="text-md font-medium text-gray-700">{t('salesPages.category')}</h3>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">
-                  Adresse complète
+                  {t('salesPages.clientType')} <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="adresse"
-                  value={formData.adresse}
+                <select
+                  name="typeClient"
+                  value={formData.typeClient}
                   onChange={handleChange}
-                  rows="2"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="15 rue de la République, 75001 Paris"
-                />
+                  disabled={true}  // Désactivé - seul l'admin peut modifier
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-100 text-gray-500 cursor-not-allowed"
+                >
+                  <option value="PARTICULIER">{t('salesPages.individual')}</option>
+                  <option value="VIP">{t('salesPages.vip')}</option>
+                  <option value="ENTREPRISE">{t('salesPages.company')}</option>
+                  <option value="FIDELE">{t('salesPages.loyalCustomer')}</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  {t('salesPages.clientTypeCannotBeChanged')}
+                </p>
               </div>
+
+              {/* SECTION INFORMATIONS ENTREPRISE (affiche uniquement si type = ENTREPRISE) */}
+              {isEntreprise && (
+                <div className="mt-4 space-y-3 animate-in fade-in duration-300">
+                  <div className="border-t border-gray-200 pt-3">
+                    <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2 mb-3">
+                      <BuildingOfficeIcon className="w-4 h-4" />
+                      {t('salesPages.companyInformation')}
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {t('salesPages.companyName')} <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="raisonSociale"
+                          value={formData.raisonSociale}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          placeholder={t('salesPages.companyNamePlaceholder')}
+                        />
+                        {errors.raisonSociale && (
+                          <p className="text-xs text-red-500 mt-1">{errors.raisonSociale}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {t('salesPages.taxNumber')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="matriculeFiscale"
+                            value={formData.matriculeFiscale}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            placeholder={t('salesPages.taxNumberPlaceholder')}
+                          />
+                        </div>
+                        {matriculeError && (
+                          <p className="text-xs text-red-500 mt-1">{matriculeError}</p>
+                        )}
+                        {errors.matriculeFiscale && (
+                          <p className="text-xs text-red-500 mt-1">{errors.matriculeFiscale}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Affichage de la remise */}
+              {clientRemise > 0 && (
+                <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm text-gray-600">{t('salesPages.appliedDiscount')}</span>
+                    </div>
+                    <span className="text-lg font-semibold text-blue-600">{clientRemise}%</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* SECTION 4: CATÉGORIE */}
-<div className="space-y-3">
-  <h3 className="text-md font-medium text-gray-700">Catégorie</h3>
-  <div>
-    <label className="block text-sm text-gray-600 mb-1">
-      Type de client <span className="text-red-500">*</span>
-    </label>
-    <select
-      name="typeClient"
-      value={formData.typeClient}
-      onChange={handleChange}
-      disabled={true}  // ✅ Désactivé - seul l'admin peut modifier
-      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-100 text-gray-500 cursor-not-allowed"
-    >
-      <option value="PARTICULIER">Particulier</option>
-      <option value="VIP">VIP</option>
-      <option value="ENTREPRISE">Entreprise</option>
-      <option value="FIDELE">Fidèle</option>
-    </select>
-    <p className="text-xs text-gray-400 mt-1">
-      Le type de client ne peut pas être modifié. Contactez l'administrateur si besoin.
-    </p>
-  </div>
-
-  {/* SECTION 5: INFORMATIONS ENTREPRISE (affiche uniquement si type = ENTREPRISE) */}
-  {isEntreprise && (
-    <div className="mt-4 space-y-3 animate-in fade-in duration-300">
-      <div className="border-t border-gray-200 pt-3">
-        <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2 mb-3">
-          <BuildingOfficeIcon className="w-4 h-4" />
-          Informations Entreprise
-        </h4>
-        
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Raison sociale <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="raisonSociale"
-              value={formData.raisonSociale}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="Nom de l'entreprise"
-            />
-            {errors.raisonSociale && (
-              <p className="text-xs text-red-500 mt-1">{errors.raisonSociale}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Matricule fiscal <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="matriculeFiscale"
-                value={formData.matriculeFiscale}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="1234567X"
-              />
-            </div>
-            {matriculeError && (
-              <p className="text-xs text-red-500 mt-1">{matriculeError}</p>
-            )}
-            {errors.matriculeFiscale && (
-              <p className="text-xs text-red-500 mt-1">{errors.matriculeFiscale}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )}
-
-  {/* Affichage de la remise */}
-  {clientRemise > 0 && (
-    <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm text-gray-600">Remise appliquée</span>
-        </div>
-        <span className="text-lg font-semibold text-blue-600">{clientRemise}%</span>
-      </div>
-    </div>
-  )}
-</div>
-
-            {/* Boutons */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                disabled={loading}
-              >
-                Annuler
+              <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-all" disabled={loading}>
+                {t('salesPages.cancel')}
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    <span>Modification...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Modifier</span>
-                  </>
-                )}
+              <button type="submit" disabled={loading} className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center">
+                {loading ? t('salesPages.updating') : t('salesPages.edit')}
               </button>
             </div>
           </form>
@@ -461,5 +361,15 @@ const UpdateClientModal = ({ open, onClose, client, onSuccess, updateClient, che
     </div>
   );
 };
+
+const Field = ({ label, required, error, ...props }) => (
+  <div>
+    <label className="block text-sm text-gray-600 mb-1">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <input {...props} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+  </div>
+);
 
 export default UpdateClientModal;

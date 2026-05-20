@@ -16,7 +16,9 @@ import {
   IdentificationIcon,
   CubeIcon,
   BuildingOfficeIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  PencilIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import clientService from '../../../../../services/clientService';
 
@@ -46,7 +48,7 @@ const ClientTypeBadge = ({ type }) => {
 };
 
 // Badge pour le statut
-const StatusBadge = ({ statut }) => {
+const StatusBadge = ({ statut, t }) => {
   const getStatusConfig = (statut) => {
     switch(statut) {
       case 'CONFIRMEE':
@@ -76,9 +78,9 @@ const StatusBadge = ({ statut }) => {
   };
 
   const config = getStatusConfig(statut);
-  const displayStatut = statut === 'EN_ATTENTE' ? 'En attente' : 
-                        statut === 'CONFIRMEE' ? 'Confirmée' : 
-                        statut === 'ANNULEE' ? 'Annulée' : statut;
+  const displayStatut = statut === 'EN_ATTENTE' ? t('salesPages.pending') : 
+                        statut === 'CONFIRMEE' ? t('salesPages.confirmed') : 
+                        statut === 'ANNULEE' ? t('salesPages.rejected') : statut;
 
   return (
     <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${config.color}`}>
@@ -88,7 +90,7 @@ const StatusBadge = ({ statut }) => {
   );
 };
 
-// Composant d'info client (adapté pour entreprise vs particulier)
+// Composant d'info client
 const ClientInfoItem = ({ icon: Icon, label, value }) => {
   if (!value) return null;
   
@@ -105,8 +107,8 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
   );
 };
 
-// Composant pour afficher les infos client spécifiques selon le type
-const ClientInfoSection = ({ client }) => {
+// Composant pour afficher les infos client
+const ClientInfoSection = ({ client, t }) => {
   const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
   
   return (
@@ -114,7 +116,7 @@ const ClientInfoSection = ({ client }) => {
       {/* Type de client */}
       {client?.typeClient && (
         <div className="mb-3">
-          <div className="text-xs text-gray-500 mb-2">Type de client</div>
+          <div className="text-xs text-gray-500 mb-2">{t('salesPages.clientType')}</div>
           <ClientTypeBadge type={client.typeClient} />
         </div>
       )}
@@ -124,26 +126,26 @@ const ClientInfoSection = ({ client }) => {
         <>
           <ClientInfoItem 
             icon={BuildingOfficeIcon}
-            label="Raison sociale"
+            label={t('salesPages.companyName')}
             value={client.raisonSociale || client.nom}
           />
           {client.matriculeFiscal && (
             <ClientInfoItem 
               icon={IdentificationIcon}
-              label="Matricule fiscal"
+              label={t('salesPages.taxNumber')}
               value={client.matriculeFiscal}
             />
           )}
           <ClientInfoItem 
             icon={BriefcaseIcon}
-            label="Gérant"
+            label={t('salesPages.manager')}
             value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
           />
         </>
       ) : (
         <ClientInfoItem 
           icon={IdentificationIcon}
-          label="Nom complet"
+          label={t('salesPages.fullName')}
           value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
         />
       )}
@@ -151,54 +153,26 @@ const ClientInfoSection = ({ client }) => {
       {/* Coordonnées communes */}
       <ClientInfoItem 
         icon={PhoneIcon}
-        label="Téléphone"
+        label={t('salesPages.phone')}
         value={client.telephone}
       />
       
       <ClientInfoItem 
         icon={EnvelopeIcon}
-        label="Email"
+        label={t('salesPages.email')}
         value={client.email}
       />
       
       <ClientInfoItem 
         icon={MapPinIcon}
-        label="Adresse"
+        label={t('salesPages.address')}
         value={client.adresse}
       />
     </div>
   );
 };
 
-// Fonction pour formater la date
-const formatDate = (dateString) => {
-  if (!dateString) return 'Non définie';
-  
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return dateString;
-  }
-};
-
-
 const calculerRemiseProduit = (produit) => {
-  // Log pour debug
-  console.log('🔍 Calcul remise pour produit:', {
-    libelle: produit.libelle,
-    categorieRemiseStandard: produit.categorieRemiseStandard,
-    tauxRemiseProduit: produit.tauxRemiseProduit,
-    remiseProduit: produit.remiseProduit
-  });
-  
-  // Utiliser directement les valeurs déjà calculées
   if (produit.remiseProduit > 0) {
     return {
       remiseMontant: produit.remiseProduit,
@@ -206,7 +180,6 @@ const calculerRemiseProduit = (produit) => {
     };
   }
   
-  // Si la remise est dans categorieRemiseStandard
   if (produit.categorieRemiseStandard > 0) {
     const prixUnitaire = parseFloat(produit.prixUnitaire) || parseFloat(produit.prix) || 0;
     const quantite = parseFloat(produit.quantite) || 1;
@@ -227,15 +200,44 @@ const calculerRemiseProduit = (produit) => {
 const OrderDetailsModal = ({
   show,
   onClose,
-  commande: initialCommande, 
-  toNumber
+  commande: initialCommande,
+  toNumber,
+  onUpdateSuccess,
+  onRefresh,
+  t = (key) => key,
+  locale = 'fr-FR',
+  isArabic = false
 }) => {
   const [commande, setCommande] = useState(initialCommande);
-  // ✅ Ajout de l'état pour la remise client
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [clientRemise, setClientRemise] = useState(0);
   const [loadingRemise, setLoadingRemise] = useState(false);
 
-  // ✅ Récupérer la remise du client par son type
+  // Fonctions utilitaires
+  const getPrixUnitaire = (produit) => {
+    if (produit.prixUnitaire) return parseFloat(produit.prixUnitaire);
+    if (produit.prix) return parseFloat(produit.prix);
+    return 0;
+  };
+
+  const getSousTotal = (produit) => {
+    if (produit.sousTotal) return parseFloat(produit.sousTotal);
+    const prix = getPrixUnitaire(produit);
+    const qte = parseFloat(produit.quantite) || 0;
+    return prix * qte;
+  };
+
+  const getTotalLigne = (produit) => {
+    if (produit.totalLigne) return parseFloat(produit.totalLigne);
+    const sousTotal = getSousTotal(produit);
+    const remise = parseFloat(produit.remiseProduit) || 0;
+    return sousTotal - remise;
+  };
+
+  const formatMontant = (value) => `${toNumber(value).toFixed(3)} ${t('salesPages.currencyLower')}`;
+
+  // Récupérer la remise du client
   useEffect(() => {
     const fetchClientRemise = async () => {
       if (!commande?.client?.typeClient) return;
@@ -258,19 +260,32 @@ const OrderDetailsModal = ({
 
   useEffect(() => {
     if (initialCommande) {
-      console.log('🔍 STRUCTURE COMPLÈTE DE LA COMMANDE:', initialCommande);
-      console.log('🔍 CLIENT:', initialCommande.client);
-      console.log('🔍 PRODUITS:', initialCommande.produits);
-      
       const commandeAvecId = {
         ...initialCommande,
         id: initialCommande.id || initialCommande.idCommandeClient,
         idCommandeClient: initialCommande.idCommandeClient || initialCommande.id
       };
-      
       setCommande(commandeAvecId);
     }
   }, [initialCommande]);
+
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleUpdateSuccess = () => {
+    setShowUpdateModal(false);
+    if (onUpdateSuccess) {
+      onUpdateSuccess();
+    }
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   if (!show || !commande) return null;
 
@@ -278,10 +293,9 @@ const OrderDetailsModal = ({
   const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
   const hasClientInfo = client.nom || client.raisonSociale || client.telephone || client.email || client.adresse;
 
-  // ✅ Enrichir les produits avec les remises calculées
+  // Enrichir les produits avec les remises calculées
   const produitsEnrichis = commande.produits?.map(produit => {
     const remiseCalculee = calculerRemiseProduit(produit);
-    
     return {
       ...produit,
       remiseProduit: remiseCalculee.remiseMontant,
@@ -289,7 +303,7 @@ const OrderDetailsModal = ({
     };
   }) || [];
 
-  // Calcul des totaux avec les produits enrichis
+  // Calcul des totaux
   const sousTotal = produitsEnrichis.reduce((sum, p) => {
     const qte = parseFloat(p.quantite) || 0;
     const prix = parseFloat(p.prixUnitaire) || parseFloat(p.prix) || 0;
@@ -300,33 +314,63 @@ const OrderDetailsModal = ({
     sum + (parseFloat(p.remiseProduit) || 0), 0);
   
   const totalApresRemises = sousTotal - remiseTotale;
-  
-  // ✅ Utiliser la remise client récupérée depuis l'API, sinon utiliser celle de la commande
   const remiseGlobale = clientRemise > 0 ? clientRemise : parseFloat(commande.tauxRemise || commande.remise || 0);
   const montantRemiseGlobale = totalApresRemises * (remiseGlobale / 100);
   const totalFinal = totalApresRemises - montantRemiseGlobale;
+  const pourcentageRemise = toNumber(commande.sousTotal) > 0 
+    ? Math.round((toNumber(commande.tauxRemise || commande.remise) / toNumber(commande.sousTotal)) * 100)
+    : 0;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return t('salesPages.notDefined');
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
         {/* En-tête */}
         <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-white">Détails de la Commande</h2>
+              <h2 className="text-xl font-semibold text-white">{t('salesPages.orderDetails')}</h2>
               <p className="text-blue-100 text-sm mt-1 flex items-center">
                 <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
-                Numéro : {commande.numero || commande.referenceCommandeClient || 'N/A'}
+                {t('salesPages.number')}: {commande.numero || commande.referenceCommandeClient || 'N/A'}
               </p>
             </div>
             
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <XMarkIcon className="h-5 w-5 text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              {onRefresh && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                  title={t('salesPages.refreshData')}
+                >
+                  <ArrowPathIcon className={`h-5 w-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5 text-white" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -341,20 +385,20 @@ const OrderDetailsModal = ({
                     <ClipboardDocumentIcon className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-800">Informations Commande</h3>
-                    <p className="text-sm text-gray-600">Détails de la commande</p>
+                    <h3 className="font-medium text-gray-800">{t('salesPages.orderInformation')}</h3>
+                    <p className="text-sm text-gray-600">{t('salesPages.orderDetails')}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Numéro de commande</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.orderNumber')}</div>
                       <div className="font-medium text-gray-900 text-lg">
                         {commande.numero || commande.referenceCommandeClient || 'N/A'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Date de création</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.creationDate')}</div>
                       <div className="font-medium text-gray-900 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-blue-500" />
                         {formatDate(commande.dateCommande)}
@@ -363,9 +407,9 @@ const OrderDetailsModal = ({
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Statut de la commande</div>
+                      <div className="text-xs text-gray-500 mb-1">{t('salesPages.orderStatus')}</div>
                       <div className="mt-1">
-                        <StatusBadge statut={commande.statut} />
+                        <StatusBadge statut={commande.statut} t={t} />
                       </div>
                     </div>
                   </div>
@@ -373,7 +417,7 @@ const OrderDetailsModal = ({
               </div>
             </div>
 
-            {/* Informations client - Version adaptée */}
+            {/* Informations client */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200">
               <div className="flex items-center mb-4">
                 <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mr-3">
@@ -384,199 +428,284 @@ const OrderDetailsModal = ({
                   )}
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-800">
-                    {isEntreprise ? 'Entreprise' : 'Client'}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {isEntreprise ? 'Informations de l\'entreprise' : 'Informations du client'}
-                  </p>
+                  <h3 className="font-medium text-gray-800">{t('salesPages.client')}</h3>
+                  <p className="text-sm text-gray-600">{t('salesPages.clientInformation')}</p>
                 </div>
               </div>
               
               {hasClientInfo ? (
-                <ClientInfoSection client={client} />
+                <ClientInfoSection client={client} t={t} />
               ) : (
                 <div className="text-center py-4">
                   <UserCircleIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Aucune information client disponible</p>
+                  <p className="text-sm text-gray-600">{t('salesPages.noClientInfo')}</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Section 2 : Produits commandés - SIMPLIFIÉE */}
-<div className="mb-6">
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-    <div className="flex items-center">
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mr-2.5">
-        <CubeIcon className="h-4 w-4 text-emerald-600" />
-      </div>
-      <div>
-        <h3 className="font-medium text-gray-900 text-sm">Produits Commandés</h3>
-        <p className="text-xs text-gray-500">Détails des articles</p>
-      </div>
-    </div>
-    <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
-      {produitsEnrichis.length || 0} article{produitsEnrichis.length !== 1 ? 's' : ''}
-    </span>
-  </div>
+          {/* Section 2 : Produits commandés */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center mr-2.5">
+                  <CubeIcon className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 text-sm">{t('salesPages.orderedProducts')}</h3>
+                  <p className="text-xs text-gray-500">{t('salesPages.itemDetails')}</p>
+                </div>
+              </div>
+              <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-200">
+                {t('salesPages.itemCount', { count: commande.produits?.length || 0 })}
+              </span>
+            </div>
 
-  {/* Tableau des produits - SIMPLIFIÉ (sans les totaux dans le tableau) */}
-  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
-    {produitsEnrichis.length > 0 ? (
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Produit</th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">Qté</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Prix unit.</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Sous-total</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Remise</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
-            </tr>
-          </thead>
-          
-          <tbody className="divide-y divide-gray-200">
-            {produitsEnrichis.map((produit, index) => {
-              const quantite = parseFloat(produit.quantite) || 0;
-              const prixUnitaire = parseFloat(produit.prixUnitaire) || parseFloat(produit.prix) || 0;
-              const sousTotalLigne = quantite * prixUnitaire;
-              const remiseLigne = parseFloat(produit.remiseProduit) || 0;
-              const tauxRemiseLigne = parseFloat(produit.tauxRemiseProduit) || 
-                                     (remiseLigne > 0 ? (remiseLigne / sousTotalLigne * 100) : 0);
-              const totalLigne = sousTotalLigne - remiseLigne;
+            {/* Tableau des produits */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
+              {produitsEnrichis.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.product')}</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.quantityShort')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.unitPrice')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.subtotal')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.discount')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.total')}</th>
+                      </tr>
+                    </thead>
+                    
+                    <tbody className="divide-y divide-gray-200">
+                      {produitsEnrichis.map((produit, index) => {
+                        const quantite = parseFloat(produit.quantite) || 0;
+                        const prixUnitaire = getPrixUnitaire(produit);
+                        const sousTotalLigne = quantite * prixUnitaire;
+                        const remiseLigne = parseFloat(produit.remiseProduit) || 0;
+                        const tauxRemiseLigne = parseFloat(produit.tauxRemiseProduit) || 
+                                               (remiseLigne > 0 ? (remiseLigne / sousTotalLigne * 100) : 0);
+                        const totalLigne = sousTotalLigne - remiseLigne;
 
-              return (
-                <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {produit.imageUrl && (
-                        <img 
-                          src={produit.imageUrl}
-                          alt={produit.libelle}
-                          className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
-                          onError={(e) => e.target.style.display = 'none'}
-                        />
+                        return (
+                          <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {produit.imageUrl && (
+                                  <img 
+                                    src={produit.imageUrl}
+                                    alt={produit.libelle}
+                                    className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                    onError={(e) => e.target.style.display = 'none'}
+                                  />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900">
+                                    {produit.libelle || `Produit ${produit.id || produit.produitId}`}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="font-medium text-gray-900">
+                                {quantite}
+                                {produit.uniteMesure && (
+                                  <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-medium text-gray-900">
+                                {prixUnitaire.toFixed(3)} dt
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-medium text-gray-900">
+                                {sousTotalLigne.toFixed(3)} dt
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {remiseLigne > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-red-600 font-medium">
+                                    -{remiseLigne.toFixed(3)} dt
+                                  </span>
+                                  {tauxRemiseLigne > 0 && (
+                                    <span className="text-xs text-red-500">
+                                      ({tauxRemiseLigne.toFixed(1)}%)
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-bold text-green-700">
+                                {totalLigne.toFixed(3)} dt
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    
+                    <tfoot className="bg-gray-50">
+                      <tr className="font-medium border-t border-gray-300">
+                        <td colSpan="3" className="px-4 py-3 text-right text-gray-600 text-sm">
+                          {t('salesPages.subtotal')}
+                        </td>
+                        <td className="px-4 py-3 text-gray-900">
+                          <div className="text-sm font-medium">
+                            {sousTotal.toFixed(3)} dt
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-red-600">
+                          <div className="text-sm font-medium">
+                            -{remiseTotale.toFixed(3)} dt
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-green-700">
+                          <div className="text-sm">
+                            {totalApresRemises.toFixed(3)} dt
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {remiseGlobale > 0 && (
+                        <tr className="bg-green-50">
+                          <td colSpan="5" className="px-4 py-2.5 text-right text-gray-900">
+                            <div className="text-sm font-medium flex items-center justify-end gap-1">
+                              <TagIcon className="h-3 w-3 text-green-600" />
+                              {t('salesPages.globalDiscount')} ({remiseGlobale.toFixed(1)}%)
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="font-bold text-red-600 text-sm">
+                              -{montantRemiseGlobale.toFixed(3)} dt
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900">
-                          {produit.libelle || `Produit ${produit.id || produit.produitId}`}
+                      
+                      <tr className="bg-green-50 border-t border-green-200">
+                        <td colSpan="5" className="px-4 py-3 text-right text-gray-900">
+                          <div className="font-bold">{t('salesPages.orderTotal')}</div>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-green-700">
+                          <div className="text-base">{totalFinal.toFixed(3)} dt</div>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <CubeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">{t('salesPages.noProduct')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 3 : Récapitulatif financier */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-100 mb-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                <CurrencyDollarIcon className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-800">{t('salesPages.financialSummary')}</h3>
+                <p className="text-sm text-gray-600">{t('salesPages.amountAndDiscountDetails')}</p>
+              </div>
+            </div>
+            
+            <div className="max-w-md ml-auto">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600">{t('salesPages.productsSubtotal')}</span>
+                  <span className="font-medium">{sousTotal.toFixed(3)} dt</span>
+                </div>
+                
+                {remiseTotale > 0 && (
+                  <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
+                    <span className="text-gray-600">{t('salesPages.productDiscounts')}</span>
+                    <span className="font-semibold text-green-600">-{remiseTotale.toFixed(3)} dt</span>
+                  </div>
+                )}
+                
+                {remiseGlobale > 0 && (
+                  <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
+                    <span className="text-gray-600 flex items-center">
+                      <TagIcon className="h-4 w-4 mr-2 text-green-600" />
+                      {t('salesPages.discount')} ({pourcentageRemise}%)
+                    </span>
+                    <span className="font-semibold text-green-600">-{montantRemiseGlobale.toFixed(3)} dt</span>
+                  </div>
+                )}
+                
+                <div className="border-t border-green-200 pt-4 mt-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-semibold text-gray-800">{t('salesPages.orderTotal')}</div>
+                      {client.typeClient && ( 
+                        <div className="text-xs text-green-600 mt-1">
+                          {t('salesPages.discountAppliedForClient', { type: client.typeClient })}
                         </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="font-medium text-gray-900">
-                      {quantite}
-                      {produit.uniteMesure && (
-                        <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
                       )}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="font-medium text-gray-900">
-                      {prixUnitaire.toFixed(3)} dt
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="font-medium text-gray-900">
-                      {sousTotalLigne.toFixed(3)} dt
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {remiseLigne > 0 ? (
-                      <div className="flex flex-col items-end">
-                        <span className="text-red-600 font-medium">
-                          -{remiseLigne.toFixed(3)} dt
-                        </span>
-                        {tauxRemiseLigne > 0 && (
-                          <span className="text-xs text-red-500">
-                            ({tauxRemiseLigne.toFixed(1)}%)
-                          </span>
-                        )}
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">
+                        {totalFinal.toFixed(3)} dt
                       </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="font-bold text-green-700">
-                      {totalLigne.toFixed(3)} dt
+                      {(remiseTotale > 0 || montantRemiseGlobale > 0) && (
+                        <div className="text-xs text-green-500 mt-1">
+                          {t('salesPages.savings')}: {(remiseTotale + montantRemiseGlobale).toFixed(3)} dt
+                        </div>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <div className="text-center py-10">
-        <CubeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-500">Aucun produit dans cette commande</p>
-      </div>
-    )}
-  </div>
-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-{/* SECTION RÉCAPITULATIVE - UNIQUEMENT À DROITE */}
-<div className="flex justify-end mt-2">
-  <div className="w-80 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200 shadow-sm">
-    <div className="space-y-1.5 text-sm">
-      {/* Sous-total */}
-      <div className="flex justify-between">
-        <span className="text-gray-600">Sous-total</span>
-        <span className="font-medium">{sousTotal.toFixed(3)} dt</span>
-      </div>
-      
-      {/* Remises sur produits */}
-      {remiseTotale > 0 && (
-        <div className="flex justify-between text-red-600">
-          <span>Remises produits</span>
-          <span>-{remiseTotale.toFixed(3)} dt</span>
-        </div>
-      )}
-      
-      {/* Remise client */}
-      {remiseGlobale > 0 && (
-        <div className="flex justify-between text-red-600 bg-white/50 rounded p-1.5 -mx-1.5">
-          <span className="flex items-center gap-1">
-            <TagIcon className="h-3 w-3 text-green-600" />
-            Remise {client.typeClient || 'client'} ({remiseGlobale}%)
-          </span>
-          <span>-{montantRemiseGlobale.toFixed(3)} dt</span>
-        </div>
-      )}
-      
-      <div className="border-t border-green-200 my-1"></div>
-      
-      {/* Total final */}
-      <div className="flex justify-between font-bold">
-        <span className="text-gray-800">Total</span>
-        <span className="text-green-700 font-bold text-base">{totalFinal.toFixed(3)} dt</span>
-      </div>
-      
-      {/* Économies */}
-      {(remiseTotale > 0 || remiseGlobale > 0) && (
-        <div className="text-right">
-          <span className="text-xs text-green-600">
-            Économie : {(remiseTotale + montantRemiseGlobale).toFixed(3)} dt
-          </span>
-        </div>
-      )}
-    </div>
-      </div>
-    </div>
-      
-          {/* Actions */}
+          {/* Section 4 : Remarques */}
+          {commande.remarques && (
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-5 border border-yellow-100 mb-6">
+              <div className="flex items-center mb-3">
+                <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                  <svg className="h-4 w-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                </div>
+                <h3 className="font-medium text-gray-800">{t('salesPages.remarks')}</h3>
+              </div>
+              <div className="text-sm text-gray-700 bg-white/70 p-3 rounded-lg border border-yellow-200">
+                {commande.remarques}
+              </div>
+            </div>
+          )}
+
+          {/* Section 5 : Actions */}
           <div className="pt-6 border-t border-gray-200">
             <div className="flex justify-end gap-3">
+              {commande.statut === 'EN_ATTENTE' && (
+                <button
+                  onClick={() => setShowUpdateModal(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-lg hover:from-amber-700 hover:to-yellow-700 text-sm font-medium transition-colors flex items-center gap-2"
+                  title={t('salesPages.editOrder')}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  {t('salesPages.edit')}
+                </button>
+              )}
+              
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
               >
-                Fermer
+                {t('salesPages.close')}
               </button>
             </div>
           </div>

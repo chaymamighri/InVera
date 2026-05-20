@@ -30,11 +30,11 @@ const ClientBadge = ({ type }) => {
 };
 
 // Composant pour les indicateurs d'étapes
-const StepIndicator = ({ step, currentStep }) => {
+const StepIndicator = ({ step, currentStep, t }) => {
   const steps = [
-    { number: 1, label: 'Client' },
-    { number: 2, label: 'Produits' },
-    { number: 3, label: 'Valider' }
+    { number: 1, label: t('salesPages.client') },
+    { number: 2, label: t('salesPages.products') },
+    { number: 3, label: t('salesPages.validate') }
   ];
 
   const current = steps[step - 1];
@@ -99,6 +99,8 @@ const CreateOrderModal = ({
   onCreateCommande,
   toNumber,
   isCreating = false,
+  t = (key) => key,
+  isArabic = false,
 }) => {
   const [searchProduit, setSearchProduit] = useState('');
   const [searchClient, setSearchClient] = useState('');
@@ -149,7 +151,7 @@ const CreateOrderModal = ({
     c.telephone?.includes(searchClient)
   );
 
-  // ✅ Calcul des montants avec TVA par produit
+  // Calcul des montants avec TVA par produit
   const calculerTotaux = () => {
     let sousTotalHT = 0;
     let remiseTotaleProduits = 0;
@@ -167,14 +169,13 @@ const CreateOrderModal = ({
       const montantRemise = montantHTLigne * (tauxRemiseProduit / 100);
       const montantHTApresRemise = montantHTLigne - montantRemise;
       
-      // ✅ TVA du produit (par catégorie)
-      let tauxTVA = p.categorie?.tauxTVA || 19; // Valeur en pourcentage
+      // TVA du produit (par catégorie)
+      let tauxTVA = p.categorie?.tauxTVA || 19;
       let tauxTVANumerique = typeof tauxTVA === 'number' ? tauxTVA : parseFloat(tauxTVA);
       if (tauxTVANumerique > 1 && tauxTVANumerique <= 100) {
-        // C'est déjà un pourcentage (ex: 19)
         tauxTVANumerique = tauxTVANumerique / 100;
       } else if (tauxTVANumerique > 100) {
-        tauxTVANumerique = 0.19; // Fallback
+        tauxTVANumerique = 0.19;
       }
       
       const montantTVA = montantHTApresRemise * tauxTVANumerique;
@@ -298,18 +299,20 @@ const CreateOrderModal = ({
     }
   }, [clientSelectionne, selectedProducts.length]);
 
+  const formatMontant = (value) => `${toNumber(value).toFixed(3)} ${t('salesPages.currencyLower') || 'dt'}`;
+
   // Étape 1 : Sélection du client
   if (currentStep === 1) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-lg">
           
           {/* En-tête */}
           <div className="bg-blue-600 px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
-                <p className="text-blue-100 text-sm mt-1">Étape 1 : Sélectionnez un client</p>
+                <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
+                <p className="text-blue-100 text-sm mt-1">{t('salesPages.stepSelectClient')}</p>
               </div>
               <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
                 <XMarkIcon className="h-5 w-5 text-white" />
@@ -320,11 +323,11 @@ const CreateOrderModal = ({
           {/* Étapes */}
           <div className="px-6 py-3 bg-gray-50 border-b">
             <div className="flex justify-center items-center space-x-8">
-              <StepIndicator step={1} currentStep={currentStep} />
+              <StepIndicator step={1} currentStep={currentStep} t={t} />
               <div className={`h-0.5 w-12 ${clientSelectionne ? 'bg-green-400' : 'bg-gray-300'}`}></div>
-              <StepIndicator step={2} currentStep={currentStep} />
+              <StepIndicator step={2} currentStep={currentStep} t={t} />
               <div className="h-0.5 w-12 bg-gray-300"></div>
-              <StepIndicator step={3} currentStep={currentStep} />
+              <StepIndicator step={3} currentStep={currentStep} t={t} />
             </div>
           </div>
 
@@ -334,7 +337,7 @@ const CreateOrderModal = ({
             <div className="relative mb-4">
               <input
                 type="text"
-                placeholder="Rechercher un client..."
+                placeholder={t('salesPages.searchClient')}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 value={searchClient}
                 onChange={(e) => setSearchClient(e.target.value)}
@@ -350,7 +353,7 @@ const CreateOrderModal = ({
                   <div className="flex items-center">
                     <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
                     <div>
-                      <div className="font-medium text-gray-900">Client sélectionné</div>
+                      <div className="font-medium text-gray-900">{t('salesPages.selectedClient')}</div>
                       <div className="text-sm text-gray-600">{clientSelectionne.nom} • {clientSelectionne.telephone}</div>
                     </div>
                   </div>
@@ -359,7 +362,7 @@ const CreateOrderModal = ({
                     className="text-sm text-red-600 hover:text-red-700"
                     disabled={isCreating}
                   >
-                    Changer
+                    {t('salesPages.change')}
                   </button>
                 </div>
               </div>
@@ -403,15 +406,22 @@ const CreateOrderModal = ({
             {clientsFiltres.length === 0 && (
               <div className="text-center py-8">
                 <UserCircleIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600">Aucun client trouvé</p>
+                <p className="text-gray-600">{t('salesPages.noClientFound')}</p>
               </div>
             )}
 
             {/* Boutons */}
             <div className="mt-6 flex justify-between">
-              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>Annuler</SimpleButton>
-              <SimpleButton onClick={handleNextStep} disabled={!clientSelectionne || isCreating} variant="primary" className="px-5">
-                {isCreating ? 'Chargement...' : 'Suivant'}
+              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>
+                {t('salesPages.cancel')}
+              </SimpleButton>
+              <SimpleButton
+                onClick={handleNextStep}
+                disabled={!clientSelectionne || isCreating}
+                variant="primary"
+                className="px-5"
+              >
+                {isCreating ? t('salesPages.loading') : t('salesPages.next')}
               </SimpleButton>
             </div>
           </div>
@@ -423,22 +433,22 @@ const CreateOrderModal = ({
   // Étape 2 : Sélection des produits
   if (currentStep === 2) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
           
           {/* En-tête */}
           <div className="bg-blue-600 px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
+                <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
                 <p className="text-blue-100 text-sm mt-1">
-                  Client : {clientSelectionne?.nom} • {selectedProducts.length} produit{selectedProducts.length !== 1 ? 's' : ''}
+                  {t('salesPages.client')}: {clientSelectionne?.nom} - {t('salesPages.productCount', { count: selectedProducts.length })}
                 </p>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 rounded px-3 py-1.5">
-                  <div className="text-xs text-blue-100">Total TTC</div>
-                  <div className="text-sm font-semibold text-white">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</div>
+                  <div className="text-xs text-blue-100">{t('salesPages.total')}</div>
+                  <div className="text-sm font-semibold text-white">{formatMontant(totaux.totalTTCApresRemiseClient)}</div>
                 </div>
                 <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
                   <XMarkIcon className="h-5 w-5 text-white" />
@@ -450,11 +460,11 @@ const CreateOrderModal = ({
           {/* Étapes */}
           <div className="px-6 py-3 bg-gray-50 border-b">
             <div className="flex justify-center items-center space-x-8">
-              <StepIndicator step={1} currentStep={currentStep} />
+              <StepIndicator step={1} currentStep={currentStep} t={t} />
               <div className="h-0.5 w-12 bg-green-400"></div>
-              <StepIndicator step={2} currentStep={currentStep} />
+              <StepIndicator step={2} currentStep={currentStep} t={t} />
               <div className={`h-0.5 w-12 ${selectedProducts.length > 0 ? 'bg-green-400' : 'bg-gray-300'}`}></div>
-              <StepIndicator step={3} currentStep={currentStep} />
+              <StepIndicator step={3} currentStep={currentStep} t={t} />
             </div>
           </div>
 
@@ -464,11 +474,15 @@ const CreateOrderModal = ({
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center">
                   <ShoppingCartIcon className="h-4 w-4 text-green-600 mr-2" />
-                  <h3 className="font-medium text-gray-800">Produits</h3>
+                  <h3 className="font-medium text-gray-800">{t('salesPages.products')}</h3>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>
-                    ← Changer client
+                  <button
+                    onClick={() => handleClientClick(parseInt(selectedClient))}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                    disabled={isCreating}
+                  >
+                    {t('salesPages.changeClient')}
                   </button>
                 </div>
               </div>
@@ -477,7 +491,7 @@ const CreateOrderModal = ({
               <div className="relative mb-4">
                 <input
                   type="text"
-                  placeholder="Rechercher un produit..."
+                  placeholder={t('salesPages.searchProduct')}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   value={searchProduit}
                   onChange={(e) => setSearchProduit(e.target.value)}
@@ -511,12 +525,12 @@ const CreateOrderModal = ({
                             )}
                           </div>
                           <div className={`text-xs mt-1 ${stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            Stock: {stock} {produit.uniteMesure}
+                            {t('salesPages.stock')}: {stock} {produit.uniteMesure}
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-blue-600 text-sm">
-                            {toNumber(produit.prixVente || produit.prix).toFixed(3)} dt HT
+                            {formatMontant(produit.prixVente || produit.prix)}
                           </div>
                           <button
                             onClick={() => handleAddProduct(produit)}
@@ -524,7 +538,7 @@ const CreateOrderModal = ({
                             className={`mt-1 px-2 py-1 text-xs rounded flex items-center ${stock > 0 && !isCreating ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500'}`}
                           >
                             <PlusIcon className="h-3 w-3 mr-1" />
-                            {selected ? '+1' : 'Ajouter'}
+                            {selected ? '+1' : t('salesPages.add')}
                           </button>
                         </div>
                       </div>
@@ -552,7 +566,7 @@ const CreateOrderModal = ({
                             </div>
                             <button onClick={() => onSupprimerProduit(produit.id)} className="text-red-600 hover:text-red-700 text-xs flex items-center disabled:opacity-50" disabled={isCreating}>
                               <TrashIcon className="h-3 w-3 mr-1" />
-                              Retirer
+                              {t('salesPages.remove')}
                             </button>
                           </div>
                         </div>
@@ -564,16 +578,22 @@ const CreateOrderModal = ({
 
               {/* Navigation */}
               <div className="mt-6 flex justify-between">
-                <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>← Retour</SimpleButton>
-                <SimpleButton onClick={handleNextStep} disabled={selectedProducts.length === 0 || isCreating} variant="primary">
-                  {isCreating ? 'Chargement...' : 'Suivant → Valider'}
+                <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
+                  {t('salesPages.back')}
+                </SimpleButton>
+                <SimpleButton
+                  onClick={handleNextStep}
+                  disabled={selectedProducts.length === 0 || isCreating}
+                  variant="primary"
+                >
+                  {isCreating ? t('salesPages.loading') : t('salesPages.nextValidate')}
                 </SimpleButton>
               </div>
             </div>
 
             {/* Panier */}
             <div className="w-80 border-l border-gray-200 p-6 overflow-y-auto bg-gray-50">
-              <h3 className="font-medium text-gray-800 mb-3">Panier</h3>
+              <h3 className="font-medium text-gray-800 mb-3">{t('salesPages.cart')}</h3>
               
               {/* Client sélectionné avec remise */}
               <div className="bg-white p-3 rounded-lg border mb-4">
@@ -587,7 +607,14 @@ const CreateOrderModal = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
-                    <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50" title="Changer de client" disabled={isCreating}>✕</button>
+                    <button
+                      onClick={() => handleClientClick(parseInt(selectedClient))}
+                      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
+                      title={t('salesPages.changeClient')}
+                      disabled={isCreating}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
                 {totaux.tauxRemiseClient > 0 && (
@@ -600,7 +627,7 @@ const CreateOrderModal = ({
               {selectedProducts.length === 0 ? (
                 <div className="text-center py-8">
                   <ShoppingCartIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 text-sm">Panier vide</p>
+                  <p className="text-gray-600 text-sm">{t('salesPages.emptyCart')}</p>
                 </div>
               ) : (
                 <>
@@ -624,7 +651,7 @@ const CreateOrderModal = ({
                                 {produit.categorie?.nomCategorie || produit.categorieNom || '—'}
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
-                                {produit.quantite} × {toNumber(produit.prixVente || produit.prix).toFixed(3)} dt
+                                {produit.quantite} × {formatMontant(produit.prixVente || produit.prix)}
                               </div>
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {tauxRemise > 0 && (
@@ -635,11 +662,11 @@ const CreateOrderModal = ({
                             </div>
                             <div className="text-right">
                               <div className="font-semibold text-blue-600">
-                                {totalTTCLigne.toFixed(3)} dt TTC
+                                {formatMontant(totalTTCLigne)}
                               </div>
                               {montantRemise > 0 && (
                                 <div className="text-xs text-green-600 mt-1">
-                                  -{montantRemise.toFixed(3)} dt
+                                  -{formatMontant(montantRemise)}
                                 </div>
                               )}
                             </div>
@@ -650,51 +677,57 @@ const CreateOrderModal = ({
                   </div>
 
                   {/* Bouton vider */}
-                  <SimpleButton onClick={handleClearCart} variant="danger" className="w-full mb-4" disabled={isCreating}>
-                    <TrashIcon className="h-3 w-3 mr-1 inline" /> Vider le panier
+                  <SimpleButton
+                    onClick={handleClearCart}
+                    variant="danger"
+                    className="w-full mb-4"
+                    disabled={isCreating}
+                  >
+                    <TrashIcon className="h-3 w-3 mr-1 inline" />
+                    {t('salesPages.clearCart')}
                   </SimpleButton>
 
                   {/* Totaux détaillés */}
                   <div className="bg-white p-4 rounded-lg border">
                     <div className="space-y-2 mb-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Sous-total HT</span>
-                        <span className="font-medium">{totaux.sousTotalHT.toFixed(3)} dt</span>
+                        <span className="text-gray-700">{t('salesPages.subtotal')}</span>
+                        <span className="font-medium">{formatMontant(totaux.sousTotalHT)}</span>
                       </div>
                       
                       {totaux.remiseTotaleProduits > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                           <span>Remises produits</span>
-                          <span className="font-medium">-{totaux.remiseTotaleProduits.toFixed(3)} dt</span>
+                          <span className="font-medium">-{formatMontant(totaux.remiseTotaleProduits)}</span>
                         </div>
                       )}
                       
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700">Total HT</span>
-                        <span className="font-medium">{totaux.totalHT.toFixed(3)} dt</span>
+                        <span className="font-medium">{formatMontant(totaux.totalHT)}</span>
                       </div>
                       
                       {totaux.tauxRemiseClient > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                           <span>Remise client ({totaux.tauxRemiseClient}%)</span>
-                          <span className="font-medium">-{totaux.montantRemiseClient.toFixed(3)} dt</span>
+                          <span className="font-medium">-{formatMontant(totaux.montantRemiseClient)}</span>
                         </div>
                       )}
                       
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700">TVA totale</span>
-                        <span className="font-medium">{totaux.tvaTotale.toFixed(3)} dt</span>
+                        <span className="font-medium">{formatMontant(totaux.tvaTotale)}</span>
                       </div>
                     </div>
                     
                     <div className="border-t pt-3">
                       <div className="flex justify-between font-medium">
-                        <span>Total TTC</span>
-                        <span className="text-green-600 text-lg">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</span>
+                        <span>{t('salesPages.total')}</span>
+                        <span className="text-green-600 text-lg">{formatMontant(totaux.totalTTCApresRemiseClient)}</span>
                       </div>
                       {totaux.totalEconomies > 0 && (
                         <div className="text-right text-xs text-green-600 mt-1">
-                          Économie : {totaux.totalEconomies.toFixed(3)} dt
+                          Économie : {formatMontant(totaux.totalEconomies)}
                         </div>
                       )}
                     </div>
@@ -710,15 +743,15 @@ const CreateOrderModal = ({
 
   // Étape 3 : Validation
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
         {/* En-tête */}
         <div className="bg-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-white">Nouvelle Commande</h2>
-              <p className="text-blue-100 text-sm mt-1">Étape 3 : Validation</p>
+              <h2 className="text-xl font-semibold text-white">{t('salesPages.newOrder')}</h2>
+              <p className="text-blue-100 text-sm mt-1">{t('salesPages.stepValidation')}</p>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-blue-700 rounded" disabled={isCreating}>
               <XMarkIcon className="h-5 w-5 text-white" />
@@ -729,11 +762,11 @@ const CreateOrderModal = ({
         {/* Étapes */}
         <div className="px-6 py-3 bg-gray-50 border-b">
           <div className="flex justify-center items-center space-x-8">
-            <StepIndicator step={1} currentStep={currentStep} />
+            <StepIndicator step={1} currentStep={currentStep} t={t} />
             <div className="h-0.5 w-12 bg-green-400"></div>
-            <StepIndicator step={2} currentStep={currentStep} />
+            <StepIndicator step={2} currentStep={currentStep} t={t} />
             <div className="h-0.5 w-12 bg-green-400"></div>
-            <StepIndicator step={3} currentStep={currentStep} />
+            <StepIndicator step={3} currentStep={currentStep} t={t} />
           </div>
         </div>
 
@@ -744,8 +777,8 @@ const CreateOrderModal = ({
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-2" />
               <div>
-                <h3 className="font-medium text-green-800">Vérifiez les détails</h3>
-                <p className="text-green-700 text-sm mt-1">Tout est prêt pour créer la commande</p>
+                <h3 className="font-medium text-green-800">{t('salesPages.verifyDetails')}</h3>
+                <p className="text-green-700 text-sm mt-1">{t('salesPages.readyToCreateOrder')}</p>
               </div>
             </div>
           </div>
@@ -753,8 +786,14 @@ const CreateOrderModal = ({
           {/* Client */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium text-gray-800">Client</h4>
-              <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>Changer</button>
+              <h4 className="font-medium text-gray-800">{t('salesPages.client')}</h4>
+              <button
+                onClick={() => handleClientClick(parseInt(selectedClient))}
+                className="text-sm text-blue-600 hover:text-blue-700"
+                disabled={isCreating}
+              >
+                {t('salesPages.change')}
+              </button>
             </div>
             <div className="bg-white border rounded-lg p-4">
               <div className="flex justify-between items-center">
@@ -767,7 +806,14 @@ const CreateOrderModal = ({
                 </div>
                 <div className="flex items-center space-x-2">
                   <ClientBadge type={clientSelectionne?.typeClient || clientSelectionne?.type} />
-                  <button onClick={() => handleClientClick(parseInt(selectedClient))} className="text-xs text-red-600 hover:text-red-700" title="Changer de client" disabled={isCreating}>✕</button>
+                  <button
+                    onClick={() => handleClientClick(parseInt(selectedClient))}
+                    className="text-xs text-red-600 hover:text-red-700"
+                    title={t('salesPages.changeClient')}
+                    disabled={isCreating}
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
               {totaux.tauxRemiseClient > 0 && (
@@ -781,8 +827,10 @@ const CreateOrderModal = ({
           {/* Produits avec TVA */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium text-gray-800">Produits</h4>
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">{selectedProducts.length} article{selectedProducts.length !== 1 ? 's' : ''}</span>
+              <h4 className="font-medium text-gray-800">{t('salesPages.products')}</h4>
+              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
+                {t('salesPages.itemCount', { count: selectedProducts.length })}
+              </span>
             </div>
             
             <div className="bg-white border rounded-lg overflow-hidden">
@@ -790,12 +838,10 @@ const CreateOrderModal = ({
                 <table className="min-w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Produit</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Qté</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Prix HT</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Remise</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">TVA</th>
-                      <th className="px-4 py-2 text-left text-xs text-gray-500">Total TTC</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.product')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.quantityShort')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.price')}</th>
+                      <th className="px-4 py-2 text-left text-xs text-gray-500">{t('salesPages.total')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -815,18 +861,8 @@ const CreateOrderModal = ({
                             <div className="text-xs text-gray-500">{produit.categorie?.nomCategorie || produit.categorieNom || '—'}</div>
                           </td>
                           <td className="px-4 py-2 text-gray-900 text-sm">{produit.quantite}</td>
-                          <td className="px-4 py-2 text-gray-900 text-sm">{toNumber(produit.prixVente || produit.prix).toFixed(3)} dt</td>
-                          <td className="px-4 py-2">
-                            {tauxRemise > 0 ? (
-                              <span className="text-xs text-green-600">-{montantRemise.toFixed(3)} dt ({tauxRemise}%)</span>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className="text-xs text-blue-600">{montantTVA.toFixed(3)} dt ({tauxTVA}%)</span>
-                          </td>
-                          <td className="px-4 py-2 font-medium text-blue-600 text-sm">{totalTTCLigne.toFixed(3)} dt</td>
+                          <td className="px-4 py-2 text-gray-900 text-sm">{formatMontant(produit.prixVente || produit.prix)}</td>
+                          <td className="px-4 py-2 font-medium text-blue-600 text-sm">{formatMontant(totalTTCLigne)}</td>
                         </tr>
                       );
                     })}
@@ -834,58 +870,71 @@ const CreateOrderModal = ({
                 </table>
               </div>
               <div className="border-t p-3">
-                <button onClick={() => setCurrentStep(2)} className="text-sm text-blue-600 hover:text-blue-700" disabled={isCreating}>← Modifier</button>
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                  disabled={isCreating}
+                >
+                  {t('salesPages.edit')}
+                </button>
               </div>
             </div>
           </div>
 
           {/* Notes */}
           <div className="mb-6">
-            <h4 className="font-medium text-gray-800 mb-2">Notes</h4>
-            <textarea className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm" rows="2" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Instructions supplémentaires..." disabled={isCreating} />
+            <h4 className="font-medium text-gray-800 mb-2">{t('salesPages.notes')}</h4>
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              rows="2"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t('salesPages.additionalInstructions')}
+              disabled={isCreating}
+            />
           </div>
 
           {/* Totaux détaillés */}
           <div className="bg-gray-50 border rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-gray-800 mb-3">Récapitulatif</h4>
+            <h4 className="font-medium text-gray-800 mb-3">{t('salesPages.summary')}</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-700">Sous-total HT</span>
-                <span className="font-medium">{totaux.sousTotalHT.toFixed(3)} dt</span>
+                <span className="text-gray-700">{t('salesPages.subtotal')}</span>
+                <span className="font-medium">{formatMontant(totaux.sousTotalHT)}</span>
               </div>
               
               {totaux.remiseTotaleProduits > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Remises produits</span>
-                  <span className="font-medium">-{totaux.remiseTotaleProduits.toFixed(3)} dt</span>
+                  <span className="font-medium">-{formatMontant(totaux.remiseTotaleProduits)}</span>
                 </div>
               )}
               
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">Total HT</span>
-                <span className="font-medium">{totaux.totalHT.toFixed(3)} dt</span>
+                <span className="font-medium">{formatMontant(totaux.totalHT)}</span>
               </div>
               
               {totaux.tauxRemiseClient > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Remise client ({totaux.tauxRemiseClient}%)</span>
-                  <span className="font-medium">-{totaux.montantRemiseClient.toFixed(3)} dt</span>
+                  <span className="font-medium">-{formatMontant(totaux.montantRemiseClient)}</span>
                 </div>
               )}
               
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">TVA totale</span>
-                <span className="font-medium">{totaux.tvaTotale.toFixed(3)} dt</span>
+                <span className="font-medium">{formatMontant(totaux.tvaTotale)}</span>
               </div>
               
               <div className="border-t pt-3">
                 <div className="flex justify-between font-medium">
-                  <span>Total TTC</span>
-                  <span className="text-green-600 text-lg">{totaux.totalTTCApresRemiseClient.toFixed(3)} dt</span>
+                  <span>{t('salesPages.orderTotal')}</span>
+                  <span className="text-green-600 text-lg">{formatMontant(totaux.totalTTCApresRemiseClient)}</span>
                 </div>
                 {totaux.totalEconomies > 0 && (
                   <div className="text-right text-xs text-green-600 mt-1">
-                    Économies : {totaux.totalEconomies.toFixed(3)} dt
+                    Économies : {formatMontant(totaux.totalEconomies)}
                   </div>
                 )}
               </div>
@@ -894,23 +943,32 @@ const CreateOrderModal = ({
 
           {/* Boutons finaux */}
           <div className="flex justify-between pt-4 border-t">
-            <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>← Retour</SimpleButton>
+            <SimpleButton onClick={handlePrevStep} variant="outline" disabled={isCreating}>
+              {t('salesPages.back')}
+            </SimpleButton>
             
             <div className="flex space-x-3">
-              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>Annuler</SimpleButton>
-              <SimpleButton onClick={handleCreateOrder} variant="primary" className="px-6" disabled={isCreating}>
+              <SimpleButton onClick={onClose} variant="outline" disabled={isCreating}>
+                {t('salesPages.cancel')}
+              </SimpleButton>
+              <SimpleButton 
+                onClick={handleCreateOrder} 
+                variant="primary" 
+                className="px-6"
+                disabled={isCreating}
+              >
                 {isCreating ? (
                   <span className="flex items-center">
                     <svg className="animate-spin h-4 w-4 mr-2 text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Création en cours...
+                    {t('salesPages.creating')}
                   </span>
                 ) : (
                   <>
                     <CheckCircleIcon className="h-4 w-4 mr-1 inline" />
-                    Créer la commande
+                    {t('salesPages.createOrder')}
                   </>
                 )}
               </SimpleButton>

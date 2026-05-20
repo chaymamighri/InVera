@@ -10,10 +10,20 @@ import SuccessModal from './components/SuccessModal';
 import productService from '../../../../services/productService';
 import clientService from '../../../../services/clientService';
 import { useAuth } from '../../../../hooks/useAuth';
+import { useLanguage } from '../../../../context/LanguageContext';
+
+const localeByLanguage = {
+  fr: 'fr-FR',
+  en: 'en-US',
+  ar: 'ar-TN',
+};
 
 const ProductsConsultationPage = () => {
   // États pour les données
   const { isAuthenticated } = useAuth();
+  const { t, language, isArabic } = useLanguage();
+  const tr = (key, params) => t(`salesPages.${key}`, params);
+  const locale = localeByLanguage[language] || localeByLanguage.fr;
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]); // ✅ Tous les produits pour le filtrage côté frontend
   const [loading, setLoading] = useState(true);
@@ -120,89 +130,124 @@ const ProductsConsultationPage = () => {
     }
   };
 
-  // ✅ Fonction pour filtrer et trier les produits (côté frontend)
-  const filterAndSortProducts = useCallback(() => {
-    if (!allProducts || !Array.isArray(allProducts)) return [];
-    
-    let result = [...allProducts];
-    
-    // ✅ Filtre par recherche (nom ou catégorie)
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(product => {
-        const libelle = (product.libelle || '').toLowerCase();
-        let categorie = '';
-        
-        if (product.categorie) {
-          if (typeof product.categorie === 'object') {
-            categorie = (product.categorie.nomCategorie || '').toLowerCase();
-          } else {
-            categorie = (product.categorie || '').toLowerCase();
-          }
-        } else if (product.categorieNom) {
-          categorie = (product.categorieNom || '').toLowerCase();
-        }
-        
-        return libelle.includes(term) || categorie.includes(term);
-      });
-    }
-    
-    // ✅ Filtre par catégorie
-    if (selectedCategory && selectedCategory !== 'Tous') {
-      result = result.filter(product => {
-        let categorie = '';
-        
-        if (product.categorie) {
-          if (typeof product.categorie === 'object') {
-            categorie = product.categorie.nomCategorie;
-          } else {
-            categorie = product.categorie;
-          }
-        } else if (product.categorieNom) {
-          categorie = product.categorieNom;
-        }
-        
-        return categorie === selectedCategory;
-      });
-    }
-    
-    // ✅ Tri
-    result.sort((a, b) => {
-      let aValue, bValue;
+ // ✅ Fonction pour filtrer et trier les produits (côté frontend)
+const filterAndSortProducts = useCallback(() => {
+  if (!allProducts || !Array.isArray(allProducts)) return [];
+  
+  let result = [...allProducts];
+  
+  // Filtre par recherche (nom ou catégorie)
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    result = result.filter(product => {
+      const libelle = (product.libelle || '').toLowerCase();
+      let categorie = '';
       
-      switch(sortField) {
-        case 'libelle':
-          aValue = a.libelle || '';
-          bValue = b.libelle || '';
-          break;
-        case 'prixVente':
-          aValue = Number(a.prixVente) || 0;
-          bValue = Number(b.prixVente) || 0;
-          break;
-        case 'quantiteStock':
-          aValue = Number(a.quantiteStock) || 0;
-          bValue = Number(b.quantiteStock) || 0;
-          break;
-        case 'status':
-          aValue = a.status || '';
-          bValue = b.status || '';
-          break;
-        default:
-          aValue = a[sortField] || '';
-          bValue = b[sortField] || '';
+      if (product.categorie) {
+        if (typeof product.categorie === 'object') {
+          categorie = (product.categorie.nomCategorie || '').toLowerCase();
+        } else {
+          categorie = (product.categorie || '').toLowerCase();
+        }
+      } else if (product.categorieNom) {
+        categorie = (product.categorieNom || '').toLowerCase();
       }
       
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      } else {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      return libelle.includes(term) || categorie.includes(term);
+    });
+  }
+  
+  // Filtre par catégorie
+  if (selectedCategory && selectedCategory !== 'Tous') {
+    result = result.filter(product => {
+      let categorie = '';
+      
+      if (product.categorie) {
+        if (typeof product.categorie === 'object') {
+          categorie = product.categorie.nomCategorie;
+        } else {
+          categorie = product.categorie;
+        }
+      } else if (product.categorieNom) {
+        categorie = product.categorieNom;
       }
+      
+      return categorie === selectedCategory;
+    });
+  }
+  
+  // Tri
+  result.sort((a, b) => {
+    let aValue, bValue;
+    
+    switch(sortField) {
+      case 'libelle':
+        aValue = a.libelle || '';
+        bValue = b.libelle || '';
+        break;
+      case 'prixVente':
+        aValue = Number(a.prixVente) || 0;
+        bValue = Number(b.prixVente) || 0;
+        break;
+      case 'quantiteStock':
+        aValue = Number(a.quantiteStock) || 0;
+        bValue = Number(b.quantiteStock) || 0;
+        break;
+      case 'status':
+        aValue = a.status || '';
+        bValue = b.status || '';
+        break;
+      default:
+        aValue = a[sortField] || '';
+        bValue = b[sortField] || '';
+    }
+    
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    } else {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+  });
+  
+  return result;
+}, [allProducts, searchTerm, selectedCategory, sortField, sortDirection]);
+
+// ========== FONCTION DE CHARGEMENT DES PRODUITS ==========
+const loadProducts = async () => {
+  setLoading(true);
+  
+  try {
+    const response = await productService.getAllProducts();
+    const productsData = response?.data || response || [];
+    
+    setAllProducts(productsData);
+    setProducts(productsData);
+    
+    // Extraire les catégories uniques
+    const allCategories = productsData.map(product => {
+      if (product.categorie) {
+        if (typeof product.categorie === 'object') {
+          return product.categorie.nomCategorie;
+        }
+        return product.categorie;
+      }
+      if (product.categorieNom) return product.categorieNom;
+      return null;
     });
     
-    return result;
-  }, [allProducts, searchTerm, selectedCategory, sortField, sortDirection]);
+    const uniqueCategories = [...new Set(allCategories.filter(Boolean))];
+    setCategories(['Tous', ...uniqueCategories]);
+    
+  } catch (err) {
+    console.error('❌ Erreur lors du chargement des produits:', err);
+    setError(err.response?.data?.message || err.message || tr('productsLoadError'));
+    setProducts([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ✅ Produits filtrés et triés
   const filteredProducts = useMemo(() => filterAndSortProducts(), [filterAndSortProducts]);
@@ -348,14 +393,14 @@ const ProductsConsultationPage = () => {
         idProduit: productId,
         prix: product.prix || product.prixVente || 0,
         quantiteStock: product.quantiteStock || 0,
-        uniteMesure: product.uniteMesure || 'unité'
+        uniteMesure: product.uniteMesure || tr('unit')
       }]);
     }
   };
 
   const handleCreateOrder = () => {
     if (selectedProducts.length === 0) {
-      alert('Veuillez sélectionner au moins un produit');
+      alert(tr('selectAtLeastOneProduct'));
       return;
     }
     
@@ -389,7 +434,7 @@ const ProductsConsultationPage = () => {
   const handleAddNewClient = async () => {
     try {
       if (!nouveauClient.nom.trim() || !nouveauClient.telephone.trim()) {
-        alert('Veuillez remplir les champs obligatoires (nom et téléphone)');
+        alert(tr('requiredClientFields'));
         return;
       }
       
@@ -431,18 +476,18 @@ const ProductsConsultationPage = () => {
       
     } catch (err) {
       console.error('Erreur création client:', err);
-      alert(err.response?.data?.message || 'Erreur lors de la création du client');
+      alert(err.response?.data?.message || tr('clientCreateError'));
     }
   };
 
   const handleCreateCommande = () => {
     if (selectedProducts.length === 0 || !selectedClient) {
-      alert('Veuillez sélectionner un client et au moins un produit');
+      alert(tr('selectClientAndProduct'));
       return;
     }
 
     if (!checkDisponibilite(selectedProducts)) {
-      alert('Certains produits ne sont pas disponibles en quantité suffisante');
+      alert(tr('someProductsUnavailable'));
       return;
     }
 
@@ -481,7 +526,7 @@ const ProductsConsultationPage = () => {
         client: selectedClient,
         produits: selectedProducts.map(p => ({
           produitId: p.idProduit || p.id,
-          libelle: p.libelle || 'Produit',
+          libelle: p.libelle || tr('product'),
           quantite: p.quantiteCommande || 1,
           prixUnitaire: p.prix || p.prixVente || 0,
           sousTotal: ((p.prix || p.prixVente || 0) * (p.quantiteCommande || 1)).toFixed(2)
@@ -507,7 +552,7 @@ const ProductsConsultationPage = () => {
       
     } catch (err) {
       console.error('Erreur enregistrement commande:', err);
-      alert(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      alert(err.response?.data?.message || tr('saveError'));
     }
   };
 
@@ -545,12 +590,12 @@ const ProductsConsultationPage = () => {
   const stats = useMemo(() => calculateStats(filteredProducts), [filteredProducts]);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl p-6 shadow-sm border">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Consultation des Produits</h1>
-            <p className="text-gray-600 mt-2">Consultez le catalogue et créez des commandes clients</p>
+            <h1 className="text-2xl font-bold text-gray-800">{tr('productConsultationTitle')}</h1>
+            <p className="text-gray-600 mt-2">{tr('productConsultationDescription')}</p>
           </div>
           
           {selectedProducts.length > 0 && (
@@ -562,13 +607,13 @@ const ProductsConsultationPage = () => {
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Créer commande ({selectedProducts.length})
+                {tr('createOrderWithCount', { count: selectedProducts.length })}
               </button>
             </div>
           )}
         </div>
 
-        <ProductStats stats={stats} />
+        <ProductStats stats={stats} t={tr} />
 
         <ProductFilters 
           searchTerm={searchTerm}
@@ -576,6 +621,8 @@ const ProductsConsultationPage = () => {
           selectedCategory={selectedCategory}
           setSelectedCategory={handleCategoryChange}
           categories={categories}
+          t={tr}
+          isArabic={isArabic}
         />
       </div>
 
@@ -584,7 +631,7 @@ const ProductsConsultationPage = () => {
           <div className="flex items-center">
             <div className="text-red-500 mr-3">⚠️</div>
             <div>
-              <p className="text-red-700 font-medium">Erreur de chargement</p>
+              <p className="text-red-700 font-medium">{tr('loadingError')}</p>
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           </div>
@@ -607,6 +654,9 @@ const ProductsConsultationPage = () => {
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
+        t={tr}
+        locale={locale}
+        isArabic={isArabic}
       />
 
       {showCreateOrder && !showRecap && (
@@ -633,6 +683,8 @@ const ProductsConsultationPage = () => {
           loadingClients={loadingClients}
           applyRemiseByClientType={applyRemiseByClientType}
           loadClients={loadClients}
+          t={tr}
+          isArabic={isArabic}
         />
       )}
 
@@ -645,6 +697,9 @@ const ProductsConsultationPage = () => {
           remiseAppliquee={remiseAppliquee}
           calculerTotaux={calculerTotaux}
           handleEnregistrerCommande={handleEnregistrerCommande}
+          t={tr}
+          locale={locale}
+          isArabic={isArabic}
         />
       )}
 
@@ -652,6 +707,8 @@ const ProductsConsultationPage = () => {
         <SuccessModal 
           showSuccessPopup={showSuccessPopup}
           setShowSuccessPopup={setShowSuccessPopup}
+          t={tr}
+          isArabic={isArabic}
         />
       )}
     </div>
