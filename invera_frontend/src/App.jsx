@@ -287,8 +287,6 @@ function App() {
               }
             />
 
-            {/* PAYMENT */}
-
             <Route
               path="/paiement/checkout"
               element={
@@ -306,31 +304,6 @@ function App() {
                 </PublicLayout>
               }
             />
-{/*route
-<Route
-  path="/paiement/succes"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>
-<Route
-  path="/paiement/echec"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>
-<Route
-  path="/paiement/annuler"
-  element={
-    <PublicLayout>
-      <PaymentPage />
-    </PublicLayout>
-  }
-/>*/}
 
             <Route
               path="/paiement/echec"
@@ -349,6 +322,7 @@ function App() {
                 </PublicLayout>
               }
             />
+
 
             {/* AUTH */}
 

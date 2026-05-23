@@ -37,11 +37,16 @@ public class Abonnement {
     @Enumerated(EnumType.STRING)
     private StatutAbonnement statut;
 
+    // ✅ Nouveau champ pour stocker le motif de suspension/réactivation
+    private String motifAction;
+
+    // ✅ Date de la dernière action (suspension/réactivation)
+    private LocalDateTime dateDerniereAction;
+
     public enum StatutAbonnement {
         EN_ATTENTE_VALIDATION,
         ACTIF,                  // Payé et actif
         SUSPENDU,               // Suspendu temporairement (Super Admin)
-        ANNULE,                 // Annulé définitivement (Super Admin/Client)
         EXPIRE,
     }
 }

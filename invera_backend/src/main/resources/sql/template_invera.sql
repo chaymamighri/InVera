@@ -27,6 +27,8 @@ CREATE TABLE public.client (
     telephone VARCHAR(255) NOT NULL,
     adresse VARCHAR(255) NOT NULL,
     type_client VARCHAR(50) NOT NULL,
+    raison_sociale VARCHAR(255),
+    matricule_fiscale VARCHAR(50),
     remise_client_fidele DECIMAL(5,2) DEFAULT 0,
     remise_client_professionnelle DECIMAL(5,2) DEFAULT 0,
     remise_client_vip DECIMAL(5,2) DEFAULT 0,
@@ -34,6 +36,7 @@ CREATE TABLE public.client (
     created_by VARCHAR(255),
     CONSTRAINT uk_client_email UNIQUE (email),
     CONSTRAINT uk_client_telephone UNIQUE (telephone),
+    CONSTRAINT uk_client_matricule_fiscale UNIQUE (matricule_fiscale),
     CONSTRAINT check_client_type CHECK (type_client IN ('PARTICULIER', 'VIP', 'PROFESSIONNEL', 'ENTREPRISE', 'FIDELE'))
 );
 
@@ -54,6 +57,7 @@ CREATE TABLE public.users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT users_role_check CHECK (role IN ('ADMIN_CLIENT', 'COMMERCIAL', 'RESPONSABLE_ACHAT')),
     CONSTRAINT users_preferred_language_check CHECK (preferred_language IN ('FR', 'EN', 'AR'))
+
 );
 
 -- Index pour users
@@ -118,6 +122,7 @@ CREATE TABLE public.fournisseurs (
     adresse VARCHAR(255),
     ville VARCHAR(50),
     pays VARCHAR(50),
+    matricule_fiscale VARCHAR(50) NOT NULL UNIQUE,
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -287,6 +292,9 @@ CREATE INDEX idx_client_type_discount_tenant ON public.client_type_discount(tena
 CREATE INDEX idx_fournisseurs_actif ON public.fournisseurs(actif);
 CREATE INDEX idx_commandes_fournisseurs_statut ON public.commandes_fournisseurs(statut);
 CREATE INDEX idx_commandes_fournisseurs_date ON public.commandes_fournisseurs(date_commande);
+CREATE INDEX idx_client_raison_sociale ON public.client(raison_sociale);
+CREATE INDEX idx_client_matricule_fiscale ON public.client(matricule_fiscale);
+CREATE INDEX idx_fournisseurs_matricule_fiscale ON public.fournisseurs(matricule_fiscale);
 
 -- =====================================================
 -- VIDER TOUTES LES DONNÉES

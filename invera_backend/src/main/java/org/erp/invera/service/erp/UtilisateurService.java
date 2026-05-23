@@ -22,12 +22,12 @@ public class UtilisateurService {
 
     // ==================== AUTHENTIFICATION ====================
     public Map<String, Object> authenticate(Long clientId, String email, String password) {
-        log.info("🔐 Authentification de {} pour clientId: {}", email, clientId);
+        log.info(" Authentification de {} pour clientId: {}", email, clientId);
 
         String sql = "SELECT id, email, mot_de_passe, nom, prenom, role, active, client_id FROM users WHERE email = ?";
 
         try {
-            // ✅ Utiliser queryForObjectAuth (nouvelle méthode)
+            //  Utiliser queryForObjectAuth (nouvelle méthode)
             Map<String, Object> user = tenantRepo.queryForObjectAuth(sql, rowMapper.userAuthRowMapper(),
                     clientId, String.valueOf(clientId), email);
 
@@ -45,7 +45,7 @@ public class UtilisateurService {
                 throw new RuntimeException("Compte désactivé. Contactez votre administrateur.");
             }
 
-            // ✅ Utiliser updateAuth pour la mise à jour
+            //  Utiliser updateAuth pour la mise à jour
             String updateSql = "UPDATE users SET last_login = ? WHERE email = ?";
             tenantRepo.updateAuth(updateSql, clientId, String.valueOf(clientId), LocalDateTime.now(), email);
 
@@ -57,11 +57,11 @@ public class UtilisateurService {
             result.put("prenom", user.get("prenom") != null ? user.get("prenom") : "");
             result.put("clientId", user.get("client_id"));
 
-            log.info("✅ Authentification réussie: {}", email);
+            log.info(" Authentification réussie: {}", email);
             return result;
 
         } catch (Exception e) {
-            log.error("❌ Erreur authentification: {}", e.getMessage());
+            log.error(" Erreur authentification: {}", e.getMessage());
             throw new RuntimeException("Email ou mot de passe incorrect");
         }
     }
@@ -70,7 +70,7 @@ public class UtilisateurService {
     public Utilisateur createEmployee(Long clientId, String email, String password,
                                       String nom, String prenom, String role) {
 
-        // ✅ Utiliser queryForObjectAuth
+        // Utiliser queryForObjectAuth
         String checkSql = "SELECT COUNT(*) FROM users WHERE email = ?";
         Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, String.valueOf(clientId), email);
 
@@ -92,11 +92,11 @@ public class UtilisateurService {
         RETURNING id
         """;
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         Long id = tenantRepo.queryForObjectAuth(insertSql, Long.class, clientId, String.valueOf(clientId),
                 clientId, email, passwordEncoder.encode(password), nom, prenom, roleEnum.name());
 
-        log.info("✅ Employé créé: {} pour clientId: {}", email, clientId);
+        log.info(" Employé créé: {} pour clientId: {}", email, clientId);
         return findById(clientId, id);
     }
 
@@ -105,7 +105,7 @@ public class UtilisateurService {
     public List<Map<String, Object>> getAllUsers(Long clientId) {
         String sql = "SELECT id, email, nom, prenom, role, active, client_id, created_at, last_login FROM users ORDER BY id";
 
-        // ✅ query sans authenticatedClientId (ok)
+        //  query sans authenticatedClientId (ok)
         List<Map<String, Object>> users = tenantRepo.query(sql, rowMapper.userListRowMapper(), clientId);
         return users != null ? users : new ArrayList<>();
     }
@@ -113,7 +113,7 @@ public class UtilisateurService {
     public Utilisateur findById(Long clientId, Long userId) {
         String sql = "SELECT * FROM users WHERE id = ?";
 
-        // ✅ queryForObject sans authenticatedClientId (ok)
+        //  queryForObject sans authenticatedClientId (ok)
         Utilisateur user = tenantRepo.queryForObject(sql, rowMapper.utilisateurRowMapper(), clientId, userId);
 
         if (user == null) {
@@ -125,7 +125,7 @@ public class UtilisateurService {
     public Utilisateur findByEmail(Long clientId, String email) {
         String sql = "SELECT * FROM users WHERE email = ?";
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         Utilisateur user = tenantRepo.queryForObjectAuth(sql, rowMapper.utilisateurRowMapper(),
                 clientId, String.valueOf(clientId), email);
 
@@ -138,7 +138,7 @@ public class UtilisateurService {
     public List<Utilisateur> getEmployeesByClient(Long clientId) {
         String sql = "SELECT * FROM users ORDER BY id";
 
-        // ✅ query sans authenticatedClientId (ok)
+        //  query sans authenticatedClientId (ok)
         List<Utilisateur> users = tenantRepo.query(sql, rowMapper.utilisateurRowMapper(), clientId);
         return users != null ? users : new ArrayList<>();
     }
@@ -174,7 +174,7 @@ public class UtilisateurService {
 
         String sql = "UPDATE users SET nom = ?, prenom = ?, email = ?, role = ?, active = ?, updated_at = ? WHERE id = ? AND client_id = ?";
 
-        // ✅ Utiliser updateAuth
+        // Utiliser updateAuth
         int updated = tenantRepo.updateAuth(sql, clientId, String.valueOf(clientId),
                 finalNom, finalPrenom, finalEmail, finalRole, finalActive, LocalDateTime.now(), userId, clientId);
 
@@ -182,13 +182,13 @@ public class UtilisateurService {
             throw new RuntimeException("Erreur lors de la modification de l'utilisateur");
         }
 
-        log.info("✅ Employé modifié: userId={}", userId);
+        log.info(" Employé modifié: userId={}", userId);
     }
 
     public void toggleEmployeeStatus(Long clientId, Long userId, boolean active) {
         String sql = "UPDATE users SET active = ?, updated_at = ? WHERE id = ? AND client_id = ?";
 
-        // ✅ Utiliser updateAuth
+        //  Utiliser updateAuth
         int updated = tenantRepo.updateAuth(sql, clientId, String.valueOf(clientId),
                 active, LocalDateTime.now(), userId, clientId);
 
@@ -196,13 +196,13 @@ public class UtilisateurService {
             throw new RuntimeException("Erreur lors du changement de statut");
         }
 
-        log.info("✅ Statut employé modifié: userId={}, active={}", userId, active);
+        log.info(" Statut employé modifié: userId={}, active={}", userId, active);
     }
 
     public void updatePassword(Long clientId, Long userId, String newPassword) {
         String sql = "UPDATE users SET mot_de_passe = ?, updated_at = ? WHERE id = ? AND client_id = ?";
 
-        // ✅ Utiliser updateAuth
+        //  Utiliser updateAuth
         int updated = tenantRepo.updateAuth(sql, clientId, String.valueOf(clientId),
                 passwordEncoder.encode(newPassword), LocalDateTime.now(), userId, clientId);
 
@@ -210,20 +210,20 @@ public class UtilisateurService {
             throw new RuntimeException("Erreur lors du changement de mot de passe");
         }
 
-        log.info("🔑 Mot de passe mis à jour pour userId={}", userId);
+        log.info(" Mot de passe mis à jour pour userId={}", userId);
     }
 
     public void deleteEmployee(Long clientId, Long userId) {
         String sql = "DELETE FROM users WHERE id = ? AND client_id = ?";
 
-        // ✅ Utiliser updateAuth
+        // Utiliser updateAuth
         int deleted = tenantRepo.updateAuth(sql, clientId, String.valueOf(clientId), userId, clientId);
 
         if (deleted == 0) {
             throw new RuntimeException("Utilisateur non trouvé");
         }
 
-        log.info("✅ Employé supprimé: userId={}", userId);
+        log.info(" Employé supprimé: userId={}", userId);
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================
@@ -231,7 +231,7 @@ public class UtilisateurService {
     public boolean userExists(Long clientId, String email) {
         String sql = "SELECT COUNT(*) FROM users WHERE email = ?";
 
-        // ✅ Utiliser queryForObjectAuth
+        //  Utiliser queryForObjectAuth
         Integer count = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, String.valueOf(clientId), email);
 
         return count != null && count > 0;

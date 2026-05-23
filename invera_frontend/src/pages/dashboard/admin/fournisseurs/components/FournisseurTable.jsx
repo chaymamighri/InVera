@@ -43,7 +43,7 @@ const FournisseurTable = ({ fournisseurs, onEdit, onToggleStatus, text }) => {
           <table className="w-full">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                {[text.name, text.email, text.phone, text.city, text.country, text.status, text.actions].map((label) => (
+                {[text.name, text.taxId || 'Matricule Fiscal', text.email, text.phone, text.city, text.country, text.status, text.actions].map((label) => (
                   <th key={label} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                     {label}
                   </th>
@@ -65,6 +65,12 @@ const FournisseurTable = ({ fournisseurs, onEdit, onToggleStatus, text }) => {
                         {fournisseur.nomFournisseur}
                       </span>
                     </div>
+                  </td>
+
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-mono font-medium text-gray-700">
+                      {fournisseur.matriculeFiscale || '-'}
+                    </span>
                   </td>
 
                   <td className="px-4 py-3 whitespace-nowrap">

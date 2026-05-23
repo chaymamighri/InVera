@@ -17,12 +17,12 @@ public class SubscriptionScheduler {
 
     /**
      * Vérification quotidienne des abonnements expirés
-     * Exécuté tous les jours à 01:00
+     * Exécuté tous les jours à 01:00 et 13:00
      */
     @Scheduled(cron = "0 0 1,13 * * *")
     public void checkExpiredSubscriptions() {
-        log.info("🔍 Vérification des abonnements expirés...");
-        subscriptionService.checkAndExpireSubscriptions();  // ← CORRIGÉ
+        log.info(" Vérification des abonnements expirés...");
+        subscriptionService.checkAndExpireSubscriptions();
     }
 
     /**
@@ -31,7 +31,7 @@ public class SubscriptionScheduler {
      */
     @Scheduled(cron = "0 0 9 * * *")
     public void sendExpirationReminders() {
-        log.info("📧 Envoi des rappels d'expiration...");
+        log.info("Envoi des rappels d'expiration...");
         subscriptionService.sendExpirationReminders();
     }
 }

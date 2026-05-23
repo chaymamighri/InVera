@@ -527,38 +527,38 @@ public class AuthController {
         }
     }
 
-// ==================== UPDATE PROFILE ====================
-@PutMapping("/update-profile")
-public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request,
-                                       @RequestHeader("Authorization") String token) {
-    try {
-        String jwt = token.replace("Bearer ", "");
-        String email = jwtTokenProvider.getEmailFromToken(jwt);
-        Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
+    // ==================== UPDATE PROFILE ====================
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request,
+                                           @RequestHeader("Authorization") String token) {
+        try {
+            String jwt = token.replace("Bearer ", "");
+            String email = jwtTokenProvider.getEmailFromToken(jwt);
+            Long clientId = jwtTokenProvider.getClientIdFromToken(jwt);
 
-        String nom = request.get("nom");
-        String prenom = request.get("prenom");
+            String nom = request.get("nom");
+            String prenom = request.get("prenom");
 
-        // Aller directement à l'utilisateur
-        Utilisateur user = utilisateurService.findByEmail(clientId, email);
-        if (user == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "Utilisateur non trouvé"));
+            // Aller directement à l'utilisateur
+            Utilisateur user = utilisateurService.findByEmail(clientId, email);
+            if (user == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "Utilisateur non trouvé"));
+            }
+
+            utilisateurService.updateEmployee(clientId, user.getId(), nom, prenom, null, null, null);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Profil mis à jour avec succès",
+                    "nom", nom,
+                    "prenom", prenom
+            ));
+
+        } catch (Exception e) {
+            log.error("Erreur update-profile: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-
-        utilisateurService.updateEmployee(clientId, user.getId(), nom, prenom, null, null, null);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Profil mis à jour avec succès",
-                "nom", nom,
-                "prenom", prenom
-        ));
-
-    } catch (Exception e) {
-        log.error("Erreur update-profile: {}", e.getMessage(), e);
-        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
-}
 
 // ==================== CHANGE PASSWORD ====================
 

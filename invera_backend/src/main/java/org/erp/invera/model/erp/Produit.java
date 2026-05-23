@@ -66,9 +66,6 @@ public class Produit {
     @Column(name = "image_url")
     private String imageUrl;
 
-    @Column(name = "remise_temporaire")
-    private Double remiseTemporaire;
-
     @CreatedBy
     @Column(name = "created_by", nullable = false, updatable = false)
     private String createdBy;
@@ -81,7 +78,6 @@ public class Produit {
         EN_STOCK,
         RUPTURE,
         FAIBLE,
-        CRITIQUE
     }
 
     public enum UniteMesure {

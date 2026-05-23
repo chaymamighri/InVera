@@ -13,18 +13,12 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Service d'état des stocks - MULTI-TENANT.
- * Architecture : 1 base = 1 client → Pas besoin de tenant_id dans les requêtes
- */
 @Service
 @RequiredArgsConstructor
 public class StockEtatService {
 
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
-
-    // ==================== ROW MAPPER ====================
 
     private RowMapper<Produit> produitRowMapper() {
         return (rs, rowNum) -> {
@@ -46,7 +40,6 @@ public class StockEtatService {
                 produit.setUniteMesure(Produit.UniteMesure.valueOf(uniteMesure));
             }
 
-            // Catégorie
             if (rs.getObject("categorie_id") != null) {
                 org.erp.invera.model.erp.Categorie categorie = new org.erp.invera.model.erp.Categorie();
                 categorie.setIdCategorie(rs.getInt("categorie_id"));
@@ -62,7 +55,24 @@ public class StockEtatService {
         return jwtTokenProvider.getClientIdFromToken(token);
     }
 
-    // ==================== MÉTHODES ====================
+    /**
+     * Déterminer le statut en fonction de la quantité et du seuil
+     * ✅ Simplifié : uniquement EN_STOCK, FAIBLE, RUPTURE
+     */
+    private StockStatus determinerStatut(Integer quantiteActuelle, Integer seuilMinimum) {
+        // Rupture : quantité = 0
+        if (quantiteActuelle == null || quantiteActuelle <= 0) {
+            return StockStatus.RUPTURE;
+        }
+
+        // Stock faible : quantité <= seuil minimum
+        if (seuilMinimum != null && seuilMinimum > 0 && quantiteActuelle <= seuilMinimum) {
+            return StockStatus.FAIBLE;
+        }
+
+        // En stock : quantité > 0 et > seuil minimum
+        return StockStatus.EN_STOCK;
+    }
 
     /**
      * Obtenir l'état de stock complet avec filtres
@@ -71,7 +81,6 @@ public class StockEtatService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // ✅ PAS de tenant_id dans la requête (1 base = 1 client)
         StringBuilder sql = new StringBuilder("""
             SELECT p.*, 
                    c.id_categorie as categorie_id, 
@@ -81,8 +90,6 @@ public class StockEtatService {
             WHERE p.is_active = true
             """);
 
-        // ❌ ATTENTION: Injection SQL potentielle avec concaténation directe
-        // ✅ Correction: Utiliser des paramètres préparés
         List<Object> params = new ArrayList<>();
 
         if (categorieId != null) {
@@ -91,14 +98,14 @@ public class StockEtatService {
         }
         sql.append(" ORDER BY p.libelle");
 
-        // ✅ Utiliser queryWithAuth avec RowMapper
         List<Produit> produits = tenantRepo.queryWithAuth(sql.toString(), produitRowMapper(),
                 clientId, authClientId, params.toArray());
 
         // Calcul du statut pour chaque produit
         for (Produit produit : produits) {
             Integer quantiteActuelle = produit.getQuantiteStock() != null ? produit.getQuantiteStock() : 0;
-            produit.setStatus(determinerStatut(produit, quantiteActuelle));
+            Integer seuilMinimum = produit.getSeuilMinimum();
+            produit.setStatus(determinerStatut(quantiteActuelle, seuilMinimum));
         }
 
         return produits.stream()
@@ -110,29 +117,6 @@ public class StockEtatService {
                 .filter(dto -> appliquerFiltres(dto, categorieId, seuilAlerte, rupture))
                 .sorted(Comparator.comparing(StockEtatDTO::getLibelle))
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Déterminer le statut en fonction de la quantité et du seuil
-     */
-    private StockStatus determinerStatut(Produit produit, Integer quantiteActuelle) {
-        Integer seuilMinimum = produit.getSeuilMinimum();
-
-        if (quantiteActuelle == null || quantiteActuelle == 0) {
-            return StockStatus.RUPTURE;
-        }
-
-        if (seuilMinimum != null && seuilMinimum > 0) {
-            int seuilCritique = Math.max(1, seuilMinimum / 5);
-            if (quantiteActuelle <= seuilCritique) {
-                return StockStatus.CRITIQUE;
-            }
-            if (quantiteActuelle <= seuilMinimum) {
-                return StockStatus.FAIBLE;
-            }
-        }
-
-        return StockStatus.EN_STOCK;
     }
 
     /**
@@ -171,12 +155,12 @@ public class StockEtatService {
             return false;
         }
 
-        if (seuilAlerte != null && seuilAlerte &&
-                !"FAIBLE".equals(dto.getStatutStock()) &&
-                !"CRITIQUE".equals(dto.getStatutStock())) {
+        // Filtre "Stock faible" (seuilAlerte = true)
+        if (seuilAlerte != null && seuilAlerte && !"FAIBLE".equals(dto.getStatutStock())) {
             return false;
         }
 
+        // Filtre "Rupture"
         if (rupture != null && rupture && !"RUPTURE".equals(dto.getStatutStock())) {
             return false;
         }

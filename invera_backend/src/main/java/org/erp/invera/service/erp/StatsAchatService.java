@@ -100,8 +100,19 @@ public class StatsAchatService {
     private Long countCommandesByStatutAndDate(String statut, LocalDateTime debut, LocalDateTime fin, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
-        String sql = "SELECT COUNT(*) FROM commandes_fournisseurs WHERE statut = ? AND date_commande BETWEEN ? AND ?";
-        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, statut, debut, fin);
+
+        String sql;
+        Object[] params;
+
+        if (debut != null && fin != null) {
+            sql = "SELECT COUNT(*) FROM commandes_fournisseurs WHERE statut = ? AND date_commande BETWEEN ? AND ?";
+            params = new Object[]{statut, debut, fin};
+        } else {
+            sql = "SELECT COUNT(*) FROM commandes_fournisseurs WHERE statut = ?";
+            params = new Object[]{statut};
+        }
+
+        return tenantRepo.queryForObjectAuth(sql, Long.class, clientId, authClientId, params);
     }
 
     private Long countTotalCommandes(String token) {
@@ -573,8 +584,14 @@ public class StatsAchatService {
     }
 
     public List<AlerteStockDTO> getAlertesStock(LocalDate startDate, LocalDate endDate, String token) {
-        List<Produit> produitsRupture = findProduitsEnRupture(token);
-        List<Produit> produitsCritiques = findProduitsStockCritique(token);
+        // Ne prendre que les produits ACTIFS
+        List<Produit> produitsRupture = findProduitsEnRupture(token).stream()
+                .filter(Produit::getActive)
+                .collect(Collectors.toList());
+
+        List<Produit> produitsCritiques = findProduitsStockCritique(token).stream()
+                .filter(Produit::getActive)
+                .collect(Collectors.toList());
 
         List<AlerteStockDTO> alertes = new ArrayList<>();
         for (Produit p : produitsRupture) alertes.add(buildAlerte(p, "RUPTURE"));
@@ -585,8 +602,19 @@ public class StatsAchatService {
 
     public Map<String, Object> getCommandesATraiter(String token) {
         Map<String, Object> result = new HashMap<>();
-        result.put("enAttente", countCommandesByStatutAndDate("BROUILLON", null, null, token));
-        result.put("enCours", countCommandesByStatutAndDate("ENVOYEE", null, null, token));
+
+        // Maintenant que countCommandesByStatutAndDate accepte des dates null
+        // on peut passer null pour compter toutes les commandes sans filtre de date
+        Long commandesAEnvoyer = countCommandesByStatutAndDate("VALIDEE", null, null, token);
+        Long commandesARecevoir = countCommandesByStatutAndDate("ENVOYEE", null, null, token);
+
+        System.out.println("=== DEBUG COMMANDES A TRAITER ===");
+        System.out.println("Commandes VALIDEES (à envoyer): " + commandesAEnvoyer);
+        System.out.println("Commandes ENVOYEES (à recevoir): " + commandesARecevoir);
+
+        result.put("aEnvoyer", commandesAEnvoyer != null ? commandesAEnvoyer.intValue() : 0);
+        result.put("aRecevoir", commandesARecevoir != null ? commandesARecevoir.intValue() : 0);
+
         return result;
     }
 
@@ -625,6 +653,5 @@ public class StatsAchatService {
     @org.springframework.scheduling.annotation.Scheduled(fixedRate = 3600000)
     public void clearCache() {
         statsCache.clear();
-        log.info("🗑️ Cache des statistiques vidé");
     }
 }

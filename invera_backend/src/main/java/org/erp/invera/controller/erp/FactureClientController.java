@@ -98,6 +98,24 @@ public class FactureClientController {
         return ResponseEntity.ok(factureDTOs);
     }
 
+    // Dans FactureClientController.java
+
+    @GetMapping("/check-batch")
+    public ResponseEntity<Map<Integer, Boolean>> checkInvoicesBatch(
+            @RequestParam List<Integer> commandeIds,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        Map<Integer, Boolean> result = new HashMap<>();
+
+        for (Integer commandeId : commandeIds) {
+            boolean exists = factureService.existsByCommandeId(commandeId, token);
+            result.put(commandeId, exists);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/{factureId}")
     public ResponseEntity<?> getFactureById(@PathVariable Integer factureId, HttpServletRequest request) {
         try {

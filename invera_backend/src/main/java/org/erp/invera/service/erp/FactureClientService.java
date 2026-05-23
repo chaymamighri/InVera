@@ -29,15 +29,14 @@ public class FactureClientService {
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
     private final CommandeClientService commandeService;
-
+    private final ClientService clientService;
+    private final ProduitService produitService;
 
     private final Random random = new Random();
 
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
     }
-
-    // ==================== ROW MAPPER ====================
 
     private RowMapper<FactureClient> factureRowMapper() {
         return (rs, rowNum) -> {
@@ -50,17 +49,19 @@ public class FactureClientService {
 
             String statutStr = rs.getString("statut");
             if (statutStr != null) {
-                facture.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                try {
+                    facture.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                } catch (IllegalArgumentException e) {
+                    facture.setStatut(FactureClient.StatutFacture.NON_PAYE);
+                }
             }
 
-            // ✅ Charger le client
             if (rs.getObject("client_id") != null) {
                 Client client = new Client();
                 client.setIdClient(rs.getInt("client_id"));
                 facture.setClient(client);
             }
 
-            // ✅ Charger la commande
             if (rs.getObject("commande_id") != null) {
                 CommandeClient commande = new CommandeClient();
                 commande.setIdCommandeClient(rs.getInt("commande_id"));
@@ -75,16 +76,27 @@ public class FactureClientService {
         };
     }
 
+    // CORRECTION: RowMapper pour CommandeClient sans taux_remise
     private RowMapper<CommandeClient> commandeRowMapper() {
         return (rs, rowNum) -> {
             CommandeClient commande = new CommandeClient();
             commande.setIdCommandeClient(rs.getInt("id_commande_client"));
             commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
-            commande.setDateCommande(rs.getTimestamp("date_commande") != null ? rs.getTimestamp("date_commande").toLocalDateTime() : null);
-            commande.setTotal(rs.getBigDecimal("total"));
-            commande.setSousTotal(rs.getBigDecimal("sous_total"));
-            commande.setTauxRemise(rs.getBigDecimal("taux_remise"));
-            commande.setStatut(CommandeClient.StatutCommande.valueOf(rs.getString("statut")));
+            commande.setDateCommande(rs.getTimestamp("date_commande") != null ?
+                    rs.getTimestamp("date_commande").toLocalDateTime() : null);
+            commande.setTotal(rs.getBigDecimal("total") != null ? rs.getBigDecimal("total") : BigDecimal.ZERO);
+            commande.setSousTotal(rs.getBigDecimal("sous_total") != null ? rs.getBigDecimal("sous_total") : BigDecimal.ZERO);
+            // taux_remise n'existe pas dans la table, on met à 0
+            commande.setTauxRemise(BigDecimal.ZERO);
+
+            String statutStr = rs.getString("statut");
+            if (statutStr != null) {
+                try {
+                    commande.setStatut(CommandeClient.StatutCommande.valueOf(statutStr));
+                } catch (IllegalArgumentException e) {
+                    commande.setStatut(CommandeClient.StatutCommande.EN_ATTENTE);
+                }
+            }
 
             Client client = new Client();
             client.setIdClient(rs.getInt("client_id"));
@@ -94,13 +106,10 @@ public class FactureClientService {
         };
     }
 
-    // ==================== MÉTHODES PRIVÉES ====================
-
-    private boolean existsByCommandeId(Integer commandeId, String token) {
+    public boolean existsByCommandeId(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM facture_client WHERE commande_id = ?";
-        // ✅ Utiliser queryForObjectAuth
         Integer count = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, authClientId, commandeId);
         return count != null && count > 0;
     }
@@ -109,17 +118,56 @@ public class FactureClientService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT COUNT(*) FROM facture_client WHERE reference_facture_client = ?";
-        // ✅ Utiliser queryForObjectAuth
         Integer count = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, authClientId, reference);
         return count != null && count > 0;
     }
 
+    // CORRECTION: Utiliser queryWithAuth au lieu de queryForObjectAuth
+    // Ne pas utiliser SELECT *, lister les colonnes explicitement
+    // Ne pas inclure taux_remise qui n'existe pas
     private CommandeClient getCommandeById(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
-        String sql = "SELECT * FROM commande_client WHERE id_commande_client = ?";
-        // ✅ Utiliser queryForObjectAuth
-        return tenantRepo.queryForObjectAuth(sql, commandeRowMapper(), clientId, authClientId, commandeId);
+
+        String sql = """
+            SELECT id_commande_client, reference_commande_client, client_id, 
+                   statut, date_commande, sous_total, total
+            FROM commande_client 
+            WHERE id_commande_client = ?
+            """;
+
+        List<CommandeClient> resultats = tenantRepo.queryWithAuth(
+                sql,
+                (rs, rowNum) -> {
+                    CommandeClient cmd = new CommandeClient();
+                    cmd.setIdCommandeClient(rs.getInt("id_commande_client"));
+                    cmd.setReferenceCommandeClient(rs.getString("reference_commande_client"));
+                    cmd.setDateCommande(rs.getTimestamp("date_commande") != null ?
+                            rs.getTimestamp("date_commande").toLocalDateTime() : null);
+                    cmd.setSousTotal(rs.getBigDecimal("sous_total") != null ?
+                            rs.getBigDecimal("sous_total") : BigDecimal.ZERO);
+                    cmd.setTotal(rs.getBigDecimal("total") != null ?
+                            rs.getBigDecimal("total") : BigDecimal.ZERO);
+                    cmd.setTauxRemise(BigDecimal.ZERO);
+
+                    Client client = new Client();
+                    client.setIdClient(rs.getInt("client_id"));
+                    cmd.setClient(client);
+
+                    String statutStr = rs.getString("statut");
+                    if (statutStr != null) {
+                        try {
+                            cmd.setStatut(CommandeClient.StatutCommande.valueOf(statutStr));
+                        } catch (IllegalArgumentException e) {
+                            cmd.setStatut(CommandeClient.StatutCommande.EN_ATTENTE);
+                        }
+                    }
+                    return cmd;
+                },
+                clientId, authClientId, commandeId
+        );
+
+        return (resultats != null && !resultats.isEmpty()) ? resultats.get(0) : null;
     }
 
     private String genererReferenceFacture(String token) {
@@ -137,32 +185,35 @@ public class FactureClientService {
         return reference;
     }
 
-    // ==================== MÉTHODES PUBLIQUES ====================
-
-    /**
-     * Génère une facture à partir d'une commande validée
-     */
     public FactureClient genererFactureDepuisCommande(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
         CommandeClient commande = getCommandeById(commandeId, token);
         if (commande == null) {
-            throw new RuntimeException("Commande non trouvée avec l'ID: " + commandeId);
+            throw new RuntimeException("Commande non trouvee avec l'ID: " + commandeId);
         }
 
         if (commande.getStatut() != CommandeClient.StatutCommande.CONFIRMEE) {
-            throw new RuntimeException("Seules les commandes validées peuvent être facturées");
+            throw new RuntimeException("Seules les commandes validees peuvent etre facturees. Statut actuel: " + commande.getStatut());
         }
 
         if (existsByCommandeId(commandeId, token)) {
-            throw new RuntimeException("Une facture existe déjà pour cette commande");
+            throw new RuntimeException("Une facture existe deja pour cette commande");
         }
 
         String reference = genererReferenceFacture(token);
         String currentUser = jwtTokenProvider.getEmailFromToken(token);
         if (currentUser == null || currentUser.isBlank()) {
             currentUser = "SYSTEM";
+        }
+
+        // Recuperer le client complet pour avoir son ID
+        String sqlClient = "SELECT id_client FROM client WHERE id_client = ?";
+        Integer clientIdFinal = tenantRepo.queryForObjectAuth(sqlClient, Integer.class, clientId, authClientId, commande.getClient().getIdClient());
+
+        if (clientIdFinal == null) {
+            throw new RuntimeException("Client non trouve pour cette commande");
         }
 
         String insertSql = """
@@ -172,85 +223,80 @@ public class FactureClientService {
             RETURNING id_facture_client
             """;
 
-        // ✅ Utiliser queryForObjectAuth
         Integer factureId = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
                 reference, LocalDateTime.now(), commande.getTotal(),
-                FactureClient.StatutFacture.NON_PAYE.name(), commande.getClient().getIdClient(), commandeId,
+                FactureClient.StatutFacture.NON_PAYE.name(), clientIdFinal, commandeId,
                 currentUser, LocalDateTime.now());
 
         return getFactureById(factureId, token);
     }
 
-
     public byte[] generateInvoicePdf(Integer factureId, String token) {
         try {
-            log.info("📄 Début génération PDF pour facture ID: {}", factureId);
+            log.info("Debut generation PDF pour facture ID: {}", factureId);
 
-            // 1. Récupérer la facture
             FactureClient facture = getFactureById(factureId, token);
-            log.info("✅ Facture trouvée: {}", facture.getReferenceFactureClient());
+            log.info("Facture trouvee: {}", facture.getReferenceFactureClient());
 
-            // ✅ CORRECTION: Utiliser getCommande() au lieu de getCommandeId()
-            CommandeResponseDTO commande = CommandeResponseDTO.fromEntity(facture.getCommande());
+            CommandeResponseDTO commande = CommandeResponseDTO.fromEntity(
+                    facture.getCommande(),
+                    clientService,
+                    produitService
+            );
+
             if (commande == null) {
-                // Fallback: chercher par l'ID si nécessaire
                 commande = commandeService.getCommandeById(facture.getCommande().getIdCommandeClient(), token);
             }
-            log.info("✅ Commande trouvée: {}", commande.getReferenceCommandeClient());
+            log.info("Commande trouvee: {}", commande.getReferenceCommandeClient());
 
-            // 3. Récupérer le client
             ClientDTO client = ClientDTO.fromEntity(facture.getClient());
             if (client == null && commande != null) {
                 client = commande.getClient();
             }
-            log.info("✅ Client: {} {}", client.getPrenom(), client.getNom());
+            log.info("Client: {} {}", client.getPrenom(), client.getNom());
 
-            // 4. Création du PDF
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-            // Version texte simple pour tester (pas un vrai PDF)
             String pdfContent = "FACTURE\n";
             pdfContent += "========\n\n";
             pdfContent += "Facture N°: " + facture.getReferenceFactureClient() + "\n";
             pdfContent += "Date: " + facture.getDateFacture() + "\n\n";
             pdfContent += "Client: " + client.getPrenom() + " " + client.getNom() + "\n";
             pdfContent += "Email: " + client.getEmail() + "\n";
-            pdfContent += "Téléphone: " + client.getTelephone() + "\n\n";
+            pdfContent += "Telephone: " + client.getTelephone() + "\n\n";
             pdfContent += "Commande N°: " + commande.getReferenceCommandeClient() + "\n";
             pdfContent += "Date commande: " + commande.getDateCommande() + "\n\n";
             pdfContent += "Total TTC: " + commande.getTotal() + " TND\n";
 
             baos.write(pdfContent.getBytes());
-            log.info("✅ PDF généré avec succès, taille: {} bytes", baos.size());
+            log.info("PDF genere avec succes, taille: {} bytes", baos.size());
 
             return baos.toByteArray();
 
         } catch (Exception e) {
-            log.error("❌ Erreur génération PDF: {}", e.getMessage(), e);
+            log.error("Erreur generation PDF: {}", e.getMessage(), e);
             throw new RuntimeException("Erreur: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Récupérer une facture par son ID
-     */
+    // CORRECTION: getFactureById avec SELECT explicite et queryWithAuth
     public FactureClient getFactureById(Integer factureId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // Requête avec jointures pour charger commande et client
         String sql = """
-        SELECT f.*, 
-               c.id_commande_client, c.reference_commande_client, c.date_commande, 
-               c.sous_total, c.taux_remise, c.total,
-               cl.id_client, cl.nom, cl.prenom, cl.email, cl.telephone, cl.adresse
-        FROM facture_client f
-        LEFT JOIN commande_client c ON f.commande_id = c.id_commande_client
-        LEFT JOIN client cl ON f.client_id = cl.id_client
-        WHERE f.id_facture_client = ?
-        """;
+            SELECT f.id_facture_client, f.reference_facture_client, f.date_facture, 
+                   f.montant_total, f.statut, f.client_id, f.commande_id, f.created_at, f.created_by,
+                   c.id_commande_client, c.reference_commande_client, c.date_commande, 
+                   c.sous_total, c.total,
+                   cl.id_client, cl.nom, cl.prenom, cl.email, cl.telephone, cl.adresse
+            FROM facture_client f
+            LEFT JOIN commande_client c ON f.commande_id = c.id_commande_client
+            LEFT JOIN client cl ON f.client_id = cl.id_client
+            WHERE f.id_facture_client = ?
+            """;
 
-        FactureClient facture = tenantRepo.queryForObjectAuth(sql, (rs, rowNum) -> {
+        List<FactureClient> factures = tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
             FactureClient fact = new FactureClient();
             fact.setIdFactureClient(rs.getInt("id_facture_client"));
             fact.setReferenceFactureClient(rs.getString("reference_facture_client"));
@@ -260,21 +306,25 @@ public class FactureClientService {
 
             String statutStr = rs.getString("statut");
             if (statutStr != null) {
-                fact.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                try {
+                    fact.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                } catch (IllegalArgumentException e) {
+                    fact.setStatut(FactureClient.StatutFacture.NON_PAYE);
+                }
             }
 
-            // ✅ CHARGER LA COMMANDE
+            // Charger la commande
             CommandeClient commande = new CommandeClient();
             commande.setIdCommandeClient(rs.getInt("id_commande_client"));
             commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
             commande.setDateCommande(rs.getTimestamp("date_commande") != null ?
                     rs.getTimestamp("date_commande").toLocalDateTime() : null);
-            commande.setSousTotal(rs.getBigDecimal("sous_total"));
-            commande.setTauxRemise(rs.getBigDecimal("taux_remise"));
-            commande.setTotal(rs.getBigDecimal("total"));
+            commande.setSousTotal(rs.getBigDecimal("sous_total") != null ? rs.getBigDecimal("sous_total") : BigDecimal.ZERO);
+            commande.setTotal(rs.getBigDecimal("total") != null ? rs.getBigDecimal("total") : BigDecimal.ZERO);
+            commande.setTauxRemise(BigDecimal.ZERO);
             fact.setCommande(commande);
 
-            // ✅ CHARGER LE CLIENT
+            // Charger le client
             Client client = new Client();
             client.setIdClient(rs.getInt("id_client"));
             client.setNom(rs.getString("nom"));
@@ -284,17 +334,28 @@ public class FactureClientService {
             client.setAdresse(rs.getString("adresse"));
             fact.setClient(client);
 
+            fact.setCreatedAt(rs.getTimestamp("created_at") != null ?
+                    rs.getTimestamp("created_at").toLocalDateTime() : null);
+            fact.setCreatedBy(rs.getString("created_by"));
+
             return fact;
         }, clientId, authClientId, factureId);
 
-        // ✅ CHARGER LES LIGNES DE LA COMMANDE
-        if (facture != null && facture.getCommande() != null) {
+        if (factures == null || factures.isEmpty()) {
+            throw new RuntimeException("Facture non trouvee avec l'ID: " + factureId);
+        }
+
+        FactureClient facture = factures.get(0);
+
+        // Charger les lignes de la commande
+        if (facture.getCommande() != null && facture.getCommande().getIdCommandeClient() != null) {
             String sqlLignes = """
-            SELECT l.*, p.libelle as produit_libelle, p.prix_vente
-            FROM ligne_commande_client l
-            JOIN produit p ON l.produit_id = p.id_produit
-            WHERE l.commande_client_id = ?
-            """;
+                SELECT l.id_ligne_commande_client, l.quantite, l.prix_unitaire, l.sous_total,
+                       p.id_produit, p.libelle as produit_libelle, p.prix_vente
+                FROM ligne_commande_client l
+                JOIN produit p ON l.produit_id = p.id_produit
+                WHERE l.commande_client_id = ?
+                """;
 
             List<LigneCommandeClient> lignes = tenantRepo.queryWithAuth(sqlLignes, (rs, rowNum) -> {
                 LigneCommandeClient ligne = new LigneCommandeClient();
@@ -304,7 +365,7 @@ public class FactureClientService {
                 ligne.setSousTotal(rs.getBigDecimal("sous_total"));
 
                 Produit produit = new Produit();
-                produit.setIdProduit(rs.getInt("produit_id"));
+                produit.setIdProduit(rs.getInt("id_produit"));
                 produit.setLibelle(rs.getString("produit_libelle"));
                 produit.setPrixVente(rs.getDouble("prix_vente"));
                 ligne.setProduit(produit);
@@ -312,40 +373,32 @@ public class FactureClientService {
             }, clientId, authClientId, facture.getCommande().getIdCommandeClient());
 
             facture.getCommande().setLignesCommande(lignes);
-            System.out.println("✅ Lignes chargées pour commande: " + lignes.size());
+            log.info("Lignes chargees pour commande {}: {}", facture.getCommande().getIdCommandeClient(), lignes.size());
         }
 
         return facture;
     }
 
-    /**
-     * Récupérer une facture par ID de commande
-     */
     public FactureClient getFactureByCommandeId(Integer commandeId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
         String sql = "SELECT * FROM facture_client WHERE commande_id = ?";
-        // ✅ Utiliser queryForObjectAuth
         return tenantRepo.queryForObjectAuth(sql, factureRowMapper(), clientId, authClientId, commandeId);
     }
 
-    /**
-     * Récupérer toutes les factures
-     */
     public List<FactureClient> getAllFactures(String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // ✅ Requête avec JOIN pour charger client et commande
         String sql = """
-        SELECT f.*, 
-               cl.id_client, cl.nom, cl.prenom, cl.email, cl.telephone, cl.adresse, cl.type_client,
-               c.id_commande_client, c.reference_commande_client, c.total, c.date_commande
-        FROM facture_client f
-        LEFT JOIN client cl ON f.client_id = cl.id_client
-        LEFT JOIN commande_client c ON f.commande_id = c.id_commande_client
-        ORDER BY f.date_facture DESC
-        """;
+            SELECT f.*, 
+                   cl.id_client, cl.nom, cl.prenom, cl.email, cl.telephone, cl.adresse, cl.type_client,
+                   c.id_commande_client, c.reference_commande_client, c.total, c.date_commande
+            FROM facture_client f
+            LEFT JOIN client cl ON f.client_id = cl.id_client
+            LEFT JOIN commande_client c ON f.commande_id = c.id_commande_client
+            ORDER BY f.date_facture DESC
+            """;
 
         return tenantRepo.queryWithAuth(sql, (rs, rowNum) -> {
             FactureClient facture = new FactureClient();
@@ -357,10 +410,13 @@ public class FactureClientService {
 
             String statutStr = rs.getString("statut");
             if (statutStr != null) {
-                facture.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                try {
+                    facture.setStatut(FactureClient.StatutFacture.valueOf(statutStr));
+                } catch (IllegalArgumentException e) {
+                    facture.setStatut(FactureClient.StatutFacture.NON_PAYE);
+                }
             }
 
-            // ✅ Charger le client complet
             Client client = new Client();
             client.setIdClient(rs.getInt("id_client"));
             client.setNom(rs.getString("nom"));
@@ -370,11 +426,10 @@ public class FactureClientService {
             client.setAdresse(rs.getString("adresse"));
             facture.setClient(client);
 
-            // ✅ Charger la commande complète
             CommandeClient commande = new CommandeClient();
             commande.setIdCommandeClient(rs.getInt("id_commande_client"));
             commande.setReferenceCommandeClient(rs.getString("reference_commande_client"));
-            commande.setTotal(rs.getBigDecimal("total"));
+            commande.setTotal(rs.getBigDecimal("total") != null ? rs.getBigDecimal("total") : BigDecimal.ZERO);
             commande.setDateCommande(rs.getTimestamp("date_commande") != null ?
                     rs.getTimestamp("date_commande").toLocalDateTime() : null);
             facture.setCommande(commande);
@@ -386,20 +441,14 @@ public class FactureClientService {
             return facture;
         }, clientId, authClientId);
     }
-    /**
-     * Récupérer les factures d'un client
-     */
+
     public List<FactureClient> getFacturesByClient(Integer clientIdParam, String token) {
         Long tenantClientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(tenantClientId);
         String sql = "SELECT * FROM facture_client WHERE client_id = ? ORDER BY date_facture DESC";
-        // ✅ Utiliser queryWithAuth
         return tenantRepo.queryWithAuth(sql, factureRowMapper(), tenantClientId, authClientId, clientIdParam);
     }
 
-    /**
-     * Marquer une facture comme payée
-     */
     public FactureClient marquerFacturePayee(Integer factureId, String token) {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
@@ -407,7 +456,6 @@ public class FactureClientService {
         FactureClient facture = getFactureById(factureId, token);
 
         String updateSql = "UPDATE facture_client SET statut = ? WHERE id_facture_client = ?";
-        // ✅ Utiliser updateWithAuth
         tenantRepo.updateWithAuth(updateSql, clientId, authClientId, FactureClient.StatutFacture.PAYE.name(), factureId);
 
         return getFactureById(factureId, token);

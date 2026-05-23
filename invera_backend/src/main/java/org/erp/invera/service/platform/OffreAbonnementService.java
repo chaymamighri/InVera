@@ -1,6 +1,7 @@
 package org.erp.invera.service.platform;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.platform.abonnementdto.OffreAbonnementRequest;
 import org.erp.invera.dto.platform.abonnementdto.OffreAbonnementResponse;
 import org.erp.invera.model.platform.Abonnement;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OffreAbonnementService {
@@ -87,15 +89,23 @@ public class OffreAbonnementService {
     public OffreAbonnementResponse deactivateOffer(Long id) {
         OffreAbonnement offre = getEntityById(id);
 
+        // On vérifie UNIQUEMENT les abonnements actifs
+        // mais au lieu de bloquer, on affiche juste un warning dans les logs
         boolean hasActiveSubscriptions = abonnementRepository.existsByOffreAbonnementIdAndStatut(
                 id, Abonnement.StatutAbonnement.ACTIF
         );
 
         if (hasActiveSubscriptions) {
-            throw new RuntimeException("Impossible de désactiver : des clients ont un abonnement actif avec cette offre");
+            // On ne bloque plus, on laisse désactiver
+            // Les abonnements existants continuent normalement
+            log.warn("Désactivation de l'offre {} malgré {} abonnement(s) actif(s)",
+                    offre.getNom(),
+                    abonnementRepository.countByOffreAbonnementIdAndStatut(id, Abonnement.StatutAbonnement.ACTIF));
         }
 
+        // Désactiver l'offre (ne sera plus visible pour les nouveaux abonnements)
         offre.setActive(false);
+
         return toResponse(offreAbonnementRepository.save(offre));
     }
 

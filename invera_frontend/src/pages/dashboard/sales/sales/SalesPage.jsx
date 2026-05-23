@@ -1,35 +1,17 @@
 /**
  * SalesPage - Page principale de gestion des commandes validées
- * 
- * Rôle : Gérer l'affichage, le filtrage et la facturation des commandes validées.
- * Route : /dashboard/sales/sales
- * 
- * Fonctionnalités :
- * - Chargement des commandes validées depuis l'API
- * - Filtrage (recherche texte, date)
- * - Tri (date, numéro, client, montant)
- * - Génération de factures
- * - Consultation de factures existantes
- * - Téléchargement de PDF
- * - Suivi du statut des factures
- * 
- * Sous-composants :
- * - SalesFilters : Barre de filtres
- * - SalesTable : Tableau des commandes
- * - InvoiceModal : Modal d'affichage facture
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShoppingCartIcon,
-  PlusIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
-
+import { toast } from 'react-hot-toast';
 import SalesFilters from './components/SalesFilter'; 
 import SalesTable from './components/SalesTable'; 
-import InvoiceModal from '../invoicing/components/invoiceModal'; 
+import InvoiceModal from '../invoicing/components/InvoiceModal'; 
 import { commandeService } from '../../../../services/commandeService'; 
 import { useLanguage } from '../../../../context/LanguageContext';
 
@@ -43,11 +25,18 @@ const SalesPage = () => {
   const { t, language, isArabic } = useLanguage();
   const locale = localeByLanguage[language] || localeByLanguage.fr;
   const tr = (key, params) => t(`salesPages.${key}`, params);
+  
   // ===== ÉTATS =====
-  const [commandes, setCommandes] = useState([]);           // Liste des commandes
-  const [loading, setLoading] = useState(true);             // État de chargement
-  const [error, setError] = useState(null);                 // Message d'erreur
-  const [invoiceStatus, setInvoiceStatus] = useState({});   // Statut des factures { commandeId: boolean }
+  const [commandes, setCommandes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [invoiceStatus, setInvoiceStatus] = useState({});
+  const [invoiceLoading, setInvoiceLoading] = useState({});
+  
+  // États pour le modal facture
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedFacture, setSelectedFacture] = useState(null);
+  const [selectedCommandeId, setSelectedCommandeId] = useState(null);
   
   // Filtres
   const [filters, setFilters] = useState({
@@ -57,12 +46,6 @@ const SalesPage = () => {
     sortOrder: 'desc'
   });
 
-  // États modaux
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [invoiceLoading, setInvoiceLoading] = useState({});
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [selectedFacture, setSelectedFacture] = useState(null);
-  
   // ============================================
   //  VÉRIFICATION DES FACTURES EXISTANTES
   // ============================================
@@ -71,237 +54,97 @@ const SalesPage = () => {
    * Vérifie pour chaque commande si une facture existe déjà
    * @param {Array} commandesList - Liste des commandes
    */
-  const checkInvoicesStatus = useCallback(async (commandesList) => {
-    const status = {};
-    
-    await Promise.all(
-      commandesList.map(async (cmd) => {
-        const commandeId = cmd.id || cmd.idCommandeClient || cmd.idCommande;
-        if (!commandeId) return;
-        
-        try {
-          const result = await commandeService.checkInvoiceExistsForCommande(commandeId);
-          status[commandeId] = result.exists;
-        } catch (error) {
-          console.error(`Erreur vérification facture pour commande ${commandeId}:`, error);
-          status[commandeId] = false;
-        }
-      })
-    );
-    
+
+const checkInvoicesStatus = useCallback(async (commandesList) => {
+  if (!commandesList || commandesList.length === 0) return;
+  
+  const commandeIds = commandesList.map(cmd => cmd.id || cmd.idCommandeClient).filter(Boolean);
+  
+  if (commandeIds.length === 0) return;
+  
+  try {
+    // ✅ UN SEUL APPEL POUR TOUTES LES COMMANDES
+    const status = await commandeService.checkInvoicesBatch(commandeIds);
     setInvoiceStatus(status);
-  }, []);
+    console.log(`📊 Statuts factures batch:`, status);
+  } catch (error) {
+    console.error('Erreur vérification batch:', error);
+    // Fallback: méthode ancienne une par une
+    const status = {};
+    for (const cmd of commandesList) {
+      const commandeId = cmd.id || cmd.idCommandeClient;
+      if (!commandeId) continue;
+      try {
+        const hasInvoice = await commandeService.checkInvoiceExistsForCommande(commandeId);
+        status[commandeId] = hasInvoice;
+      } catch (e) {
+        status[commandeId] = false;
+      }
+    }
+    setInvoiceStatus(status);
+  }
+}, []);
 
   // ============================================
   //  CHARGEMENT DES COMMANDES
   // ============================================
-  
-  /**
-   * Charge les commandes validées depuis l'API
-   * Transforme les données pour les adapter au composant
-   */
-  const loadCommandesValidees = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const commandesData = await commandeService.getCommandesValidees();
-      
-      // Transformation des données (normalisation des champs)
-      const commandesTransformees = commandesData.map(cmd => ({
-        // Identifiants
-        id: cmd.id || cmd.idCommandeClient || cmd.idCommande,
-        idCommandeClient: cmd.idCommandeClient,
-        idCommande: cmd.idCommande,
-        
-        // Référence commande
-        referenceCommandeClient: cmd.referenceCommandeClient,
-        numeroCommande: cmd.referenceCommandeClient || cmd.numeroCommande || cmd.reference || `CMD-${cmd.id || 'N/A'}`,
-        numero: cmd.referenceCommandeClient || cmd.numero || cmd.numeroCommande,
-        
-        // Dates
-        dateCreation: cmd.dateCreation || cmd.dateCommande || cmd.createdAt,
-        dateCommande: cmd.dateCommande || cmd.dateCreation,
-        dateValidation: cmd.dateValidation || cmd.dateConfirmation,
-        dateLivraisonPrevue: cmd.dateLivraison || cmd.dateLivraisonPrevue,
-        
-        // Statut
-        statut: cmd.statut || cmd.status,
-        
-        // Montants
-        montantTotal: cmd.montantTotal || cmd.total || cmd.totalTTC || 0,
-        total: cmd.total || cmd.montantTotal || 0,
-        sousTotal: cmd.sousTotal || cmd.totalHT || 0,
-        remiseTotal: cmd.remise || cmd.tauxRemise || 0,
-        
-        // Informations complémentaires
-        modeLivraison: cmd.modeLivraison || 'Standard',
-        modePaiement: cmd.modePaiement || tr('notSpecified'),
-        notes: cmd.notes || cmd.remarques || '',
-        
-        // Produits
-        produits: cmd.produits || cmd.items || cmd.ligneCommandes || [],
-        
-        // Client (avec fallbacks)
-        client: cmd.client ? {
-          ...cmd.client,
-          id: cmd.client.id || cmd.client.idClient,
-          nom: cmd.client.nom || '',
-          prenom: cmd.client.prenom || '',
-          nomComplet: cmd.client.nomComplet || 
-                      `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() ||
-                      cmd.client.nom ||
-                      tr('client'),
-          entreprise: cmd.client.entreprise || cmd.client.societe || '',
-          typeClient: cmd.client.typeClient || cmd.client.type || 'STANDARD',
-          telephone: cmd.client.telephone || '',
-          email: cmd.client.email || '',
-          adresse: cmd.client.adresse || ''
-        } : {
-          id: cmd.clientId,
-          nomComplet: cmd.clientNom || `${cmd.clientPrenom || ''} ${cmd.clientNom || ''}`.trim() || tr('client'),
-          entreprise: cmd.clientEntreprise || cmd.clientSociete || '',
-          typeClient: cmd.clientType || 'STANDARD',
-          telephone: cmd.clientTelephone || '',
-          email: cmd.clientEmail || '',
-          adresse: cmd.clientAdresse || ''
-        }
-      }));
-      
-      console.log('📦 Commandes transformées:', commandesTransformees.length);
-      setCommandes(commandesTransformees);
-      
-      // Vérification des factures existantes
-      await checkInvoicesStatus(commandesTransformees);
-      
-    } catch (err) {
-      console.error('❌ Erreur chargement:', err);
-      setError(tr('validatedOrdersLoadError'));
+
+const loadCommandesValidees = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('🔄 Chargement des commandes validées...');
+    const commandesData = await commandeService.getCommandesValidees();
+    
+    console.log('📦 Commandes reçues:', commandesData?.length || 0);
+    
+    if (!commandesData || commandesData.length === 0) {
       setCommandes([]);
-    } finally {
       setLoading(false);
+      return;
     }
-  }, [checkInvoicesStatus]);
+    
+    // Transformer les données SIMPLEMENT
+    const commandesTransformees = commandesData.map(cmd => ({
+      id: cmd.id || cmd.idCommandeClient,
+      idCommandeClient: cmd.idCommandeClient || cmd.id,
+      referenceCommandeClient: cmd.referenceCommandeClient,
+      numeroCommande: cmd.referenceCommandeClient,
+      dateCreation: cmd.dateCommande || cmd.dateCreation,
+      statut: cmd.statut,
+      montantTotal: cmd.total || cmd.montantTotal || 0,
+      total: cmd.total || cmd.montantTotal || 0,
+      produits: cmd.produits || [],
+      client: cmd.client ? {
+        nom: cmd.client.nom || '',
+        prenom: cmd.client.prenom || '',
+        nomComplet: `${cmd.client.prenom || ''} ${cmd.client.nom || ''}`.trim() || 'Client',
+        typeClient: cmd.client.typeClient || 'PARTICULIER',
+        telephone: cmd.client.telephone || '',
+        email: cmd.client.email || ''
+      } : null
+    }));
+    
+    console.log('✅ Commandes transformées:', commandesTransformees.length);
+    setCommandes(commandesTransformees);
+    
+    // Vérifier les factures
+    await checkInvoicesStatus(commandesTransformees);
+    
+  } catch (err) {
+    console.error('❌ Erreur:', err);
+    setError(tr('validatedOrdersLoadError'));
+    setCommandes([]);
+  } finally {
+    setLoading(false);
+  }
+}, []); 
 
   // Chargement initial
   useEffect(() => {
     loadCommandesValidees();
   }, [loadCommandesValidees]);
-
-  // ============================================
-  //  GESTION DES FILTRES
-  // ============================================
-  
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => {
-      if (key === 'dateRange') {
-        return { ...prev, dateRange: { from: value.from || '' } };
-      }
-      return { ...prev, [key]: value };
-    });
-  };
-
-  // ============================================
-  //  FONCTIONS DE TRI
-  // ============================================
-  
-  /**
-   * Extrait la valeur de tri pour un client
-   * @param {Object} client - Données client
-   * @param {string} sortOrder - Ordre de tri (asc/desc)
-   */
-  const getClientSortValue = (client, sortOrder = 'asc') => {
-    if (!client) return sortOrder === 'asc' ? '~~~~~~~~~~' : '';
-    return (
-      client.nomComplet ||
-      [client.prenom, client.nom].filter(Boolean).join(' ') ||
-      client.entreprise ||
-      client.email ||
-      `client-${client.id || 'inconnu'}`
-    ).toLowerCase();
-  };
-
-  // ============================================
-  //  FILTRAGE ET TRI DES COMMANDES
-  // ============================================
-  
-  const filteredCommandes = useCallback(() => {
-    let result = [...commandes];
-
-    // 1. Filtre par recherche (n° commande, client, produits)
-    if (filters.searchTerm?.trim()) {
-      const term = filters.searchTerm.toLowerCase().trim();
-      result = result.filter(cmd => {
-        const searchableFields = [
-          cmd.numeroCommande,
-          cmd.client?.nomComplet,
-          cmd.client?.entreprise,
-          cmd.client?.nom,
-          cmd.client?.prenom,
-          cmd.client?.email,
-          ...(cmd.produits?.map(p => p.nom || p.designation || '') || [])
-        ].filter(Boolean).map(field => field.toLowerCase());
-        
-        return searchableFields.some(field => field.includes(term));
-      });
-    }
-
-    // 2. Filtre par date (jour exact)
-    if (filters.dateRange?.from) {
-      const fromDate = new Date(filters.dateRange.from);
-      if (!isNaN(fromDate.getTime())) {
-        fromDate.setHours(0, 0, 0, 0);
-        
-        result = result.filter(cmd => {
-          const dateStr = cmd.dateCreation || cmd.createdAt;
-          if (!dateStr) return false;
-          
-          const cmdDate = new Date(dateStr);
-          if (isNaN(cmdDate.getTime())) return false;
-          
-          cmdDate.setHours(0, 0, 0, 0);
-          return cmdDate.getTime() === fromDate.getTime();
-        });
-      }
-    }
-
-    // 3. Tri
-    if (result.length > 0) {
-      result.sort((a, b) => {
-        let aValue, bValue;
-        
-        switch (filters.sortBy) {
-          case 'date_creation':
-            aValue = new Date(a.dateCreation || a.createdAt || 0).getTime();
-            bValue = new Date(b.dateCreation || b.createdAt || 0).getTime();
-            break;
-          case 'montant':
-            aValue = parseFloat(a.montantTotal || a.total || 0);
-            bValue = parseFloat(b.montantTotal || b.total || 0);
-            break;
-          case 'client':
-            aValue = getClientSortValue(a.client, filters.sortOrder);
-            bValue = getClientSortValue(b.client, filters.sortOrder);
-            break;
-          case 'numero_commande':
-            aValue = (a.numeroCommande || `CMD-${a.id || ''}`).toString().toLowerCase();
-            bValue = (b.numeroCommande || `CMD-${b.id || ''}`).toString().toLowerCase();
-            break;
-          default:
-            aValue = a[filters.sortBy] || '';
-            bValue = b[filters.sortBy] || '';
-        }
-
-        if (filters.sortOrder === 'asc') {
-          return aValue > bValue ? 1 : -1;
-        } else {
-          return aValue < bValue ? 1 : -1;
-        }
-      });
-    }
-
-    return result;
-  }, [commandes, filters]);
 
   // ============================================
   //  GESTION DES FACTURES
@@ -382,11 +225,12 @@ const SalesPage = () => {
     console.log('✅ Facture préparée pour le modal:', factureData);
     
     setSelectedFacture(factureData);
+    setSelectedCommandeId(commandeId);
     setIsInvoiceModalOpen(true);
     
     // Mise à jour du statut de la facture
     setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-  }, [commandes]);
+  }, [commandes, tr]);
 
   /**
    * Génère une nouvelle facture pour une commande
@@ -397,20 +241,39 @@ const SalesPage = () => {
     
     try {
       console.log('📄 Génération facture pour commande:', commandeId);
-      const result = await commandeService.generateOrGetInvoice(commandeId);
-      console.log('✅ Résultat API:', result);
       
-      if (result && result.facture) {
-        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-        const factureComplete = { ...result.facture, items: commande?.produits || [] };
-        displayInvoiceInModal(factureComplete, commandeId);
+      // 1. Vérifier si une facture existe déjà
+      let invoice = await commandeService.getInvoiceByCommandeId(commandeId);
+      
+      if (!invoice) {
+        // 2. Générer la facture
+        const result = await commandeService.generateOrGetInvoice(commandeId);
+        console.log('✅ Résultat génération:', result);
+        
+        if (result?.success) {
+          // 3. Récupérer la facture fraîchement créée
+          invoice = await commandeService.getInvoiceByCommandeId(commandeId);
+        }
       }
       
-      return result;
+      if (invoice) {
+        // 4. Afficher la facture dans le modal
+        displayInvoiceInModal(invoice, commandeId);
+        
+        // 5. Mettre à jour le statut local
+        setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
+        
+        // 6. Rafraîchir la liste
+        await loadCommandesValidees();
+        
+        toast.success('Facture prête');
+      } else {
+        throw new Error('Facture non trouvée');
+      }
+      
     } catch (error) {
-      console.error('❌ Erreur génération facture:', error);
-      alert(tr('invoiceGenerationError'));
-      throw error;
+      console.error('❌ Erreur:', error);
+      toast.error(error.message || 'Erreur lors de la génération');
     } finally {
       setInvoiceLoading(prev => ({ ...prev, [commandeId]: false }));
     }
@@ -423,19 +286,18 @@ const SalesPage = () => {
   const handleViewInvoice = useCallback(async (commandeId) => {
     try {
       console.log('📄 Consultation facture pour commande:', commandeId);
-      const result = await commandeService.generateOrGetInvoice(commandeId);
-      console.log('✅ Facture existante récupérée:', result);
+      const invoice = await commandeService.getInvoiceByCommandeId(commandeId);
       
-      if (result && result.facture) {
-        const commande = commandes.find(c => c.id === commandeId || c.idCommandeClient === commandeId);
-        const factureComplete = { ...result.facture, items: commande?.produits || [] };
-        displayInvoiceInModal(factureComplete, commandeId);
+      if (invoice) {
+        displayInvoiceInModal(invoice, commandeId);
+      } else {
+        toast.error('Facture non trouvée');
       }
     } catch (error) {
       console.error('❌ Erreur consultation facture:', error);
-      alert(tr('invoiceViewError'));
+      toast.error(error.message || 'Erreur lors de la consultation');
     }
-  }, [commandes, displayInvoiceInModal]);
+  }, [displayInvoiceInModal]);
 
   /**
    * Télécharge la facture au format PDF
@@ -455,15 +317,75 @@ const SalesPage = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('❌ Erreur téléchargement PDF:', error);
+      toast.error('Erreur lors du téléchargement');
     }
   };
 
-  const filteredResult = filteredCommandes();
-  const hasActiveFilters = filters.searchTerm?.trim() !== '' || filters.dateRange?.from !== '';
+  // Mise à jour du statut de la facture
+  const handleInvoiceStatusChange = async (factureId, newStatus) => {
+    console.log('Statut facture mis à jour:', factureId, newStatus);
+    // Rafraîchir la liste des commandes
+    await loadCommandesValidees();
+  };
 
   // ============================================
-  //  RENDU PRINCIPAL
+  //  FILTRAGE ET TRI
   // ============================================
+  
+  const getClientSortValue = (client, sortOrder = 'asc') => {
+    if (!client) return sortOrder === 'asc' ? '~~~~~~~~~~' : '';
+    return (client.nomComplet || client.entreprise || client.email || '').toLowerCase();
+  };
+
+  const filteredCommandes = useCallback(() => {
+    let result = [...commandes];
+
+    if (filters.searchTerm?.trim()) {
+      const term = filters.searchTerm.toLowerCase().trim();
+      result = result.filter(cmd => 
+        cmd.numeroCommande?.toLowerCase().includes(term) ||
+        cmd.client?.nomComplet?.toLowerCase().includes(term) ||
+        cmd.client?.entreprise?.toLowerCase().includes(term)
+      );
+    }
+
+    if (filters.dateRange?.from) {
+      const fromDate = new Date(filters.dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+      result = result.filter(cmd => {
+        const cmdDate = new Date(cmd.dateCreation);
+        cmdDate.setHours(0, 0, 0, 0);
+        return cmdDate.getTime() === fromDate.getTime();
+      });
+    }
+
+    result.sort((a, b) => {
+      let aValue, bValue;
+      switch (filters.sortBy) {
+        case 'date_creation':
+          aValue = new Date(a.dateCreation).getTime();
+          bValue = new Date(b.dateCreation).getTime();
+          break;
+        case 'montant':
+          aValue = a.montantTotal;
+          bValue = b.montantTotal;
+          break;
+        case 'client':
+          aValue = getClientSortValue(a.client);
+          bValue = getClientSortValue(b.client);
+          break;
+        default:
+          aValue = a.numeroCommande || '';
+          bValue = b.numeroCommande || '';
+      }
+      return filters.sortOrder === 'asc' ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
+    });
+
+    return result;
+  }, [commandes, filters]);
+
+  const filteredResult = filteredCommandes();
+  const hasActiveFilters = filters.searchTerm?.trim() !== '' || filters.dateRange?.from !== '';
 
   return (
     <div className={`space-y-6 p-4 md:p-6 ${isArabic ? 'text-right' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -472,7 +394,7 @@ const SalesPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-sm shadow-green-200">
+            <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-sm">
               <ShoppingCartIcon className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -490,9 +412,8 @@ const SalesPage = () => {
             </div>
           </div>
           
-          {/* Message d'erreur */}
           {error && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 animate-fadeIn">
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5" />
               <div className="flex-1">
                 <p className="text-red-600 text-sm font-medium">{tr('error')}</p>
@@ -509,10 +430,10 @@ const SalesPage = () => {
         </div>
       </div>
       
-      {/* Barre de filtres */}
+      {/* Filtres */}
       <SalesFilters 
         filters={filters} 
-        onFilterChange={handleFilterChange}
+        onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
         totalFiltered={filteredResult.length} 
         t={tr}
         locale={locale}
@@ -533,58 +454,21 @@ const SalesPage = () => {
         isArabic={isArabic}
       />
 
-      {/* Modal d'affichage de la facture */}
+      {/* Modal de facture */}
       <InvoiceModal
         isOpen={isInvoiceModalOpen}
         onClose={() => {
           setIsInvoiceModalOpen(false);
           setSelectedFacture(null);
+          setSelectedCommandeId(null);
         }}
         facture={selectedFacture}
+        commandeId={selectedCommandeId}
         t={tr}
         isArabic={isArabic}
-        onStatusChange={async (factureId, newStatus) => {
-          console.log('Statut changé pour facture:', factureId, newStatus);
-          const commandeId = selectedFacture?.commandeId;
-          
-          if (commandeId) {
-            // Mise à jour de la facture sélectionnée
-            setSelectedFacture(prev => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                statut: newStatus === 'payée' ? 'PAYE' : 'NON_PAYE',
-                status: newStatus
-              };
-            });
-            
-            // Mise à jour du statut de la facture
-            setInvoiceStatus(prev => ({ ...prev, [commandeId]: true }));
-            
-            // Mise à jour de la commande dans la liste
-            setCommandes(prev => 
-              prev.map(cmd => 
-                cmd.id === commandeId 
-                  ? { ...cmd, facturePayee: newStatus === 'payée' }
-                  : cmd
-              )
-            );
-          } else {
-            console.error('❌ Impossible de trouver commandeId pour facture', factureId);
-          }
-        }}
+        onDownloadPDF={handleDownloadPDF}
+        onStatusChange={handleInvoiceStatusChange}
       />
-
-      {/* Styles pour animations */}
-      <style >{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

@@ -18,6 +18,7 @@ public class FournisseurDTO {
     private String telephone;
     private String ville;
     private String pays;
+    private String matriculeFiscale;
     private Boolean actif;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -31,6 +32,7 @@ public class FournisseurDTO {
         this.telephone = fournisseur.getTelephone();
         this.ville = fournisseur.getVille();
         this.pays = fournisseur.getPays();
+        this.matriculeFiscale = fournisseur.getMatriculeFiscale();
         this.actif = fournisseur.getActif();
         this.createdAt = fournisseur.getCreatedAt();
         this.updatedAt = fournisseur.getUpdatedAt();

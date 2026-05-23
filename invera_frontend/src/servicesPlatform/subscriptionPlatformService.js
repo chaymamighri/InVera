@@ -36,7 +36,6 @@ export const subscriptionPlatformService = {
   },
 
   // ========== GESTION DES ABONNEMENTS ==========
-  // ✅ CORRECTION : utiliser /abonnements au lieu de /subscriptions
   
   getSubscriptions: async (statut = null) => {
     const url = statut && statut !== 'ALL' 
@@ -56,22 +55,40 @@ export const subscriptionPlatformService = {
     return response.data;
   },
 
+  /**
+   * Suspendre un abonnement avec motif
+   * @param {number} id - ID de l'abonnement
+   * @param {string} motif - Motif de la suspension
+   */
   suspendSubscription: async (id, motif) => {
     const response = await platformApi.patch(`/super-admin/abonnements/${id}/suspend`, { motif });
     return response.data;
   },
 
-  reactivateSubscription: async (id) => {
-    const response = await platformApi.patch(`/super-admin/abonnements/${id}/reactivate`);
+  /**
+   * Réactiver un abonnement avec motif
+   * @param {number} id - ID de l'abonnement
+   * @param {string} motif - Motif de la réactivation
+   */
+  reactivateSubscription: async (id, motif) => {
+    const response = await platformApi.patch(`/super-admin/abonnements/${id}/reactivate`, { motif });
     return response.data;
   },
 
+  /**
+   * Annuler un abonnement (sans motif obligatoire)
+   * @param {number} id - ID de l'abonnement
+   */
   cancelSubscription: async (id) => {
     const response = await platformApi.patch(`/super-admin/abonnements/${id}/cancel`);
     return response.data;
   },
 
-  // Créer un abonnement pour un client existant
+  /**
+   * Créer un abonnement pour un client existant
+   * @param {number} clientId - ID du client
+   * @param {number} offreId - ID de l'offre
+   */
   createSubscriptionForClient: async (clientId, offreId) => {
     const response = await platformApi.post(`/super-admin/abonnements/client/${clientId}/offre/${offreId}`);
     return response.data;

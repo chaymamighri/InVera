@@ -40,7 +40,7 @@ const normalizeCurrentUser = (data) => ({
     clientStatut: data?.statut,
     clientId: data?.clientId,
     
-    // ✅ AJOUTER CES CHAMPS
+    // ✅ AJOUTER CES CHAMPS IMPORTANTS
     typeCompte: data?.typeCompte || '',
     raisonSociale: data?.raisonSociale || '',
     matriculeFiscal: data?.matriculeFiscal || '',

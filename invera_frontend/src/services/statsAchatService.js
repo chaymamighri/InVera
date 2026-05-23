@@ -88,15 +88,23 @@ const statsAchatService = {
     }
   },
 
-  async getCommandesATraiter() {
-    try {
-      const response = await api.get('/procurement/stats/commandes-attente');
-      return buildSuccess(response.data);
-    } catch (error) {
-      console.error('Erreur chargement commandes attente:', error);
-      return buildFailure(error, { enAttente: 0, enCours: 0 });
-    }
-  },
+getCommandesATraiter: async () => {
+  try {
+    const response = await api.get('/procurement/stats/commandes-attente');
+    console.log('Réponse brute commandes-attente:', response.data);
+    return {
+      success: true,
+      data: response.data  
+    };
+  } catch (error) {
+    console.error('Erreur getCommandesATraiter:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message
+    };
+  }
+},
+
 
   async getKPIs() {
     try {

@@ -38,6 +38,7 @@ const Header = ({ userRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const locale = language === 'ar' ? 'ar' : language === 'en' ? 'en-US' : 'fr-FR';
+  
   const notificationCopy = {
     fr: {
       unknownMonth: 'Inconnu',
@@ -389,6 +390,7 @@ const Header = ({ userRole }) => {
     // Notification locale (rappel achat)
     if (procurementReminderService.isReminderId(id)) {
       procurementReminderService.markRead(id);
+      setLocalReminders(procurementReminderService.getStoredReminders());
       return;
     }
     // Notification API
@@ -406,6 +408,7 @@ const Header = ({ userRole }) => {
    */
   const markAllRead = async () => {
     procurementReminderService.markAllRead();
+    setLocalReminders(procurementReminderService.getStoredReminders());
     try {
       await notificationService.markAllRead();
       setServerNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
@@ -421,6 +424,7 @@ const Header = ({ userRole }) => {
    */
   const handleReminderAction = (reminder) => {
     procurementReminderService.markRead(reminder.id);
+    setLocalReminders(procurementReminderService.getStoredReminders());
     setIsNotifOpen(false);
     navigate(reminder.reminderPath);
   };
@@ -452,6 +456,7 @@ const Header = ({ userRole }) => {
   const handleDeleteNotification = async (notification) => {
     if (notification.source === 'procurement-reminder') {
       procurementReminderService.dismiss(notification.id);
+      setLocalReminders(procurementReminderService.getStoredReminders());
       toast.success(notificationCopy.deletedSuccess);
       return;
     }
@@ -479,6 +484,7 @@ const Header = ({ userRole }) => {
       return;
     }
     deleted += procurementReminderService.dismissRange(range);
+    setLocalReminders(procurementReminderService.getStoredReminders());
     toast.success(notificationCopy.deletedCount.replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();
@@ -498,6 +504,7 @@ const Header = ({ userRole }) => {
       return;
     }
     deleted += procurementReminderService.dismissMonth(monthValue);
+    setLocalReminders(procurementReminderService.getStoredReminders());
     toast.success(notificationCopy.deletedMonth.replace('{{month}}', monthValue).replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();
@@ -516,6 +523,7 @@ const Header = ({ userRole }) => {
       return;
     }
     deleted += procurementReminderService.dismissAll();
+    setLocalReminders(procurementReminderService.getStoredReminders());
     toast.success(notificationCopy.deletedCount.replace('{{count}}', String(deleted)));
     await loadNotifications();
     await loadUnreadCount();

@@ -1,7 +1,7 @@
 /**
  * ClientManagePage - Gestion des clients
  * 
- * RÔLE : Gérer le CRUD des clients (création, modification, suppression, consultation)
+ * RÔLE : Gérer les clients (création, modification, consultation)
  * ROUTE : /dashboard/sales/clients
  * 
  * FONCTIONNALITÉS :
@@ -10,18 +10,10 @@
  * - Tri (ID, date de création)
  * - Création de client (modale)
  * - Modification de client (modale)
- * - Suppression avec confirmation
  * - Consultation des détails
  * - Cartes statistiques
  * 
- * COMPOSANTS UTILISÉS : * - ClientFilters : Barre de filtres et tri
- * - ClientStats : Cartes statistiques
- * - ClientFormModal : Modal création client
- * - UpdateClientModal : Modal modification client
- * - ClientDetailsModal : Modal détails client
- * - ConfirmDeleteModal : Modal confirmation suppression
- * 
- * HOOK UTILISÉ : useClients()
+ * ⚠️ NOTE : La suppression n'est pas disponible pour préserver l'intégrité des données
  */
 
 import React, { useState, useMemo } from 'react';
@@ -35,7 +27,7 @@ import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import useClients from '../../../../hooks/useClient';
 import { useLanguage } from '../../../../context/LanguageContext';
 
-// ✅ Textes de fallback pour les traductions manquantes
+// Textes de fallback
 const FALLBACK_TEXTS = {
   'salesPages.clientManagementTitle': 'Gestion des clients',
   'salesPages.newClient': 'Nouveau client',
@@ -53,7 +45,6 @@ const FALLBACK_TEXTS = {
   'salesPages.noClientsFound': 'Aucun client trouvé',
   'salesPages.edit': 'Modifier',
   'salesPages.viewDetails': 'Voir détails',
-  'salesPages.delete': 'Supprimer',
   'salesPages.of': 'de',
   'salesPages.clients': 'clients',
   'salesPages.show': 'Afficher',
@@ -77,10 +68,7 @@ const FALLBACK_TEXTS = {
   'salesPages.createClient': 'Créer un client',
   'salesPages.editClient': 'Modifier le client',
   'salesPages.clientDetails': 'Détails du client',
-  'salesPages.confirmDelete': 'Confirmer la suppression',
-  'salesPages.deleteConfirmation': 'Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible.',
   'salesPages.cancel': 'Annuler',
-  'salesPages.confirm': 'Confirmer',
   'salesPages.save': 'Enregistrer',
   'salesPages.update': 'Mettre à jour',
   'salesPages.name': 'Nom',
@@ -91,22 +79,24 @@ const FALLBACK_TEXTS = {
   'salesPages.clientType': 'Type de client',
   'salesPages.remise': 'Remise (%)',
   'salesPages.createdAt': 'Date de création',
-  'salesPages.actionsLabel': 'Actions',
-    'salesPages.individuals': 'Particuliers',
+  'salesPages.individuals': 'Particuliers',
   'salesPages.companies': 'Entreprises',
   'salesPages.loyal': 'Fidèles',
-  'salesPages.par': 'PAR',  // Particuliers
-  'salesPages.ent': 'ENT',  // Entreprises
-  'salesPages.fid': 'FID', 
+  'salesPages.clientDeletedSuccess': 'Client supprimé avec succès',
+  'salesPages.deleteError': 'Erreur lors de la suppression',
+  'salesPages.confirmDelete': 'Confirmer la suppression',
+  'salesPages.confirmDeleteMessage': 'Êtes-vous sûr de vouloir supprimer ce client ?',
+  'salesPages.confirmDeleteWarning': 'Cette action est irréversible',
+  'salesPages.delete': 'Supprimer',
+  'salesPages.confirm': 'Confirmer',
 };
 
 const ClientManagePage = () => {
   const { t, isArabic } = useLanguage();
   
-  // ✅ Fonction de traduction avec fallback
+  // Fonction de traduction avec fallback
   const safeT = (key, params) => {
     const translated = t(key, params);
-    // Si la traduction retourne la clé elle-même (non trouvée) ou est vide
     if (!translated || translated === key) {
       return FALLBACK_TEXTS[key] || key;
     }
@@ -121,11 +111,8 @@ const ClientManagePage = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: '' });
   
-  // État pour le tri
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  
-  // État pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -138,11 +125,11 @@ const ClientManagePage = () => {
     updateClient,
     deleteClient,
     checkTelephone,
+    checkMatriculeFiscale,
     getRemiseForType,
     clientTypes 
   } = useClients(filters);
 
-  // Fonction de tri
   const sortedClients = useMemo(() => {
     if (!clients) return [];
     
@@ -165,7 +152,6 @@ const ClientManagePage = () => {
     });
   }, [clients, sortBy, sortOrder]);
 
-  // Pagination
   const paginatedClients = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -194,7 +180,6 @@ const ClientManagePage = () => {
     setOpenDetailsModal(true);
   };
 
-  // Fonctions pour la suppression
   const handleDeleteClick = (client) => {
     setClientToDelete(client);
     setOpenDeleteModal(true);
@@ -349,8 +334,8 @@ const ClientManagePage = () => {
                       </svg>
                       <p className="text-gray-500">{safeT('salesPages.noClientsFound')}</p>
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                  </tr>
               ) : (
                 paginatedClients?.map((client) => (
                   <tr key={client.idClient} className="hover:bg-gray-50 transition-colors">
@@ -519,7 +504,7 @@ const ClientManagePage = () => {
         )}
       </div>
 
-      {/* Modal de création */}
+      {/* Modals */}
       <ClientFormModal
         open={openModal}
         onClose={handleModalClose}
@@ -533,18 +518,17 @@ const ClientManagePage = () => {
         isArabic={isArabic}
       />
 
-      {/* Modal de modification */}
       <UpdateClientModal
         open={openUpdateModal}
         onClose={handleUpdateModalClose}
         client={selectedClient}
         onSuccess={handleModalSuccess}
         updateClient={updateClient}
+        checkMatriculeFiscale={checkMatriculeFiscale} 
         t={safeT}
         isArabic={isArabic}
       />
 
-      {/* Modal de détails */}
       <ClientDetailsModal
         open={openDetailsModal}
         onClose={handleDetailsModalClose}

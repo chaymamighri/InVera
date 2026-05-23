@@ -43,6 +43,8 @@ public class FournisseurServices {
             fournisseur.setVille(rs.getString("ville"));
             fournisseur.setPays(rs.getString("pays"));
             fournisseur.setActif(rs.getBoolean("actif"));
+            // Ajout du matricule fiscale
+            fournisseur.setMatriculeFiscale(rs.getString("matricule_fiscale"));
             return fournisseur;
         };
     }
@@ -64,7 +66,6 @@ public class FournisseurServices {
         log.info("Récupération de tous les fournisseurs pour client: {}", clientId);
 
         String sql = "SELECT * FROM fournisseurs ORDER BY nom_fournisseur ASC";
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
@@ -83,7 +84,6 @@ public class FournisseurServices {
         log.info("Récupération des fournisseurs actifs pour client: {}", clientId);
 
         String sql = "SELECT * FROM fournisseurs WHERE actif = true ORDER BY nom_fournisseur ASC";
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
@@ -102,7 +102,6 @@ public class FournisseurServices {
         log.info("Récupération des fournisseurs inactifs pour client: {}", clientId);
 
         String sql = "SELECT * FROM fournisseurs WHERE actif = false ORDER BY nom_fournisseur ASC";
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId);
 
         return fournisseurs.stream()
@@ -121,7 +120,6 @@ public class FournisseurServices {
         log.info("Récupération du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
         String sql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ? AND actif = true";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (fournisseur == null) {
@@ -141,7 +139,6 @@ public class FournisseurServices {
         log.info("Récupération admin du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
         String sql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (fournisseur == null) {
@@ -160,6 +157,7 @@ public class FournisseurServices {
             String telephone,
             String ville,
             String pays,
+            String matriculeFiscale,
             String token) {
 
         Long clientId = getClientIdFromToken(token);
@@ -167,10 +165,14 @@ public class FournisseurServices {
 
         log.info("Création d'un nouveau fournisseur: {} pour client: {}", nomFournisseur, clientId);
 
+        // Validation du matricule fiscale
+        if (matriculeFiscale == null || matriculeFiscale.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le matricule fiscale est obligatoire pour le fournisseur");
+        }
+
         // Vérifier si l'email existe déjà
         if (email != null && !email.isEmpty()) {
             String checkSql = "SELECT COUNT(*) FROM fournisseurs WHERE email = ?";
-            // ✅ CORRECTION: Utiliser queryForObjectAuth
             Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, authClientId, email);
 
             if (count != null && count > 0) {
@@ -178,15 +180,22 @@ public class FournisseurServices {
             }
         }
 
+        // Vérifier si le matricule fiscale existe déjà
+        String checkMatriculeSql = "SELECT COUNT(*) FROM fournisseurs WHERE matricule_fiscale = ?";
+        Integer matriculeCount = tenantRepo.queryForObjectAuth(checkMatriculeSql, Integer.class, clientId, authClientId, matriculeFiscale);
+
+        if (matriculeCount != null && matriculeCount > 0) {
+            throw new RuntimeException(String.format("Un fournisseur avec le matricule fiscale '%s' existe déjà", matriculeFiscale));
+        }
+
         String insertSql = """
-            INSERT INTO fournisseurs (nom_fournisseur, email, adresse, telephone, ville, pays, actif)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fournisseurs (nom_fournisseur, email, adresse, telephone, ville, pays, matricule_fiscale, actif)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id_fournisseur
             """;
 
-        // ✅ CORRECTION: Utiliser queryForObjectAuth pour récupérer l'ID
         Integer id = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
-                nomFournisseur, email, adresse, telephone, ville, pays, true);
+                nomFournisseur, email, adresse, telephone, ville, pays, matriculeFiscale, true);
 
         if (id == null) {
             throw new RuntimeException("Erreur lors de l'insertion du fournisseur");
@@ -194,7 +203,6 @@ public class FournisseurServices {
 
         // Récupérer par ID
         String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur saved = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (saved == null) {
@@ -216,6 +224,7 @@ public class FournisseurServices {
             String telephone,
             String ville,
             String pays,
+            String matriculeFiscale,
             Boolean actif,
             String token) {
 
@@ -226,7 +235,6 @@ public class FournisseurServices {
 
         // Vérifier si le fournisseur existe
         String checkExistSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur existing = tenantRepo.queryForObjectAuth(checkExistSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         if (existing == null) {
@@ -236,11 +244,20 @@ public class FournisseurServices {
         // Vérifier si l'email est modifié et n'existe pas déjà
         if (email != null && !email.isEmpty() && !email.equals(existing.getEmail())) {
             String checkEmailSql = "SELECT COUNT(*) FROM fournisseurs WHERE email = ? AND id_fournisseur != ?";
-            // ✅ CORRECTION: Utiliser queryForObjectAuth
             Integer count = tenantRepo.queryForObjectAuth(checkEmailSql, Integer.class, clientId, authClientId, email, id);
 
             if (count != null && count > 0) {
                 throw new RuntimeException(String.format("Un autre fournisseur avec l'email '%s' existe déjà", email));
+            }
+        }
+
+        // Vérifier si le matricule fiscale est modifié et n'existe pas déjà
+        if (matriculeFiscale != null && !matriculeFiscale.isEmpty() && !matriculeFiscale.equals(existing.getMatriculeFiscale())) {
+            String checkMatriculeSql = "SELECT COUNT(*) FROM fournisseurs WHERE matricule_fiscale = ? AND id_fournisseur != ?";
+            Integer matriculeCount = tenantRepo.queryForObjectAuth(checkMatriculeSql, Integer.class, clientId, authClientId, matriculeFiscale, id);
+
+            if (matriculeCount != null && matriculeCount > 0) {
+                throw new RuntimeException(String.format("Un autre fournisseur avec le matricule fiscale '%s' existe déjà", matriculeFiscale));
             }
         }
 
@@ -272,6 +289,10 @@ public class FournisseurServices {
             updateSql.append("pays = ?, ");
             params.add(pays);
         }
+        if (matriculeFiscale != null) {
+            updateSql.append("matricule_fiscale = ?, ");
+            params.add(matriculeFiscale);
+        }
         if (actif != null) {
             updateSql.append("actif = ?, ");
             params.add(actif);
@@ -286,12 +307,10 @@ public class FournisseurServices {
         updateSql.append(" WHERE id_fournisseur = ?");
         params.add(id);
 
-        // ✅ CORRECTION: Utiliser updateWithAuth
         tenantRepo.updateWithAuth(updateSql.toString(), clientId, authClientId, params.toArray());
 
         // Récupérer le fournisseur mis à jour
         String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur updated = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         log.info("Fournisseur mis à jour avec succès");
@@ -308,7 +327,6 @@ public class FournisseurServices {
         log.info("Soft delete (désactivation) du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
         String sql = "UPDATE fournisseurs SET actif = false WHERE id_fournisseur = ? AND actif = true";
-        // ✅ CORRECTION: Utiliser updateWithAuth
         int updated = tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
 
         if (updated == 0) {
@@ -325,10 +343,9 @@ public class FournisseurServices {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        log.warn("⚠️ HARD DELETE du fournisseur avec l'id: {} pour client: {} - Action réservée admin", id, clientId);
+        log.warn(" HARD DELETE du fournisseur avec l'id: {} pour client: {} - Action réservée admin", id, clientId);
 
         String sql = "DELETE FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser updateWithAuth
         int deleted = tenantRepo.updateWithAuth(sql, clientId, authClientId, id);
 
         if (deleted == 0) {
@@ -348,7 +365,6 @@ public class FournisseurServices {
         log.info("Réactivation du fournisseur avec l'id: {} pour client: {}", id, clientId);
 
         String updateSql = "UPDATE fournisseurs SET actif = true WHERE id_fournisseur = ? AND actif = false";
-        // ✅ CORRECTION: Utiliser updateWithAuth
         int updated = tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
 
         if (updated == 0) {
@@ -356,7 +372,6 @@ public class FournisseurServices {
         }
 
         String selectSql = "SELECT * FROM fournisseurs WHERE id_fournisseur = ?";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Fournisseur reactivated = tenantRepo.queryForObjectAuth(selectSql, fournisseurRowMapper(), clientId, authClientId, id);
 
         log.info("Fournisseur réactivé avec succès");
@@ -373,25 +388,56 @@ public class FournisseurServices {
 
         log.info("Recherche de fournisseurs actifs avec le terme: '{}' pour client: {}", searchTerm, clientId);
 
-        String countSql = "SELECT COUNT(*) FROM fournisseurs WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ?)";
+        String countSql = "SELECT COUNT(*) FROM fournisseurs WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ? OR matricule_fiscale LIKE ?)";
         String searchPattern = "%" + searchTerm + "%";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
-        Integer total = tenantRepo.queryForObjectAuth(countSql, Integer.class, clientId, authClientId, searchPattern, searchPattern);
+        Integer total = tenantRepo.queryForObjectAuth(countSql, Integer.class, clientId, authClientId, searchPattern, searchPattern, searchPattern);
 
         String sql = """
             SELECT * FROM fournisseurs 
-            WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ?) 
+            WHERE actif = true AND (nom_fournisseur LIKE ? OR email LIKE ? OR matricule_fiscale LIKE ?) 
             ORDER BY nom_fournisseur ASC 
             LIMIT ? OFFSET ?
             """;
 
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Fournisseur> fournisseurs = tenantRepo.queryWithAuth(sql, fournisseurRowMapper(), clientId, authClientId,
-                searchPattern, searchPattern, pageable.getPageSize(), pageable.getOffset());
+                searchPattern, searchPattern, searchPattern, pageable.getPageSize(), pageable.getOffset());
 
         List<FournisseurDTO> dtos = fournisseurs.stream().map(FournisseurDTO::new).collect(Collectors.toList());
 
         return new PageImpl<>(dtos, pageable, total != null ? total : 0);
+    }
+
+    /**
+     * Récupère un fournisseur par son matricule fiscale
+     */
+    @Transactional(readOnly = true)
+    public FournisseurDTO getFournisseurByMatriculeFiscale(String matriculeFiscale, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        log.info("Recherche du fournisseur avec matricule fiscale: {} pour client: {}", matriculeFiscale, clientId);
+
+        String sql = "SELECT * FROM fournisseurs WHERE matricule_fiscale = ?";
+        Fournisseur fournisseur = tenantRepo.queryForObjectAuth(sql, fournisseurRowMapper(), clientId, authClientId, matriculeFiscale);
+
+        if (fournisseur == null) {
+            throw new RuntimeException(String.format("Fournisseur non trouvé avec le matricule fiscale: %s", matriculeFiscale));
+        }
+        return new FournisseurDTO(fournisseur);
+    }
+
+    /**
+     * Vérifie si un matricule fiscale existe déjà
+     */
+    @Transactional(readOnly = true)
+    public boolean checkMatriculeFiscaleExists(String matriculeFiscale, String token) {
+        Long clientId = getClientIdFromToken(token);
+        String authClientId = String.valueOf(clientId);
+
+        String sql = "SELECT COUNT(*) FROM fournisseurs WHERE matricule_fiscale = ?";
+        Integer count = tenantRepo.queryForObjectAuth(sql, Integer.class, clientId, authClientId, matriculeFiscale);
+
+        return count != null && count > 0;
     }
 
     /**
@@ -407,11 +453,9 @@ public class FournisseurServices {
         Map<String, Object> stats = new HashMap<>();
 
         String totalSql = "SELECT COUNT(*) FROM fournisseurs";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Long total = tenantRepo.queryForObjectAuth(totalSql, Long.class, clientId, authClientId);
 
         String actifsSql = "SELECT COUNT(*) FROM fournisseurs WHERE actif = true";
-        // ✅ CORRECTION: Utiliser queryForObjectAuth
         Long actifs = tenantRepo.queryForObjectAuth(actifsSql, Long.class, clientId, authClientId);
 
         stats.put("total", total != null ? total : 0);
@@ -419,7 +463,6 @@ public class FournisseurServices {
         stats.put("inactifs", (total != null ? total : 0) - (actifs != null ? actifs : 0));
 
         String villeStatsSql = "SELECT ville, COUNT(*) FROM fournisseurs WHERE ville IS NOT NULL GROUP BY ville";
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Map<String, Object>> villeResults = tenantRepo.queryWithAuth(villeStatsSql,
                 (rs, rowNum) -> Map.of("ville", rs.getString("ville"), "count", rs.getLong("count")),
                 clientId, authClientId);
@@ -431,7 +474,6 @@ public class FournisseurServices {
         stats.put("parVille", villeMap);
 
         String paysStatsSql = "SELECT pays, COUNT(*) FROM fournisseurs WHERE pays IS NOT NULL GROUP BY pays";
-        // ✅ CORRECTION: Utiliser queryWithAuth
         List<Map<String, Object>> paysResults = tenantRepo.queryWithAuth(paysStatsSql,
                 (rs, rowNum) -> Map.of("pays", rs.getString("pays"), "count", rs.getLong("count")),
                 clientId, authClientId);

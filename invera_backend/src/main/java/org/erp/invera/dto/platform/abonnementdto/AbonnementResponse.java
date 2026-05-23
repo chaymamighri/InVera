@@ -1,11 +1,15 @@
 package org.erp.invera.dto.platform.abonnementdto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AbonnementResponse {
     private Long id;
     private Long clientId;
@@ -13,11 +17,15 @@ public class AbonnementResponse {
     private String clientEmail;
     private Long offreId;
     private String offreNom;
+    private String duree;
     private Integer dureeMois;
-    private String duree;          // "1 mois" ou "12 mois"
     private Double montant;
     private String devise;
     private LocalDateTime dateDebut;
     private LocalDateTime dateFin;
-    private String statut;         // ACTIF, EXPIRE, SUSPENDU, ANNULE
+    private String statut;
+
+    // ✅ Nouveaux champs
+    private String motifAction;
+    private LocalDateTime dateDerniereAction;
 }

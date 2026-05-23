@@ -167,11 +167,10 @@ const ProduitToolbar = ({
                 value={filters?.status || ''}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
-                <option value="">{t('dashboard.procurementProductsPage.allLevelsOption')}</option>
-                <option value="EN_STOCK">{t('dashboard.procurementProductsPage.inStockLabel')}</option>
-                <option value="FAIBLE">{t('dashboard.procurementProductsPage.lowStockLabel')}</option>
-                <option value="CRITIQUE">{t('dashboard.procurementProductsPage.criticalStockLabel')}</option>
-                <option value="RUPTURE">{t('dashboard.procurementProductsPage.outOfStockLabel')}</option>
+                <option value="">Tous les niveaux</option>
+                <option value="EN_STOCK">En stock</option>
+                <option value="FAIBLE">Stock faible</option>
+                <option value="RUPTURE">Rupture</option>
               </select>
             </div>
 

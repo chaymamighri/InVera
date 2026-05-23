@@ -1,23 +1,23 @@
 /**
- * ClientTypeChart - Graphique de rÃƒÂ©partition des clients par type
+ * ClientTypeChart - Graphique de répartition des clients par type
  * 
- * RÃƒâ€LE : Afficher la distribution des clients par catÃƒÂ©gorie (VIP, Entreprise, Particulier, etc.)
+ * RÔLE : Afficher la distribution des clients par catégorie (VIP, Entreprise, Particulier, etc.)
  * 
- * FONCTIONNALITÃƒâ€°S :
- * - Affichage des donnÃƒÂ©es sous forme de cartes par type de client
+ * FONCTIONNALITÉS :
+ * - Affichage des données sous forme de cartes par type de client
  * - Barres de progression pour le pourcentage de clients
  * - Barres de progression pour le pourcentage du CA
- * - Cartes rÃƒÂ©capitulatives (total clients, CA total)
- * - Mini barre de rÃƒÂ©partition (camembert horizontal)
- * - LÃƒÂ©gende interactive
+ * - Cartes récapitulatives (total clients, CA total)
+ * - Mini barre de répartition (camembert horizontal)
+ * - Légende interactive
  * - Animations fluides (Framer Motion)
  * 
  * @param {Object} props
- * @param {Array|Object} props.data - DonnÃƒÂ©es des clients
- * @param {Function} props.formatCurrency - Fonction de formatage monÃƒÂ©taire
+ * @param {Array|Object} props.data - Données des clients
+ * @param {Function} props.formatCurrency - Fonction de formatage monétaire
  * 
  * @example
- * // Format attendu des donnÃƒÂ©es
+ * // Format attendu des données
  * data = [
  *   { type: "VIP", nombre: 45, ca: 150000 },
  *   { type: "ENTREPRISE", nombre: 120, ca: 320000 },
@@ -39,19 +39,19 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   const { t } = useLanguage();
   
   // ============================================
-  //  LOGS DE DÃƒâ€°BOGUAGE (ÃƒÂ  supprimer en production)
+  //  LOGS DE DÉBOGUAGE (à supprimer en production)
   // ============================================
-  console.log('Ã°Å¸â€œÅ  ClientTypeChart - DonnÃƒÂ©es reÃƒÂ§ues:', data);
-  console.log('Ã°Å¸â€œÅ  Type de donnÃƒÂ©es:', typeof data);
-  console.log('Ã°Å¸â€œÅ  Est un tableau?', Array.isArray(data));
+  console.log('Ã°Å¸"Å  ClientTypeChart - Données reçues:', data);
+  console.log('Ã°Å¸"Å  Type de données:', typeof data);
+  console.log('Ã°Å¸"Å  Est un tableau?', Array.isArray(data));
 
   // ============================================
-  //  VALIDATION DES DONNÃƒâ€°ES
+  //  VALIDATION DES DONNÉES
   // ============================================
   
-  // Cas 1: Pas de donnÃƒÂ©es
+  // Cas 1: Pas de données
   if (!data) {
-    console.log('Ã¢ÂÅ’ Aucune donnÃƒÂ©e reÃƒÂ§ue');
+    console.log('âÅ’ Aucune donnée reçue');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
         {t('dashboard.salesStatsPage.noClientData')}
@@ -61,7 +61,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
 
   // Cas 2: Objet vide
   if (typeof data === 'object' && Object.keys(data).length === 0) {
-    console.log('Ã¢ÂÅ’ Objet vide reÃƒÂ§u');
+    console.log('âÅ’ Objet vide reçu');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
         {t('dashboard.salesStatsPage.noClientData')}
@@ -71,7 +71,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
 
   // Cas 3: Tableau vide
   if (Array.isArray(data) && data.length === 0) {
-    console.log('Ã¢ÂÅ’ Tableau vide reÃƒÂ§u');
+    console.log('âÅ’ Tableau vide reçu');
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
         {t('dashboard.salesStatsPage.noClientData')}
@@ -80,7 +80,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   }
 
   // ============================================
-  //  TRANSFORMATION DES DONNÃƒâ€°ES (format flexible)
+  //  TRANSFORMATION DES DONNÉES (format flexible)
   // ============================================
   
   let chartData = [];
@@ -93,7 +93,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       ca: item.ca || item.montant || item.chiffreAffaires || 0
     }));
   } else if (typeof data === 'object') {
-    // Format: objet avec clÃƒÂ©s
+    // Format: objet avec clés
     chartData = Object.entries(data)
       .filter(([key, value]) => value !== null && value !== undefined)
       .map(([type, stats]) => {
@@ -110,9 +110,9 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
       });
   }
 
-  console.log('Ã°Å¸â€œÅ  ChartData transformÃƒÂ©:', chartData);
+  console.log('Ã°Å¸"Å  ChartData transformé:', chartData);
 
-  // VÃƒÂ©rification finale
+  // Vérification finale
   if (chartData.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400">
@@ -151,9 +151,9 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   };
 
   /**
-   * DÃƒÂ©gradÃƒÂ© pour chaque type de client
+   * Dégradé pour chaque type de client
    * @param {string} type - Type de client
-   * @returns {string} Classes Tailwind CSS pour le dÃƒÂ©gradÃƒÂ©
+   * @returns {string} Classes Tailwind CSS pour le dégradé
    */
   const getTypeGradient = (type) => {
     const gradients = {
@@ -168,27 +168,27 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
   };
 
   /**
-   * IcÃƒÂ´ne pour chaque type de client
+   * Icône pour chaque type de client
    * @param {string} type - Type de client
    * @returns {string} Emoji
    */
   const getTypeIcon = (type) => {
     const icons = {
-      'VIP': 'Ã°Å¸â€˜â€˜',
-      'ENTREPRISE': 'Ã°Å¸ÂÂ¢',
-      'PROFESSIONNEL': 'Ã°Å¸â€™Â¼',
-      'FIDELE': 'Ã¢Â­Â',
-      'PARTICULIER': 'Ã°Å¸â€˜Â¤',
-      'NON_DEFINI': 'Ã°Å¸â€œÅ '
+      VIP: 'VIP',
+      ENTREPRISE: 'ENT',
+      PROFESSIONNEL: 'PRO',
+      FIDELE: 'FID',
+      PARTICULIER: 'PAR',
+      NON_DEFINI: 'N/A',
     };
-    return icons[type] || 'Ã°Å¸â€œÅ ';
+    return icons[type] || 'CLI';
   };
 
   // ============================================
   //  GESTION DES CAS LIMITES
   // ============================================
   
-  // Pas de clients Ã¢â€ â€™ message
+  // Pas de clients â->' message
   if (totalClients === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
@@ -228,7 +228,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                   transition={{ delay: index * 0.1 }}
                   className="bg-gray-50 rounded-xl p-5 hover:shadow-md transition-shadow"
                 >
-                  {/* En-tÃƒÂªte de la carte */}
+                  {/* En-tête de la carte */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${getTypeColor(item.type)}`}></div>
@@ -253,7 +253,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
                     </div>
                   </div>
                   
-                  {/* Valeurs numÃƒÂ©riques */}
+                  {/* Valeurs numériques */}
                   <div className="grid grid-cols-2 gap-3 text-center mb-3">
                     <div className="bg-white p-3 rounded-lg">
                       <p className="text-xs text-gray-500">{t('dashboard.salesStatsPage.clients')}</p>
@@ -308,7 +308,7 @@ const ClientTypeChart = ({ data, formatCurrency }) => {
             })}
           </div>
           
-          {/* LÃƒÂ©gende */}
+          {/* Légende */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-gray-400 pt-2">
             {chartData.map(item => (
               <div key={`legend-${item.type}`} className="flex items-center gap-1">

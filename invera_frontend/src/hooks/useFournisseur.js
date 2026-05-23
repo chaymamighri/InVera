@@ -1,7 +1,29 @@
-// hooks/useFournisseur.js - CORRIGÉ
+// hooks/useFournisseur.js - Version avec fonction utilitaire
 
 import { useState, useEffect, useCallback } from 'react';
 import fournisseurService from '../services/fournisseurService';
+
+// Fonction utilitaire pour normaliser un fournisseur
+const normalizeFournisseur = (fournisseur) => {
+  if (!fournisseur) return null;
+  return {
+    idFournisseur: fournisseur.idFournisseur,
+    nomFournisseur: fournisseur.nomFournisseur,
+    matriculeFiscale: fournisseur.matriculeFiscale || fournisseur.matricule_fiscale,
+    email: fournisseur.email,
+    telephone: fournisseur.telephone,
+    adresse: fournisseur.adresse,
+    ville: fournisseur.ville,
+    pays: fournisseur.pays,
+    actif: fournisseur.actif
+  };
+};
+
+// Fonction pour normaliser un tableau de fournisseurs
+const normalizeFournisseurs = (fournisseurs) => {
+  if (!Array.isArray(fournisseurs)) return [];
+  return fournisseurs.map(normalizeFournisseur);
+};
 
 export const useFournisseur = () => {
   const [fournisseurs, setFournisseurs] = useState([]);
@@ -17,7 +39,7 @@ export const useFournisseur = () => {
     totalElements: 0,
     pageSize: 10
   });
-  const [allFournisseurs, setAllFournisseurs] = useState([]); // ← À utiliser peut-être
+  const [allFournisseurs, setAllFournisseurs] = useState([]);
 
   // ==================== LOADING STATE ====================
 
@@ -40,19 +62,9 @@ export const useFournisseur = () => {
   const fetchAllFournisseurs = useCallback(async () => {
     return handleAsyncOperation(async () => {
       const data = await fournisseurService.getAllFournisseurs();
-      // Normaliser les données pour garantir les noms de propriétés
-      const normalizedData = data.map(f => ({
-        idFournisseur: f.idFournisseur,
-        nomFournisseur: f.nomFournisseur,
-        email: f.email,
-        telephone: f.telephone,
-        adresse: f.adresse,
-        ville: f.ville,
-        pays: f.pays,
-        actif: f.actif
-      }));
+      const normalizedData = normalizeFournisseurs(data);
       setFournisseurs(normalizedData);
-      setAllFournisseurs(normalizedData); // ← Met à jour aussi allFournisseurs
+      setAllFournisseurs(normalizedData);
       return normalizedData;
     });
   }, []);
@@ -60,16 +72,18 @@ export const useFournisseur = () => {
   const fetchActiveFournisseurs = useCallback(async () => {
     return handleAsyncOperation(async () => {
       const data = await fournisseurService.getActiveFournisseurs();
-      setActiveFournisseurs(data);
-      return data;
+      const normalizedData = normalizeFournisseurs(data);
+      setActiveFournisseurs(normalizedData);
+      return normalizedData;
     });
   }, []);
 
   const fetchInactiveFournisseurs = useCallback(async () => {
     return handleAsyncOperation(async () => {
       const data = await fournisseurService.getInactiveFournisseurs();
-      setInactiveFournisseurs(data);
-      return data;
+      const normalizedData = normalizeFournisseurs(data);
+      setInactiveFournisseurs(normalizedData);
+      return normalizedData;
     });
   }, []);
 
@@ -78,8 +92,9 @@ export const useFournisseur = () => {
   const fetchFournisseurById = useCallback(async (id, admin = false) => {
     return handleAsyncOperation(async () => {
       const data = await fournisseurService.getFournisseurById(id, admin);
-      setSelectedFournisseur(data);
-      return data;
+      const normalizedData = normalizeFournisseur(data);
+      setSelectedFournisseur(normalizedData);
+      return normalizedData;
     });
   }, []);
 
@@ -88,8 +103,7 @@ export const useFournisseur = () => {
   const createFournisseur = useCallback(async (fournisseurData) => {
     return handleAsyncOperation(async () => {
       const newFournisseur = await fournisseurService.createFournisseur(fournisseurData);
-      // Mettre à jour les listes
-      await fetchAllFournisseurs();  // ← Utilise fetchAllFournisseurs au lieu de fetchAllFournisseursList
+      await fetchAllFournisseurs();
       await fetchActiveFournisseurs();
       return newFournisseur;
     });
@@ -100,12 +114,11 @@ export const useFournisseur = () => {
   const updateFournisseur = useCallback(async (id, fournisseurData) => {
     return handleAsyncOperation(async () => {
       const updated = await fournisseurService.updateFournisseur(id, fournisseurData);
-      // Mettre à jour les listes
-      await fetchAllFournisseurs();  // ← Corrigé
+      await fetchAllFournisseurs();
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
       if (selectedFournisseur?.idFournisseur === id) {
-        setSelectedFournisseur(updated);
+        setSelectedFournisseur(normalizeFournisseur(updated));
       }
       return updated;
     });
@@ -116,8 +129,7 @@ export const useFournisseur = () => {
   const softDeleteFournisseur = useCallback(async (id) => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.softDeleteFournisseur(id);
-      // Mettre à jour les listes
-      await fetchAllFournisseurs();  // ← Corrigé
+      await fetchAllFournisseurs();
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
       if (selectedFournisseur?.idFournisseur === id) {
@@ -132,8 +144,7 @@ export const useFournisseur = () => {
   const hardDeleteFournisseur = useCallback(async (id) => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.hardDeleteFournisseur(id);
-      // Mettre à jour les listes
-      await fetchAllFournisseurs();  // ← Corrigé
+      await fetchAllFournisseurs();
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
       if (selectedFournisseur?.idFournisseur === id) {
@@ -148,8 +159,7 @@ export const useFournisseur = () => {
   const reactivateFournisseur = useCallback(async (id) => {
     return handleAsyncOperation(async () => {
       const result = await fournisseurService.reactivateFournisseur(id);
-      // Mettre à jour les listes
-      await fetchAllFournisseurs();  // ← Corrigé
+      await fetchAllFournisseurs();
       await fetchActiveFournisseurs();
       await fetchInactiveFournisseurs();
       return result;
@@ -195,7 +205,7 @@ export const useFournisseur = () => {
 
   useEffect(() => {
     fetchStats();
-    fetchAllFournisseurs();  // ← Utilise fetchAllFournisseurs au lieu de fetchAllFournisseursList
+    fetchAllFournisseurs();
   }, [fetchStats, fetchAllFournisseurs]);
 
   return {
@@ -211,7 +221,7 @@ export const useFournisseur = () => {
     pagination,
 
     // CRUD Operations
-    fetchAllFournisseurs,      // ← C'est la même fonction partout
+    fetchAllFournisseurs,
     fetchActiveFournisseurs,
     fetchInactiveFournisseurs,
     fetchFournisseurById,
@@ -242,7 +252,7 @@ export const useFournisseurDetail = (id, admin = false) => {
       setLoading(true);
       try {
         const data = await fournisseurService.getFournisseurById(id, admin);
-        setFournisseur(data);
+        setFournisseur(normalizeFournisseur(data));
         setError(null);
       } catch (err) {
         setError(err.message);

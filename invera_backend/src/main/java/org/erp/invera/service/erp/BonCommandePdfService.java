@@ -39,6 +39,7 @@ public class BonCommandePdfService {
     private static final Color COLOR_SECONDARY = new DeviceRgb(100, 100, 100);
     private static final Color COLOR_BORDER = new DeviceRgb(220, 220, 220);
     private static final Color COLOR_HEADER_BG = new DeviceRgb(240, 248, 255);
+    private static final Color COLOR_FOOTER_BG = new DeviceRgb(245, 245, 245);
 
     public byte[] genererBonCommandePdf(CommandeFournisseur commande, Client clientConnecte) {
         try {
@@ -58,13 +59,14 @@ public class BonCommandePdfService {
             String telephone = "";
             String email = "";
             String matriculeFiscal = "";
-            String adresse = "";
+            String raisonSociale = "";
             boolean isEntreprise = false;
 
             if (clientConnecte != null) {
                 isEntreprise = clientConnecte.getTypeCompte() == Client.TypeCompte.ENTREPRISE;
                 if (isEntreprise) {
-                    entrepriseNom = clientConnecte.getRaisonSociale() != null ? clientConnecte.getRaisonSociale() : "";
+                    raisonSociale = clientConnecte.getRaisonSociale() != null ? clientConnecte.getRaisonSociale() : "";
+                    entrepriseNom = raisonSociale;
                     matriculeFiscal = clientConnecte.getMatriculeFiscal() != null ? clientConnecte.getMatriculeFiscal() : "";
                 } else {
                     String nom = clientConnecte.getNom() != null ? clientConnecte.getNom() : "";
@@ -83,17 +85,14 @@ public class BonCommandePdfService {
             // Gauche : ÉMETTEUR (client connecté)
             Cell leftHeader = new Cell();
             leftHeader.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            leftHeader.setPadding(8);
+            leftHeader.setPadding(10);
 
-            if (hasLogo && clientConnecte.getLogoUrl() != null) {
-                // TODO: Ajouter le logo si possible avec iText
-                leftHeader.add(new Paragraph("ÉMETTEUR")
-                        .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
-            }
+            leftHeader.add(new Paragraph("ÉMETTEUR")
+                    .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
             leftHeader.add(new Paragraph(entrepriseNom.isEmpty() ? "Client non renseigné" : entrepriseNom)
                     .setFont(boldFont).setFontSize(12).setBold());
             if (isEntreprise && !matriculeFiscal.isEmpty()) {
-                leftHeader.add(new Paragraph("MF: " + matriculeFiscal).setFontSize(8));
+                leftHeader.add(new Paragraph("Matricule fiscal: " + matriculeFiscal).setFontSize(8));
             }
             if (!telephone.isEmpty()) {
                 leftHeader.add(new Paragraph("Tél: " + telephone).setFontSize(8));
@@ -114,7 +113,7 @@ public class BonCommandePdfService {
                             .setFontSize(10).setTextAlignment(TextAlignment.RIGHT));
             rightHeader.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
             rightHeader.setTextAlignment(TextAlignment.RIGHT);
-            rightHeader.setPadding(8);
+            rightHeader.setPadding(10);
             headerTable.addCell(rightHeader);
             document.add(headerTable);
 
@@ -125,18 +124,27 @@ public class BonCommandePdfService {
 
             Cell destCell = new Cell();
             destCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            destCell.setPadding(8);
+            destCell.setPadding(10);
             destCell.add(new Paragraph("DESTINATAIRE")
                     .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
 
             if (fournisseur != null) {
                 destCell.add(new Paragraph(fournisseur.getNomFournisseur())
-                        .setFont(boldFont).setFontSize(11));
+                        .setFont(boldFont).setFontSize(12).setBold());
+
+                if (fournisseur.getMatriculeFiscale() != null && !fournisseur.getMatriculeFiscale().isEmpty()) {
+                    destCell.add(new Paragraph("Matricule fiscal: " + fournisseur.getMatriculeFiscale())
+                            .setFontSize(8).setFontColor(COLOR_SECONDARY));
+                }
+
                 if (fournisseur.getAdresse() != null && !fournisseur.getAdresse().isEmpty()) {
                     destCell.add(new Paragraph(fournisseur.getAdresse()).setFontSize(8));
                 }
                 if (fournisseur.getVille() != null && !fournisseur.getVille().isEmpty()) {
                     destCell.add(new Paragraph(fournisseur.getVille()).setFontSize(8));
+                }
+                if (fournisseur.getPays() != null && !fournisseur.getPays().isEmpty()) {
+                    destCell.add(new Paragraph(fournisseur.getPays()).setFontSize(8));
                 }
                 if (fournisseur.getTelephone() != null && !fournisseur.getTelephone().isEmpty()) {
                     destCell.add(new Paragraph("Tél: " + fournisseur.getTelephone()).setFontSize(8));
@@ -158,7 +166,7 @@ public class BonCommandePdfService {
 
             Cell infoCell = new Cell();
             infoCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            infoCell.setPadding(8);
+            infoCell.setPadding(10);
             infoCell.add(new Paragraph("DÉTAILS DE LA COMMANDE")
                     .setFont(boldFont).setFontSize(10).setFontColor(COLOR_PRIMARY));
             infoCell.add(new Paragraph("Date livraison prévue: " +
@@ -181,19 +189,19 @@ public class BonCommandePdfService {
                 Cell blLabelCell = new Cell().add(new Paragraph("Bon de livraison:")
                         .setFont(boldFont).setFontSize(9));
                 blLabelCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-                blLabelCell.setPadding(6);
+                blLabelCell.setPadding(8);
                 refTable.addCell(blLabelCell);
 
                 Cell blValueCell = new Cell().add(new Paragraph(commande.getNumeroBonLivraison())
                         .setFontSize(9));
                 blValueCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-                blValueCell.setPadding(6);
+                blValueCell.setPadding(8);
                 refTable.addCell(blValueCell);
                 document.add(refTable);
             }
 
             // ==================== TABLEAU DES PRODUITS ====================
-            float[] columnWidths = {45, 15, 15, 10, 15};
+            float[] columnWidths = {50, 15, 15, 10, 10};
             Table productTable = new Table(UnitValue.createPercentArray(columnWidths));
             productTable.setWidth(UnitValue.createPercentValue(100));
             productTable.setMarginBottom(15);
@@ -204,7 +212,8 @@ public class BonCommandePdfService {
                         .add(new Paragraph(header).setFont(boldFont).setFontSize(9))
                         .setBackgroundColor(COLOR_HEADER_BG)
                         .setBorder(new SolidBorder(COLOR_BORDER, 0.5f))
-                        .setPadding(8);
+                        .setPadding(8)
+                        .setTextAlignment(TextAlignment.CENTER);
                 productTable.addCell(headerCell);
             }
 
@@ -214,6 +223,7 @@ public class BonCommandePdfService {
             if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
                 for (LigneCommandeFournisseur ligne : commande.getLignesCommande()) {
                     String designation = ligne.getProduit() != null ? ligne.getProduit().getLibelle() : "Produit non défini";
+
                     productTable.addCell(new Cell().add(new Paragraph(designation).setFontSize(8))
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
@@ -222,7 +232,7 @@ public class BonCommandePdfService {
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
                     BigDecimal prixHT = ligne.getPrixUnitaire();
-                    productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", prixHT)).setFontSize(8))
+                    productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.3f", prixHT)).setFontSize(8))
                             .setTextAlignment(TextAlignment.RIGHT)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
@@ -234,7 +244,7 @@ public class BonCommandePdfService {
                     BigDecimal ligneTTC = ligne.getSousTotalTTC() != null ? ligne.getSousTotalTTC() :
                             prixHT.multiply(BigDecimal.valueOf(ligne.getQuantite()))
                                     .multiply(BigDecimal.ONE.add(tauxTVA.divide(BigDecimal.valueOf(100))));
-                    productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.3f DT", ligneTTC)).setFontSize(8))
+                    productTable.addCell(new Cell().add(new Paragraph(String.format(Locale.FRANCE, "%.3f", ligneTTC)).setFontSize(8))
                             .setTextAlignment(TextAlignment.RIGHT)
                             .setBorder(new SolidBorder(COLOR_BORDER, 0.5f)).setPadding(6));
 
@@ -264,7 +274,7 @@ public class BonCommandePdfService {
 
             Cell totalsCell = new Cell();
             totalsCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            totalsCell.setPadding(10);
+            totalsCell.setPadding(12);
 
             totalsCell.add(new Paragraph("Total HT:")
                     .setFont(boldFont).setFontSize(9).setTextAlignment(TextAlignment.RIGHT));
@@ -287,34 +297,35 @@ public class BonCommandePdfService {
             totalsTable.addCell(totalsCell);
             document.add(totalsTable);
 
-            // ==================== SIGNATURES ====================
-            Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}));
-            signatureTable.setWidth(UnitValue.createPercentValue(100));
-            signatureTable.setMarginBottom(15);
+            // ==================== PIED DE PAGE (CACHET) ====================
+            Table footerTable = new Table(UnitValue.createPercentArray(new float[]{100}));
+            footerTable.setWidth(UnitValue.createPercentValue(100));
+            footerTable.setMarginTop(20);
 
-            Cell signatureLeft = new Cell();
-            signatureLeft.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            signatureLeft.setPadding(8);
-            signatureLeft.add(new Paragraph("Cachet et signature du fournisseur")
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
-            signatureTable.addCell(signatureLeft);
+            Cell footerCell = new Cell();
+            footerCell.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
+            footerCell.setBackgroundColor(COLOR_FOOTER_BG);
+            footerCell.setPadding(10);
+            footerCell.setTextAlignment(TextAlignment.CENTER);
 
-            Cell signatureRight = new Cell();
-            signatureRight.setBorder(new SolidBorder(COLOR_BORDER, 0.5f));
-            signatureRight.setPadding(8);
-            signatureRight.add(new Paragraph("Signature de l'acheteur")
-                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER));
-            signatureTable.addCell(signatureRight);
-            document.add(signatureTable);
+            footerCell.add(new Paragraph("Cachet et signature du fournisseur")
+                    .setFont(boldFont).setFontSize(9).setFontColor(COLOR_SECONDARY));
+            footerCell.add(new Paragraph("_________________________________________")
+                    .setFontSize(8).setFontColor(COLOR_SECONDARY));
+            footerCell.add(new Paragraph("Date et signature")
+                    .setFontSize(8).setFontColor(COLOR_SECONDARY));
+
+            footerTable.addCell(footerCell);
+            document.add(footerTable);
 
             document.close();
 
-            log.info("PDF du bon de commande généré avec succès: {}", commande.getNumeroCommande());
+            log.info("PDF du bon de commande genere avec succes: {}", commande.getNumeroCommande());
             return baos.toByteArray();
 
         } catch (Exception e) {
-            log.error("Erreur lors de la génération du PDF du bon de commande", e);
-            throw new RuntimeException("Erreur lors de la génération du PDF", e);
+            log.error("Erreur lors de la generation du PDF du bon de commande", e);
+            throw new RuntimeException("Erreur lors de la generation du PDF", e);
         }
     }
 

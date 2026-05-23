@@ -68,7 +68,6 @@ public class StockNotificationService {
 
         // Déterminer le libellé du statut
         String statusLabel = switch (newStatus) {
-            case CRITIQUE -> "critique";
             case RUPTURE -> "en rupture";
             case FAIBLE -> "faible";
             default -> "en baisse";
@@ -106,8 +105,10 @@ public class StockNotificationService {
                 INSERT INTO notifications (created_at, message, read, type, user_name, target_role, entity_type, entity_id, entity_reference)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
+            String authClientId = String.valueOf(clientId);
 
-            jdbc.update(sql,
+            // Utiliser updateWithAuth
+            int result = tenantRepo.updateWithAuth(sql, clientId, authClientId,
                     LocalDateTime.now(),
                     message,
                     false,
@@ -119,10 +120,15 @@ public class StockNotificationService {
                     produit.getLibelle()
             );
 
+            if (result > 0) {
+                log.info(" Notification stock créée: {}", message);
+            } else {
+                log.warn(" Aucune notification stock créée");
+            }
             log.info("✅ Notification stock créée: {}", message);
 
         } catch (Exception e) {
-            log.error("❌ Erreur création notification stock: {}", e.getMessage());
+            log.error("Erreur création notification stock: {}", e.getMessage());
         }
     }
 
@@ -141,7 +147,6 @@ public class StockNotificationService {
         return switch (status) {
             case EN_STOCK -> 0;
             case FAIBLE -> 1;
-            case CRITIQUE -> 2;
             case RUPTURE -> 3;
         };
     }
@@ -156,10 +161,6 @@ public class StockNotificationService {
 
         if (quantity <= 0) {
             return Produit.StockStatus.RUPTURE;
-        }
-
-        if (quantity <= threshold * 0.25) {
-            return Produit.StockStatus.CRITIQUE;
         }
 
         if (quantity <= threshold) {

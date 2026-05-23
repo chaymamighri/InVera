@@ -1,21 +1,20 @@
 /**
  * SalesFilters - Barre de filtres pour les commandes validées
  * 
- * Permet de filtrer et trier la liste des commandes.
+ * Permet de filtrer la liste des commandes.
  * 
  * FONCTIONNALITÉS :
  * - Recherche par texte (n° commande, client, produit)
  * - Filtre par date de création
- * - Tri par (date, numéro, client, montant)
- * - Ordre croissant/décroissant
+ * - Tri des résultats
  * - Réinitialisation des filtres
  * - Affichage des filtres actifs
  * 
  * @param {Object} filters - État des filtres
  * @param {string} filters.searchTerm - Terme de recherche
  * @param {Object} filters.dateRange - Plage de dates { from, to }
- * @param {string} filters.sortBy - Champ de tri (date_creation, numero_commande, client, montant)
- * @param {string} filters.sortOrder - Ordre de tri (asc/desc)
+ * @param {string} filters.sortBy - Champ de tri
+ * @param {string} filters.sortOrder - Ordre de tri ('asc' ou 'desc')
  * @param {Function} onFilterChange - (key, value) => void
  * @param {number} totalFiltered - Nombre de résultats après filtrage
  */
@@ -25,12 +24,19 @@ import {
   MagnifyingGlassIcon,
   CalendarIcon,
   FunnelIcon,
-  ArrowsUpDownIcon,
   ArrowPathIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowsUpDownIcon
 } from '@heroicons/react/24/outline';
 
-const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) => key, locale = 'fr-FR', isArabic = false }) => {
+const SalesFilters = ({ 
+  filters, 
+  onFilterChange, 
+  totalFiltered = 0, 
+  t = (key) => key, 
+  locale = 'fr-FR', 
+  isArabic = false 
+}) => {
   // Options de tri disponibles
   const sortOptions = [
     { value: 'date_creation', label: t('creationDate') },
@@ -53,7 +59,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
            filters.dateRange?.from?.trim() !== '';
   };
 
-  // Vérifie si le tri est différent des valeurs par défaut
+  // Vérifie si le tri est modifié par rapport aux valeurs par défaut
   const isSortModified = () => {
     return filters.sortBy !== defaultFilters.sortBy || 
            filters.sortOrder !== defaultFilters.sortOrder;
@@ -67,11 +73,6 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
     onFilterChange('sortOrder', defaultFilters.sortOrder);
   };
 
-  // Inverse l'ordre de tri (asc ↔ desc)
-  const handleSortToggle = () => {
-    onFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc');
-  };
-
   // Gère le changement de date
   const handleDateChange = (e) => {
     const value = e.target.value;
@@ -81,6 +82,11 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
   // Supprime le filtre date
   const handleClearDate = () => {
     onFilterChange('dateRange', { from: '', to: '' });
+  };
+
+  // Inverse l'ordre de tri
+  const handleSortToggle = () => {
+    onFilterChange('sortOrder', filters.sortOrder === 'desc' ? 'asc' : 'desc');
   };
 
   // Formate une date pour l'affichage (ex: "15 janvier 2024")
@@ -144,8 +150,8 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
           </div>
         </div>
         
-        {/* Bouton Réinitialiser (visible si filtre actif OU tri modifié) */}
-        {(hasActiveFilters() || isSortModified()) && (
+        {/* Bouton Réinitialiser (visible si filtre actif) */}
+        {hasActiveFilters() && (
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm 
@@ -419,7 +425,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
           </div>
           
           {/* Indicateur de statut des filtres */}
-          {!hasActiveFilters() && !isSortModified() && (
+          {!hasActiveFilters() && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
               {t('allOrders')}
@@ -443,7 +449,7 @@ const SalesFilters = ({ filters, onFilterChange, totalFiltered = 0, t = (key) =>
       </div>
 
       {/* Animations CSS */}
-      <style >{`
+      <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }

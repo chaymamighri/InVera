@@ -81,7 +81,7 @@ export const paymentService = {
       payment.clientEmail || '',
       payment.offreNom || '',
       payment.montant || 0,
-      payment.devise || 'XAF',
+      payment.devise || 'TND',
       payment.statut || '',
       payment.dateDemande || '',
       payment.dateConfirmation || ''

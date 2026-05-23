@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +32,8 @@ import java.util.Map;
  * - DELETE /{id}          → Désactiver (soft delete)
  * - PATCH  /{id}/reactivate → Réactiver un fournisseur
  * - GET    /search        → Recherche paginée (fournisseurs actifs)
- * - GET    /search/all    → Recherche paginée (tous, admin)
+ * - GET    /search/matricule/{matricule} → Recherche par matricule fiscale
+ * - GET    /check/matricule/{matricule} → Vérifier si matricule existe
  * - GET    /stats         → Statistiques (total, actifs/inactifs, par ville/pays)
  */
 @RestController
@@ -123,16 +126,17 @@ public class FournisseurController {
                                                @Valid @RequestBody FournisseurDTO fournisseurDTO) {
         log.info("POST /api/fournisseurs/add - Création du fournisseur: {}", fournisseurDTO.getNomFournisseur());
 
-        // ✅ Log détaillé de ce qui est reçu
-        System.out.println("========== REQUÊTE CRÉATION FOURNISSEUR ==========");
-        System.out.println("nomFournisseur: '" + fournisseurDTO.getNomFournisseur() + "'");
-        System.out.println("email: '" + fournisseurDTO.getEmail() + "'");
-        System.out.println("telephone: '" + fournisseurDTO.getTelephone() + "'");
-        System.out.println("adresse: '" + fournisseurDTO.getAdresse() + "'");
-        System.out.println("ville: '" + fournisseurDTO.getVille() + "'");
-        System.out.println("pays: '" + fournisseurDTO.getPays() + "'");
-        System.out.println("actif: " + fournisseurDTO.getActif());
-        System.out.println("=================================================");
+        // Log détaillé AVANT validation
+        log.debug("========== REQUÊTE CRÉATION FOURNISSEUR ==========");
+        log.debug("nomFournisseur: '{}'", fournisseurDTO.getNomFournisseur());
+        log.debug("email: '{}'", fournisseurDTO.getEmail());
+        log.debug("telephone: '{}'", fournisseurDTO.getTelephone());
+        log.debug("adresse: '{}'", fournisseurDTO.getAdresse());
+        log.debug("ville: '{}'", fournisseurDTO.getVille());
+        log.debug("pays: '{}'", fournisseurDTO.getPays());
+        log.debug("matriculeFiscale: '{}'", fournisseurDTO.getMatriculeFiscale());
+        log.debug("actif: {}", fournisseurDTO.getActif());
+        log.debug("=================================================");
 
         String token = extractToken(request);
         if (token == null) {
@@ -140,9 +144,43 @@ public class FournisseurController {
         }
 
         try {
-            // ✅ Vérification des champs obligatoires
+            // Vérification explicite de chaque champ
+            List<String> errors = new ArrayList<>();
+
             if (fournisseurDTO.getNomFournisseur() == null || fournisseurDTO.getNomFournisseur().trim().isEmpty()) {
-                return errorResponse("Le nom du fournisseur est obligatoire", HttpStatus.BAD_REQUEST);
+                errors.add("Le nom du fournisseur est obligatoire");
+            }
+
+            if (fournisseurDTO.getMatriculeFiscale() == null || fournisseurDTO.getMatriculeFiscale().trim().isEmpty()) {
+                errors.add("Le matricule fiscal est obligatoire");
+            }
+
+            if (fournisseurDTO.getEmail() == null || fournisseurDTO.getEmail().trim().isEmpty()) {
+                errors.add("L'email est obligatoire");
+            }
+
+            if (fournisseurDTO.getTelephone() == null || fournisseurDTO.getTelephone().trim().isEmpty()) {
+                errors.add("Le téléphone est obligatoire");
+            }
+
+            if (fournisseurDTO.getAdresse() == null || fournisseurDTO.getAdresse().trim().isEmpty()) {
+                errors.add("L'adresse est obligatoire");
+            }
+
+            if (fournisseurDTO.getVille() == null || fournisseurDTO.getVille().trim().isEmpty()) {
+                errors.add("La ville est obligatoire");
+            }
+
+            if (fournisseurDTO.getPays() == null || fournisseurDTO.getPays().trim().isEmpty()) {
+                errors.add("Le pays est obligatoire");
+            }
+
+            if (!errors.isEmpty()) {
+                log.error("❌ Erreurs de validation: {}", errors);
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("errors", errors);
+                errorResponse.put("message", "Validation échouée");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
             FournisseurDTO created = fournisseurServices.createFournisseur(
@@ -152,6 +190,7 @@ public class FournisseurController {
                     fournisseurDTO.getTelephone(),
                     fournisseurDTO.getVille(),
                     fournisseurDTO.getPays(),
+                    fournisseurDTO.getMatriculeFiscale(),
                     token
             );
             return new ResponseEntity<>(created, HttpStatus.CREATED);
@@ -163,6 +202,7 @@ public class FournisseurController {
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
     /**
      * Récupère un fournisseur par son ID
      */
@@ -180,6 +220,51 @@ public class FournisseurController {
             return ResponseEntity.ok(fournisseur);
         } catch (RuntimeException e) {
             return errorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Récupère un fournisseur par son matricule fiscale
+     */
+    @GetMapping("/matricule/{matricule}")
+    public ResponseEntity<?> getFournisseurByMatriculeFiscale(HttpServletRequest request, @PathVariable String matricule) {
+        log.info("GET /api/fournisseurs/matricule/{} - Récupération du fournisseur par matricule", matricule);
+
+        String token = extractToken(request);
+        if (token == null) {
+            return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            FournisseurDTO fournisseur = fournisseurServices.getFournisseurByMatriculeFiscale(matricule, token);
+            return ResponseEntity.ok(fournisseur);
+        } catch (RuntimeException e) {
+            return errorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Vérifie si un matricule fiscale existe déjà
+     */
+    @GetMapping("/check/matricule/{matricule}")
+    public ResponseEntity<?> checkMatriculeFiscaleExists(HttpServletRequest request, @PathVariable String matricule) {
+        log.info("GET /api/fournisseurs/check/matricule/{} - Vérification matricule", matricule);
+
+        String token = extractToken(request);
+        if (token == null) {
+            return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            boolean exists = fournisseurServices.checkMatriculeFiscaleExists(matricule, token);
+            Map<String, Object> response = new HashMap<>();
+            response.put("exists", exists);
+            response.put("matriculeFiscale", matricule);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -212,6 +297,7 @@ public class FournisseurController {
                     fournisseurDTO.getTelephone(),
                     fournisseurDTO.getVille(),
                     fournisseurDTO.getPays(),
+                    fournisseurDTO.getMatriculeFiscale(),
                     fournisseurDTO.getActif(),
                     token
             );
@@ -301,39 +387,6 @@ public class FournisseurController {
             Sort sortObj = Sort.by(direction, sort[0]);
             Pageable pageable = PageRequest.of(page, size, sortObj);
 
-            Page<FournisseurDTO> result = fournisseurServices.searchActiveFournisseurs(term, pageable, token);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return errorResponse("Erreur: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    /**
-     * Recherche paginée de tous les fournisseurs (admin) - À adapter si nécessaire
-     */
-    @GetMapping("/search/all")
-    public ResponseEntity<?> searchAllFournisseurs(
-            HttpServletRequest request,
-            @RequestParam String term,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "nomFournisseur,asc") String[] sort) {
-
-        log.info("GET /api/fournisseurs/search/all - Recherche admin: '{}', page: {}, size: {}", term, page, size);
-
-        String token = extractToken(request);
-        if (token == null) {
-            return errorResponse("Token non trouvé", HttpStatus.UNAUTHORIZED);
-        }
-
-        try {
-            Sort.Direction direction = sort[1].equalsIgnoreCase("desc") ?
-                    Sort.Direction.DESC : Sort.Direction.ASC;
-            Sort sortObj = Sort.by(direction, sort[0]);
-            Pageable pageable = PageRequest.of(page, size, sortObj);
-
-            // Note: Cette méthode n'existe pas encore dans le service adapté
-            // Vous pouvez soit l'ajouter, soit utiliser searchActiveFournisseurs
             Page<FournisseurDTO> result = fournisseurServices.searchActiveFournisseurs(term, pageable, token);
             return ResponseEntity.ok(result);
         } catch (Exception e) {

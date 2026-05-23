@@ -20,26 +20,19 @@ const localeByLanguage = {
   ar: 'ar-TN',
 };
 
-const initialStats = {
-  totalValeurStock: 0,
-  totalProduits: 0,
-  produitsAlerte: 0,
-  produitsRupture: 0,
-  produitsNormaux: 0,
-  produitsCritique: 0,
-  produitsFaible: 0,
-  valeurStockAlerte: 0,
-  valeurStockRupture: 0,
-  pourcentageAlerte: 0,
-  pourcentageRupture: 0,
-  topProduitsValeur: [],
-};
-
 const EtatStock = () => {
   const [produits, setProduits] = useState([]);
   const [produitsFiltres, setProduitsFiltres] = useState([]);
   const [produitsPagines, setProduitsPagines] = useState([]);
-  const [stats, setStats] = useState(initialStats);
+  const [stats, setStats] = useState({
+    totalValeurStock: 0,
+    totalProduits: 0,
+    produitsEnStock: 0,
+    produitsFaible: 0,
+    produitsRupture: 0,
+    pourcentageRupture: 0,
+    pourcentageFaible: 0
+  });
   const [loading, setLoading] = useState(true);
   const [filtres, setFiltres] = useState({
     categorieId: '',
@@ -71,11 +64,44 @@ const EtatStock = () => {
       setLoading(true);
       const etatStock = await stockEtatService.getEtatStock();
       setProduits(etatStock || []);
+      calculerStats(etatStock || []);
     } catch (error) {
       console.error('Erreur chargement donnees:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculerStats = (produitsData) => {
+    let enStock = 0;
+    let faible = 0;
+    let rupture = 0;
+    let totalValeur = 0;
+    
+    produitsData.forEach(produit => {
+      if (produit.statutStock === 'EN_STOCK') {
+        enStock++;
+      } else if (produit.statutStock === 'FAIBLE') {
+        faible++;
+      } else if (produit.statutStock === 'RUPTURE') {
+        rupture++;
+      }
+      totalValeur += (produit.valeurStock || 0);
+    });
+
+    const totalProduits = produitsData.length;
+    const pourcentageRupture = totalProduits > 0 ? (rupture / totalProduits) * 100 : 0;
+    const pourcentageFaible = totalProduits > 0 ? (faible / totalProduits) * 100 : 0;
+    
+    setStats({
+      totalValeurStock: totalValeur,
+      totalProduits: totalProduits,
+      produitsEnStock: enStock,
+      produitsFaible: faible,
+      produitsRupture: rupture,
+      pourcentageRupture: pourcentageRupture,
+      pourcentageFaible: pourcentageFaible
+    });
   };
 
   const appliquerFiltres = () => {
@@ -86,7 +112,7 @@ const EtatStock = () => {
     }
 
     if (filtres.seuilAlerte) {
-      resultats = resultats.filter((p) => p.statutStock === 'FAIBLE' || p.statutStock === 'CRITIQUE');
+      resultats = resultats.filter(p => p.statutStock === 'FAIBLE');
     }
 
     if (filtres.rupture) {
@@ -95,7 +121,6 @@ const EtatStock = () => {
 
     setProduitsFiltres(resultats);
     setCurrentPage(1);
-    calculerStatsAvancees(resultats);
   };
 
   const paginerProduits = () => {
@@ -116,71 +141,12 @@ const EtatStock = () => {
     setCurrentPage(1);
   };
 
-  const calculerStatsAvancees = (produitsData) => {
-    let totalValeur = 0;
-    let alerte = 0;
-    let rupture = 0;
-    let critique = 0;
-    let faible = 0;
-    let normal = 0;
-    let valeurAlerte = 0;
-    let valeurRupture = 0;
-
-    const produitsAvecValeur = produitsData.map((p) => ({
-      ...p,
-      valeurStock: p.valeurStock || 0,
-    }));
-
-    const topProduitsValeur = [...produitsAvecValeur]
-      .sort((a, b) => b.valeurStock - a.valeurStock)
-      .slice(0, 5);
-
-    produitsData.forEach((produit) => {
-      const valeur = produit.valeurStock || 0;
-      totalValeur += valeur;
-
-      if (produit.statutStock === 'RUPTURE') {
-        rupture++;
-        valeurRupture += valeur;
-      } else if (produit.statutStock === 'CRITIQUE') {
-        critique++;
-        alerte++;
-        valeurAlerte += valeur;
-      } else if (produit.statutStock === 'FAIBLE') {
-        faible++;
-        alerte++;
-        valeurAlerte += valeur;
-      } else {
-        normal++;
-      }
-    });
-
-    const totalProduits = produitsData.length;
-
-    setStats({
-      totalValeurStock: totalValeur,
-      totalProduits,
-      produitsAlerte: alerte,
-      produitsRupture: rupture,
-      produitsNormaux: normal,
-      produitsCritique: critique,
-      produitsFaible: faible,
-      valeurStockAlerte: valeurAlerte,
-      valeurStockRupture: valeurRupture,
-      pourcentageAlerte: totalProduits > 0 ? (alerte / totalProduits) * 100 : 0,
-      pourcentageRupture: totalProduits > 0 ? (rupture / totalProduits) * 100 : 0,
-      topProduitsValeur,
-    });
-  };
-
   const getStatusLabel = (statut) => {
     const labels = {
       EN_STOCK: tr('inStock'),
       FAIBLE: tr('lowStock'),
-      CRITIQUE: tr('critical'),
       RUPTURE: tr('outOfStock'),
     };
-
     return labels[statut] || labels.EN_STOCK;
   };
 
@@ -218,14 +184,13 @@ const EtatStock = () => {
       const date = new Date().toLocaleString(locale);
       const resume = [
         [''],
-        [tr('summaryTitle')],
-        [tr('exportDateLine', { date })],
-        [tr('totalStockValueLine', { value: formatNumber(stats.totalValeurStock) })],
-        [tr('totalProductsLine', { count: stats.totalProduits })],
-        [tr('normalStockProductsLine', { count: stats.produitsNormaux })],
-        [tr('lowStockProductsLine', { count: stats.produitsFaible })],
-        [tr('criticalStockProductsLine', { count: stats.produitsCritique })],
-        [tr('outOfStockProductsLine', { count: stats.produitsRupture })],
+        ['=== RÉSUMÉ ==='],
+        [`Date d'export: ${date}`],
+        [`Nombre total de produits: ${stats.totalProduits}`],
+        [`Produits en stock: ${stats.produitsEnStock}`],
+        [`Produits en stock faible: ${stats.produitsFaible}`],
+        [`Produits en rupture: ${stats.produitsRupture}`],
+        [`Valeur totale du stock: ${formatPrice(stats.totalValeurStock)}`]
       ];
 
       const csvContent = [
@@ -268,8 +233,8 @@ const EtatStock = () => {
     return `${Number(value).toLocaleString(locale)} ${tr('currency')}`;
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle, hasData }) => {
-    const isEmpty = !hasData && (value === `0 ${tr('currency')}` || value === '0');
+  const StatCard = ({ title, value, icon: Icon, color, subtitle }) => {
+    const isEmpty = !stats.totalProduits;
 
     return (
       <div className={`rounded-lg shadow p-6 transition-shadow ${isEmpty ? 'bg-gray-50' : 'bg-white hover:shadow-lg'}`}>
@@ -294,9 +259,8 @@ const EtatStock = () => {
   const StatutBadge = ({ statut }) => {
     const config = {
       EN_STOCK: { bg: 'bg-green-100', text: 'text-green-800', label: tr('inStock'), icon: CheckCircleIcon },
-      FAIBLE: { bg: 'bg-orange-100', text: 'text-orange-800', label: tr('lowStock'), icon: BellAlertIcon },
-      CRITIQUE: { bg: 'bg-red-100', text: 'text-red-800', label: tr('critical'), icon: ExclamationTriangleIcon },
-      RUPTURE: { bg: 'bg-gray-100', text: 'text-gray-800', label: tr('outOfStock'), icon: XCircleIcon },
+      FAIBLE: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: tr('lowStock'), icon: BellAlertIcon },
+      RUPTURE: { bg: 'bg-red-100', text: 'text-red-800', label: tr('outOfStock'), icon: XCircleIcon }
     };
 
     const { bg, text, label, icon: Icon } = config[statut] || config.EN_STOCK;
@@ -352,7 +316,6 @@ const EtatStock = () => {
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            title={tr('previousPage')}
             className={`p-2 rounded-lg border ${
               currentPage === 1
                 ? 'border-gray-200 text-gray-300 cursor-not-allowed'
@@ -377,7 +340,6 @@ const EtatStock = () => {
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            title={tr('nextPage')}
             className={`p-2 rounded-lg border ${
               currentPage === totalPages
                 ? 'border-gray-200 text-gray-300 cursor-not-allowed'
@@ -424,57 +386,47 @@ const EtatStock = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Statistiques - Cartes (supprimé criticalStock) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           title={tr('totalStockValue')}
           value={formatPrice(stats.totalValeurStock)}
           icon={CurrencyDollarIcon}
           color="bg-blue-500"
-          hasData={stats.totalValeurStock > 0}
         />
         <StatCard
           title={tr('totalProducts')}
           value={formatNumber(stats.totalProduits)}
           icon={ShoppingBagIcon}
           color="bg-purple-500"
-          hasData={stats.totalProduits > 0}
         />
         <StatCard
           title={tr('productsInStock')}
-          value={formatNumber(stats.produitsNormaux)}
+          value={formatNumber(stats.produitsEnStock)}
           icon={CheckCircleIcon}
           color="bg-green-500"
-          hasData={stats.produitsNormaux > 0}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          title={tr('criticalStock')}
-          value={formatNumber(stats.produitsCritique)}
-          icon={ExclamationTriangleIcon}
-          color="bg-red-500"
-          subtitle={tr('immediateAction')}
-          hasData={stats.produitsCritique > 0}
-        />
-        <StatCard
-          title={tr('lowStock')}
-          value={formatNumber(stats.produitsFaible)}
-          icon={ClockIcon}
-          color="bg-yellow-500"
-          subtitle={tr('toRestock')}
-          hasData={stats.produitsFaible > 0}
         />
         <StatCard
           title={tr('outOfStockProducts')}
           value={formatNumber(stats.produitsRupture)}
           icon={XCircleIcon}
-          color="bg-gray-500"
+          color="bg-red-500"
           subtitle={tr('percentageOfTotal', { value: stats.pourcentageRupture.toFixed(1) })}
-          hasData={stats.produitsRupture > 0}
         />
       </div>
 
+      {/* Deuxième ligne de statistiques - seulement lowStock */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
+        <StatCard
+          title={tr('lowStock')}
+          value={formatNumber(stats.produitsFaible)}
+          icon={ClockIcon}
+          color="bg-yellow-500"
+          subtitle={tr('percentageOfTotal', { value: stats.pourcentageFaible.toFixed(1) })}
+        />
+      </div>
+
+      {/* Filtres */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="flex flex-col lg:flex-row lg:items-end gap-4">
           <div className="w-full lg:w-1/3">
@@ -505,7 +457,7 @@ const EtatStock = () => {
                 }
                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-700">{tr('lowOrCriticalStock')}</span>
+              <span className="text-sm text-gray-700">{tr('lowStock')}</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -536,20 +488,21 @@ const EtatStock = () => {
         </div>
       </div>
 
+      {/* Tableau */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <TableHeader align={isArabic ? 'right' : 'left'}>{tr('referenceShort')}</TableHeader>
-                <TableHeader align={isArabic ? 'right' : 'left'}>{tr('product')}</TableHeader>
-                <TableHeader align={isArabic ? 'right' : 'left'}>{tr('category')}</TableHeader>
-                <TableHeader align="right">{tr('quantityShort')}</TableHeader>
-                <TableHeader align={isArabic ? 'right' : 'left'}>{tr('unit')}</TableHeader>
-                <TableHeader align="right">{tr('unitPriceShort')}</TableHeader>
-                <TableHeader align="right">{tr('stockValue')}</TableHeader>
-                <TableHeader align="center">{tr('status')}</TableHeader>
-                <TableHeader align="center">{tr('threshold')}</TableHeader>
+                <th className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{tr('referenceShort')}</th>
+                <th className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{tr('product')}</th>
+                <th className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{tr('category')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{tr('quantityShort')}</th>
+                <th className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{tr('unit')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{tr('unitPriceShort')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{tr('stockValue')}</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{tr('status')}</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{tr('threshold')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -558,12 +511,12 @@ const EtatStock = () => {
                   <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                     <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                     <p>{tr('noProductsForFilters')}</p>
-                  </td>
+                   </td>
                 </tr>
               ) : (
                 produitsPagines.map((produit) => (
                   <tr key={produit.produitId} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{produit.reference}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{produit.reference || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{produit.libelle}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{produit.categorieNom || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
@@ -594,20 +547,6 @@ const EtatStock = () => {
         <Pagination />
       </div>
     </div>
-  );
-};
-
-const TableHeader = ({ children, align }) => {
-  const alignClass = {
-    left: 'text-left',
-    right: 'text-right',
-    center: 'text-center',
-  }[align];
-
-  return (
-    <th className={`px-6 py-3 ${alignClass} text-xs font-medium text-gray-500 uppercase`}>
-      {children}
-    </th>
   );
 };
 

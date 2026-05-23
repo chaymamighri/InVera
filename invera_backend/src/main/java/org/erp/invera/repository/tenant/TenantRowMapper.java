@@ -1,5 +1,6 @@
 package org.erp.invera.repository.tenant;
 
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.model.erp.Produit;
 import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.model.erp.client.Client;
@@ -12,6 +13,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class TenantRowMapper {
 
@@ -166,12 +168,6 @@ public class TenantRowMapper {
             produit.setSeuilMinimum(rs.getInt("seuil_minimum"));
             produit.setImageUrl(rs.getString("image_url"));
 
-            // remise_temporaire peut être null
-            double remise = rs.getDouble("remise_temporaire");
-            if (!rs.wasNull()) {
-                produit.setRemiseTemporaire(remise);
-            }
-
             produit.setCreatedBy(rs.getString("created_by"));
 
             if (rs.getTimestamp("created_at") != null) {
@@ -183,6 +179,7 @@ public class TenantRowMapper {
     }
 
     // ✅ RowMapper pour Client (complet)
+    // ✅ RowMapper pour Client (complet)
     public RowMapper<Client> clientRowMapper() {
         return (rs, rowNum) -> {
             Client client = new Client();
@@ -192,27 +189,18 @@ public class TenantRowMapper {
             client.setEmail(rs.getString("email"));
             client.setTelephone(rs.getString("telephone"));
             client.setAdresse(rs.getString("adresse"));
+            client.setRaisonSociale(rs.getString("raison_sociale"));
+            client.setMatriculeFiscale(rs.getString("matricule_fiscale"));
 
             // Type client (enum)
             String typeClient = rs.getString("type_client");
             if (typeClient != null) {
-                client.setTypeClient(Client.TypeClient.valueOf(typeClient));
-            }
-
-            // Remises (peuvent être null)
-            double remiseFidele = rs.getDouble("remise_client_fidele");
-            if (!rs.wasNull()) {
-                client.setRemiseClientFidele(remiseFidele);
-            }
-
-            double remiseVip = rs.getDouble("remise_client_vip");
-            if (!rs.wasNull()) {
-                client.setRemiseClientVIP(remiseVip);
-            }
-
-            double remisePro = rs.getDouble("remise_client_professionnelle");
-            if (!rs.wasNull()) {
-                client.setRemiseClientProfessionnelle(remisePro);
+                try {
+                    client.setTypeClient(Client.TypeClient.valueOf(typeClient));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Type client inconnu: {}, utilisation de PARTICULIER par défaut", typeClient);
+                    client.setTypeClient(Client.TypeClient.PARTICULIER);
+                }
             }
 
             client.setCreatedBy(rs.getString("created_by"));

@@ -20,15 +20,14 @@ public class ProduitDTO {
     private Boolean active;
     private Integer seuilMinimum;
     private String imageUrl;
-    private Double remiseTemporaire;
     private String status;
 
-    // ✅ Catégorie
+    //  Catégorie
     private Integer categorieId;
     private String categorieNom;
     private BigDecimal categorieTauxTVA;
+    private Double categorieRemiseStandard;
 
-    // ✅ Fournisseur (One-to-Many - un seul fournisseur)
     private Integer fournisseurId;
     private String fournisseurNom;
     private String fournisseurEmail;
@@ -43,13 +42,12 @@ public class ProduitDTO {
         dto.setIdProduit(produit.getIdProduit());
         dto.setLibelle(produit.getLibelle());
         dto.setPrixVente(produit.getPrixVente());
-        dto.setPrixAchat(produit.getPrixAchat());  // ✅ Prix d'achat
+        dto.setPrixAchat(produit.getPrixAchat());
         dto.setQuantiteStock(produit.getQuantiteStock());
         dto.setUniteMesure(produit.getUniteMesure() != null ? produit.getUniteMesure().name() : null);
         dto.setActive(produit.getActive());
         dto.setSeuilMinimum(produit.getSeuilMinimum());
         dto.setImageUrl(produit.getImageUrl());
-        dto.setRemiseTemporaire(produit.getRemiseTemporaire());
         dto.setStatus(produit.getStatus() != null ? produit.getStatus().name() : null);
 
         // Catégorie
@@ -57,9 +55,10 @@ public class ProduitDTO {
             dto.setCategorieId(produit.getCategorie().getIdCategorie());
             dto.setCategorieNom(produit.getCategorie().getNomCategorie());
             dto.setCategorieTauxTVA(produit.getCategorie().getTauxTVA());
+            dto.setCategorieRemiseStandard(produit.getCategorie().getRemiseStandard());
         }
 
-        // ✅ Fournisseur (One-to-Many - un seul)
+        // Fournisseur (One-to-Many - un seul)
         if (produit.getFournisseur() != null) {
             dto.setFournisseurId(produit.getFournisseur().getIdFournisseur());
             dto.setFournisseurNom(produit.getFournisseur().getNomFournisseur());
@@ -69,5 +68,11 @@ public class ProduitDTO {
         }
 
         return dto;
+    }
+
+    // Méthode utilitaire pour calculer le prix final avec la remise
+    public Double getPrixFinal() {
+        Double remise = (categorieRemiseStandard != null) ? categorieRemiseStandard : 0.0;
+        return prixVente * (1 - remise / 100);
     }
 }

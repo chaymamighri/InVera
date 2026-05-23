@@ -1,10 +1,9 @@
+// fournisseurService.js - Version CORRECTE (camelCase)
+
 import api from './api'; 
 
 class FournisseurService {
   
-  /**
-   * Récupère tous les fournisseurs (actifs + inactifs)
-   */
   async getAllFournisseurs() {
     try {
       const response = await api.get('/fournisseurs/all');
@@ -14,9 +13,6 @@ class FournisseurService {
     }
   }
 
-  /**
-   * Récupère uniquement les fournisseurs actifs
-   */
   async getActiveFournisseurs() {
     try {
       const response = await api.get('/fournisseurs/active');
@@ -26,9 +22,6 @@ class FournisseurService {
     }
   }
 
-  /**
-   * Récupère uniquement les fournisseurs inactifs
-   */
   async getInactiveFournisseurs() {
     try {
       const response = await api.get('/fournisseurs/inactive');
@@ -38,11 +31,6 @@ class FournisseurService {
     }
   }
 
-  // ==================== GET BY ID ====================
-
-  /**
-   * Récupère un fournisseur par son ID
-   */
   async getFournisseurById(id, admin = false) {
     try {
       const url = admin ? `/fournisseurs/${id}/admin` : `/fournisseurs/${id}`;
@@ -53,39 +41,53 @@ class FournisseurService {
     }
   }
 
-  // ==================== CREATE ====================
-
-  /**
-   * Crée un nouveau fournisseur
-   */
   async createFournisseur(fournisseurData) {
     try {
-      const response = await api.post('/fournisseurs/add', fournisseurData);
+      console.log('📤 Données reçues:', fournisseurData);
+      
+      // ✅ Envoyer en camelCase (comme l'entité Java)
+      const dataToSend = {
+        nomFournisseur: fournisseurData.nomFournisseur?.trim(),
+        matriculeFiscale: fournisseurData.matriculeFiscale?.trim().toUpperCase(),
+        email: fournisseurData.email?.trim().toLowerCase(),
+        telephone: fournisseurData.telephone?.trim().replace(/\s/g, ''),
+        adresse: fournisseurData.adresse?.trim(),
+        ville: fournisseurData.ville?.trim(),
+        pays: fournisseurData.pays,
+        actif: true
+      };
+      
+      console.log('📤 Envoi backend (camelCase):', dataToSend);
+      
+      const response = await api.post('/fournisseurs/add', dataToSend);
+      console.log('✅ Succès:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ Erreur backend:', error.response?.data);
       throw this.handleError(error);
     }
   }
 
-  // ==================== UPDATE ====================
-
-  /**
-   * Met à jour un fournisseur existant
-   */
   async updateFournisseur(id, fournisseurData) {
     try {
-      const response = await api.put(`/fournisseurs/${id}`, fournisseurData);
+      const dataToSend = {
+        nomFournisseur: fournisseurData.nomFournisseur?.trim(),
+        matriculeFiscale: fournisseurData.matriculeFiscale?.trim().toUpperCase(),
+        email: fournisseurData.email?.trim().toLowerCase(),
+        telephone: fournisseurData.telephone?.trim().replace(/\s/g, ''),
+        adresse: fournisseurData.adresse?.trim(),
+        ville: fournisseurData.ville?.trim(),
+        pays: fournisseurData.pays,
+        actif: fournisseurData.actif
+      };
+      
+      const response = await api.put(`/fournisseurs/${id}`, dataToSend);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
     }
   }
 
-  // ==================== DELETE ====================
-
-  /**
-   * Soft delete - Désactive un fournisseur
-   */
   async softDeleteFournisseur(id) {
     try {
       const response = await api.delete(`/fournisseurs/${id}`);
@@ -95,9 +97,6 @@ class FournisseurService {
     }
   }
 
-  /**
-   * Hard delete - Suppression définitive
-   */
   async hardDeleteFournisseur(id) {
     try {
       const response = await api.delete(`/fournisseurs/${id}/hard`);
@@ -107,11 +106,6 @@ class FournisseurService {
     }
   }
 
-  // ==================== REACTIVATE ====================
-
-  /**
-   * Réactive un fournisseur désactivé
-   */
   async reactivateFournisseur(id) {
     try {
       const response = await api.patch(`/fournisseurs/${id}/reactivate`);
@@ -121,21 +115,11 @@ class FournisseurService {
     }
   }
 
-  // ==================== SEARCH ====================
-
-  /**
-   * Recherche paginée des fournisseurs
-   */
   async searchFournisseurs(term, page = 0, size = 10, sort = 'nomFournisseur,asc', all = false) {
     try {
       const endpoint = all ? '/fournisseurs/search/all' : '/fournisseurs/search';
       const response = await api.get(endpoint, {
-        params: {
-          term,
-          page,
-          size,
-          sort
-        }
+        params: { term, page, size, sort }
       });
       return response.data;
     } catch (error) {
@@ -143,11 +127,6 @@ class FournisseurService {
     }
   }
 
-  // ==================== STATISTICS ====================
-
-  /**
-   * Récupère les statistiques
-   */
   async getStats() {
     try {
       const response = await api.get('/fournisseurs/stats');
@@ -157,20 +136,18 @@ class FournisseurService {
     }
   }
 
-  // ==================== UTILS ====================
-
-  /**
-   * Gestion centralisée des erreurs
-   */
   handleError(error) {
     if (error.response) {
-      // Erreur avec réponse du serveur
-      const message = error.response.data?.message || 'Une erreur est survenue';
-      const status = error.response.status;
+      const message = error.response.data?.message || error.response.data?.error || 'Une erreur est survenue';
+      const errors = error.response.data?.errors;
       
-      switch (status) {
+      if (errors && Array.isArray(errors) && errors.length > 0) {
+        return new Error(`Validation échouée: ${errors.join(', ')}`);
+      }
+      
+      switch (error.response.status) {
         case 400:
-          return new Error('Données invalides: ' + message);
+          return new Error(`Données invalides: ${message}`);
         case 401:
           return new Error('Non authentifié. Veuillez vous connecter.');
         case 403:
@@ -178,16 +155,14 @@ class FournisseurService {
         case 404:
           return new Error('Fournisseur non trouvé.');
         case 409:
-          return new Error('Conflit: ' + message);
+          return new Error(`Conflit: ${message}`);
         default:
           return new Error(message);
       }
     } else if (error.request) {
-      // Pas de réponse du serveur
       return new Error('Impossible de contacter le serveur');
     } else {
-      // Erreur de configuration
-      return new Error('Erreur: ' + error.message);
+      return new Error(`Erreur: ${error.message}`);
     }
   }
 }

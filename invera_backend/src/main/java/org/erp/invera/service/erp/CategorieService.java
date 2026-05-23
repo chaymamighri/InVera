@@ -10,8 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,6 +19,7 @@ public class CategorieService {
 
     private static final Logger log = LoggerFactory.getLogger(CategorieService.class);
     private static final BigDecimal DEFAULT_TAUX_TVA = BigDecimal.valueOf(19);
+    private static final Double DEFAULT_REMISE_STANDARD = 0.0;
 
     private final TenantAwareRepository tenantRepo;
     private final JwtTokenProvider jwtTokenProvider;
@@ -38,6 +38,9 @@ public class CategorieService {
             categorie.setDescription(rs.getString("description"));
             categorie.setTauxTVA(rs.getBigDecimal("taux_tva") != null ?
                     rs.getBigDecimal("taux_tva") : DEFAULT_TAUX_TVA);
+            // Ajout de la remiseStandard
+            categorie.setRemiseStandard(rs.getDouble("remise_standard") != 0 || rs.wasNull() ?
+                    rs.getDouble("remise_standard") : DEFAULT_REMISE_STANDARD);
             return categorie;
         };
     }
@@ -51,51 +54,66 @@ public class CategorieService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        log.info("📝 Création catégorie pour clientId: {}", clientId);
+        log.info("Création catégorie pour clientId: {}", clientId);
 
-        // ✅ Utiliser queryForObjectAuth avec RowMapper
+        // Vérifier l'existence
         String checkSql = "SELECT COUNT(*) FROM categorie WHERE nom_categorie = ?";
         Integer count = tenantRepo.queryForObjectAuth(checkSql, (RowMapper<Integer>) (rs, rowNum) -> rs.getInt(1),
                 clientId, authClientId, categorie.getNomCategorie().trim());
 
-        log.info("📊 Vérification existence: count={}", count);
+        log.info("Vérification existence: count={}", count);
 
         if (count != null && count > 0) {
             throw new RuntimeException("Une catégorie avec ce nom existe déjà");
         }
 
+        // Valeurs par défaut
         if (categorie.getTauxTVA() == null) {
             categorie.setTauxTVA(DEFAULT_TAUX_TVA);
+        }
+
+        // Valeur par défaut pour remiseStandard
+        if (categorie.getRemiseStandard() == null) {
+            categorie.setRemiseStandard(DEFAULT_REMISE_STANDARD);
+        }
+
+        // Validation de la remise
+        if (categorie.getRemiseStandard() < 0 || categorie.getRemiseStandard() > 100) {
+            throw new IllegalArgumentException("La remise standard doit être comprise entre 0 et 100%");
         }
 
         String nom = categorie.getNomCategorie().trim();
         String description = categorie.getDescription() != null ? categorie.getDescription().trim() : null;
         BigDecimal tauxTVA = categorie.getTauxTVA();
+        Double remiseStandard = categorie.getRemiseStandard();
 
-        // ✅ Utiliser queryForObjectAuth pour l'ID
+        // Générer l'ID
         String getIdSql = "SELECT nextval('categorie_id_categorie_seq')";
         Long generatedId = tenantRepo.queryForObjectAuth(getIdSql, (RowMapper<Long>) (rs, rowNum) -> rs.getLong(1),
                 clientId, authClientId);
 
-        log.info("📊 ID généré: {}", generatedId);
+        log.info("ID généré: {}", generatedId);
 
         if (generatedId == null) {
             throw new RuntimeException("Impossible de générer un ID");
         }
 
-        // Insertion compatible with existing tenant schemas.
+        // Insertion avec remise_standard et created_by/created_at
         String insertSql = """
-            INSERT INTO categorie (id_categorie, nom_categorie, description, taux_tva)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO categorie (id_categorie, nom_categorie, description, taux_tva, remise_standard, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """;
 
         int affectedRows = tenantRepo.updateWithAuth(insertSql, clientId, authClientId,
                 generatedId.intValue(),
                 nom,
                 description,
-                tauxTVA);
+                tauxTVA,
+                remiseStandard,
+                "system",
+                LocalDateTime.now());
 
-        log.info("✅ INSERT exécuté, affectedRows={}", affectedRows);
+        log.info("INSERT exécuté, affectedRows={}", affectedRows);
 
         if (affectedRows == 0) {
             throw new RuntimeException("Erreur lors de la création");
@@ -103,7 +121,7 @@ public class CategorieService {
 
         categorie.setIdCategorie(generatedId.intValue());
 
-        log.info("✅ Catégorie créée: ID={}, Nom={}", generatedId, nom);
+        log.info("Catégorie créée: ID={}, Nom={}, Remise={}%", generatedId, nom, remiseStandard);
 
         return categorie;
     }
@@ -113,7 +131,6 @@ public class CategorieService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT * FROM categorie ORDER BY nom_categorie ASC";
-        // ✅ Utiliser queryWithAuth
         return tenantRepo.queryWithAuth(sql, categorieRowMapper(), clientId, authClientId);
     }
 
@@ -122,7 +139,6 @@ public class CategorieService {
         String authClientId = String.valueOf(clientId);
 
         String sql = "SELECT * FROM categorie WHERE id_categorie = ?";
-        // ✅ Utiliser queryForObjectAuth
         Categorie categorie = tenantRepo.queryForObjectAuth(sql, categorieRowMapper(), clientId, authClientId, id);
 
         if (categorie == null) {
@@ -138,7 +154,6 @@ public class CategorieService {
 
         // Vérifier si la catégorie a des produits associés
         String checkProduitsSql = "SELECT COUNT(*) FROM produit WHERE categorie_id = ?";
-        // ✅ Utiliser queryForObjectAuth
         Integer countProduits = tenantRepo.queryForObjectAuth(checkProduitsSql, (RowMapper<Integer>) (rs, rowNum) -> rs.getInt(1),
                 clientId, authClientId, id);
 
@@ -147,14 +162,13 @@ public class CategorieService {
         }
 
         String deleteSql = "DELETE FROM categorie WHERE id_categorie = ?";
-        // ✅ Utiliser updateWithAuth
         int deleted = tenantRepo.updateWithAuth(deleteSql, clientId, authClientId, id);
 
         if (deleted == 0) {
             throw new RuntimeException("Catégorie non trouvée avec l'ID: " + id);
         }
 
-        log.info("✅ Catégorie supprimée: ID={}", id);
+        log.info("Catégorie supprimée: ID={}", id);
     }
 
     @Transactional
@@ -162,25 +176,25 @@ public class CategorieService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        log.info("📝 Mise à jour catégorie ID: {} pour clientId: {}", id, clientId);
+        log.info("Mise à jour catégorie ID: {} pour clientId: {}", id, clientId);
 
         // Récupérer la catégorie existante
         Categorie existingCategorie = findById(id, token);
 
-        log.info("📊 Catégorie existante: id={}, nom={}, tauxTVA={}, description={}",
+        log.info("Catégorie existante: id={}, nom={}, tauxTVA={}, remiseStandard={}, description={}",
                 existingCategorie.getIdCategorie(),
                 existingCategorie.getNomCategorie(),
                 existingCategorie.getTauxTVA(),
+                existingCategorie.getRemiseStandard(),
                 existingCategorie.getDescription());
 
         // Vérifier si le nouveau nom n'est pas déjà utilisé
         if (!existingCategorie.getNomCategorie().equalsIgnoreCase(categorieDetails.getNomCategorie())) {
             String checkSql = "SELECT COUNT(*) FROM categorie WHERE nom_categorie = ? AND id_categorie != ?";
-            // ✅ Utiliser queryForObjectAuth
             Integer count = tenantRepo.queryForObjectAuth(checkSql, (RowMapper<Integer>) (rs, rowNum) -> rs.getInt(1),
                     clientId, authClientId, categorieDetails.getNomCategorie().trim(), id);
 
-            log.info("📊 Vérification nom: count={}", count);
+            log.info("Vérification nom: count={}", count);
 
             if (count != null && count > 0) {
                 throw new RuntimeException("Une catégorie avec ce nom existe déjà");
@@ -193,21 +207,33 @@ public class CategorieService {
         BigDecimal tauxTVA = categorieDetails.getTauxTVA() != null ?
                 categorieDetails.getTauxTVA() : existingCategorie.getTauxTVA();
 
-        log.info("📝 Nouvelles valeurs: nom='{}', description='{}', tauxTVA={}", nom, description, tauxTVA);
+        // Gestion de remiseStandard
+        Double remiseStandard = categorieDetails.getRemiseStandard() != null ?
+                categorieDetails.getRemiseStandard() : existingCategorie.getRemiseStandard();
 
-        // ✅ Exécuter l'UPDATE avec updateWithAuth
+        // Validation de la remise (0-100)
+        if (remiseStandard < 0 || remiseStandard > 100) {
+            throw new IllegalArgumentException("La remise standard doit être comprise entre 0 et 100%");
+        }
+
+        log.info("Nouvelles valeurs: nom='{}', description='{}', tauxTVA={}, remiseStandard={}%",
+                nom, description, tauxTVA, remiseStandard);
+
+        // UPDATE avec remise_standard
         String updateSql = """
             UPDATE categorie 
-            SET nom_categorie = ?, description = ?, taux_tva = ?
+            SET nom_categorie = ?, description = ?, taux_tva = ?, remise_standard = ?
             WHERE id_categorie = ?
             """;
 
-        log.info("📝 SQL Update: {}", updateSql);
-        log.info("📝 Paramètres: nom={}, description={}, tauxTVA={}, id={}", nom, description, tauxTVA, id);
+        log.info("SQL Update: {}", updateSql);
+        log.info("Paramètres: nom={}, description={}, tauxTVA={}, remiseStandard={}, id={}",
+                nom, description, tauxTVA, remiseStandard, id);
 
-        int updated = tenantRepo.updateWithAuth(updateSql, clientId, authClientId, nom, description, tauxTVA, id);
+        int updated = tenantRepo.updateWithAuth(updateSql, clientId, authClientId,
+                nom, description, tauxTVA, remiseStandard, id);
 
-        log.info("✅ UPDATE exécuté, affectedRows={}", updated);
+        log.info("UPDATE exécuté, affectedRows={}", updated);
 
         if (updated == 0) {
             throw new RuntimeException("Erreur lors de la mise à jour de la catégorie");
@@ -228,7 +254,41 @@ public class CategorieService {
         String sql = "SELECT * FROM categorie WHERE LOWER(nom_categorie) LIKE ? ORDER BY nom_categorie ASC";
         String searchPattern = "%" + keyword.toLowerCase().trim() + "%";
 
-        // ✅ Utiliser queryWithAuth
         return tenantRepo.queryWithAuth(sql, categorieRowMapper(), clientId, authClientId, searchPattern);
+    }
+
+    // Méthode utilitaire pour mettre à jour uniquement la remise d'une catégorie
+    @Transactional
+    public Categorie updateRemiseStandard(Integer id, Double remise, String token) {
+        if (remise < 0 || remise > 100) {
+            throw new IllegalArgumentException("La remise doit être comprise entre 0 et 100%");
+        }
+
+        Categorie categorie = findById(id, token);
+        categorie.setRemiseStandard(remise);
+
+        return update(id, categorie, token);
+    }
+
+    // Méthode pour obtenir la remise standard par défaut selon le type de catégorie
+    public Double getRemiseStandardParDefaut(String nomCategorie) {
+        if (nomCategorie == null) return 0.0;
+
+        switch (nomCategorie.toLowerCase()) {
+            case "électronique":
+                return 5.0;
+            case "vêtements":
+                return 10.0;
+            case "alimentation":
+                return 0.0;
+            case "beauté":
+                return 8.0;
+            case "maison":
+                return 3.0;
+            case "sport":
+                return 12.0;
+            default:
+                return 0.0;
+        }
     }
 }

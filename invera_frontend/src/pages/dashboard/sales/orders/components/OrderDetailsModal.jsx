@@ -15,10 +15,12 @@ import {
   EnvelopeIcon,
   IdentificationIcon,
   CubeIcon,
+  BuildingOfficeIcon,
+  BriefcaseIcon,
   PencilIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import UpdateOrderModal from './UpdateOrderModal'; 
+import clientService from '../../../../../services/clientService';
 
 // Badge pour le type de client
 const ClientTypeBadge = ({ type }) => {
@@ -30,9 +32,17 @@ const ClientTypeBadge = ({ type }) => {
     'PARTICULIER': 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-800 border border-gray-200'
   };
   
+  const typeLabels = {
+    'ENTREPRISE': '🏢 Entreprise',
+    'PROFESSIONNEL': '💼 Professionnel',
+    'PARTICULIER': '👤 Particulier',
+    'VIP': '⭐ VIP',
+    'FIDELE': '🔁 Fidèle'
+  };
+  
   return (
     <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${colors[type] || colors['PARTICULIER']}`}>
-      {type}
+      {typeLabels[type] || type}
     </span>
   );
 };
@@ -54,7 +64,7 @@ const StatusBadge = ({ statut, t }) => {
           icon: <ClockIcon className="h-5 w-5 mr-1.5" />
         };
       case 'ANNULEE':
-      case 'Refusé':
+      case 'Annulée':
         return {
           color: 'bg-gradient-to-r from-red-100 to-red-50 text-red-800 border border-red-200',
           icon: <XCircleIcon className="h-5 w-5 mr-1.5" />
@@ -97,28 +107,100 @@ const ClientInfoItem = ({ icon: Icon, label, value }) => {
   );
 };
 
-// Fonction pour formater la date
-const formatDate = (dateString, locale, t) => {
-  if (!dateString) return t('salesPages.notDefined');
+// Composant pour afficher les infos client
+const ClientInfoSection = ({ client, t }) => {
+  const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
   
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(locale, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return dateString;
+  return (
+    <div className="space-y-4">
+      {/* Type de client */}
+      {client?.typeClient && (
+        <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-2">{t('salesPages.clientType')}</div>
+          <ClientTypeBadge type={client.typeClient} />
+        </div>
+      )}
+      
+      {/* Nom / Raison sociale */}
+      {isEntreprise ? (
+        <>
+          <ClientInfoItem 
+            icon={BuildingOfficeIcon}
+            label={t('salesPages.companyName')}
+            value={client.raisonSociale || client.nom}
+          />
+          {client.matriculeFiscal && (
+            <ClientInfoItem 
+              icon={IdentificationIcon}
+              label={t('salesPages.taxNumber')}
+              value={client.matriculeFiscal}
+            />
+          )}
+          <ClientInfoItem 
+            icon={BriefcaseIcon}
+            label={t('salesPages.manager')}
+            value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
+          />
+        </>
+      ) : (
+        <ClientInfoItem 
+          icon={IdentificationIcon}
+          label={t('salesPages.fullName')}
+          value={client.prenom && client.nom ? `${client.prenom} ${client.nom}` : client.nom}
+        />
+      )}
+      
+      {/* Coordonnées communes */}
+      <ClientInfoItem 
+        icon={PhoneIcon}
+        label={t('salesPages.phone')}
+        value={client.telephone}
+      />
+      
+      <ClientInfoItem 
+        icon={EnvelopeIcon}
+        label={t('salesPages.email')}
+        value={client.email}
+      />
+      
+      <ClientInfoItem 
+        icon={MapPinIcon}
+        label={t('salesPages.address')}
+        value={client.adresse}
+      />
+    </div>
+  );
+};
+
+const calculerRemiseProduit = (produit) => {
+  if (produit.remiseProduit > 0) {
+    return {
+      remiseMontant: produit.remiseProduit,
+      tauxRemise: produit.tauxRemiseProduit || 0
+    };
   }
+  
+  if (produit.categorieRemiseStandard > 0) {
+    const prixUnitaire = parseFloat(produit.prixUnitaire) || parseFloat(produit.prix) || 0;
+    const quantite = parseFloat(produit.quantite) || 1;
+    const remiseMontant = (prixUnitaire * quantite) * (produit.categorieRemiseStandard / 100);
+    
+    return {
+      remiseMontant: remiseMontant,
+      tauxRemise: produit.categorieRemiseStandard
+    };
+  }
+  
+  return {
+    remiseMontant: 0,
+    tauxRemise: 0
+  };
 };
 
 const OrderDetailsModal = ({
   show,
   onClose,
-  commande: initialCommande, 
+  commande: initialCommande,
   toNumber,
   onUpdateSuccess,
   onRefresh,
@@ -126,43 +208,11 @@ const OrderDetailsModal = ({
   locale = 'fr-FR',
   isArabic = false
 }) => {
-  // ÉTAT LOCAL
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [commande, setCommande] = useState(initialCommande);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // ✅ CORRECTION: S'assurer que la commande a un ID valide
-  useEffect(() => {
-    if (initialCommande) {
-      console.log('🔄 Mise à jour de la commande affichée:', {
-        id: initialCommande.id,
-        idCommandeClient: initialCommande.idCommandeClient,
-        numero: initialCommande.numero,
-        statut: initialCommande.statut
-      });
-      
-      // ✅ S'assurer que l'ID est préservé
-      const commandeAvecId = {
-        ...initialCommande,
-        id: initialCommande.id || initialCommande.idCommandeClient,
-        idCommandeClient: initialCommande.idCommandeClient || initialCommande.id
-      };
-      
-      setCommande(commandeAvecId);
-    }
-  }, [initialCommande]);
-
-  // ✅ DEBUG plus détaillé
-  console.log(' OrderDetailsModal - État actuel:', {
-    id: commande?.id,
-    idCommandeClient: commande?.idCommandeClient,
-    numero: commande?.numero,
-    statut: commande?.statut,
-    produitsCount: commande?.produits?.length || 0,
-    aDesDonnees: !!commande
-  });
-
-  if (!show || !commande) return null;
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [clientRemise, setClientRemise] = useState(0);
+  const [loadingRemise, setLoadingRemise] = useState(false);
 
   // Fonctions utilitaires
   const getPrixUnitaire = (produit) => {
@@ -187,70 +237,111 @@ const OrderDetailsModal = ({
 
   const formatMontant = (value) => `${toNumber(value).toFixed(3)} ${t('salesPages.currencyLower')}`;
 
-  // Calculer le pourcentage de remise
+  // Récupérer la remise du client
+  useEffect(() => {
+    const fetchClientRemise = async () => {
+      if (!commande?.client?.typeClient) return;
+      
+      setLoadingRemise(true);
+      try {
+        const response = await clientService.getRemiseByType(commande.client.typeClient);
+        if (response?.success) {
+          setClientRemise(response.remise || 0);
+        }
+      } catch (error) {
+        console.error('Erreur chargement remise client:', error);
+      } finally {
+        setLoadingRemise(false);
+      }
+    };
+    
+    fetchClientRemise();
+  }, [commande?.client?.typeClient]);
+
+  useEffect(() => {
+    if (initialCommande) {
+      const commandeAvecId = {
+        ...initialCommande,
+        id: initialCommande.id || initialCommande.idCommandeClient,
+        idCommandeClient: initialCommande.idCommandeClient || initialCommande.id
+      };
+      setCommande(commandeAvecId);
+    }
+  }, [initialCommande]);
+
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleUpdateSuccess = () => {
+    setShowUpdateModal(false);
+    if (onUpdateSuccess) {
+      onUpdateSuccess();
+    }
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+
+  if (!show || !commande) return null;
+
+  const client = commande.client || {};
+  const isEntreprise = client?.typeClient === 'ENTREPRISE' || client?.typeClient === 'PROFESSIONNEL';
+  const hasClientInfo = client.nom || client.raisonSociale || client.telephone || client.email || client.adresse;
+
+  // Enrichir les produits avec les remises calculées
+  const produitsEnrichis = commande.produits?.map(produit => {
+    const remiseCalculee = calculerRemiseProduit(produit);
+    return {
+      ...produit,
+      remiseProduit: remiseCalculee.remiseMontant,
+      tauxRemiseProduit: remiseCalculee.tauxRemise
+    };
+  }) || [];
+
+  // Calcul des totaux
+  const sousTotal = produitsEnrichis.reduce((sum, p) => {
+    const qte = parseFloat(p.quantite) || 0;
+    const prix = parseFloat(p.prixUnitaire) || parseFloat(p.prix) || 0;
+    return sum + (qte * prix);
+  }, 0);
+  
+  const remiseTotale = produitsEnrichis.reduce((sum, p) => 
+    sum + (parseFloat(p.remiseProduit) || 0), 0);
+  
+  const totalApresRemises = sousTotal - remiseTotale;
+  const remiseGlobale = clientRemise > 0 ? clientRemise : parseFloat(commande.tauxRemise || commande.remise || 0);
+  const montantRemiseGlobale = totalApresRemises * (remiseGlobale / 100);
+  const totalFinal = totalApresRemises - montantRemiseGlobale;
   const pourcentageRemise = toNumber(commande.sousTotal) > 0 
     ? Math.round((toNumber(commande.tauxRemise || commande.remise) / toNumber(commande.sousTotal)) * 100)
     : 0;
 
-  // Extraire les informations client
-  const client = commande.client || {};
-  const hasClientInfo = client.nom || client.prenom || client.telephone || client.email || client.adresse;
-
-  // ✅ GESTIONNAIRE APRÈS MISE À JOUR
-  const handleUpdateSuccess = (updatedCommande) => {
-    console.log('✅ Mise à jour réussie, nouvelle commande reçue:', updatedCommande);
-    
-    if (updatedCommande) {
-      // ✅ Préserver l'ID quelle que soit la structure
-      const commandeComplete = {
-        ...updatedCommande,
-        id: updatedCommande.id || updatedCommande.idCommandeClient || commande.id,
-        idCommandeClient: updatedCommande.idCommandeClient || updatedCommande.id || commande.idCommandeClient,
-        numero: updatedCommande.numero || updatedCommande.referenceCommandeClient || commande.numero
-      };
-      
-      console.log('✅ Commande complète après mise à jour:', commandeComplete);
-      setCommande(commandeComplete);
-    }
-    
-    setShowUpdateModal(false);
-    
-    if (onUpdateSuccess) {
-      onUpdateSuccess(updatedCommande);
-    }
-  };
-
-  // GESTIONNAIRE DE REFRESH
-  const handleRefresh = async () => {
-    if (!onRefresh) return;
-    
-    setIsRefreshing(true);
+  const formatDate = (dateString) => {
+    if (!dateString) return t('salesPages.notDefined');
     try {
-      console.log('🔄 Rafraîchissement des données pour commande ID:', commande.id);
-      const refreshedCommande = await onRefresh(commande.id);
-      
-      if (refreshedCommande) {
-        // ✅ Même logique de préservation d'ID
-        const commandeComplete = {
-          ...refreshedCommande,
-          id: refreshedCommande.id || refreshedCommande.idCommandeClient || commande.id,
-          idCommandeClient: refreshedCommande.idCommandeClient || refreshedCommande.id || commande.idCommandeClient,
-          numero: refreshedCommande.numero || refreshedCommande.referenceCommandeClient || commande.numero
-        };
-        setCommande(commandeComplete);
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors du rafraîchissement:', error);
-    } finally {
-      setIsRefreshing(false);
+      const date = new Date(dateString);
+      return date.toLocaleDateString(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-lg">
         
-        {/* En-tête avec bouton refresh */}
+        {/* En-tête */}
         <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
@@ -261,9 +352,7 @@ const OrderDetailsModal = ({
               </p>
             </div>
             
-            {/* GROUPE DE BOUTONS */}
             <div className="flex items-center gap-2">
-              {/* BOUTON RAFRAÎCHIR */}
               {onRefresh && (
                 <button
                   onClick={handleRefresh}
@@ -275,7 +364,6 @@ const OrderDetailsModal = ({
                 </button>
               )}
               
-              {/* BOUTON FERMER */}
               <button
                 onClick={onClose}
                 className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
@@ -286,7 +374,6 @@ const OrderDetailsModal = ({
           </div>
         </div>
 
-        {/* Reste du JSX inchangé... */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {/* Section 1 : Informations principales */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -314,7 +401,7 @@ const OrderDetailsModal = ({
                       <div className="text-xs text-gray-500 mb-1">{t('salesPages.creationDate')}</div>
                       <div className="font-medium text-gray-900 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-2 text-blue-500" />
-                        {formatDate(commande.dateCommande, locale, t)}
+                        {formatDate(commande.dateCommande)}
                       </div>
                     </div>
                   </div>
@@ -334,7 +421,11 @@ const OrderDetailsModal = ({
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200">
               <div className="flex items-center mb-4">
                 <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mr-3">
-                  <UserCircleIcon className="h-5 w-5 text-gray-600" />
+                  {isEntreprise ? (
+                    <BuildingOfficeIcon className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <UserCircleIcon className="h-5 w-5 text-gray-600" />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-medium text-gray-800">{t('salesPages.client')}</h3>
@@ -343,51 +434,7 @@ const OrderDetailsModal = ({
               </div>
               
               {hasClientInfo ? (
-                <div className="space-y-4">
-                  {/* Nom complet */}
-                  {(client.nom || client.prenom) && (
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <IdentificationIcon className="h-5 w-5 text-blue-500" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500 mb-1">{t('salesPages.fullName')}</div>
-                        <div className="font-semibold text-gray-900">
-                          {client.prenom || ''} {client.nom || ''}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                {/* Type de client */}
-                  {client.typeClient && (
-                    <div className="mb-3">
-                      <div className="text-xs text-gray-500 mb-2">{t('salesPages.clientType')}</div>
-                      <ClientTypeBadge type={client.typeClient} />
-                    </div>
-                  )}
-      
-                  {/* Coordonnées */}
-                  <div className="space-y-3">
-                    <ClientInfoItem 
-                      icon={PhoneIcon}
-                      label={t('salesPages.phone')}
-                      value={client.telephone}
-                    />
-                    
-                    <ClientInfoItem 
-                      icon={EnvelopeIcon}
-                      label={t('salesPages.email')}
-                      value={client.email}
-                    />
-                    
-                    <ClientInfoItem 
-                      icon={MapPinIcon}
-                      label={t('salesPages.address')}
-                      value={client.adresse}
-                    />
-                  </div>
-                </div>
+                <ClientInfoSection client={client} t={t} />
               ) : (
                 <div className="text-center py-4">
                   <UserCircleIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
@@ -414,193 +461,148 @@ const OrderDetailsModal = ({
               </span>
             </div>
 
-            {/* Section Produits */}
+            {/* Tableau des produits */}
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs">
-              {commande.produits?.length > 0 ? (
-                <>
-                  {/* Tableau */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.product')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.category')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.quantityShort')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.unitPrice')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.subtotal')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.discount')}</th>
-                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.total')}</th>
-                        </tr>
-                      </thead>
-                      
-                      <tbody className="divide-y divide-gray-200">
-                        {commande.produits.map((produit, index) => {
-                          const quantite = produit.quantite ? parseFloat(produit.quantite) : 0;
-                          const prixUnitaire = getPrixUnitaire(produit);
-                          const sousTotal = getSousTotal(produit);
-                          const remiseProduit = produit.remiseProduit ? parseFloat(produit.remiseProduit) : 0;
-                          const tauxRemiseProduit = produit.tauxRemiseProduit ? parseFloat(produit.tauxRemiseProduit) : 0;
-                          const totalProduit = getTotalLigne(produit);
+              {produitsEnrichis.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.product')}</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.quantityShort')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.unitPrice')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.subtotal')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.discount')}</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">{t('salesPages.total')}</th>
+                      </tr>
+                    </thead>
+                    
+                    <tbody className="divide-y divide-gray-200">
+                      {produitsEnrichis.map((produit, index) => {
+                        const quantite = parseFloat(produit.quantite) || 0;
+                        const prixUnitaire = getPrixUnitaire(produit);
+                        const sousTotalLigne = quantite * prixUnitaire;
+                        const remiseLigne = parseFloat(produit.remiseProduit) || 0;
+                        const tauxRemiseLigne = parseFloat(produit.tauxRemiseProduit) || 
+                                               (remiseLigne > 0 ? (remiseLigne / sousTotalLigne * 100) : 0);
+                        const totalLigne = sousTotalLigne - remiseLigne;
 
-                          return (
-                            <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                  {produit.imageUrl && (
-                                    <div className="relative flex-shrink-0">
-                                      <img 
-                                        src={produit.imageUrl}
-                                        alt={produit.libelle || `${t('salesPages.product')} ${produit.id || produit.produitId}`}
-                                        className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
-                                        onError={(e) => e.target.style.display = 'none'}
-                                      />
-                                    </div>
-                                  )}
-                                  <div className="min-w-0">
-                                    <div className="font-medium text-gray-900">
-                                      {produit.libelle || `${t('salesPages.product')} ${produit.id || produit.produitId}`}
-                                    </div>
-                                    {produit.code && (
-                                      <div className="text-xs text-gray-400 mt-0.5">
-                                        {t('salesPages.referenceShort')}: {produit.code}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                             {/* Catégorie - VERSION SIMPLIFIÉE */}
-<td className="px-4 py-3">
-  {produit.categorieNom || produit.displayCategorie ? (
-    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-      {produit.categorieNom || produit.displayCategorie}
-    </span>
-  ) : (
-    <span className="text-xs text-gray-400">—</span>
-  )}
-</td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-gray-900">
-                                    {quantite.toLocaleString('fr-FR')}
-                                    {produit.uniteMesure && (
-                                      <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="font-medium text-gray-900">
-                                  {formatMontant(prixUnitaire)}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-gray-900">
-                                    {formatMontant(sousTotal)}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {quantite} × {prixUnitaire.toFixed(3)}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {remiseProduit > 0 ? (
-                                  <div className="space-y-1">
-                                    <div className="font-medium text-red-600">
-                                      -{formatMontant(remiseProduit)}
-                                    </div>
-                                    {tauxRemiseProduit > 0 && (
-                                      <div className="text-xs text-red-500">
-                                        {tauxRemiseProduit.toFixed(1)}%
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
+                        return (
+                          <tr key={produit.id || produit.produitId || index} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {produit.imageUrl && (
+                                  <img 
+                                    src={produit.imageUrl}
+                                    alt={produit.libelle}
+                                    className="h-10 w-10 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                    onError={(e) => e.target.style.display = 'none'}
+                                  />
                                 )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <div className="font-bold text-green-700">
-                                    {formatMontant(totalProduit)}
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900">
+                                    {produit.libelle || `Produit ${produit.id || produit.produitId}`}
                                   </div>
-                                  <div className="text-xs text-gray-500">{t('salesPages.net')}</div>
                                 </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      
-                      <tfoot className="bg-gray-50">
-                        <tr className="font-medium border-t border-gray-300">
-                          <td colSpan="4" className="px-4 py-3 text-right text-gray-600 text-sm">
-                            {t('salesPages.subtotal')}
-                          </td>
-                          <td className="px-4 py-3 text-gray-900">
-                            <div className="text-sm font-medium">
-                              {commande.produits.reduce((sum, p) => {
-                                const qte = parseFloat(p.quantite) || 0;
-                                const prix = getPrixUnitaire(p);
-                                return sum + (qte * prix);
-                              }, 0).toFixed(3)} {t('salesPages.currencyLower')}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-red-600">
-                            <div className="text-sm font-medium">
-                              -{commande.produits.reduce((sum, p) => 
-                                sum + (parseFloat(p.remiseProduit) || 0), 0).toFixed(3)} {t('salesPages.currencyLower')}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-bold text-green-700">
-                            <div className="text-sm">
-                              {commande.produits.reduce((sum, p) => {
-                                const qte = parseFloat(p.quantite) || 0;
-                                const prix = getPrixUnitaire(p);
-                                const remise = parseFloat(p.remiseProduit) || 0;
-                                return sum + (qte * prix - remise);
-                              }, 0).toFixed(3)} {t('salesPages.currencyLower')}
-                            </div>
-                          </td>
-                        </tr>
-                        
-                        {toNumber(commande.tauxRemise || commande.remise) > 0 && (
-                          <tr className="bg-green-50">
-                            <td colSpan="6" className="px-4 py-2.5 text-right text-gray-900">
-                              <div className="text-sm font-medium flex items-center justify-end gap-1">
-                                <TagIcon className="h-3 w-3 text-green-600" />
-                                {t('salesPages.globalDiscount')} ({toNumber(commande.tauxRemise || commande.remise).toFixed(1)}%)
                               </div>
                             </td>
-                            <td className="px-4 py-2.5">
-                              <div className="font-bold text-red-600 text-sm">
-                                -{formatMontant(commande.montantRemise || commande.remise)}
+                            <td className="px-4 py-3 text-center">
+                              <div className="font-medium text-gray-900">
+                                {quantite}
+                                {produit.uniteMesure && (
+                                  <span className="text-xs text-gray-500 ml-1">{produit.uniteMesure}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-medium text-gray-900">
+                                {prixUnitaire.toFixed(3)} dt
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-medium text-gray-900">
+                                {sousTotalLigne.toFixed(3)} dt
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {remiseLigne > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-red-600 font-medium">
+                                    -{remiseLigne.toFixed(3)} dt
+                                  </span>
+                                  {tauxRemiseLigne > 0 && (
+                                    <span className="text-xs text-red-500">
+                                      ({tauxRemiseLigne.toFixed(1)}%)
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="font-bold text-green-700">
+                                {totalLigne.toFixed(3)} dt
                               </div>
                             </td>
                           </tr>
-                        )}
-                        
-                        <tr className="bg-green-50 border-t border-green-200">
-                          <td colSpan="6" className="px-4 py-3 text-right text-gray-900">
-                            <div className="font-bold">{t('salesPages.orderTotal')}</div>
+                        );
+                      })}
+                    </tbody>
+                    
+                    <tfoot className="bg-gray-50">
+                      <tr className="font-medium border-t border-gray-300">
+                        <td colSpan="3" className="px-4 py-3 text-right text-gray-600 text-sm">
+                          {t('salesPages.subtotal')}
+                        </td>
+                        <td className="px-4 py-3 text-gray-900">
+                          <div className="text-sm font-medium">
+                            {sousTotal.toFixed(3)} dt
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-red-600">
+                          <div className="text-sm font-medium">
+                            -{remiseTotale.toFixed(3)} dt
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-green-700">
+                          <div className="text-sm">
+                            {totalApresRemises.toFixed(3)} dt
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {remiseGlobale > 0 && (
+                        <tr className="bg-green-50">
+                          <td colSpan="5" className="px-4 py-2.5 text-right text-gray-900">
+                            <div className="text-sm font-medium flex items-center justify-end gap-1">
+                              <TagIcon className="h-3 w-3 text-green-600" />
+                              {t('salesPages.globalDiscount')} ({remiseGlobale.toFixed(1)}%)
+                            </div>
                           </td>
-                          <td className="px-4 py-3 font-bold text-green-700">
-                            <div className="text-base">{formatMontant(commande.total)}</div>
+                          <td className="px-4 py-2.5">
+                            <div className="font-bold text-red-600 text-sm">
+                              -{montantRemiseGlobale.toFixed(3)} dt
+                            </div>
                           </td>
                         </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </>
+                      )}
+                      
+                      <tr className="bg-green-50 border-t border-green-200">
+                        <td colSpan="5" className="px-4 py-3 text-right text-gray-900">
+                          <div className="font-bold">{t('salesPages.orderTotal')}</div>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-green-700">
+                          <div className="text-base">{totalFinal.toFixed(3)} dt</div>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               ) : (
                 <div className="text-center py-10">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-                    <CubeIcon className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">{t('salesPages.noProduct')}</h4>
-                  <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                    {t('salesPages.orderHasNoProducts')}
-                  </p>
+                  <CubeIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">{t('salesPages.noProduct')}</p>
                 </div>
               )}
             </div>
@@ -622,16 +624,23 @@ const OrderDetailsModal = ({
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-600">{t('salesPages.productsSubtotal')}</span>
-                  <span className="font-medium">{formatMontant(commande.sousTotal)}</span>
+                  <span className="font-medium">{sousTotal.toFixed(3)} dt</span>
                 </div>
                 
-                {toNumber(commande.tauxRemise || commande.remise) > 0 && (
+                {remiseTotale > 0 && (
+                  <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
+                    <span className="text-gray-600">{t('salesPages.productDiscounts')}</span>
+                    <span className="font-semibold text-green-600">-{remiseTotale.toFixed(3)} dt</span>
+                  </div>
+                )}
+                
+                {remiseGlobale > 0 && (
                   <div className="flex justify-between items-center py-2 bg-white/50 rounded-lg px-3">
                     <span className="text-gray-600 flex items-center">
                       <TagIcon className="h-4 w-4 mr-2 text-green-600" />
                       {t('salesPages.discount')} ({pourcentageRemise}%)
                     </span>
-                    <span className="font-semibold text-green-600">-{formatMontant(commande.remise)}</span>
+                    <span className="font-semibold text-green-600">-{montantRemiseGlobale.toFixed(3)} dt</span>
                   </div>
                 )}
                 
@@ -647,11 +656,11 @@ const OrderDetailsModal = ({
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">
-                        {formatMontant(commande.total)}
+                        {totalFinal.toFixed(3)} dt
                       </div>
-                      {toNumber(commande.remise) > 0 && (
+                      {(remiseTotale > 0 || montantRemiseGlobale > 0) && (
                         <div className="text-xs text-green-500 mt-1">
-                          {t('salesPages.savings')}: {formatMontant(commande.remise)}
+                          {t('salesPages.savings')}: {(remiseTotale + montantRemiseGlobale).toFixed(3)} dt
                         </div>
                       )}
                     </div>
@@ -702,17 +711,6 @@ const OrderDetailsModal = ({
           </div>
         </div>
       </div>
-      
- {/* Modal de mise à jour */}
-      <UpdateOrderModal
-        show={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-        commande={commande}
-        toNumber={toNumber}
-        onUpdateSuccess={handleUpdateSuccess}
-        t={t}
-        isArabic={isArabic}
-      />
     </div>
   );
 };

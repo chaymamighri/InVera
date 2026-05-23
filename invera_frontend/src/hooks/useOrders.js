@@ -33,13 +33,11 @@ const useOrders = () => {
     }
   }, []);
 
-  // ✅ getProduitsAvecDetails avec catégorie
+  // ✅ getProduitsAvecDetails avec remise de catégorie
   const getProduitsAvecDetails = useCallback((lignesCommande, produitsData) => {
     console.log('🔍 getProduitsAvecDetails - Reçu:', {
       lignesCommande,
-      produitsData,
       produitsDataLength: produitsData?.length,
-      produitsDataIsArray: Array.isArray(produitsData)
     });
     
     if (!Array.isArray(lignesCommande)) return [];
@@ -47,112 +45,147 @@ const useOrders = () => {
     return lignesCommande.map(ligne => {
       const produitId = ligne.produit?.idProduit || ligne.produitId;
       
-      console.log(`📦 Recherche produit ID ${produitId} dans produitsData:`, {
-        produitId,
-        produitsDisponibles: produitsData?.map(p => ({ id: p.idProduit, libelle: p.libelle }))
-      });
-      
-      // Chercher dans produitsData
       const produitInfo = Array.isArray(produitsData) 
         ? produitsData.find(p => p.idProduit === produitId)
         : null;
       
-      console.log(`✅ Produit trouvé:`, produitInfo);
+      let categorieRemise = 0;
+      let categorieNom = null;
+      
+      if (produitInfo?.categorie) {
+        categorieRemise = produitInfo.categorie.remiseStandard || 0;
+        categorieNom = produitInfo.categorie.nomCategorie;
+        console.log(`✅ Catégorie trouvée pour ${produitInfo.libelle}: ${categorieNom} (remise: ${categorieRemise}%)`);
+      } else if (produitInfo?.categorieRemiseStandard) {
+        categorieRemise = produitInfo.categorieRemiseStandard;
+        categorieNom = produitInfo.categorieNom;
+      }
+      
+      const quantite = toNumber(ligne.quantite || 1);
+      const prixUnitaire = toNumber(ligne.prixUnitaire || 0);
+      const sousTotalLigne = quantite * prixUnitaire;
+      const remiseMontant = sousTotalLigne * (categorieRemise / 100);
       
       return {
         id: ligne.idLigneCommandeClient,
         ligneId: ligne.idLigneCommandeClient,
         produitId: produitId,
         libelle: produitInfo?.libelle || ligne.libelle || 'Produit sans nom',
-        prixUnitaire: toNumber(ligne.prixUnitaire || 0),
-        quantite: toNumber(ligne.quantite || 1),
-        sousTotal: toNumber(ligne.sousTotal || 0),
+        prixUnitaire: prixUnitaire,
+        quantite: quantite,
+        sousTotal: sousTotalLigne,
         imageUrl: produitInfo?.imageUrl || ligne.imageUrl,
         uniteMesure: produitInfo?.uniteMesure || ligne.uniteMesure || 'unité',
-        
-        // ✅ AJOUT: Catégorie du produit
-        categorie: produitInfo?.categorie || ligne.produit?.categorie,
-        categorieNom: produitInfo?.categorie?.nomCategorie || 
-                      ligne.produit?.categorie?.nomCategorie || 
-                      null
+        categorie: produitInfo?.categorie,
+        categorieNom: categorieNom,
+        categorieRemiseStandard: categorieRemise,
+        remiseProduit: remiseMontant,
+        tauxRemiseProduit: categorieRemise,
+        totalLigne: sousTotalLigne - remiseMontant
       };
     });
   }, [toNumber]);
 
-  // ✅ transformCommandes avec catégorie
-  const transformCommandes = useCallback((commandesData, produitsData) => {
-    if (!Array.isArray(commandesData)) {
-      return [];
-    }
+
+const transformCommandes = useCallback((commandesData, produitsData) => {
+  if (!Array.isArray(commandesData)) return [];
+  
+  return commandesData.map((commande) => {
+    if (!commande) return null;
     
-    return commandesData.map((commande) => {
-      if (!commande) return null;
+    const lignes = commande.lignesCommande || [];
+    
+    const produitsEnrichis = lignes.map(l => {
+      const produitId = l.produit?.idProduit || l.produitId;
+      const produitComplet = produitsData.find(p => p.idProduit === produitId);
       
-      // ✅ Récupérer les lignes de commande
-      const lignes = commande.lignesCommande || [];
+      const quantite = toNumber(l.quantite || 1);
+      const prixUnitaire = toNumber(l.prixUnitaire || 0);
+      const sousTotalLigne = quantite * prixUnitaire;
       
-      // ✅ Enrichir les lignes avec les infos produit complètes
-      const lignesEnrichies = lignes.map(l => {
-        const produitId = l.produit?.idProduit || l.produitId;
-        const produitComplet = produitsData.find(p => p.idProduit === produitId);
-        
-        return {
-          ...l,
-          // Ajouter la catégorie au niveau de la ligne
-          categorie: produitComplet?.categorie || l.produit?.categorie
-        };
-      });
+      // ✅ Récupérer la remise de la catégorie DEPUIS LE PRODUIT COMPLET
+      let categorieRemise = 0;
+      let categorieNom = null;
+      
+      // Source 1: via l'objet categorie
+      if (produitComplet?.categorie) {
+        categorieRemise = produitComplet.categorie.remiseStandard || 0;
+        categorieNom = produitComplet.categorie.nomCategorie;
+      }
+      // Source 2: via categorieRemiseStandard direct
+      else if (produitComplet?.categorieRemiseStandard !== undefined) {
+        categorieRemise = produitComplet.categorieRemiseStandard;
+        categorieNom = produitComplet.categorieNom;
+      }
+      
+      // Calculer le montant de la remise
+      const remiseMontant = (sousTotalLigne * categorieRemise) / 100;
+      
+      console.log(`💰 PRODUIT: ${produitComplet?.libelle} | Catégorie: ${categorieNom} | Remise: ${categorieRemise}% | Montant: ${remiseMontant}dt`);
       
       return {
-        idCommandeClient: commande.idCommandeClient,
-        id: commande.idCommandeClient,
-        referenceCommandeClient: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
-        numero: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
-        
-        client: commande.client ? {
-          idClient: commande.client.idClient,
-          id: commande.client.idClient,
-          nom: commande.client.nom || '',
-          prenom: commande.client.prenom || '',
-          typeClient: commande.client.typeClient || 'PARTICULIER',
-          telephone: commande.client.telephone || '',
-          email: commande.client.email || '',
-          adresse: commande.client.adresse || '',
-          nomComplet: `${commande.client.prenom || ''} ${commande.client.nom || ''}`.trim()
-        } : null,
-        
-        dateCommande: commande.dateCommande,
-        
-        lignesCommande: lignesEnrichies.map(l => ({
-          idLigneCommandeClient: l.idLigneCommandeClient,
-          produit: l.produit ? {
-            idProduit: l.produit.idProduit,
-            libelle: l.produit.libelle,
-            imageUrl: l.produit.imageUrl,
-            uniteMesure: l.produit.uniteMesure,
-            prixVente: l.produit.prixVente,
-            categorie: l.produit.categorie
-          } : null,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-          sousTotal: l.sousTotal,
-          categorie: l.categorie
-        })),
-        
-        // ✅ Version simplifiée pour l'affichage avec catégorie
-        produits: getProduitsAvecDetails(lignesEnrichies, produitsData),
-        
-        sousTotal: toNumber(commande.sousTotal || 0),
-        tauxRemise: toNumber(commande.tauxRemise || 0),
-        total: toNumber(commande.total || 0),
-        
-        statut: commande.statut || 'EN_ATTENTE',
-        statutDisplay: getStatutDisplay(commande.statut)
+        idLigneCommandeClient: l.idLigneCommandeClient,
+        produitId: produitId,
+        libelle: produitComplet?.libelle || l.libelle || 'Produit',
+        quantite: quantite,
+        prixUnitaire: prixUnitaire,
+        sousTotal: sousTotalLigne,
+        imageUrl: produitComplet?.imageUrl,
+        uniteMesure: produitComplet?.uniteMesure,
+        // ✅ AJOUTER CES CHAMPS POUR LA REMISE
+        categorieNom: categorieNom,
+        categorieRemiseStandard: categorieRemise,
+        remiseProduit: remiseMontant,
+        tauxRemiseProduit: categorieRemise,
+        totalLigne: sousTotalLigne - remiseMontant
       };
-    }).filter(Boolean);
-  }, [getProduitsAvecDetails, getStatutDisplay, toNumber]);
+    });
+    
+    // Calcul des totaux
+    const sousTotalGlobal = produitsEnrichis.reduce((sum, p) => sum + p.sousTotal, 0);
+    const remiseTotaleProduits = produitsEnrichis.reduce((sum, p) => sum + p.remiseProduit, 0);
+    const totalApresRemisesProduits = sousTotalGlobal - remiseTotaleProduits;
+    const tauxRemiseGlobale = toNumber(commande.tauxRemise || 0);
+    const montantRemiseGlobale = totalApresRemisesProduits * (tauxRemiseGlobale / 100);
+    const totalFinal = totalApresRemisesProduits - montantRemiseGlobale;
+    
+    return {
+      idCommandeClient: commande.idCommandeClient,
+      id: commande.idCommandeClient,
+      referenceCommandeClient: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
+      numero: commande.referenceCommandeClient || `CMD-${commande.idCommandeClient}`,
+      
+      client: commande.client ? {
+        idClient: commande.client.idClient,
+        id: commande.client.idClient,
+        nom: commande.client.nom || '',
+        prenom: commande.client.prenom || '',
+        typeClient: commande.client.typeClient || 'PARTICULIER',
+        telephone: commande.client.telephone || '',
+        email: commande.client.email || '',
+        adresse: commande.client.adresse || '',
+        raisonSociale: commande.client.raisonSociale || '',
+        matriculeFiscal: commande.client.matriculeFiscal || '',
+        nomComplet: `${commande.client.prenom || ''} ${commande.client.nom || ''}`.trim()
+      } : null,
+      
+      dateCommande: commande.dateCommande,
+      produits: produitsEnrichis,  // ← Les produits enrichis avec remise
+      
+      sousTotal: sousTotalGlobal,
+      remiseTotaleProduits: remiseTotaleProduits,
+      tauxRemise: tauxRemiseGlobale,
+      remise: montantRemiseGlobale,
+      total: totalFinal,
+      
+      statut: commande.statut || 'EN_ATTENTE',
+      statutDisplay: getStatutDisplay(commande.statut),
+      remarques: commande.remarques || ''
+    };
+  }).filter(Boolean);
+}, [getStatutDisplay, toNumber]);
 
-  // ✅ transformClients (inchangé)
+  // ✅ transformClients (AJOUTÉE)
   const transformClients = useCallback((clientsData) => {
     if (!Array.isArray(clientsData)) {
       if (clientsData && clientsData.clients && Array.isArray(clientsData.clients)) {
@@ -171,23 +204,56 @@ const useOrders = () => {
       telephone: client.telephone || '',
       email: client.email || '',
       adresse: client.adresse || '',
+      raisonSociale: client.raisonSociale || '',
+      matriculeFiscal: client.matriculeFiscal || '',
       nomComplet: `${client.prenom || ''} ${client.nom || ''}`.trim()
     }));
   }, []);
 
-  // ✅ transformProduits avec catégorie complète
-  const transformProduits = useCallback((produitsData) => {
-    if (!Array.isArray(produitsData)) {
-      if (produitsData && produitsData.produits && Array.isArray(produitsData.produits)) {
-        produitsData = produitsData.produits;
-      } else if (produitsData && produitsData.data && Array.isArray(produitsData.data)) {
-        produitsData = produitsData.data;
-      } else {
-        return [];
-      }
+const transformProduits = useCallback((produitsData) => {
+  if (!Array.isArray(produitsData)) {
+    if (produitsData && produitsData.produits && Array.isArray(produitsData.produits)) {
+      produitsData = produitsData.produits;
+    } else if (produitsData && produitsData.data && Array.isArray(produitsData.data)) {
+      produitsData = produitsData.data;
+    } else {
+      return [];
+    }
+  }
+  
+  console.log('🔍 PRODUITS DATA REÇUS:', produitsData);
+  
+  return produitsData.map(produit => {
+    // ✅ Récupérer la remise standard - le DTO l'envoie directement
+    let categorieRemiseStandard = 0;
+    let categorieInfo = null;
+    
+    // Le DTO peut envoyer categorieRemiseStandard directement
+    if (produit.categorieRemiseStandard !== undefined && produit.categorieRemiseStandard !== null) {
+      categorieRemiseStandard = Number(produit.categorieRemiseStandard);
+    }
+    // Ou via l'objet categorie
+    else if (produit.categorie && produit.categorie.remiseStandard !== undefined) {
+      categorieRemiseStandard = Number(produit.categorie.remiseStandard);
+      categorieInfo = {
+        idCategorie: produit.categorie.idCategorie,
+        nomCategorie: produit.categorie.nomCategorie,
+        remiseStandard: categorieRemiseStandard
+      };
     }
     
-    return produitsData.map(produit => ({
+    // Si on a une catégorie via categorieId, créer l'objet
+    if (produit.categorieId && !categorieInfo && produit.categorieNom) {
+      categorieInfo = {
+        idCategorie: produit.categorieId,
+        nomCategorie: produit.categorieNom,
+        remiseStandard: categorieRemiseStandard
+      };
+    }
+    
+    console.log(`📊 Produit ${produit.libelle}: catégorieRemiseStandard = ${categorieRemiseStandard}%`);
+    
+    return {
       idProduit: produit.idProduit,
       id: produit.idProduit,
       libelle: produit.libelle || 'Produit sans nom',
@@ -200,21 +266,14 @@ const useOrders = () => {
       imageUrl: produit.imageUrl || '',
       remiseTemporaire: toNumber(produit.remiseTemporaire || 0),
       
-      // ✅ CATÉGORIE - Structure complète
-      categorie: produit.categorie ? {
-        idCategorie: produit.categorie.idCategorie,
-        nomCategorie: produit.categorie.nomCategorie,
-        description: produit.categorie.description || '',
-        code: produit.categorie.code || ''
-      } : null,
+      // ✅ Catégorie avec remise standard
+      categorie: categorieInfo,
+      categorieId: produit.categorieId || categorieInfo?.idCategorie,
+      categorieNom: produit.categorieNom || categorieInfo?.nomCategorie || null,
+      categorieRemiseStandard: categorieRemiseStandard,  // ← CLÉ POUR LA REMISE
       
-      // ✅ Champ simplifié pour l'affichage direct
-      categorieNom: produit.categorie?.nomCategorie || null,
-      
-      // ✅ Prix après remise
       prixEffectif: toNumber(produit.prixVente || 0) * (1 - (toNumber(produit.remiseTemporaire || 0) / 100)),
       
-      // ✅ Indicateur de stock
       stockStatus: (() => {
         const stock = toNumber(produit.quantiteStock || 0);
         const seuil = toNumber(produit.seuilMinimum || 5);
@@ -222,23 +281,12 @@ const useOrders = () => {
         if (stock <= seuil) return 'FAIBLE';
         if (stock <= seuil * 2) return 'MOYEN';
         return 'ELEVE';
-      })(),
-      
-      // ✅ Libellé formaté
-      libelleComplet: `${produit.libelle || 'Produit sans nom'} ${produit.uniteMesure ? '(' + produit.uniteMesure + ')' : ''}`,
-      
-      // ✅ Prix formaté
-      prixVenteFormate: new Intl.NumberFormat('fr-FR', { 
-        style: 'currency', 
-        currency: 'XOF',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(toNumber(produit.prixVente || 0)),
-      
-    })).filter(Boolean);
-  }, [toNumber]);
+      })()
+    };
+  }).filter(Boolean);
+}, [toNumber]);
 
-  // ✅ chargerDonnees (amélioré)
+  // ✅ chargerDonnees
   const chargerDonnees = useCallback(async () => {
     try {
       setLoading(true);
@@ -250,12 +298,10 @@ const useOrders = () => {
         productService.getAllProducts()
       ]);
 
-      // 1️⃣ TRAITER LES PRODUITS EN PREMIER
+      // 1️⃣ TRAITER LES PRODUITS
       let produitsData = [];
       if (produitsResult.status === 'fulfilled') {
         const data = produitsResult.value;
-        console.log('📦 Produits bruts:', data);
-        
         if (data && data.success && data.data) {
           produitsData = data.data;
         } else if (data && data.success && data.produits) {
@@ -265,23 +311,13 @@ const useOrders = () => {
         }
       }
       
-      // Transformer les produits IMMÉDIATEMENT
       const produitsTransformes = transformProduits(produitsData);
-      console.log('✅ Produits transformés avec catégories:', 
-        produitsTransformes.map(p => ({
-          id: p.idProduit,
-          libelle: p.libelle,
-          categorie: p.categorie
-        }))
-      );
       setProduits(produitsTransformes);
 
-      // 2️⃣ TRAITER LES COMMANDES AVEC LES PRODUITS DISPONIBLES
+      // 2️⃣ TRAITER LES COMMANDES
       let commandesData = [];
       if (commandesResult.status === 'fulfilled') {
         const data = commandesResult.value;
-        console.log('📦 Commandes brutes:', data);
-        
         if (data && data.success && data.commandes) {
           commandesData = data.commandes;
         } else if (Array.isArray(data)) {
@@ -291,25 +327,13 @@ const useOrders = () => {
         }
       }
 
-      // Transformer les commandes AVEC les produits déjà transformés
       const commandesTransformees = transformCommandes(commandesData, produitsTransformes);
-      console.log(' Commandes transformées avec produits:', 
-        commandesTransformees.map(c => ({
-          id: c.id,
-          produits: c.produits?.map(p => ({
-            libelle: p.libelle,
-            categorie: p.categorie
-          }))
-        }))
-      );
       setCommandes(commandesTransformees);
 
-      //  TRAITER LES CLIENTS
+      // 3️⃣ TRAITER LES CLIENTS
       let clientsData = [];
       if (clientsResult.status === 'fulfilled') {
         const data = clientsResult.value;
-        console.log('👥 Clients bruts:', data);
-        
         if (data && data.success && data.clients) {
           clientsData = data.clients;
         } else if (Array.isArray(data)) {
@@ -321,14 +345,14 @@ const useOrders = () => {
       setClients(clientsTransformes);
       
     } catch (err) {
-      console.error(' Erreur chargerDonnees:', err);
+      console.error('❌ Erreur chargerDonnees:', err);
       setError('Erreur système lors du chargement des données.');
     } finally {
       setLoading(false);
     }
   }, [transformCommandes, transformClients, transformProduits]);
 
-  //  Gestion des produits sélectionnés
+  // Gestion des produits sélectionnés
   const handleSelectProduct = useCallback((product) => {
     if (!product || !product.idProduit) return;
     
@@ -359,23 +383,13 @@ const useOrders = () => {
   }, [toNumber]);
 
   const handleSupprimerProduit = useCallback((produitId) => {
-    setSelectedProducts(prev => 
-      prev.filter(p => p.idProduit !== produitId)
-    );
+    setSelectedProducts(prev => prev.filter(p => p.idProduit !== produitId));
   }, []);
 
-  // ✅ Gestion des commandes
+  // Gestion des commandes
   const handleValiderCommande = useCallback(async (commandeId) => {
     try {
-      console.log('🔍 Validation commande ID:', commandeId);
-      
-      if (!commandeId) {
-        throw new Error('ID de commande manquant');
-      }
-      
       const result = await commandeService.validerCommande(commandeId);
-      console.log('✅ Résultat validation:', result);
-      
       if (result && result.success) {
         setCommandes(prev => prev.map(c => 
           c.idCommandeClient === commandeId 
@@ -393,15 +407,7 @@ const useOrders = () => {
 
   const handleRejeterCommande = useCallback(async (commandeId) => {
     try {
-      console.log('🔍 Rejet commande ID:', commandeId);
-      
-      if (!commandeId) {
-        throw new Error('ID de commande manquant');
-      }
-      
       const result = await commandeService.rejeterCommande(commandeId);
-      console.log('✅ Résultat rejet:', result);
-      
       if (result && result.success) {
         setCommandes(prev => prev.map(c => 
           c.idCommandeClient === commandeId 
@@ -417,70 +423,20 @@ const useOrders = () => {
     }
   }, []);
 
-  
-
-
-  // ✅ FONCTION DE MISE À JOUR AVEC LOGS DÉTAILLÉS
-const handleUpdateCommande = useCallback(async (commandeId, commandeData) => {
-  try {
-    console.log('🔍 Mise à jour commande ID:', commandeId);
-    console.log('📦 Données reçues dans handleUpdateCommande:', JSON.stringify(commandeData, null, 2));
-    
-    if (!commandeId) {
-      throw new Error('ID de commande manquant');
+  const handleUpdateCommande = useCallback(async (commandeId, commandeData) => {
+    try {
+      const result = await commandeService.updateCommande(commandeId, commandeData);
+      if (result && result.success !== false) {
+        await chargerDonnees();
+        return result;
+      }
+      throw new Error(result?.message || 'Échec de la mise à jour');
+    } catch (error) {
+      console.error('❌ Erreur handleUpdateCommande:', error);
+      throw error;
     }
+  }, [chargerDonnees]);
 
-    // Vérifier que la commande est en attente
-    const commandeExistante = commandes.find(c => c.idCommandeClient === commandeId);
-    if (commandeExistante && commandeExistante.statut !== 'EN_ATTENTE') {
-      throw new Error('Seules les commandes en attente peuvent être modifiées');
-    }
-
-    // Appel au service
-    console.log('📡 Appel à commandeService.updateCommande...');
-    const result = await commandeService.updateCommande(commandeId, commandeData);
-    console.log('✅ Résultat brut du service:', result);
-
-    if (result && result.success !== false) {
-      console.log('✅ Mise à jour réussie, mise à jour du state local');
-      
-      // Récupérer la commande mise à jour
-      const updatedCommande = result.commande || result;
-      console.log('📦 Commande mise à jour:', updatedCommande);
-      
-      // Mettre à jour la commande dans l'état local
-      setCommandes(prev => prev.map(c => 
-        c.idCommandeClient === commandeId 
-          ? {
-              ...c,
-              ...updatedCommande,
-              produits: updatedCommande.produits || c.produits,
-              sousTotal: toNumber(updatedCommande.sousTotal || c.sousTotal),
-              total: toNumber(updatedCommande.total || c.total),
-              statut: updatedCommande.statut || c.statut,
-              statutDisplay: getStatutDisplay(updatedCommande.statut || c.statut)
-            }
-          : c
-      ));
-      
-      // Rafraîchir les données pour être sûr
-      await chargerDonnees();
-      
-      return result;
-    }
-    
-    throw new Error(result?.message || 'Échec de la mise à jour');
-  } catch (error) {
-    console.error('❌ Erreur handleUpdateCommande:', error);
-    if (error.response) {
-      console.error('📋 Réponse erreur backend:', error.response.data);
-    }
-    throw error;
-  }
-}, [commandes, chargerDonnees, getStatutDisplay, toNumber]);
-
-
-  // ✅ Fonction pour récupérer une commande spécifique
   const getCommandeById = useCallback((commandeId) => {
     return commandes.find(c => c.idCommandeClient === commandeId) || null;
   }, [commandes]);

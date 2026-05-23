@@ -11,9 +11,10 @@ import {
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
+import logo from '../../assets/images/logo.png';
 
 const SuperAdminDashboard = () => {
-  const { t } = useLanguage();
+  const { t, isArabic } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [adminInfo, setAdminInfo] = useState(null);
@@ -99,21 +100,38 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <div>
-          <h1 className="text-xl font-bold text-white">InVera Platform</h1>
-    <p className="text-purple-200 text-xs flex items-center gap-1">
-      <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400"></span>
-      Espace administrateur
-    </p>
+            {/* Logo avec image */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/20 rounded-xl blur-md"></div>
+                <div className="relative bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-white/30">
+                  <img 
+                    src={logo} 
+                    alt="InVera Logo" 
+                    className="h-8 w-auto object-contain"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://placehold.co/32x32/7c3aed/white?text=IV';
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">InVera Platform</h1>
+                <p className="text-purple-200 text-xs flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400"></span>
+                  {t('dashboard.superAdminSpaceLabel')}
+                </p>
+              </div>
             </div>
+            
             <div className="flex items-center gap-4">
               <LanguageSwitcher menuClassName="z-[100]" />
               
-              {/* Profile Icon with Dropdown Menu */}
               <div className="relative profile-menu-container">
                 <button
                   onClick={handleProfileClick}
@@ -123,12 +141,11 @@ const SuperAdminDashboard = () => {
                   <UserCircleIcon className="w-10 h-10 text-white hover:text-purple-200 transition" />
                 </button>
                 
-                {/* Dropdown Menu */}
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className={`absolute mt-2 w-64 bg-white rounded-lg shadow-xl z-50 overflow-hidden ${isArabic ? 'left-0' : 'right-0'}`}>
                     <div className="px-4 py-3 border-b border-gray-200">
                       <p className="text-sm font-semibold text-gray-900">
-                        {adminInfo?.nom || 'Administrateur'}
+                        {adminInfo?.nom || t('dashboard.superAdminDefaultName')}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {adminInfo?.email}

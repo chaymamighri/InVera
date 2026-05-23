@@ -154,14 +154,14 @@ export const useStatsAchat = () => {
           : []
       );
 
-      setCommandesATraiter(
-        commandesResult.success
-          ? {
-              enAttente: commandesResult.data?.enAttente ?? 0,
-              enCours: commandesResult.data?.enCours ?? 0,
-            }
-          : { enAttente: 0, enCours: 0 }
-      );
+    setCommandesATraiter(
+  commandesResult.success && commandesResult.data
+    ? {
+        aEnvoyer: commandesResult.data?.aEnvoyer ?? 0,
+        aRecevoir: commandesResult.data?.aRecevoir ?? 0,
+      }
+    : { aEnvoyer: 0, aRecevoir: 0 }
+);
 
       setKpis(kpisResult.success ? kpisResult.data ?? null : null);
     } catch (err) {

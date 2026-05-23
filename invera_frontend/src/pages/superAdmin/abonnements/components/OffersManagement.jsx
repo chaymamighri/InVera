@@ -16,9 +16,10 @@ import {
   ClockIcon,
 } from '@heroicons/react/24/outline';
 import { subscriptionPlatformService } from '../../../../servicesPlatform/subscriptionPlatformService';
+import { useLanguage } from '../../../../context/LanguageContext';
 
-const formatPrice = (value, devise = 'TND') => {
-  if (value === null || value === undefined || value === '') return 'Non défini';
+const formatPrice = (value, devise = 'TND', fallback = 'N/A') => {
+  if (value === null || value === undefined || value === '') return fallback;
   return `${Number(value).toFixed(2)} ${devise}`;
 };
 
@@ -34,10 +35,10 @@ const getOfferStateIcon = (offer) => {
   return <PauseCircleIcon className="h-3.5 w-3.5" />;
 };
 
-const getOfferStateLabel = (offer) => {
-  if (offer?.deleted) return 'Supprimée';
-  if (offer?.active) return 'Active';
-  return 'Inactive';
+const getOfferStateLabel = (offer, t) => {
+  if (offer?.deleted) return t('dashboard.superAdminOfferDeleted');
+  if (offer?.active) return t('dashboard.superAdminStatusActive');
+  return t('dashboard.superAdminOfferInactive');
 };
 
 const defaultOfferForm = {
@@ -50,6 +51,7 @@ const defaultOfferForm = {
 };
 
 const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
+  const { t, isArabic } = useLanguage();
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [offerForm, setOfferForm] = useState(defaultOfferForm);
   const [editingOfferId, setEditingOfferId] = useState(null);
@@ -89,15 +91,15 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
       };
       if (editingOfferId) {
         await subscriptionPlatformService.updateOffer(editingOfferId, payload);
-        toast.success('Offre mise à jour avec succès');
+        toast.success(t('dashboard.superAdminOfferUpdated'));
       } else {
         await subscriptionPlatformService.createOffer(payload);
-        toast.success('Offre créée avec succès');
+        toast.success(t('dashboard.superAdminOfferCreated'));
       }
       resetOfferForm();
       await onRefresh();
     } catch (error) {
-      toast.error("L'offre n'a pas pu être enregistrée.");
+      toast.error(t('dashboard.superAdminOfferSaveError'));
       console.error('Error saving offer:', error);
     } finally {
       setSavingOffer(false);
@@ -113,13 +115,13 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Cartes statistiques - Offres (3 cartes seulement) */}
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-purple-600 font-medium">Total offres</p>
+              <p className="text-sm text-purple-600 font-medium">{t('dashboard.superAdminOffersTotal')}</p>
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
@@ -131,7 +133,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
         <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-emerald-600 font-medium">Actives</p>
+              <p className="text-sm text-emerald-600 font-medium">{t('dashboard.superAdminOfferActivePlural')}</p>
               <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -143,7 +145,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
         <div className="rounded-xl bg-gradient-to-br from-amber-50 to-white border border-amber-100 p-4 shadow-sm hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-amber-600 font-medium">Inactives</p>
+              <p className="text-sm text-amber-600 font-medium">{t('dashboard.superAdminOfferInactivePlural')}</p>
               <p className="text-2xl font-bold text-amber-600">{stats.inactive}</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
@@ -164,17 +166,17 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                   {editingOfferId ? (
                     <>
                       <PencilSquareIcon className="h-5 w-5 text-purple-600" />
-                      Modifier l'offre
+                      {t('dashboard.superAdminEditOffer')}
                     </>
                   ) : (
                     <>
                       <PlusIcon className="h-5 w-5 text-purple-600" />
-                      Nouvelle offre
+                      {t('dashboard.superAdminNewOffer')}
                     </>
                   )}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {editingOfferId ? 'Modifiez les informations de l\'offre' : 'Créez une nouvelle offre d\'abonnement'}
+                  {editingOfferId ? t('dashboard.superAdminEditOfferDescription') : t('dashboard.superAdminNewOfferDescription')}
                 </p>
               </div>
               {editingOfferId && (
@@ -184,7 +186,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                   className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
                 >
                   <ArrowPathIcon className="h-3.5 w-3.5" />
-                  Nouvelle offre
+                  {t('dashboard.superAdminNewOffer')}
                 </button>
               )}
             </div>
@@ -194,13 +196,13 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
             <form className="space-y-4" onSubmit={handleOfferSubmit}>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Nom de l'offre <span className="text-red-500">*</span>
+                  {t('dashboard.superAdminOfferName')} <span className="text-red-500">*</span>
                 </label>
                 <input 
                   value={offerForm.nom} 
                   onChange={(e) => setOfferForm({ ...offerForm, nom: e.target.value })} 
                   className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:bg-white" 
-                  placeholder="Ex: Offre Premium" 
+                  placeholder={t('dashboard.superAdminOfferNamePlaceholder')} 
                   required 
                 />
               </div>
@@ -208,7 +210,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Durée (mois) <span className="text-red-500">*</span>
+                    {t('dashboard.superAdminOfferDurationMonths')} <span className="text-red-500">*</span>
                   </label>
                   <input 
                     type="number" 
@@ -223,7 +225,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Prix <span className="text-red-500">*</span>
+                    {t('dashboard.superAdminPrice')} <span className="text-red-500">*</span>
                   </label>
                   <input 
                     type="number" 
@@ -240,7 +242,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
               
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Devise <span className="text-red-500">*</span>
+                  {t('dashboard.superAdminCurrency')} <span className="text-red-500">*</span>
                 </label>
                 <select 
                   value={offerForm.devise} 
@@ -256,13 +258,13 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
               </div>
               
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t('dashboard.superAdminDescription')}</label>
                 <textarea 
                   rows="3" 
                   value={offerForm.description} 
                   onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })} 
                   className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:bg-white" 
-                  placeholder="Description de l'offre (optionnelle)" 
+                  placeholder={t('dashboard.superAdminOfferDescriptionPlaceholder')} 
                 />
               </div>
               
@@ -275,7 +277,7 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                   className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" 
                 />
                 <label htmlFor="active" className="text-sm text-gray-700">
-                  Offre active (visible par les clients)
+                  {t('dashboard.superAdminOfferActiveVisible')}
                 </label>
               </div>
               
@@ -287,12 +289,12 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                 {savingOffer ? (
                   <>
                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    Enregistrement...
+                    {t('dashboard.superAdminSaving')}
                   </>
                 ) : (
                   <>
                     {editingOfferId ? <PencilSquareIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-                    {editingOfferId ? 'Mettre à jour' : 'Créer l\'offre'}
+                    {editingOfferId ? t('dashboard.superAdminUpdate') : t('dashboard.superAdminCreateOffer')}
                   </>
                 )}
               </button>
@@ -305,16 +307,16 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
           <div className="border-b border-gray-200 px-5 py-4 bg-gradient-to-r from-purple-50 to-white">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <TagIcon className="h-5 w-5 text-purple-600" />
-              Catalogue des offres
+              {t('dashboard.superAdminOffersCatalog')}
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">{offers.length} offre(s) disponible(s)</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t('dashboard.superAdminOfferAvailableCount', { count: offers.length })}</p>
           </div>
           
           <div className="p-5">
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {offers.map((offer) => {
                 const isExpanded = expandedOfferId === offer.id;
-                const description = offer.description || 'Aucune description.';
+                const description = offer.description || t('dashboard.superAdminNoDescription');
                 const needsTruncation = description.length > 80;
                 const displayDescription = isExpanded ? description : (needsTruncation ? description.slice(0, 80) + '...' : description);
                 const isSelected = selectedOffer?.id === offer.id;
@@ -335,27 +337,27 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                           <h3 className="font-semibold text-gray-900">{offer.nom}</h3>
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${getOfferStateClass(offer)}`}>
                             {getOfferStateIcon(offer)}
-                            {getOfferStateLabel(offer)}
+                            {getOfferStateLabel(offer, t)}
                           </span>
                           {offer.deleted && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 px-2 py-0.5 text-xs">
                               <XCircleIcon className="h-3 w-3" />
-                              Non disponible
+                              {t('dashboard.superAdminUnavailable')}
                             </span>
                           )}
                         </div>
                         
                         <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
                           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5">
-                            📅 {offer.dureeMois} mois
+                            {t('dashboard.superAdminDurationMonths', { count: offer.dureeMois })}
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5">
-                            💰 {formatPrice(offer.prix, offer.devise)}
+                            {formatPrice(offer.prix, offer.devise, t('dashboard.superAdminUndefined'))}
                           </span>
                           {!offer.active && !offer.deleted && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5">
                               <ClockIcon className="h-3 w-3" />
-                              En attente d'activation
+                              {t('dashboard.superAdminPendingActivation')}
                             </span>
                           )}
                         </div>
@@ -368,9 +370,9 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                               className="text-xs text-purple-600 hover:text-purple-700 font-medium mt-1 inline-flex items-center gap-1"
                             >
                               {isExpanded ? (
-                                <><ChevronUpIcon className="h-3 w-3" /> Voir moins</>
+                                <><ChevronUpIcon className="h-3 w-3" /> {t('dashboard.superAdminShowLess')}</>
                               ) : (
-                                <><ChevronDownIcon className="h-3 w-3" /> Voir plus</>
+                                <><ChevronDownIcon className="h-3 w-3" /> {t('dashboard.superAdminShowMore')}</>
                               )}
                             </button>
                           )}
@@ -383,29 +385,29 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
                           <button 
                             onClick={(e) => { e.stopPropagation(); fillOfferForm(offer); }} 
                             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 transition" 
-                            title="Modifier l'offre"
+                            title={t('dashboard.superAdminEditOffer')}
                           >
                             <PencilSquareIcon className="h-4 w-4" />
-                            Modifier
+                            {t('dashboard.superAdminEdit')}
                           </button>
                           
                           {offer.active ? (
                             <button 
-                              onClick={(e) => { e.stopPropagation(); runAction(`deactivate-offer-${offer.id}`, () => subscriptionPlatformService.deactivateOffer(offer.id), 'Offre désactivée avec succès'); }} 
+                              onClick={(e) => { e.stopPropagation(); runAction(`deactivate-offer-${offer.id}`, () => subscriptionPlatformService.deactivateOffer(offer.id), t('dashboard.superAdminOfferDeactivated')); }} 
                               className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 transition" 
-                              title="Désactiver l'offre"
+                              title={t('dashboard.superAdminDeactivate')}
                             >
                               <PauseCircleIcon className="h-4 w-4" />
-                              Désactiver
+                              {t('dashboard.superAdminDeactivate')}
                             </button>
                           ) : (
                             <button 
-                              onClick={(e) => { e.stopPropagation(); runAction(`activate-offer-${offer.id}`, () => subscriptionPlatformService.activateOffer(offer.id), 'Offre activée avec succès'); }} 
+                              onClick={(e) => { e.stopPropagation(); runAction(`activate-offer-${offer.id}`, () => subscriptionPlatformService.activateOffer(offer.id), t('dashboard.superAdminOfferActivated')); }} 
                               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 transition" 
-                              title="Activer l'offre"
+                              title={t('dashboard.superAdminActivate')}
                             >
                               <PlayCircleIcon className="h-4 w-4" />
-                              Activer
+                              {t('dashboard.superAdminActivate')}
                             </button>
                           )}
                         </div>
@@ -418,8 +420,8 @@ const OffersManagement = ({ offers, onRefresh, actionLoading, runAction }) => {
               {offers.length === 0 && (
                 <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-gray-500">
                   <TagIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="font-medium text-gray-600">Aucune offre configurée</p>
-                  <p className="text-sm text-gray-400 mt-1">Créez votre première offre via le formulaire</p>
+                  <p className="font-medium text-gray-600">{t('dashboard.superAdminNoOfferConfigured')}</p>
+                  <p className="text-sm text-gray-400 mt-1">{t('dashboard.superAdminCreateFirstOffer')}</p>
                 </div>
               )}
             </div>

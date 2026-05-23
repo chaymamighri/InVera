@@ -59,6 +59,31 @@ const clientService = {
     }
   },
 
+  // clientService.js
+updateClientType: async (id, newType) => {
+  try {
+    console.log(`📡 API call: PATCH /clients/${id}/type`);
+    const response = await api.patch(`/clients/${id}/type`, { type: newType });
+    console.log('📥 Réponse:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erreur updateClientType:', error);
+    throw error;
+  }
+},
+ // ✅ NOUVEAU: Vérifier si un matricule fiscale existe
+  checkMatriculeFiscale: async (matricule) => {
+    try {
+      const response = await api.get(`/clients/verifier-matricule`, {
+        params: { matricule }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur vérification matricule:', error);
+      throw error;
+    }
+  },
+
   // Supprimer un client (admin only – not used in this view)
   deleteClient: async (id) => {
     try {

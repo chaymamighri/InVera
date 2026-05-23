@@ -133,8 +133,8 @@ public class Utilisateur implements UserDetails {
     // ===== ENUM =====
     public enum RoleUtilisateur {
         ADMIN_CLIENT("Admin client"),
-        COMMERCIAL("Commercial"),
-        RESPONSABLE_ACHAT("Responsable Achat");
+        COMMERCIAL("Responsable vente"),
+        RESPONSABLE_ACHAT("Responsable Achat et stock");
 
         private final String label;
 

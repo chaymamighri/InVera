@@ -49,19 +49,76 @@ const CommandeModal = ({ isOpen, onClose, commande, onSave, onSuccess }) => {
     fetchActiveFournisseurs();
   }, [fetchActiveFournisseurs]);
 
-  const chargerProduitsDuFournisseur = async (fournisseurId) => {
-    setLoadingProduitsFiltres(true);
-    try {
-      const produits = await getProductsByFournisseur(fournisseurId);
-      setProduitsDisponibles(produits);
-    } catch (error) {
-      console.error('Erreur chargement produits:', error);
-      toast.error(t('dashboard.procurementOrdersComponents.productLoadError'));
-      setProduitsDisponibles([]);
-    } finally {
-      setLoadingProduitsFiltres(false);
+  useEffect(() => {
+    if (isOpen) {
+      if (commande) {
+        const fournisseurId = commande.fournisseur?.idFournisseur || 
+                              commande.fournisseurId || 
+                              '';
+        
+        const commandeId = commande.idCommandeFournisseur || commande.id;
+        
+        setSelectedFournisseur(fournisseurId);
+        setCurrentCommandeId(commandeId);
+        setFormData({
+          fournisseurId: fournisseurId,
+          dateLivraisonPrevue: commande.dateLivraisonPrevue?.split('T')[0] || '',
+          adresseLivraison: commande.adresseLivraison || '',
+        });
+        
+        if (fournisseurId) {
+          chargerProduitsDuFournisseur(fournisseurId);
+        }
+        
+        const lignesExistantes = (commande.lignesCommande || []).map((ligne, index) => {
+          const quantiteVal = ligne.quantite || 0;
+          const prixUnitaireVal = ligne.prixUnitaire || 0;
+          const tauxTVAVal = ligne.tauxTVA || 19;
+          
+          const sousTotalHT = ligne.sousTotalHT || (quantiteVal * prixUnitaireVal);
+          const montantTVA = ligne.montantTVA || (sousTotalHT * tauxTVAVal / 100);
+          const sousTotalTTC = ligne.sousTotalTTC || (sousTotalHT + montantTVA);
+          
+          return {
+            id: ligne.idLigneCommandeFournisseur || index + 1,
+            produitId: ligne.produitId || ligne.produit?.idProduit,
+            produitLibelle: ligne.produitLibelle || ligne.produit?.libelle || 'Produit',
+            produitReference: ligne.produitReference || ligne.produit?.reference || '',
+            quantite: quantiteVal,
+            prixUnitaire: prixUnitaireVal,
+            tauxTVA: tauxTVAVal,
+            sousTotalHT: sousTotalHT,
+            montantTVA: montantTVA,
+            sousTotalTTC: sousTotalTTC,
+            estInactif: false,
+            categorie: ligne.categorie || ligne.produit?.categorie?.nomCategorie || '',
+          };
+        });
+        
+        setLignes(lignesExistantes);
+      } else {
+        resetForm();
+      }
     }
-  };
+  }, [isOpen, commande]);
+
+
+ const chargerProduitsDuFournisseur = async (fournisseurId) => {
+  setLoadingProduitsFiltres(true);
+  try {
+    const produits = await getProductsByFournisseur(fournisseurId);
+    // ✅ Filtrer uniquement les produits actifs
+    const produitsActifs = produits.filter(p => p.estActif !== false && p.active !== false);
+    setProduitsDisponibles(produitsActifs);
+  } catch (error) {
+    console.error('❌ Erreur chargement produits:', error);
+    toast.error('Erreur lors du chargement des produits');
+    setProduitsDisponibles([]);
+  } finally {
+    setLoadingProduitsFiltres(false);
+  }
+};
+
 
   const resetForm = () => {
     setFormData({

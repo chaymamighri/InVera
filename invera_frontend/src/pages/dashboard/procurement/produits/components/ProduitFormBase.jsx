@@ -1,9 +1,10 @@
-// produits/ProduitFormBase.jsx
+// produits/ProduitFormBase.jsx - Version SANS remise temporaire
 import React from 'react';
-import {
-  EnvelopeIcon,
+import { 
+  XMarkIcon, 
+  EnvelopeIcon,    
   PhoneIcon,
-  XMarkIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useLanguage } from '../../../../../context/LanguageContext';
 
@@ -25,7 +26,6 @@ const ProduitFormBase = ({
   handleRemoveImage,
   imagePreview,
   handleCategorieChange,
-  isRemiseDisabled,
   handleSubmit,
   onClose,
   isEditMode,
@@ -33,6 +33,8 @@ const ProduitFormBase = ({
   stockDisabled = false,
   fournisseursDisponibles = [],
   loadingFournisseurs = false,
+  categorieRemiseStandard = 0,
+  prixApresRemise = 0,
 }) => {
   const { t, isArabic } = useLanguage();
 
@@ -50,17 +52,9 @@ const ProduitFormBase = ({
           </button>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            try {
-              handleSubmit(e);
-            } catch (error) {
-              console.error('Erreur submit formulaire:', error);
-              e.preventDefault();
-            }
-          }}
-          className="space-y-6 p-6"
-        >
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
+          {/* Informations générales */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-700">
               {t('dashboard.procurementProductsPage.productGeneralInfo')}
@@ -75,16 +69,22 @@ const ProduitFormBase = ({
               required
             />
 
+            {/* Prix d'achat et Prix de vente */}
             <div className="grid grid-cols-2 gap-4">
-              <FieldErrorTextInput
-                label={`${t('dashboard.procurementProductsPage.purchasePriceLabel')} DT`}
-                name="prixAchat"
-                value={formData.prixAchat || ''}
-                error={errors.prixAchat}
-                onChange={handleChange}
-                placeholder="0"
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prix d'achat <span className="text-red-500">*</span> DT
+                </label>
+                <input
+                  type="text"
+                  name="prixAchat"
+                  value={formData.prixAchat || ''}
+                  onChange={handleChange}
+                  className={`w-full border ${errors.prixAchat ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  placeholder="0"
+                />
+                {errors.prixAchat && <p className="mt-1 text-sm text-red-600">{errors.prixAchat}</p>}
+              </div>
 
               <FieldErrorTextInput
                 label={`${t('dashboard.procurementProductsPage.salesPriceLabel')} DT`}
@@ -111,14 +111,38 @@ const ProduitFormBase = ({
                 <option value="">{t('dashboard.procurementProductsPage.categorySelectPlaceholder')}</option>
                 {categories?.map((cat) => (
                   <option key={cat.idCategorie} value={cat.idCategorie}>
-                    {cat.nomCategorie || cat.libelle || t('dashboard.procurementProductsPage.noCategory')}
+                    {cat.nomCategorie || cat.libelle || 'Sans catégorie'}
+                    {cat.remiseStandard > 0 ? ` (remise: ${cat.remiseStandard}%)` : ''}
                   </option>
                 ))}
               </select>
               {errors.categorie && <p className="mt-1 text-sm text-red-600">{errors.categorie}</p>}
             </div>
+
+          {/* Affichage de la remise standard - Version champ désactivé */}
+<div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Remise standard (%)
+    </label>
+    <div className="relative">
+      <input
+        type="number"
+        value={categorieRemiseStandard}
+        disabled
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+      />
+      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+        <span className="text-gray-400 text-sm">%</span>
+      </div>
+    </div>
+  </div>
+
+
+</div>
           </div>
 
+          {/* SECTION FOURNISSEUR */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-700">
               {t('dashboard.procurementProductsPage.supplierSectionTitle')}
@@ -150,8 +174,7 @@ const ProduitFormBase = ({
                       </option>
                     ))}
                   </select>
-                  {errors.fournisseurId && <p className="mt-1 text-sm text-red-600">{errors.fournisseurId}</p>}
-
+                  
                   {formData.fournisseurId && (
                     <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                       <p className="mb-1 text-xs text-blue-600">
@@ -249,105 +272,80 @@ const ProduitFormBase = ({
             </div>
           </div>
 
+          {/* Informations commerciales - Statut uniquement */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700">
-              {t('dashboard.procurementProductsPage.commercialInfoTitle')}
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-700">Statut</h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('dashboard.procurementProductsPage.temporaryDiscountLabel')}
-                </label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2">
                 <input
-                  type="text"
-                  name="remiseTemporaire"
-                  value={formData.remiseTemporaire || ''}
-                  onChange={handleChange}
-                  disabled={isRemiseDisabled}
-                  placeholder="0"
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 ${
-                    isRemiseDisabled ? 'cursor-not-allowed bg-gray-100 text-gray-500' : 'bg-white'
-                  } focus:border-blue-500 focus:ring-2 focus:ring-blue-500`}
+                  type="radio"
+                  name="active"
+                  checked={formData.active === true}
+                  onChange={() => handleChange({ target: { name: 'active', value: true } })}
+                  className="text-blue-600"
                 />
-                {isRemiseDisabled && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    {t('dashboard.procurementProductsPage.discountManagedByAdmin')}
-                  </p>
-                )}
-                {errors.remiseTemporaire && <p className="mt-1 text-sm text-red-600">{errors.remiseTemporaire}</p>}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('dashboard.procurementProductsPage.statusLabel')} <span className="text-red-500">*</span>
-                </label>
-                <div className="mt-2 flex items-center gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === true}
-                      onChange={() => handleChange({ target: { name: 'active', value: true } })}
-                      className="text-blue-600"
-                    />
-                    <span className="text-sm">{t('dashboard.procurementProductsPage.activeStatus')}</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="active"
-                      checked={formData.active === false}
-                      onChange={() => handleChange({ target: { name: 'active', value: false } })}
-                      className="text-red-600"
-                    />
-                    <span className="text-sm">{t('dashboard.procurementProductsPage.inactiveStatus')}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-span-6">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                {t('dashboard.procurementProductsPage.productImageLabel')}
+                <span className="text-sm">Actif</span>
               </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="active"
+                  checked={formData.active === false}
+                  onChange={() => handleChange({ target: { name: 'active', value: false } })}
+                  className="text-red-600"
+                />
+                <span className="text-sm">Inactif</span>
+              </label>
+            </div>
+          </div>
 
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    id="image-upload"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={handleImageChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                </div>
-
-                {imagePreview && (
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={imagePreview}
-                      alt={t('dashboard.procurementProductsPage.previewAlt')}
-                      className="h-20 w-20 rounded-lg border-2 border-gray-300 object-cover shadow-sm"
-                      onError={() => {
-                        console.error('Erreur chargement image:', imagePreview);
-                        handleRemoveImage?.();
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md transition-colors hover:bg-red-600"
-                      title={t('dashboard.procurementProductsPage.removeImageTitle')}
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+          {/* Image du produit */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700">Image du produit</h3>
+            
+            <div className="flex items-start space-x-4">
+              <div className="flex-1">
+                <input
+                  type="file"
+                  id="image-upload"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
               </div>
 
-              {errors.imageUrl && <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>}
+              {imagePreview && (
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={imagePreview}
+                    alt="Aperçu"
+                    className="h-20 w-20 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
+                    onError={(e) => {
+                      console.error('Erreur chargement image:', imagePreview);
+                      e.target.src = '/placeholder-image.png'; 
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors"
+                    title="Supprimer l'image"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
+            
+            {errors.imageUrl && (
+              <p className="mt-1 text-sm text-red-600">{errors.imageUrl}</p>
+            )}
           </div>
 
           <div className="sticky bottom-0 flex justify-end gap-3 border-t bg-white pt-4">

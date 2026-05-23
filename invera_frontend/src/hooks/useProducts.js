@@ -43,75 +43,91 @@ const useProducts = (initialFilters = {}) => {
     return colors[status] || 'gray';
   }, []);
 
-  const normalizeProduct = useCallback((produit) => {
-    if (!produit) return null;
-    
-    const productId = produit.idProduit || produit.id;
-    if (!productId) {
-      console.warn('⚠️ Produit sans ID:', produit);
-      return null;
-    }
-    
-    let categorieNom = 'Sans catégorie';
-    let categorieId = null;
-    
-    if (produit.categorieId !== undefined && produit.categorieId !== null) {
-      categorieId = produit.categorieId;
-    } else if (produit.idCategorie !== undefined && produit.idCategorie !== null) {
-      categorieId = produit.idCategorie;
-    } else if (produit.categorie) {
-      if (typeof produit.categorie === 'object') {
-        categorieId = produit.categorie.idCategorie || produit.categorie.id;
-        categorieNom = produit.categorie.nomCategorie || 'Sans catégorie';
-      } else if (typeof produit.categorie === 'number') {
-        categorieId = produit.categorie;
-      } else if (typeof produit.categorie === 'string') {
+const normalizeProduct = useCallback((produit) => {
+  if (!produit) return null;
+  
+  const productId = produit.idProduit || produit.id;
+  if (!productId) {
+    console.warn('⚠️ Produit sans ID:', produit);
+    return null;
+  }
+  
+  let categorieNom = 'Sans catégorie';
+  let categorieId = null;
+  
+  // ✅ AJOUTER CETTE LIGNE - Priorité au categorieNom direct de l'API
+  if (produit.categorieNom && produit.categorieNom !== 'null' && produit.categorieNom !== 'undefined') {
+    categorieNom = produit.categorieNom;
+    console.log(`✅ [normalizeProduct] Utilise categorieNom direct: ${categorieNom} pour ${produit.libelle}`);
+  }
+  
+  // Ensuite chercher l'ID
+  if (produit.categorieId !== undefined && produit.categorieId !== null) {
+    categorieId = produit.categorieId;
+  } else if (produit.idCategorie !== undefined && produit.idCategorie !== null) {
+    categorieId = produit.idCategorie;
+  } else if (produit.categorie) {
+    if (typeof produit.categorie === 'object') {
+      categorieId = produit.categorie.idCategorie || produit.categorie.id;
+      // Si on n'a pas encore trouvé le nom, l'utiliser depuis l'objet
+      if (categorieNom === 'Sans catégorie' && produit.categorie.nomCategorie) {
+        categorieNom = produit.categorie.nomCategorie;
+      }
+    } else if (typeof produit.categorie === 'number') {
+      categorieId = produit.categorie;
+    } else if (typeof produit.categorie === 'string') {
+      if (categorieNom === 'Sans catégorie') {
         categorieNom = produit.categorie;
       }
     }
-    
-    // ✅ Récupérer les fournisseurs avec leurs prix
-    let fournisseurs = [];
-    if (produit.fournisseurs && Array.isArray(produit.fournisseurs)) {
-      fournisseurs = produit.fournisseurs;
-    } else if (produit.fournisseursIds && Array.isArray(produit.fournisseursIds)) {
-      fournisseurs = produit.fournisseursIds;
-    }
-    
-    const remiseTemporaire = produit.remiseTemporaire != null ? Number(produit.remiseTemporaire) : 0;
-    
-    return {
-      ...produit,
-      id: productId,
-      idProduit: productId,
-      nom: produit.libelle,
-      libelle: produit.libelle,
-      prix: produit.prixVente,
-      prixVente: produit.prixVente,
-      // ❌ Supprimer prixAchat global
-      // prixAchat: produit.prixAchat,
-      stock: produit.quantiteStock,
-      quantiteStock: produit.quantiteStock,
-      unite: produit.uniteMesure,
-      uniteMesure: produit.uniteMesure,
-      seuilMinimum: produit.seuilMinimum,
-      image: produit.imageUrl,
-      imageUrl: produit.imageUrl,
-      remise: remiseTemporaire,
-      estActif: produit.active === true,
-      active: produit.active,
-      categorieId: categorieId,
-      categorieNom: categorieNom,
-      displayCategorie: categorieNom,
-      statutStock: produit.status,
-      status: produit.status,
-      statutStockLabel: getStatusLabel(produit.status),
-      statutStockColor: getStatusColor(produit.status),
-      // ✅ AJOUT des fournisseurs
-      fournisseurs: fournisseurs,
-      fournisseursIds: fournisseurs.map(f => f.id || f.idFournisseur)
-    };
-  }, [getStatusLabel, getStatusColor]);
+  }
+  
+  // ✅ DEBUG - Log pour voir ce qu'on a trouvé
+  if (categorieNom === 'Sans catégorie' && categorieId) {
+    console.log(`⚠️ Produit ${produit.libelle} a un ID catégorie ${categorieId} mais pas de nom`);
+  } else if (categorieNom !== 'Sans catégorie') {
+    console.log(`✅ Produit ${produit.libelle} → Catégorie: ${categorieNom}`);
+  }
+  
+  // ✅ Récupérer les fournisseurs avec leurs prix
+  let fournisseurs = [];
+  if (produit.fournisseurs && Array.isArray(produit.fournisseurs)) {
+    fournisseurs = produit.fournisseurs;
+  } else if (produit.fournisseursIds && Array.isArray(produit.fournisseursIds)) {
+    fournisseurs = produit.fournisseursIds;
+  }
+  
+  const remiseTemporaire = produit.remiseTemporaire != null ? Number(produit.remiseTemporaire) : 0;
+  
+  return {
+    ...produit,
+    id: productId,
+    idProduit: productId,
+    nom: produit.libelle,
+    libelle: produit.libelle,
+    prix: produit.prixVente,
+    prixVente: produit.prixVente,
+    stock: produit.quantiteStock,
+    quantiteStock: produit.quantiteStock,
+    unite: produit.uniteMesure,
+    uniteMesure: produit.uniteMesure,
+    seuilMinimum: produit.seuilMinimum,
+    image: produit.imageUrl,
+    imageUrl: produit.imageUrl,
+    remise: remiseTemporaire,
+    estActif: produit.active === true,
+    active: produit.active,
+    categorieId: categorieId,
+    categorieNom: categorieNom,
+    displayCategorie: categorieNom,
+    statutStock: produit.status,
+    status: produit.status,
+    statutStockLabel: getStatusLabel(produit.status),
+    statutStockColor: getStatusColor(produit.status),
+    fournisseurs: fournisseurs,
+    fournisseursIds: fournisseurs.map(f => f.id || f.idFournisseur)
+  };
+}, [getStatusLabel, getStatusColor]);
 
   const normalizeProducts = useCallback((productsData) => {
     if (!Array.isArray(productsData)) return [];

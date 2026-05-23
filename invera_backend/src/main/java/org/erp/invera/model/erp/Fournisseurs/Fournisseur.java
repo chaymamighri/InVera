@@ -26,7 +26,7 @@ public class Fournisseur {
     private Integer idFournisseur;
 
     @Column(name = "nom_fournisseur", nullable = false, length = 100)
-    private String nomFournisseur;
+    private String nomFournisseur;  // raison social
 
     @Column(length = 100, unique = true)
     private String email;
@@ -42,6 +42,9 @@ public class Fournisseur {
 
     @Column(length = 50)
     private String pays;
+
+    @Column(name = "matricule_fiscale", unique = true, length = 50)
+    private String matriculeFiscale;
 
     @Column(nullable = false)
     private Boolean actif = true;

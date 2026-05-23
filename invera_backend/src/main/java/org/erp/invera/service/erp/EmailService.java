@@ -51,7 +51,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("🔐 Code de réinitialisation - Invera ERP");
+            helper.setSubject(" Code de réinitialisation - Invera ERP");
 
             LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(10);
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
@@ -154,7 +154,7 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email d'activation envoyé à " + email);
+            System.out.println(" Email d'activation envoyé à " + email);
 
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de l'envoi de l'email: " + e.getMessage());
@@ -173,12 +173,12 @@ public class EmailService {
         try {
             // Validation des paramètres
             if (toEmail == null || toEmail.isEmpty()) {
-                System.err.println("❌ Email destinataire invalide");
+                System.err.println(" Email destinataire invalide");
                 return;
             }
 
             if (pdfContent == null || pdfContent.length == 0) {
-                System.err.println("❌ Contenu PDF vide pour la commande " + numeroCommande);
+                System.err.println(" Contenu PDF vide pour la commande " + numeroCommande);
                 return;
             }
 
@@ -187,7 +187,7 @@ public class EmailService {
 
             helper.setFrom(fromEmail);
             helper.setTo(toEmail);
-            helper.setSubject("📄 Bon de commande N° " + numeroCommande);
+            helper.setSubject(" Bon de commande N° " + numeroCommande);
 
             LocalDateTime dateEnvoi = LocalDateTime.now();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm");
@@ -240,12 +240,12 @@ public class EmailService {
 
             mailSender.send(message);
 
-            System.out.println("✅ Email envoyé à " + toEmail);
+            System.out.println(" Email envoyé à " + toEmail);
             System.out.println("   - Fournisseur: " + fournisseurNom);
             System.out.println("   - Commande: " + numeroCommande);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email: " + e.getMessage());
+            System.err.println(" Erreur envoi email: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -309,11 +309,11 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email de validation/paiement envoyé à " + email);
-            System.out.println("🔗 Lien de paiement: " + paymentLink);
+            System.out.println(" Email de validation/paiement envoyé à " + email);
+            System.out.println(" Lien de paiement: " + paymentLink);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email validation: " + e.getMessage());
+            System.err.println(" Erreur envoi email validation: " + e.getMessage());
         }
     }
     /**
@@ -328,7 +328,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("❌ Votre dossier InVera a été refusé");
+            helper.setSubject(" Votre dossier InVera a été refusé");
 
             String htmlContent = String.format("""
         <!DOCTYPE html>
@@ -369,10 +369,10 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
 
-            System.out.println("✅ Email de refus envoyé à " + email + " - Motif: " + motif);
+            System.out.println(" Email de refus envoyé à " + email + " - Motif: " + motif);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email refus: " + e.getMessage());
+            System.err.println(" Erreur envoi email refus: " + e.getMessage());
         }
     }
     /**
@@ -385,7 +385,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(email);
-            helper.setSubject("✅ Abonnement activé - Invera ERP");
+            helper.setSubject(" Abonnement activé - Invera ERP");
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             String dateFinFormatted = dateFin.format(formatter);
@@ -428,10 +428,10 @@ public class EmailService {
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
-            System.out.println("✅ Email confirmation abonnement envoyé à " + email);
+            System.out.println(" Email confirmation abonnement envoyé à " + email);
 
         } catch (MessagingException e) {
-            System.err.println("❌ Erreur envoi email confirmation à " + email + ": " + e.getMessage());
+            System.err.println(" Erreur envoi email confirmation à " + email + ": " + e.getMessage());
         }
     }
     /**
@@ -541,4 +541,105 @@ public class EmailService {
         }
     }
 
+    /**
+     * Envoi d'email de notification de suspension d'abonnement
+     */
+    public void sendSubscriptionSuspensionNotice(String email, String clientName, String offreName, String motif) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(email);
+            helper.setSubject("Suspension de votre abonnement - InVera");
+
+            String htmlContent = String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #ff9800; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1>InVera ERP</h1>
+                    </div>
+                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
+                        <h2 style="color: #ff9800;">Bonjour %s,</h2>
+                        <p>Nous vous informons que votre abonnement <strong>%s</strong> a été <strong style="color: #ff9800;">suspendu</strong>.</p>
+                        <div style="background-color: #fff3e0; padding: 15px; border-left: 4px solid #ff9800; margin: 20px 0;">
+                            <p style="margin: 0;"><strong>Motif de la suspension :</strong></p>
+                            <p style="margin: 10px 0 0 0; color: #555;">%s</p>
+                        </div>
+                        <p>Cette suspension est temporaire. Pour toute question, contactez notre support.</p>
+                        <div style="margin: 24px 0; text-align: center;">
+                            <p style="color: #666;">Support : support@invera.com</p>
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                        <p style="color: #999; font-size: 12px; text-align: center;">
+                            © 2026 InVera ERP. Tous droits réservés.
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, clientName, offreName, motif);
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            System.out.println("Email suspension envoyé à " + email);
+
+        } catch (MessagingException e) {
+            System.err.println("Erreur envoi email suspension à " + email + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Envoi d'email de notification de réactivation d'abonnement
+     */
+    public void sendSubscriptionReactivationNotice(String email, String clientName, String offreName, String motif) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(email);
+            helper.setSubject("Réactivation de votre abonnement - InVera");
+
+            String htmlContent = String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #4caf50; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1>InVera ERP</h1>
+                    </div>
+                    <div style="padding: 24px; border: 1px solid #e0e0e0; border-top: none;">
+                        <h2 style="color: #4caf50;">Bonjour %s,</h2>
+                        <p>Nous sommes ravis de vous informer que votre abonnement <strong>%s</strong> a été <strong style="color: #4caf50;">réactivé</strong>.</p>
+                        <div style="background-color: #e8f5e9; padding: 15px; border-left: 4px solid #4caf50; margin: 20px 0;">
+                            <p style="margin: 0;"><strong>Motif de la réactivation :</strong></p>
+                            <p style="margin: 10px 0 0 0; color: #555;">%s</p>
+                        </div>
+                        <p>Vous pouvez dès à présent accéder à nouveau à la plateforme.</p>
+                        <div style="margin: 24px 0; text-align: center;">
+                            <a href="http://localhost:5173/login" style="display: inline-block; padding: 12px 24px; background-color: #4caf50; color: white; text-decoration: none; border-radius: 5px;">
+                                Accéder à la plateforme
+                            </a>
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+                        <p style="color: #999; font-size: 12px; text-align: center;">
+                            © 2026 InVera ERP. Tous droits réservés.
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, clientName, offreName, motif);
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            System.out.println("Email réactivation envoyé à " + email);
+
+        } catch (MessagingException e) {
+            System.err.println("Erreur envoi email réactivation à " + email + ": " + e.getMessage());
+        }
+    }
 }

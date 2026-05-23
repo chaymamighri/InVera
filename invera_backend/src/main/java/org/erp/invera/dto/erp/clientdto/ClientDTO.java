@@ -16,63 +16,53 @@ public class ClientDTO {
     private String adresse;
     private String typeClient;
     private String email;
-    private Double remiseStandard;
-    private Double remiseClientFidele;
-    private Double remiseClientVIP;
-    private Double remiseClientProfessionnelle;
+    private String raisonSociale;
+    private String matriculeFiscale;
+    private Double remise;
 
     public static ClientDTO fromEntity(Client client) {
-        if (client == null) {
-            return null;
-        }
+        if (client == null) return null;
 
         ClientDTO dto = new ClientDTO();
-
         dto.setIdClient(client.getIdClient());
         dto.setNom(client.getNom());
         dto.setPrenom(client.getPrenom());
         dto.setTelephone(client.getTelephone());
         dto.setAdresse(client.getAdresse());
         dto.setEmail(client.getEmail());
+        dto.setRaisonSociale(client.getRaisonSociale());
+        dto.setMatriculeFiscale(client.getMatriculeFiscale());
 
-        // Gestion du type de client
         if (client.getTypeClient() != null) {
-            dto.setTypeClient(normalizeTypeClient(client.getTypeClient().name()));
+            dto.setTypeClient(client.getTypeClient().name());
         }
-
-        // Attributs de remise
-        dto.setRemiseClientFidele(client.getRemiseClientFidele());
-        dto.setRemiseClientVIP(client.getRemiseClientVIP());
-        dto.setRemiseClientProfessionnelle(client.getRemiseClientProfessionnelle());
 
         return dto;
     }
 
-    // Méthode utilitaire pour obtenir le nom complet du client
+    // ✅ AJOUTER CETTE MÉTHODE
     public String getNomComplet() {
-        if (prenom != null && !prenom.isEmpty()) {
-            return prenom + " " + nom;
+        // Pour les entreprises, afficher la raison sociale
+        if ("ENTREPRISE".equals(typeClient) && raisonSociale != null && !raisonSociale.isEmpty()) {
+            return raisonSociale;
         }
-        return nom;
+        // Pour les particuliers ou professionnels
+        if (prenom != null && !prenom.isEmpty()) {
+            return prenom + " " + (nom != null ? nom : "");
+        }
+        // Fallback
+        return nom != null ? nom : "Client";
     }
 
-    // Méthode pour obtenir le type de client en français
+    // ✅ OPTIONNEL : Ajouter une méthode pour obtenir l'affichage du type client
     public String getTypeClientDisplay() {
         if (typeClient == null) return null;
-
-        switch (normalizeTypeClient(typeClient)) {
+        switch (typeClient) {
             case "PARTICULIER": return "Particulier";
             case "VIP": return "VIP";
             case "ENTREPRISE": return "Entreprise";
             case "FIDELE": return "Fidèle";
             default: return typeClient;
         }
-    }
-
-    private static String normalizeTypeClient(String typeClient) {
-        if ("PROFESSIONNEL".equals(typeClient)) {
-            return "ENTREPRISE";
-        }
-        return typeClient;
     }
 }

@@ -31,6 +31,9 @@ public class Categorie {
     @Column(name = "taux_tva", precision = 5, scale = 2)
     private BigDecimal tauxTVA;
 
+    @Column(name = "remise_standard")
+    private Double remiseStandard;
+
     @OneToMany(mappedBy = "categorie")
     @JsonIgnore
     private List<Produit> produits = new ArrayList<>();
