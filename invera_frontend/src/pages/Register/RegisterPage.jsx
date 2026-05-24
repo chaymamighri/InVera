@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { sendOtp, verifyOtp, register } from '../../services/registerService';
+import { validateDocumentWithOcr } from '../../services/ocrService';
 import logo from '../../assets/images/logo.png';
 import ReactCountryFlag from "react-country-flag";
 
@@ -316,6 +317,9 @@ const RegisterPage = () => {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const countryDropdownRef = useRef(null);
   const logoInputRef = useRef(null);
+  const [ocrValidating, setOcrValidating] = useState(false);
+const [ocrErrors, setOcrErrors] = useState({});
+const [documentsValidated, setDocumentsValidated] = useState({});
 
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -419,18 +423,62 @@ const RegisterPage = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleFileUpload = (field, file) => {
-    if (!file) return;
+ const handleFileUpload = async (field, file) => {
+  if (!file) return;
+  
+  // Validation OCR avant d'ajouter le document
+  setOcrValidating(true);
+  setOcrErrors(prev => ({ ...prev, [field]: null }));
+  
+  try {
+    // Déterminer le type pour l'OCR
+    let ocrType = field;
+    if (field === 'GERANT_CIN') ocrType = 'CIN';
+    
+    // Valider avec OCR
+   const result = await validateDocumentWithOcr(file, ocrType);
+console.log('📡 RÉSULTAT COMPLET:', result);
+console.log('📡 valid:', result.valid);
+console.log('📡 message:', result.message);
+
+if (!result.valid) {
+  console.log('❌ Document REJETÉ par OCR:', result.message);
+  setOcrErrors(prev => ({ ...prev, [field]: result.message }));
+  setOcrValidating(false);
+  return;
+}
+    
+    // Document valide, l'ajouter au formulaire
     const currentDocs = formData.documents || [];
     const newDocs = [...currentDocs];
     const existingIndex = newDocs.findIndex((d) => d.type === field);
+    
     if (existingIndex !== -1) {
-      newDocs[existingIndex] = { type: field, file };
+      newDocs[existingIndex] = { type: field, file, ocrData: result.extractedData };
     } else {
-      newDocs.push({ type: field, file });
+      newDocs.push({ type: field, file, ocrData: result.extractedData });
     }
+    
     updateFormData('documents', newDocs);
-  };
+    setDocumentsValidated(prev => ({ ...prev, [field]: true }));
+    
+    // Notification de succès
+    const successMsg = document.createElement('div');
+    successMsg.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    successMsg.textContent = `✅ ${result.message}`;
+    document.body.appendChild(successMsg);
+    setTimeout(() => successMsg.remove(), 3000);
+    
+  } catch (error) {
+    console.error('Erreur OCR:', error);
+    setOcrErrors(prev => ({ 
+      ...prev, 
+      [field]: 'Erreur lors de la validation du document' 
+    }));
+  } finally {
+    setOcrValidating(false);
+  }
+};
 
   const handleLogoUpload = (file) => {
     if (!file) return;
@@ -858,76 +906,101 @@ const RegisterPage = () => {
     );
   }  
 
-  // ==================== ÉCRAN DE SUCCÈS ====================
-  if (success) {
-    return (
-      <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
-        <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
-        <div className="mx-auto max-w-7xl px-6 pb-24 pt-6 lg:px-8">
-          <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <Link to="/" className="flex items-center gap-4 group cursor-pointer">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2 transition group-hover:bg-[#0b4ea2]">
-                  <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
-                  <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des opérations</h1>
-                </div>
-              </Link>
-              <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
-                <ArrowLeftIcon className="w-4 h-4" /> {copy.backToHome}
-              </Link>
-            </div>
-          </header>
-          <main className="pt-14">
-            <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-2xl border border-sky-100 p-8 shadow-sm text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckBadgeIcon className="w-10 h-10 text-green-600" />
-                </div>
-                
-                {isEssai ? (
-                  <>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successTrialTitle}</h2>
-                    <p className="text-gray-600 mb-4">{copy.successTrialDescription}</p>
-                    <button 
-                      onClick={() => navigate('/login')} 
-                      className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
-                    >
-                      {copy.loginNow}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successWaitingTitle}</h2>
-                    <p className="text-gray-600 mb-4">{copy.successWaitingDescription}</p>
-                    <div className="text-left space-y-3 mb-6">
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                        <p className="text-blue-800 text-sm font-medium mb-2 flex items-center gap-2">
-                          <ClockIcon className="w-4 h-4" />
-                          Dossier en cours de validation
-                        </p>
-                        <p className="text-blue-700 text-sm">Votre dossier sera examiné par notre équipe. Vous serez notifié par email dès son activation.</p>
-                      </div>
+ // ==================== ÉCRAN DE SUCCÈS ====================
+if (success) {
+  return (
+    <div className="min-h-screen overflow-hidden bg-[#f6f9fc] text-slate-900">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[460px] bg-[linear-gradient(180deg,#eef6ff_0%,#f6f9fc_100%)]" />
+      <div className="mx-auto max-w-7xl px-6 pb-24 pt-6 lg:px-8">
+        <header className="rounded-[28px] border border-sky-100 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link to="/" className="flex items-center gap-4 group cursor-pointer">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b2f6b] p-2 transition group-hover:bg-[#0b4ea2]">
+                <img src={logo} alt="InVera logo" className="max-h-full max-w-full object-contain" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#0b4ea2]">InVera ERP</p>
+                <h1 className="text-xl font-semibold text-slate-950">Gestion intelligente des opérations</h1>
+              </div>
+            </Link>
+            <Link to="/" className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
+              <ArrowLeftIcon className="w-4 h-4" /> {copy.backToHome}
+            </Link>
+          </div>
+        </header>
+        <main className="pt-14">
+          <div className="max-w-md mx-auto">
+            <div className="bg-white rounded-2xl border border-sky-100 p-8 shadow-sm text-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckBadgeIcon className="w-10 h-10 text-green-600" />
+              </div>
+              
+              {isEssai ? (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successTrialTitle}</h2>
+                  <p className="text-gray-600 mb-2">{copy.successTrialDescription}</p>
+                  
+                  {/* ✅ AJOUT : Message des 30 connexions gratuites */}
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-200 my-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <GiftIcon className="w-5 h-5 text-green-600" />
+                      <span className="font-semibold text-green-700">30 connexions gratuites</span>
                     </div>
-                    <button onClick={() => navigate('/login')} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">
-                      🔑 {copy.loginNow}
-                    </button>
-                  </>
-                )}
-                <div className="mt-4">
-                  <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
-                    ← {copy.backToHome}
-                  </Link>
-                </div>
+                    <p className="text-sm text-green-600">
+                      Vous disposez de 30 connexions pour découvrir toutes les fonctionnalités de la plateforme.
+                    </p>
+                  </div>
+                  
+                  <button 
+                    onClick={() => navigate('/login')} 
+                    className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition"
+                  >
+                    {copy.loginNow}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">{copy.successWaitingTitle}</h2>
+                  <p className="text-gray-600 mb-4">{copy.successWaitingDescription}</p>
+                  
+                  {/* ✅ AJOUT : Message pour les clients DEFINITIF */}
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <GiftIcon className="w-5 h-5 text-blue-600" />
+                      <span className="font-semibold text-blue-700">30 connexions gratuites en attendant</span>
+                    </div>
+                    <p className="text-sm text-blue-600">
+                      En attendant la validation de vos documents, vous pouvez déjà utiliser la plateforme avec 30 connexions gratuites.
+                    </p>
+                  </div>
+                  
+                  <div className="text-left space-y-3 mb-6">
+                    <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                      <p className="text-yellow-800 text-sm font-medium mb-2 flex items-center gap-2">
+                        <ClockIcon className="w-4 h-4" />
+                        Dossier en cours de validation
+                      </p>
+                      <p className="text-yellow-700 text-sm">Votre dossier sera examiné par notre équipe. Vous serez notifié par email dès son activation.</p>
+                    </div>
+                  </div>
+                  
+                  <button onClick={() => navigate('/login')} className="w-full bg-[#0b4ea2] text-white py-3 rounded-xl font-semibold hover:bg-[#0b3d82] transition">
+                    🔑 {copy.loginNow}
+                  </button>
+                </>
+              )}
+              <div className="mt-4">
+                <Link to="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
+                  ← {copy.backToHome}
+                </Link>
               </div>
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
-    );
-  } 
+    </div>
+  );
+}
 
   // ==================== ÉCRAN PRINCIPAL DU FORMULAIRE ====================
   return (
@@ -1317,138 +1390,319 @@ const RegisterPage = () => {
                 </div>
               )}
             </div>
+{/* SECTION 4: DOCUMENTS JUSTIFICATIFS */}
+{isPayant && (
+  <div className="bg-white rounded-2xl border border-sky-100 p-6 shadow-sm">
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+        <DocumentDuplicateIcon className="w-5 h-5 text-[#0b4ea2]" />
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-slate-800">4. {copy.mandatoryDocuments}</h2>
+        <p className="text-xs text-gray-400">Requis pour valider votre inscription</p>
+      </div>
+    </div>
 
-            {/* SECTION 4: DOCUMENTS JUSTIFICATIFS */}
-            {isPayant && (
-              <div className="bg-white rounded-2xl border border-sky-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                    <DocumentDuplicateIcon className="w-5 h-5 text-[#0b4ea2]" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-800">4. {copy.mandatoryDocuments}</h2>
-                    <p className="text-xs text-gray-400">Requis pour valider votre inscription</p>
-                  </div>
-                </div>
-
-                {isParticulier ? (
-                  <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${hasDocument('CIN') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-[#0b4ea2]'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasDocument('CIN') ? 'bg-green-500' : 'bg-gray-100'}`}>
-                        <IdentificationIcon className={`w-5 h-5 ${hasDocument('CIN') ? 'text-white' : 'text-gray-400'}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-800">{copy.nationalId} *</p>
-                        <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <input type="file" id="cin" className="hidden" accept="image/jpeg,image/png,application/pdf" onChange={(e) => handleFileUpload('CIN', e.target.files[0])} />
-                      {hasDocument('CIN') ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-green-600 truncate max-w-[150px]">{formData.documents.find(d => d.type === 'CIN')?.file?.name}</span>
-                          <label htmlFor="cin" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">Modifier</label>
-                        </div>
-                      ) : (
-                        <label htmlFor="cin" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                          <PhotoIcon className="w-4 h-4" />
-                          Importer
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${hasDocument('GERANT_CIN') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-[#0b4ea2]'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasDocument('GERANT_CIN') ? 'bg-green-500' : 'bg-gray-100'}`}>
-                          <UserIcon className={`w-5 h-5 ${hasDocument('GERANT_CIN') ? 'text-white' : 'text-gray-400'}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-800">{copy.managerId} *</p>
-                          <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <input type="file" id="cinGerant" className="hidden" accept="image/jpeg,image/png,application/pdf" onChange={(e) => handleFileUpload('GERANT_CIN', e.target.files[0])} />
-                        {hasDocument('GERANT_CIN') ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-green-600 truncate max-w-[150px]">{formData.documents.find(d => d.type === 'GERANT_CIN')?.file?.name}</span>
-                            <label htmlFor="cinGerant" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">Modifier</label>
-                          </div>
-                        ) : (
-                          <label htmlFor="cinGerant" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <PhotoIcon className="w-4 h-4" />
-                            Importer
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${hasDocument('PATENTE') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-[#0b4ea2]'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasDocument('PATENTE') ? 'bg-green-500' : 'bg-gray-100'}`}>
-                          <DocumentTextIcon className={`w-5 h-5 ${hasDocument('PATENTE') ? 'text-white' : 'text-gray-400'}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-800">{copy.patent} *</p>
-                          <p className="text-xs text-gray-400">Document officiel</p>
-                        </div>
-                      </div>
-                      <div>
-                        <input type="file" id="patente" className="hidden" accept="image/jpeg,image/png,application/pdf" onChange={(e) => handleFileUpload('PATENTE', e.target.files[0])} />
-                        {hasDocument('PATENTE') ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-green-600 truncate max-w-[150px]">{formData.documents.find(d => d.type === 'PATENTE')?.file?.name}</span>
-                            <label htmlFor="patente" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">Modifier</label>
-                          </div>
-                        ) : (
-                          <label htmlFor="patente" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <PhotoIcon className="w-4 h-4" />
-                            Importer
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${hasDocument('RNE') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-[#0b4ea2]'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasDocument('RNE') ? 'bg-green-500' : 'bg-gray-100'}`}>
-                          <BriefcaseIcon className={`w-5 h-5 ${hasDocument('RNE') ? 'text-white' : 'text-gray-400'}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-800">{copy.rne} *</p>
-                          <p className="text-xs text-gray-400">Moins de 3 mois</p>
-                        </div>
-                      </div>
-                      <div>
-                        <input type="file" id="rne" className="hidden" accept="image/jpeg,image/png,application/pdf" onChange={(e) => handleFileUpload('RNE', e.target.files[0])} />
-                        {hasDocument('RNE') ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-green-600 truncate max-w-[150px]">{formData.documents.find(d => d.type === 'RNE')?.file?.name}</span>
-                            <label htmlFor="rne" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">Modifier</label>
-                          </div>
-                        ) : (
-                          <label htmlFor="rne" className="flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition">
-                            <PhotoIcon className="w-4 h-4" />
-                            Importer
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {!hasDocument('RNE') && (
-                      <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
-                        <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-yellow-800"><strong>{copy.rneWarningTitle} :</strong> {copy.rneWarning}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {fieldErrors.documents && <p className="text-xs text-red-500 mt-3">{fieldErrors.documents}</p>}
-              </div>
+    {isParticulier ? (
+      // CIN pour Particulier avec UX améliorée
+      <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+        hasDocument('CIN') ? 'border-green-400 bg-green-50' : 
+        ocrErrors.CIN ? 'border-red-400 bg-red-50' : 
+        'border-dashed border-gray-300 hover:border-[#0b4ea2]'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            hasDocument('CIN') ? 'bg-green-500' : 
+            ocrErrors.CIN ? 'bg-red-500' : 'bg-gray-100'
+          }`}>
+            <IdentificationIcon className={`w-5 h-5 ${
+              hasDocument('CIN') || ocrErrors.CIN ? 'text-white' : 'text-gray-400'
+            }`} />
+          </div>
+          <div>
+            <p className="font-medium text-slate-800">{copy.nationalId} *</p>
+            <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
+            {/* ✅ Message d'erreur CIN */}
+            {ocrErrors.CIN && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <ExclamationTriangleIcon className="w-3 h-3" />
+                {ocrErrors.CIN}
+              </p>
             )}
+            {/* ✅ Message de succès */}
+            {documentsValidated.CIN && !ocrErrors.CIN && (
+              <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                <CheckCircleIcon className="w-3 h-3" />
+                Document validé
+              </p>
+            )}
+            {/* ✅ Indicateur de chargement */}
+            {ocrValidating && (
+              <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                Vérification en cours...
+              </p>
+            )}
+          </div>
+        </div>
+        <div>
+          <input 
+            type="file" 
+            id="cin" 
+            className="hidden" 
+            accept="image/jpeg,image/png,application/pdf" 
+            onChange={(e) => handleFileUpload('CIN', e.target.files[0])} 
+            disabled={ocrValidating}
+          />
+          {hasDocument('CIN') ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-green-600 truncate max-w-[150px]">
+                {formData.documents.find(d => d.type === 'CIN')?.file?.name}
+              </span>
+              <label htmlFor="cin" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">
+                Modifier
+              </label>
+            </div>
+          ) : (
+            <label 
+              htmlFor="cin" 
+              className={`flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition ${
+                ocrValidating ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <PhotoIcon className="w-4 h-4" />
+              {ocrValidating ? 'Vérification...' : 'Importer'}
+            </label>
+          )}
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {/* GERANT_CIN avec UX améliorée */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+          hasDocument('GERANT_CIN') ? 'border-green-400 bg-green-50' : 
+          ocrErrors.GERANT_CIN ? 'border-red-400 bg-red-50' : 
+          'border-dashed border-gray-300 hover:border-[#0b4ea2]'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              hasDocument('GERANT_CIN') ? 'bg-green-500' : 
+              ocrErrors.GERANT_CIN ? 'bg-red-500' : 'bg-gray-100'
+            }`}>
+              <UserIcon className={`w-5 h-5 ${
+                hasDocument('GERANT_CIN') || ocrErrors.GERANT_CIN ? 'text-white' : 'text-gray-400'
+              }`} />
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">{copy.managerId} *</p>
+              <p className="text-xs text-gray-400">{copy.acceptedFormats}</p>
+              {ocrErrors.GERANT_CIN && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-3 h-3" />
+                  {ocrErrors.GERANT_CIN}
+                </p>
+              )}
+              {documentsValidated.GERANT_CIN && !ocrErrors.GERANT_CIN && (
+                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                  <CheckCircleIcon className="w-3 h-3" />
+                  Document validé
+                </p>
+              )}
+              {ocrValidating && (
+                <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                  Vérification en cours...
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <input 
+              type="file" 
+              id="cinGerant" 
+              className="hidden" 
+              accept="image/jpeg,image/png,application/pdf" 
+              onChange={(e) => handleFileUpload('GERANT_CIN', e.target.files[0])} 
+              disabled={ocrValidating}
+            />
+            {hasDocument('GERANT_CIN') ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-green-600 truncate max-w-[150px]">
+                  {formData.documents.find(d => d.type === 'GERANT_CIN')?.file?.name}
+                </span>
+                <label htmlFor="cinGerant" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">
+                  Modifier
+                </label>
+              </div>
+            ) : (
+              <label 
+                htmlFor="cinGerant" 
+                className={`flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition ${
+                  ocrValidating ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <PhotoIcon className="w-4 h-4" />
+                {ocrValidating ? 'Vérification...' : 'Importer'}
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* PATENTE avec UX améliorée */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+          hasDocument('PATENTE') ? 'border-green-400 bg-green-50' : 
+          ocrErrors.PATENTE ? 'border-red-400 bg-red-50' : 
+          'border-dashed border-gray-300 hover:border-[#0b4ea2]'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              hasDocument('PATENTE') ? 'bg-green-500' : 
+              ocrErrors.PATENTE ? 'bg-red-500' : 'bg-gray-100'
+            }`}>
+              <DocumentTextIcon className={`w-5 h-5 ${
+                hasDocument('PATENTE') || ocrErrors.PATENTE ? 'text-white' : 'text-gray-400'
+              }`} />
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">{copy.patent} *</p>
+              <p className="text-xs text-gray-400">Document officiel</p>
+              {ocrErrors.PATENTE && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-3 h-3" />
+                  {ocrErrors.PATENTE}
+                </p>
+              )}
+              {documentsValidated.PATENTE && !ocrErrors.PATENTE && (
+                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                  <CheckCircleIcon className="w-3 h-3" />
+                  Document validé
+                </p>
+              )}
+              {ocrValidating && (
+                <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                  Vérification en cours...
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <input 
+              type="file" 
+              id="patente" 
+              className="hidden" 
+              accept="image/jpeg,image/png,application/pdf" 
+              onChange={(e) => handleFileUpload('PATENTE', e.target.files[0])} 
+              disabled={ocrValidating}
+            />
+            {hasDocument('PATENTE') ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-green-600 truncate max-w-[150px]">
+                  {formData.documents.find(d => d.type === 'PATENTE')?.file?.name}
+                </span>
+                <label htmlFor="patente" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">
+                  Modifier
+                </label>
+              </div>
+            ) : (
+              <label 
+                htmlFor="patente" 
+                className={`flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition ${
+                  ocrValidating ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <PhotoIcon className="w-4 h-4" />
+                {ocrValidating ? 'Vérification...' : 'Importer'}
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* RNE avec UX améliorée */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+          hasDocument('RNE') ? 'border-green-400 bg-green-50' : 
+          ocrErrors.RNE ? 'border-red-400 bg-red-50' : 
+          'border-dashed border-gray-300 hover:border-[#0b4ea2]'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              hasDocument('RNE') ? 'bg-green-500' : 
+              ocrErrors.RNE ? 'bg-red-500' : 'bg-gray-100'
+            }`}>
+              <BriefcaseIcon className={`w-5 h-5 ${
+                hasDocument('RNE') || ocrErrors.RNE ? 'text-white' : 'text-gray-400'
+              }`} />
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">{copy.rne} *</p>
+              <p className="text-xs text-gray-400">Moins de 3 mois</p>
+              {ocrErrors.RNE && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-3 h-3" />
+                  {ocrErrors.RNE}
+                </p>
+              )}
+              {documentsValidated.RNE && !ocrErrors.RNE && (
+                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                  <CheckCircleIcon className="w-3 h-3" />
+                  Document validé
+                </p>
+              )}
+              {ocrValidating && (
+                <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                  Vérification en cours...
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <input 
+              type="file" 
+              id="rne" 
+              className="hidden" 
+              accept="image/jpeg,image/png,application/pdf" 
+              onChange={(e) => handleFileUpload('RNE', e.target.files[0])} 
+              disabled={ocrValidating}
+            />
+            {hasDocument('RNE') ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-green-600 truncate max-w-[150px]">
+                  {formData.documents.find(d => d.type === 'RNE')?.file?.name}
+                </span>
+                <label htmlFor="rne" className="cursor-pointer text-[#0b4ea2] text-sm font-medium hover:underline">
+                  Modifier
+                </label>
+              </div>
+            ) : (
+              <label 
+                htmlFor="rne" 
+                className={`flex items-center gap-2 cursor-pointer bg-[#0b4ea2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0b3d82] transition ${
+                  ocrValidating ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <PhotoIcon className="w-4 h-4" />
+                {ocrValidating ? 'Vérification...' : 'Importer'}
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* Avertissement RNE */}
+        {!hasDocument('RNE') && (
+          <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-start gap-2">
+            <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-800">
+              <strong>{copy.rneWarningTitle} :</strong> {copy.rneWarning}
+            </p>
+          </div>
+        )}
+      </div>
+    )}
+    
+    {fieldErrors.documents && <p className="text-xs text-red-500 mt-3">{fieldErrors.documents}</p>}
+  </div>
+)}
 
             {/* Checkbox conditions générales */}
             <div className="mt-6 pt-4 border-t border-gray-200">

@@ -23,7 +23,6 @@ import UpdateClientModal from './components/UpdateClientModal';
 import ClientDetailsModal from './components/ClientDetailsModal';
 import ClientFilters from './components/ClientFilters';
 import ClientStats from './components/ClientStats';
-import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import useClients from '../../../../hooks/useClient';
 import { useLanguage } from '../../../../context/LanguageContext';
 
@@ -82,13 +81,6 @@ const FALLBACK_TEXTS = {
   'salesPages.individuals': 'Particuliers',
   'salesPages.companies': 'Entreprises',
   'salesPages.loyal': 'Fidèles',
-  'salesPages.clientDeletedSuccess': 'Client supprimé avec succès',
-  'salesPages.deleteError': 'Erreur lors de la suppression',
-  'salesPages.confirmDelete': 'Confirmer la suppression',
-  'salesPages.confirmDeleteMessage': 'Êtes-vous sûr de vouloir supprimer ce client ?',
-  'salesPages.confirmDeleteWarning': 'Cette action est irréversible',
-  'salesPages.delete': 'Supprimer',
-  'salesPages.confirm': 'Confirmer',
 };
 
 const ClientManagePage = () => {
@@ -106,9 +98,7 @@ const ClientManagePage = () => {
   const [openModal, setOpenModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [clientToDelete, setClientToDelete] = useState(null);
   const [filters, setFilters] = useState({ search: '' });
   
   const [sortBy, setSortBy] = useState('date');
@@ -123,7 +113,6 @@ const ClientManagePage = () => {
     fetchClients, 
     createClient,
     updateClient,
-    deleteClient,
     checkTelephone,
     checkMatriculeFiscale,
     getRemiseForType,
@@ -178,31 +167,6 @@ const ClientManagePage = () => {
   const handleViewDetails = (client) => {
     setSelectedClient(client);
     setOpenDetailsModal(true);
-  };
-
-  const handleDeleteClick = (client) => {
-    setClientToDelete(client);
-    setOpenDeleteModal(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!clientToDelete) return;
-    
-    try {
-      await deleteClient(clientToDelete.idClient);
-      toast.success(safeT('salesPages.clientDeletedSuccess'));
-      fetchClients();
-    } catch (error) {
-      toast.error(error.message || safeT('salesPages.deleteError'));
-    } finally {
-      setOpenDeleteModal(false);
-      setClientToDelete(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setOpenDeleteModal(false);
-    setClientToDelete(null);
   };
 
   const handleModalClose = () => {
@@ -316,81 +280,72 @@ const ClientManagePage = () => {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{safeT('salesPages.actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : paginatedClients?.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                      <p className="text-gray-500">{safeT('salesPages.noClientsFound')}</p>
-                    </div>
-                   </td>
-                  </tr>
-              ) : (
-                paginatedClients?.map((client) => (
-                  <tr key={client.idClient} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-900">{client.idClient}</td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {client.prenom || ''} {client.nom || ''}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">{client.email || ''}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{client.telephone || ''}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{client.adresse || ''}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${getTypeClientClasses(client.typeClient)}`}>
-                        {getTypeClientLabel(client.typeClient)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => handleEditClient(client)}
-                          className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={safeT('salesPages.edit')}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleViewDetails(client)}
-                          className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={safeT('salesPages.viewDetails')}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(client)}
-                          className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title={safeT('salesPages.delete')}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
+           <tbody className="divide-y divide-gray-200">
+  {loading ? (
+    <tr>
+      <td colSpan="6" className="px-6 py-12 text-center">
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </td>
+    </tr>
+  ) : paginatedClients?.length === 0 ? (
+    <tr>
+      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+        <div className="flex flex-col items-center gap-2">
+          <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <p className="text-gray-500">{safeT('salesPages.noClientsFound')}</p>
+        </div>
+      </td>
+    </tr>
+  ) : (
+    paginatedClients?.map((client) => (
+      <tr key={client.idClient} className="hover:bg-gray-50 transition-colors">
+        <td className="px-6 py-4 text-sm text-gray-900">{client.idClient}</td>  {/* ✅ CORRIGÉ */}
+        <td className="px-6 py-4">
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              {client.prenom || ''} {client.nom || ''}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">{client.email || ''}</div>
+          </div>
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-600">{client.telephone || ''}</td>
+        <td className="px-6 py-4 text-sm text-gray-600">{client.adresse || ''}</td>
+        <td className="px-6 py-4">
+          <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${getTypeClientClasses(client.typeClient)}`}>
+            {getTypeClientLabel(client.typeClient)}
+          </span>
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleEditClient(client)}
+              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title={safeT('salesPages.edit')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => handleViewDetails(client)}
+              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title={safeT('salesPages.viewDetails')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
           </table>
         </div>
 
@@ -533,16 +488,6 @@ const ClientManagePage = () => {
         open={openDetailsModal}
         onClose={handleDetailsModalClose}
         client={selectedClient}
-        t={safeT}
-        isArabic={isArabic}
-      />
-
-      {/* Modal de confirmation de suppression */}
-      <ConfirmDeleteModal
-        isOpen={openDeleteModal}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        clientName={clientToDelete ? `${clientToDelete.prenom || ''} ${clientToDelete.nom || ''}`.trim() : ''}
         t={safeT}
         isArabic={isArabic}
       />

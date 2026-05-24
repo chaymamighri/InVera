@@ -303,7 +303,7 @@ export const authService = {
 
   getActivationLinkInfo: async (token) => {
     try {
-      const response = await api.get(`/auth/activation-link-info?token=${encodeURIComponent(token)}`);
+  const response = await api.get(`/auth/activation-link-info?token=${encodeURIComponent(token)}`);
       console.log('✅ getActivationLinkInfo - Réponse reçue:', response.data);
       return response.data;
     } catch (error) {

@@ -164,13 +164,29 @@ const copy = {
   },
 };
 
+import { createPortal } from 'react-dom';
 
 const Modal = ({ open, onClose, children, isArabic = false }) => {
+  React.useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [open]);
+
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl" dir={isArabic ? 'rtl' : 'ltr'}>
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div 
+        className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+        dir={isArabic ? 'rtl' : 'ltr'}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className={`absolute top-4 text-gray-500 transition hover:text-gray-700 ${
@@ -181,7 +197,8 @@ const Modal = ({ open, onClose, children, isArabic = false }) => {
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -549,9 +566,9 @@ const GestionUsers = () => {
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
           >
             <option value="all">{text.allRoles}</option>
-            <option value="sales">Responsable vente</option>
-            <option value="procurement">Responsable Achat et stock</option>
-          </select>
+  <option value="COMMERCIAL">Responsable vente</option>       
+  <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>  
+</select>
 
           <div className="text-sm font-medium text-emerald-600">
             {isLoading ? (
@@ -717,16 +734,16 @@ const GestionUsers = () => {
             )}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
-            <select
-              value={newUser.role}
-              onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2"
-            >
-              <option value="sales">Responsable vente</option>
-              <option value="procurement">Responsable Achat et stock</option>
-            </select>
-          </div>
+  <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
+  <select
+    value={newUser.role}
+    onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
+    className="w-full rounded-lg border border-gray-300 px-4 py-2"
+  >
+    <option value="COMMERCIAL">Responsable vente</option>
+    <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>
+  </select>
+</div>
           <p className="text-xs text-gray-500">{text.createHint}</p>
           <div className="flex gap-3 pt-4">
             <button
@@ -801,16 +818,16 @@ const GestionUsers = () => {
               )}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
-              <select
-                value={editingUser.role}
-                onChange={(event) => setEditingUser({ ...editingUser, role: event.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2"
-              >
-                <option value="sales">Responsable vente</option>
-                <option value="procurement">Responsable Achat et stock</option>
-              </select>
-            </div>
+  <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
+  <select
+    value={editingUser.role}
+    onChange={(event) => setEditingUser({ ...editingUser, role: event.target.value })}
+    className="w-full rounded-lg border border-gray-300 px-4 py-2"
+  >
+    <option value="COMMERCIAL">Responsable vente</option>              {/* ← CHANGÉ */}
+    <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>   {/* ← CHANGÉ */}
+  </select>
+</div>
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}
