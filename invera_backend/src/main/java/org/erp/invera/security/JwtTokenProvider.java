@@ -45,12 +45,16 @@ public class JwtTokenProvider {
 
     /**
      * Génère un token d'activation (valable 24h)
+     * @param email Email de l'utilisateur
+     * @param clientId ID du client (tenant)
+     * @param hours Nombre d'heures de validité
      */
-    public String generateActivationToken(String email, int i) {
-        long activationExpirationMs = 24 * 60 * 60 * 1000; // 24h
+    public String generateActivationToken(String email, Long clientId, int hours) {
+        long activationExpirationMs = hours * 60 * 60 * 1000L; // heures en millisecondes
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
+        claims.put("clientId", clientId);      // ← AJOUTER clientId
         claims.put("type", "ACTIVATION");
         claims.put("purpose", "ACCOUNT_ACTIVATION");
 

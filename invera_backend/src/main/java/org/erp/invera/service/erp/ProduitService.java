@@ -223,10 +223,20 @@ public class ProduitService {
 
 
     public List<Produit> getAllProduits(String token) {
-        Long clientId = getClientIdFromToken(token);
-        String authClientId = String.valueOf(clientId);
+        try {
+            Long clientId = getClientIdFromToken(token);
+            String authClientId = String.valueOf(clientId);
 
-        String sql = """
+            // Vérifier si la table produit existe
+            String checkTableSql = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'produit')";
+            Boolean tableExists = tenantRepo.queryForObjectAuth(checkTableSql, Boolean.class, clientId, authClientId);
+
+            if (tableExists == null || !tableExists) {
+                log.warn("⚠️ La table produit n'existe pas encore");
+                return List.of(); // Retourner liste vide
+            }
+
+            String sql = """
         SELECT p.*, 
                c.id_categorie as categorie_id, 
                c.nom_categorie as categorie_nom,
@@ -244,7 +254,12 @@ public class ProduitService {
         ORDER BY p.id_produit
         """;
 
-        return tenantRepo.queryWithAuth(sql, produitRowMapper(), clientId, authClientId);
+            return tenantRepo.queryWithAuth(sql, produitRowMapper(), clientId, authClientId);
+
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur récupération produits (base probablement vide): {}", e.getMessage());
+            return List.of(); // Retourner liste vide
+        }
     }
 
     public List<Produit> getProduitsActifs(String token) {

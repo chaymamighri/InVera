@@ -147,11 +147,27 @@ public class AuthController {
     // ==================== MÉTHODE POUR TROUVER LE CLIENT ====================
 
     private Client findClientByUserEmail(String email) {
-        try {
-            return resolveLoginIdentity(email).client;
-        } catch (RuntimeException e) {
-            return null;
+        // 1. Chercher d'abord dans la table clients (platform)
+        Optional<Client> clientOpt = clientRepository.findByEmail(email);
+        if (clientOpt.isPresent()) {
+            return clientOpt.get();
         }
+
+        // 2. Sinon, chercher dans toutes les bases client
+        for (Client candidate : clientRepository.findAll()) {
+            if (candidate.getNomBaseDonnees() == null) continue;
+
+            try {
+                Utilisateur user = utilisateurService.findByEmail(candidate.getId(), email);
+                if (user != null) {
+                    log.info("✅ Utilisateur {} trouvé dans client_{}", email, candidate.getId());
+                    return candidate;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        log.warn("❌ Aucun client trouvé pour email: {}", email);
+        return null;
     }
 
     private LoginIdentity resolveLoginIdentity(String email) {
@@ -275,7 +291,7 @@ public class AuthController {
             utilisateurService.toggleEmployeeStatus(clientId, newUser.getId(), false);
 
             // ✅ AJOUTER L'ENVOI D'EMAIL D'ACTIVATION
-            String activationToken = jwtTokenProvider.generateActivationToken(email, 24);
+            String activationToken = jwtTokenProvider.generateActivationToken(email, clientId, 24);
             emailService.sendActivationLinkEmail(email, activationToken, nom, prenom);
             log.info(" Email d'activation envoyé à {}", email);
 
@@ -301,6 +317,8 @@ public class AuthController {
             case "procurement":
                 return "RESPONSABLE_ACHAT";
             case "sales":
+            case "commercial":
+                return "COMMERCIAL";
             default:
                 return "COMMERCIAL";
         }
@@ -637,21 +655,27 @@ public class AuthController {
     @GetMapping("/activation-link-info")
     public ResponseEntity<?> getActivationLinkInfo(@RequestParam String token) {
         try {
-            log.info(" Vérification du token d'activation: {}", token);
+            log.info("🔍 Vérification du token d'activation");
 
             if (!jwtTokenProvider.validateToken(token)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
             }
 
+            // Extraire email ET clientId du token
             String email = jwtTokenProvider.getEmailFromToken(token);
-            log.info(" Token valide pour: {}", email);
+            Long clientId = jwtTokenProvider.getClientIdFromToken(token);  // ← EXTRAIRE clientId
 
-            Client client = findClientByUserEmail(email);
-            if (client == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Utilisateur non trouvé"));
+            log.info("✅ Token valide pour: {} (clientId: {})", email, clientId);
+
+            if (clientId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Token invalide: clientId manquant"));
             }
 
-            Utilisateur utilisateur = utilisateurService.findByEmail(client.getId(), email);
+            // Utiliser directement le clientId du token
+            Client client = clientRepository.findById(clientId)
+                    .orElseThrow(() -> new RuntimeException("Client non trouvé: " + clientId));
+
+            Utilisateur utilisateur = utilisateurService.findByEmail(clientId, email);
             if (utilisateur == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Utilisateur non trouvé"));
             }
@@ -665,11 +689,12 @@ public class AuthController {
             response.put("nom", utilisateur.getNom());
             response.put("prenom", utilisateur.getPrenom());
             response.put("hasPassword", utilisateur.getMotDePasse() != null);
+            response.put("clientId", clientId);  // ← AJOUTER pour info
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error(" Erreur lors de la vérification: {}", e.getMessage());
+            log.error("❌ Erreur: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de la vérification: " + e.getMessage()));
         }
@@ -681,25 +706,25 @@ public class AuthController {
             String token = request.get("token");
             String newPassword = request.get("newPassword");
 
-            log.info(" Activation du compte avec création de mot de passe");
+            log.info("🔍 Activation du compte");
 
             if (!jwtTokenProvider.validateToken(token)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Lien d'activation invalide ou expiré."));
             }
 
+            String email = jwtTokenProvider.getEmailFromToken(token);
+            Long clientId = jwtTokenProvider.getClientIdFromToken(token);  // ← EXTRAIRE clientId
+
+            log.info("✅ Activation pour: {} (clientId: {})", email, clientId);
+
             if (newPassword == null || newPassword.length() < 8) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Le mot de passe doit contenir au moins 8 caractères."));
             }
 
-            String email = jwtTokenProvider.getEmailFromToken(token);
-            log.info(" Activation du compte pour: {}", email);
+            Client client = clientRepository.findById(clientId)
+                    .orElseThrow(() -> new RuntimeException("Client non trouvé: " + clientId));
 
-            Client client = findClientByUserEmail(email);
-            if (client == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Utilisateur non trouvé"));
-            }
-
-            Utilisateur utilisateur = utilisateurService.findByEmail(client.getId(), email);
+            Utilisateur utilisateur = utilisateurService.findByEmail(clientId, email);
             if (utilisateur == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Utilisateur non trouvé"));
             }
@@ -708,13 +733,10 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Ce compte est déjà activé. Vous pouvez vous connecter."));
             }
 
-            // Activer le compte
-            utilisateurService.toggleEmployeeStatus(client.getId(), utilisateur.getId(), true);
+            utilisateurService.toggleEmployeeStatus(clientId, utilisateur.getId(), true);
+            utilisateurService.updatePassword(clientId, utilisateur.getId(), newPassword);
 
-            // Mettre à jour le mot de passe
-            utilisateurService.updatePassword(client.getId(), utilisateur.getId(), newPassword);
-
-            log.info(" Compte activé avec succès: {}", email);
+            log.info("✅ Compte activé avec succès: {}", email);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -724,12 +746,11 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error(" Erreur lors de l'activation: {}", e.getMessage());
+            log.error("❌ Erreur: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur lors de l'activation: " + e.getMessage()));
         }
     }
-
     // ==================== MOT DE PASSE OUBLIÉ ====================
 
     @PostMapping("/forgot-password")

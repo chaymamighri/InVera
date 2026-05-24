@@ -14,6 +14,8 @@ import org.erp.invera.repository.platform.ClientPlatformRepository;
 import org.erp.invera.repository.platform.OffreAbonnementRepository;
 import org.erp.invera.security.JwtTokenProvider;
 import org.erp.invera.service.docJusticatif.DocumentUploadService;
+import org.erp.invera.service.docJusticatif.OcrValidationResult;
+import org.erp.invera.service.docJusticatif.OcrValidationService;
 import org.erp.invera.service.erp.EmailService;
 import org.erp.invera.service.logo.LogoUploadService;
 import org.erp.invera.service.platform.*;
@@ -52,8 +54,11 @@ public class PlatformClientController {
     private final PaiementService paiementService;
     private  final JwtTokenProvider jwtTokenProvider;
     private  final LogoUploadService logoUploadService;
+    private final OcrValidationService ocrValidationService;
+
 
     // ========== 1. INSCRIPTION ==========
+// ========== 1. INSCRIPTION ==========
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @ModelAttribute ClientRegistrationRequest request,
@@ -169,6 +174,86 @@ public class PlatformClientController {
             }
 
             log.info("📝 Valeurs corrigées - typeCompte: {}, typeInscription: {}", typeCompteStr, typeInscriptionStr);
+
+            // ✅ NOUVEAU : VALIDATION OCR DES DOCUMENTS AVANT INSCRIPTION (POUR LES CLIENTS DEFINITIF)
+            if ("DEFINITIF".equals(typeInscriptionStr) && !documents.isEmpty()) {
+                log.info("🔍 Validation OCR des documents pour inscription DEFINITIF");
+
+                // Vérifier les documents obligatoires selon le type de compte
+                if ("PARTICULIER".equals(typeCompteStr)) {
+                    // Pour particulier, CIN est obligatoire
+                    if (!documents.containsKey("CIN")) {
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "error", "La carte d'identité (CIN) est obligatoire pour l'inscription DEFINITIF",
+                                "documentType", "CIN"
+                        ));
+                    }
+
+                    // Valider le CIN
+                    MultipartFile cinFile = documents.get("CIN");
+                    OcrValidationResult ocrResult = ocrValidationService.validateCin(cinFile);
+                    if (!ocrResult.isValid()) {
+                        log.warn("❌ CIN invalide: {}", ocrResult.getMessage());
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "error", "Carte d'identité invalide: " + ocrResult.getMessage(),
+                                "documentType", "CIN",
+                                "ocrMessage", ocrResult.getMessage()
+                        ));
+                    }
+                    log.info("✅ CIN validé par OCR: {}", ocrResult.getExtractedValue());
+
+                } else if ("ENTREPRISE".equals(typeCompteStr)) {
+                    // Pour entreprise: GERANT_CIN, PATENTE, RNE sont obligatoires
+                    String[] requiredDocs = {"GERANT_CIN", "PATENTE", "RNE"};
+                    for (String requiredDoc : requiredDocs) {
+                        if (!documents.containsKey(requiredDoc)) {
+                            return ResponseEntity.badRequest().body(Map.of(
+                                    "error", "Le document " + getDocumentLabel(requiredDoc) + " est obligatoire pour l'inscription DEFINITIF",
+                                    "documentType", requiredDoc
+                            ));
+                        }
+                    }
+
+                    // Valider CIN du gérant
+                    MultipartFile gerantCinFile = documents.get("GERANT_CIN");
+                    OcrValidationResult cinResult = ocrValidationService.validateCin(gerantCinFile);
+                    if (!cinResult.isValid()) {
+                        log.warn("❌ CIN du gérant invalide: {}", cinResult.getMessage());
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "error", "Carte d'identité du gérant invalide: " + cinResult.getMessage(),
+                                "documentType", "GERANT_CIN",
+                                "ocrMessage", cinResult.getMessage()
+                        ));
+                    }
+                    log.info("✅ CIN du gérant validé par OCR: {}", cinResult.getExtractedValue());
+
+                    // Valider PATENTE
+                    MultipartFile patenteFile = documents.get("PATENTE");
+                    OcrValidationResult patenteResult = ocrValidationService.validatePatente(patenteFile);
+                    if (!patenteResult.isValid()) {
+                        log.warn("❌ PATENTE invalide: {}", patenteResult.getMessage());
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "error", "Patente invalide: " + patenteResult.getMessage(),
+                                "documentType", "PATENTE",
+                                "ocrMessage", patenteResult.getMessage()
+                        ));
+                    }
+                    log.info("✅ PATENTE validée par OCR");
+
+                    // Valider RNE
+                    MultipartFile rneFile = documents.get("RNE");
+                    OcrValidationResult rneResult = ocrValidationService.validateRne(rneFile);
+                    if (!rneResult.isValid()) {
+                        log.warn("❌ RNE invalide: {}", rneResult.getMessage());
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "error", "Extrait RNE invalide: " + rneResult.getMessage(),
+                                "documentType", "RNE",
+                                "ocrMessage", rneResult.getMessage()
+                        ));
+                    }
+                    log.info("✅ RNE validé par OCR: {}", rneResult.getExtractedValue());
+                }
+            }
 
             // 3. Créer le client avec les informations de base
             Client client = new Client();
@@ -352,6 +437,17 @@ public class PlatformClientController {
 
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // Ajoutez cette méthode helper dans la classe
+    private String getDocumentLabel(String docType) {
+        return switch (docType.toUpperCase()) {
+            case "CIN" -> "Carte d'identité";
+            case "GERANT_CIN" -> "Carte d'identité du gérant";
+            case "PATENTE" -> "Patente";
+            case "RNE" -> "Extrait RNE";
+            default -> docType;
+        };
     }
 
     @PostMapping("/request-otp")

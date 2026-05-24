@@ -139,41 +139,15 @@ public class DatabaseCreationService {
         String url = getConnectionUrl(dbName);
         String encodedPassword = passwordEncoder.encode(plainPassword);
 
-        String insertClientSql = """
-            INSERT INTO client (
-                id_client, nom, prenom, email, telephone, adresse, type_client, created_at, created_by
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
-            ON CONFLICT (id_client) DO UPDATE SET
-                nom = EXCLUDED.nom,
-                prenom = EXCLUDED.prenom,
-                email = EXCLUDED.email,
-                telephone = EXCLUDED.telephone,
-                adresse = EXCLUDED.adresse,
-                type_client = EXCLUDED.type_client
-            """;
-
         String sql = """
-            INSERT INTO users (active, client_id, email, mot_de_passe, nom, prenom, role, preferred_language)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """;
+        INSERT INTO users (active, client_id, email, mot_de_passe, nom, prenom, role, preferred_language)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """;
 
-        log.info(" Création utilisateur admin dans la base {} pour {}", dbName, client.getEmail());
+        log.info("📝 Création utilisateur admin dans la base {} pour {}", dbName, client.getEmail());
 
         try (Connection conn = DriverManager.getConnection(url, platformDbUsername, platformDbPassword)) {
-            try (PreparedStatement pstmtClient = conn.prepareStatement(insertClientSql)) {
-                pstmtClient.setLong(1, client.getId());
-                pstmtClient.setString(2, client.getNom() != null ? client.getNom() : "");
-                pstmtClient.setString(3, client.getPrenom() != null ? client.getPrenom() : "");
-                pstmtClient.setString(4, client.getEmail());
-                pstmtClient.setString(5, client.getTelephone() != null ? client.getTelephone() : "");
-                pstmtClient.setString(6, "Adresse non renseignee");
-                pstmtClient.setString(7, mapTenantClientType(client));
-                pstmtClient.setObject(8, null);
-                pstmtClient.executeUpdate();
-                log.info("Ligne client créée dans la base {}: {}", dbName, client.getId());
-            }
-
+            // ✅ Uniquement l'insertion de l'utilisateur admin
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setBoolean(1, true);
                 pstmt.setLong(2, client.getId());
@@ -185,14 +159,13 @@ public class DatabaseCreationService {
                 pstmt.setString(8, "FR");
                 pstmt.executeUpdate();
 
-                log.info(" Utilisateur admin créé dans la base {}: {}", dbName, client.getEmail());
+                log.info("✅ Utilisateur admin créé dans la base {}: {}", dbName, client.getEmail());
             }
         } catch (SQLException e) {
-            log.error(" Erreur création admin dans {}: {}", dbName, e.getMessage());
+            log.error("❌ Erreur création admin dans {}: {}", dbName, e.getMessage());
             throw new RuntimeException("Erreur création utilisateur admin: " + e.getMessage(), e);
         }
     }
-
     // ============================================================
     // MÉTHODES UTILITAIRES
     // ============================================================

@@ -105,7 +105,8 @@ public class SecurityConfig {
                                 "/webhook/**",
                                 "/paiement/succes",
                                 "/paiement/echec",
-                                "/paiement/annuler"
+                                "/paiement/annuler",
+                                "/api/public/ocr/**"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.POST, "/api/paiement/**").permitAll()

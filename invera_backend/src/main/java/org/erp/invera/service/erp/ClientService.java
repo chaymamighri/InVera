@@ -113,37 +113,19 @@ public class ClientService {
             }
         }
 
-        Double remiseFidele = null;
-        Double remiseVip = null;
-        Double remisePro = null;
-
-        switch (clientType) {
-            case FIDELE:
-                remiseFidele = getRemiseForClientType("FIDELE", token);
-                break;
-            case VIP:
-                remiseVip = getRemiseForClientType("VIP", token);
-                break;
-            case ENTREPRISE:
-                remisePro = getRemiseForClientType("ENTREPRISE", token);
-                break;
-            default:
-                break;
-        }
-
         String currentUser = jwtTokenProvider.getEmailFromToken(token);
         if (currentUser == null || currentUser.isBlank()) {
             currentUser = "SYSTEM";
         }
 
+        // ✅ INSERT CORRECT - Sans les colonnes de remise
         String insertSql = """
-            INSERT INTO client (nom, prenom, telephone, email, adresse, type_client, 
-                                raison_sociale, matricule_fiscale,
-                                remise_client_fidele, remise_client_vip, remise_client_professionnelle,
-                                created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id_client
-            """;
+        INSERT INTO client (nom, prenom, telephone, email, adresse, type_client, 
+                            raison_sociale, matricule_fiscale,
+                            created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id_client
+        """;
 
         Integer id = tenantRepo.queryForObjectAuth(insertSql, Integer.class, clientId, authClientId,
                 clientDTO.getNom(),
@@ -154,9 +136,6 @@ public class ClientService {
                 clientType.name(),
                 clientType == Client.TypeClient.ENTREPRISE ? clientDTO.getRaisonSociale() : null,
                 clientType == Client.TypeClient.ENTREPRISE ? clientDTO.getMatriculeFiscale() : null,
-                remiseFidele,
-                remiseVip,
-                remisePro,
                 currentUser,
                 LocalDateTime.now());
 
@@ -164,11 +143,26 @@ public class ClientService {
     }
 
     public List<Client> getAllClients(String token) {
-        Long clientId = getClientIdFromToken(token);
-        String authClientId = String.valueOf(clientId);
+        try {
+            Long clientId = getClientIdFromToken(token);
+            String authClientId = String.valueOf(clientId);
 
-        String sql = "SELECT * FROM client ORDER BY nom ASC, prenom ASC";
-        return tenantRepo.queryWithAuth(sql, clientRowMapper(), clientId, authClientId);
+            // Vérifier d'abord si la table existe
+            String checkTableSql = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'client')";
+            Boolean tableExists = tenantRepo.queryForObjectAuth(checkTableSql, Boolean.class, clientId, authClientId);
+
+            if (tableExists == null || !tableExists) {
+                log.warn("⚠️ La table client n'existe pas encore");
+                return List.of(); // Retourner liste vide
+            }
+
+            String sql = "SELECT * FROM client ORDER BY nom ASC, prenom ASC";
+            return tenantRepo.queryWithAuth(sql, clientRowMapper(), clientId, authClientId);
+
+        } catch (Exception e) {
+            log.warn("⚠️ Erreur récupération clients (base probablement vide): {}", e.getMessage());
+            return List.of(); // Retourner liste vide au lieu d'erreur
+        }
     }
 
     public List<Client> searchClients(String keyword, String token) {

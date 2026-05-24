@@ -398,31 +398,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return false;
             }
 
-            // 4. Pour les clients DEFINITIF, vérifier l'abonnement
+            // 4. Pour les clients DEFINITIF, vérifier l'abonnement OU les connexions gratuites
             if (client.getTypeInscription() == Client.TypeInscription.DEFINITIF) {
                 if (client.getAbonnementActif() == null) {
-                    System.out.println("Client DEFINITIF sans abonnement - Accès refusé: " + email);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"NO_SUBSCRIPTION\",\"message\":\"Vous n'avez pas d'abonnement actif.\"}");
-                    return false;
-                }
+                    // Vérifier s'il reste des connexions gratuites
+                    if (client.getConnexionsRestantes() > 0) {
+                        System.out.println("Client DEFINITIF sans abonnement mais avec " + client.getConnexionsRestantes() +
+                                " connexions gratuites - Accès autorisé: " + email);
+                        // Continuer, ne pas bloquer
+                    } else {
+                        System.out.println("Client DEFINITIF sans abonnement et sans connexions - Accès refusé: " + email);
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"NO_SUBSCRIPTION\",\"message\":\"Vous n'avez pas d'abonnement actif et plus de connexions gratuites.\"}");
+                        return false;
+                    }
+                } else {
+                    // Vérifier que l'abonnement est actif et non expiré
+                    if (client.getAbonnementActif().getDateFin() != null &&
+                            client.getAbonnementActif().getDateFin().isBefore(java.time.LocalDateTime.now())) {
+                        System.out.println("Abonnement expiré pour client: " + email);
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"SUBSCRIPTION_EXPIRED\",\"message\":\"Votre abonnement a expiré. Veuillez le renouveler.\"}");
+                        return false;
+                    }
 
-                if (client.getAbonnementActif().getDateFin() != null &&
-                        client.getAbonnementActif().getDateFin().isBefore(java.time.LocalDateTime.now())) {
-                    System.out.println(" Abonnement expiré pour client: " + email);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"SUBSCRIPTION_EXPIRED\",\"message\":\"Votre abonnement a expiré. Veuillez le renouveler.\"}");
-                    return false;
-                }
-
-                if (client.getAbonnementActif().getStatut() != Abonnement.StatutAbonnement.ACTIF) {
-                    System.out.println("Abonnement non actif pour client: " + email);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"SUBSCRIPTION_INACTIVE\",\"message\":\"Votre abonnement n'est pas actif.\"}");
-                    return false;
+                    if (client.getAbonnementActif().getStatut() != Abonnement.StatutAbonnement.ACTIF) {
+                        System.out.println("Abonnement non actif pour client: " + email);
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"SUBSCRIPTION_INACTIVE\",\"message\":\"Votre abonnement n'est pas actif.\"}");
+                        return false;
+                    }
                 }
             }
 
