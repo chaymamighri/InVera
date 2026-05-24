@@ -20,6 +20,16 @@ const interpolate = (value, params = {}) =>
     return params[trimmedKey] ?? '';
   });
 
+const humanizeMissingKey = (key) => {
+  if (!key.includes('.')) return key;
+  return key
+    .split('.')
+    .pop()
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/^./, (char) => char.toUpperCase());
+};
+
 const resolveTranslation = (language, key) => {
   const parts = key.split('.');
   let current = translations[language];
@@ -118,7 +128,7 @@ export const LanguageProvider = ({ children }) => {
     const value =
       resolveTranslationWithAliases(language, key) ??
       resolveTranslationWithAliases(DEFAULT_LANGUAGE, key) ??
-      key;
+      humanizeMissingKey(key);
 
     return interpolate(value, params);
   };

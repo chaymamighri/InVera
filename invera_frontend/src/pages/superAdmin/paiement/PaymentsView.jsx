@@ -13,7 +13,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 const PaymentsView = () => {
-  const { t } = useLanguage();
+  const { t, language, isArabic } = useLanguage();
+  const locale = language === 'ar' ? 'ar-TN' : language === 'en' ? 'en-US' : 'fr-FR';
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,12 +27,11 @@ const PaymentsView = () => {
   
   const itemsPerPage = 10;
 
-  // STATUTS pour paiements
   const STATUS_OPTIONS = [
-    { label: 'Tous', value: 'all' },
-    { label: 'Succès', value: 'SUCCES' },
-    { label: 'En attente', value: 'EN_ATTENTE' },
-    { label: 'Échec', value: 'ECHEC' },
+    { label: t('dashboard.superAdminPaymentAllStatuses'), value: 'all' },
+    { label: t('dashboard.superAdminPaymentSuccessStatus'), value: 'SUCCES' },
+    { label: t('dashboard.superAdminPaymentPendingStatus'), value: 'EN_ATTENTE' },
+    { label: t('dashboard.superAdminPaymentFailedStatus'), value: 'ECHEC' },
   ];
 
   useEffect(() => {
@@ -47,7 +47,7 @@ const PaymentsView = () => {
       setError(null);
     } catch (err) {
       console.error('Erreur:', err);
-      setError(err.message || 'Impossible de charger les paiements');
+      setError(err.message || t('dashboard.superAdminPaymentLoadError'));
       setPayments([]);
     } finally {
       setLoading(false);
@@ -90,19 +90,19 @@ const PaymentsView = () => {
   // Statistiques
   const stats = useMemo(() => {
     const total = payments.length;
-    const success = payments.filter(p => p.statut === 'SUCCES').length;
+    const successfulPayments = payments.filter(p => p.statut === 'SUCCES');
+    const success = successfulPayments.length;
     const pending = payments.filter(p => p.statut === 'EN_ATTENTE').length;
     const failed = payments.filter(p => p.statut === 'ECHEC').length;
-    const totalAmount = payments
-      .filter(p => p.statut === 'SUCCES')
-      .reduce((sum, p) => sum + (p.montant || 0), 0);
-    return { total, success, pending, failed, totalAmount };
+    const totalAmount = successfulPayments.reduce((sum, p) => sum + (p.montant || 0), 0);
+    const totalCurrency = successfulPayments.find(p => p.devise)?.devise || payments.find(p => p.devise)?.devise || 'TND';
+    return { total, success, pending, failed, totalAmount, totalCurrency };
   }, [payments]);
 
   // Export CSV
   const handleExportCSV = () => {
     if (filteredPayments.length === 0) {
-      setError('Aucun paiement à exporter');
+      setError(t('dashboard.superAdminNoPaymentsToExport'));
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -115,7 +115,7 @@ const PaymentsView = () => {
       paymentService.exportToCSV(filteredPayments, filename);
     } catch (err) {
       console.error('Erreur export:', err);
-      setError('Erreur lors de l\'export');
+      setError(t('dashboard.superAdminPaymentExportError'));
       setTimeout(() => setError(null), 3000);
     } finally {
       setExporting(false);
@@ -138,7 +138,7 @@ const PaymentsView = () => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR', {
+      return date.toLocaleDateString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -150,25 +150,25 @@ const PaymentsView = () => {
     }
   };
 
-  const formatAmount = (montant, devise = 'XAF') => {
+  const formatAmount = (montant, devise = 'TND') => {
     const numAmount = typeof montant === 'number' ? montant : parseFloat(montant);
-    if (isNaN(numAmount)) return '0 FCFA';
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: devise,
+    const currency = devise || 'TND';
+    const amount = Number.isNaN(numAmount) ? 0 : numAmount;
+    const formattedAmount = new Intl.NumberFormat(locale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(numAmount);
+    }).format(amount);
+    return `${formattedAmount} ${currency === 'XAF' ? 'FCFA' : currency}`;
   };
 
   const getStatusBadge = (statut) => {
     const statusMap = {
-      'SUCCES': { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Succès' },
-      'EN_ATTENTE': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'En attente' },
-      'ECHEC': { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Échec' }
+      'SUCCES': { bg: 'bg-emerald-100', text: 'text-emerald-700', label: t('dashboard.superAdminPaymentSuccessStatus') },
+      'EN_ATTENTE': { bg: 'bg-amber-100', text: 'text-amber-700', label: t('dashboard.superAdminPaymentPendingStatus') },
+      'ECHEC': { bg: 'bg-rose-100', text: 'text-rose-700', label: t('dashboard.superAdminPaymentFailedStatus') }
     };
     
-    const statusInfo = statusMap[statut] || { bg: 'bg-gray-100', text: 'text-gray-700', label: statut || 'Inconnu' };
+    const statusInfo = statusMap[statut] || { bg: 'bg-gray-100', text: 'text-gray-700', label: statut || t('dashboard.superAdminUnknownStatus') };
     
     return (
       <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusInfo.bg} ${statusInfo.text} border-transparent`}>
@@ -183,9 +183,7 @@ const PaymentsView = () => {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
         <p className="text-red-600">{error}</p>
-        <button onClick={fetchPayments} className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg">
-          Réessayer
-        </button>
+        <button onClick={fetchPayments} className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg">{t('dashboard.superAdminRetry')}</button>
       </div>
     );
   }
@@ -199,20 +197,19 @@ const PaymentsView = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* En-tête */}
       <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-purple-600">
-              Gestion financière
+              {t('dashboard.superAdminPaymentsEyebrow')}
             </p>
             <h1 className="mt-3 text-3xl font-semibold text-gray-900">
-              Paiements des abonnements
+              {t('dashboard.superAdminPaymentsTitle')}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-500">
-              Consultez l'historique des paiements, filtrez par statut et exportez les données.
-              Les paiements en succès activent automatiquement les abonnements clients.
+              {t('dashboard.superAdminPaymentsDescription')}
             </p>
           </div>
 
@@ -226,7 +223,7 @@ const PaymentsView = () => {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Rechercher un paiement..."
+                placeholder={t('dashboard.superAdminPaymentSearchPlaceholder')}
                 className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-12 pr-4 text-sm text-gray-900 outline-none transition focus:border-purple-300 focus:bg-white"
               />
             </div>
@@ -237,24 +234,24 @@ const PaymentsView = () => {
       {/* Cartes statistiques */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">Total Paiements</p>
+          <p className="text-sm font-medium text-gray-500">{t('dashboard.superAdminPaymentsTotal')}</p>
           <p className="mt-2 text-3xl font-semibold text-gray-900">{stats.total}</p>
         </div>
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">Paiements réussis</p>
+          <p className="text-sm font-medium text-gray-500">{t('dashboard.superAdminPaymentsSuccess')}</p>
           <p className="mt-2 text-3xl font-semibold text-emerald-600">{stats.success}</p>
         </div>
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">En attente</p>
+          <p className="text-sm font-medium text-gray-500">{t('dashboard.superAdminPaymentsPending')}</p>
           <p className="mt-2 text-3xl font-semibold text-amber-600">{stats.pending}</p>
         </div>
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">Échecs</p>
+          <p className="text-sm font-medium text-gray-500">{t('dashboard.superAdminPaymentsFailed')}</p>
           <p className="mt-2 text-3xl font-semibold text-rose-600">{stats.failed}</p>
         </div>
         <div className={summaryCardClass}>
-          <p className="text-sm font-medium text-gray-500">Montant total (succès)</p>
-          <p className="mt-2 text-3xl font-semibold text-purple-600">{formatAmount(stats.totalAmount)}</p>
+          <p className="text-sm font-medium text-gray-500">{t('dashboard.superAdminPaymentsTotalAmount')}</p>
+          <p className="mt-2 text-3xl font-semibold text-purple-600">{formatAmount(stats.totalAmount, stats.totalCurrency)}</p>
         </div>
       </section>
 
@@ -287,7 +284,7 @@ const PaymentsView = () => {
                 className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-50"
               >
                 <DocumentArrowDownIcon className="h-4 w-4" />
-                {exporting ? 'Export...' : 'Exporter CSV'}
+                {exporting ? t('dashboard.superAdminExporting') : t('dashboard.superAdminExportCsv')}
               </button>
             
             </div>
@@ -297,19 +294,19 @@ const PaymentsView = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr className={`${isArabic ? 'text-right' : 'text-left'} text-xs font-semibold uppercase tracking-wide text-gray-500`}>
                 <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Client</th>
-                <th className="px-6 py-4">Offre</th>
-                <th className="px-6 py-4">Montant</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4">Actions</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableClient')}</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableOffer')}</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableAmount')}</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableDate')}</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableStatus')}</th>
+                <th className="px-6 py-4">{t('dashboard.superAdminTableActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {currentPayments.map((payment) => {
-                const clientFullName = `${payment.clientPrenom || ''} ${payment.clientNom || ''}`.trim() || 'Client inconnu';
+                const clientFullName = `${payment.clientPrenom || ''} ${payment.clientNom || ''}`.trim() || t('dashboard.superAdminUnknownClient');
 
                 return (
                   <tr key={payment.id} className="hover:bg-gray-50 transition">
@@ -321,13 +318,13 @@ const PaymentsView = () => {
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900">{clientFullName}</p>
-                          <p className="text-sm text-gray-500">{payment.clientEmail || 'Email non renseigné'}</p>
+                          <p className="text-sm text-gray-500">{payment.clientEmail || t('dashboard.superAdminEmailNotProvided')}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
-                        {payment.offreNom || 'Offre inconnue'}
+                        {payment.offreNom || t('dashboard.superAdminUnknownOffer')}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-900">{formatAmount(payment.montant, payment.devise)}</td>
@@ -337,10 +334,10 @@ const PaymentsView = () => {
                       <button
                         onClick={() => handleViewDetails(payment)}
                         className="inline-flex items-center gap-1 rounded-lg bg-purple-100 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-200 transition"
-                        title="Voir les détails"
+                        title={t('dashboard.superAdminDetails')}
                       >
                         <EyeIcon className="h-4 w-4" />
-                        Détails
+                        {t('dashboard.superAdminDetails')}
                       </button>
                     </td>
                   </tr>
@@ -351,7 +348,7 @@ const PaymentsView = () => {
 
           {filteredPayments.length === 0 && (
             <div className="px-6 py-16 text-center text-gray-500">
-              Aucun paiement ne correspond à cette recherche.
+              {t('dashboard.superAdminNoPaymentFound')}
             </div>
           )}
         </div>
@@ -360,7 +357,7 @@ const PaymentsView = () => {
         {totalPages > 1 && (
           <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center">
             <p className="text-sm text-gray-500">
-              {filteredPayments.length} paiement{filteredPayments.length > 1 ? 's' : ''}
+              {t('dashboard.superAdminPaymentCount', { count: filteredPayments.length })}
             </p>
             <div className="flex gap-2">
               <button
@@ -369,17 +366,17 @@ const PaymentsView = () => {
                 className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1"
               >
                 <ChevronLeftIcon className="h-4 w-4" />
-                Précédent
+                {t('dashboard.superAdminPrevious')}
               </button>
               <span className="px-3 py-1 text-sm text-gray-700">
-                Page {currentPage} / {totalPages}
+                {t('dashboard.superAdminPage')} {currentPage} / {totalPages}
               </span>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1"
               >
-                Suivant
+                {t('dashboard.superAdminNext')}
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
             </div>
@@ -395,7 +392,7 @@ const PaymentsView = () => {
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-white">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
-                  Détails du paiement #{selectedPayment.id}
+                  {t('dashboard.superAdminPaymentDetailsTitle', { id: selectedPayment.id })}
                 </h3>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {formatDate(selectedPayment.dateDemande)}
@@ -414,36 +411,36 @@ const PaymentsView = () => {
               {/* Section Paiement */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                  Informations paiement
+                  {t('dashboard.superAdminPaymentInfo')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">ID Paiement</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminPaymentId')}</p>
                     <p className="font-mono text-gray-900 mt-1">#{selectedPayment.id}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Statut</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminTableStatus')}</p>
                     <div className="mt-1">{getStatusBadge(selectedPayment.statut)}</div>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Montant</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminTableAmount')}</p>
                     <p className="text-2xl font-bold text-purple-600 mt-1">
                       {formatAmount(selectedPayment.montant, selectedPayment.devise)}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Date de la demande</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminRequestDate')}</p>
                     <p className="text-gray-900 mt-1">{formatDate(selectedPayment.dateDemande)}</p>
                   </div>
                   {selectedPayment.dateConfirmation && (
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide">Date de confirmation</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminConfirmationDate')}</p>
                       <p className="text-gray-900 mt-1">{formatDate(selectedPayment.dateConfirmation)}</p>
                     </div>
                   )}
                   {selectedPayment.konnectPaymentId && (
                     <div className="bg-gray-50 rounded-lg p-4 col-span-full">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide">ID Transaction Konnect</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminKonnectTransactionId')}</p>
                       <p className="text-sm font-mono text-gray-600 mt-1 break-all">{selectedPayment.konnectPaymentId}</p>
                     </div>
                   )}
@@ -453,18 +450,18 @@ const PaymentsView = () => {
               {/* Section Client */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                  Informations client
+                  {t('dashboard.superAdminClientInfo')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Nom complet</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminFullName')}</p>
                     <p className="font-medium text-gray-900 mt-1">
                       {selectedPayment.clientPrenom} {selectedPayment.clientNom}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
-                    <p className="text-gray-900 mt-1 break-all">{selectedPayment.clientEmail || 'Non renseigné'}</p>
+                    <p className="text-gray-900 mt-1 break-all">{selectedPayment.clientEmail || t('dashboard.superAdminNotProvided')}</p>
                   </div>
                 </div>
               </div>
@@ -472,24 +469,24 @@ const PaymentsView = () => {
               {/* Section Offre */}
               <div className="mb-4">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                  Informations offre
+                  {t('dashboard.superAdminOfferInfo')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-indigo-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Offre souscrite</p>
-                    <p className="font-semibold text-indigo-700 mt-1">{selectedPayment.offreNom || 'Offre inconnue'}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminSubscribedOffer')}</p>
+                    <p className="font-semibold text-indigo-700 mt-1">{selectedPayment.offreNom || t('dashboard.superAdminUnknownOffer')}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Durée</p>
-                    <p className="text-gray-900 mt-1">{selectedPayment.dureeMois || 'N/A'} mois</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminOfferDuration')}</p>
+                    <p className="text-gray-900 mt-1">{selectedPayment.dureeMois ? t('dashboard.superAdminDurationMonths', { count: selectedPayment.dureeMois }) : 'N/A'}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Prix de l'offre</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminOfferPrice')}</p>
                     <p className="text-gray-900 mt-1">{formatAmount(selectedPayment.offrePrix, selectedPayment.offreDevise)}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Devise</p>
-                    <p className="text-gray-900 mt-1">{selectedPayment.devise || 'XAF'}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t('dashboard.superAdminCurrency')}</p>
+                    <p className="text-gray-900 mt-1">{selectedPayment.devise || 'TND'}</p>
                   </div>
                 
                 </div>
@@ -502,7 +499,7 @@ const PaymentsView = () => {
                 onClick={closeModal}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium"
               >
-                Fermer
+                {t('dashboard.superAdminClose')}
               </button>
             </div>
           </div>

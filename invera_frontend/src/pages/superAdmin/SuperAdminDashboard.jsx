@@ -14,7 +14,7 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const SuperAdminDashboard = () => {
-  const { t } = useLanguage();
+  const { t, isArabic } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [adminInfo, setAdminInfo] = useState(null);
@@ -100,7 +100,7 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
@@ -124,7 +124,7 @@ const SuperAdminDashboard = () => {
                 <h1 className="text-xl font-bold text-white">InVera Platform</h1>
                 <p className="text-purple-200 text-xs flex items-center gap-1">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400"></span>
-                  Espace administrateur
+                  {t('dashboard.superAdminSpaceLabel')}
                 </p>
               </div>
             </div>
@@ -142,10 +142,10 @@ const SuperAdminDashboard = () => {
                 </button>
                 
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className={`absolute mt-2 w-64 bg-white rounded-lg shadow-xl z-50 overflow-hidden ${isArabic ? 'left-0' : 'right-0'}`}>
                     <div className="px-4 py-3 border-b border-gray-200">
                       <p className="text-sm font-semibold text-gray-900">
-                        {adminInfo?.nom || 'Administrateur'}
+                        {adminInfo?.nom || t('dashboard.superAdminDefaultName')}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {adminInfo?.email}

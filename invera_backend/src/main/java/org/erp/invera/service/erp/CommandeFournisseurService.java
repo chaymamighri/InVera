@@ -37,6 +37,9 @@ public class CommandeFournisseurService {
     private final ClientPlatformService clientService;
 
     private static final BigDecimal TVA_PAR_DEFAUT = new BigDecimal("20");
+    private static final String ADMIN_CLIENT_ROLE = "ADMIN_CLIENT";
+    private static final String PROCUREMENT_ROLE = "RESPONSABLE_ACHAT";
+    private static final String SUPPLIER_ORDER_ENTITY = "COMMANDE_FOURNISSEUR";
 
     private Long getClientIdFromToken(String token) {
         return jwtTokenProvider.getClientIdFromToken(token);
@@ -338,6 +341,16 @@ public class CommandeFournisseurService {
         String updateTotauxSql = "UPDATE commandes_fournisseurs SET totalht = ?, totaltva = ?, totalttc = ? WHERE id_commande_fournisseur = ?";
         tenantRepo.updateWithAuth(updateTotauxSql, clientId, authClientId, totalHT, totalTVA, totalTTC, commandeId);
 
+        saveNotification(
+                clientId,
+                authClientId,
+                ADMIN_CLIENT_ROLE,
+                "PROCUREMENT_REQUEST_CREATED",
+                "Nouvelle demande d'achat " + numeroCommande + " en attente de validation.",
+                commandeId,
+                numeroCommande
+        );
+
         dto.setIdCommandeFournisseur(commandeId);
         dto.setNumeroCommande(numeroCommande);
         dto.setLignesCommande(lignesDTO);
@@ -474,6 +487,17 @@ public class CommandeFournisseurService {
 
         String updateSql = "UPDATE commandes_fournisseurs SET statut = 'VALIDEE' WHERE id_commande_fournisseur = ?";
         tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
+
+        String numeroCommande = getCommandeReference(clientId, authClientId, id);
+        saveNotification(
+                clientId,
+                authClientId,
+                PROCUREMENT_ROLE,
+                "PROCUREMENT_REQUEST_APPROVED",
+                "La demande d'achat " + numeroCommande + " a ete validee.",
+                id,
+                numeroCommande
+        );
 
         return getCommandeById(id, token);
     }
@@ -653,6 +677,17 @@ public class CommandeFournisseurService {
 
         tenantRepo.updateWithAuth(updateSql, clientId, authClientId, motifRejet, LocalDateTime.now(), id);
 
+        String numeroCommande = getCommandeReference(clientId, authClientId, id);
+        saveNotification(
+                clientId,
+                authClientId,
+                PROCUREMENT_ROLE,
+                "PROCUREMENT_REQUEST_REJECTED",
+                "La demande d'achat " + numeroCommande + " a ete rejetee.",
+                id,
+                numeroCommande
+        );
+
         return getCommandeById(id, token);
     }
 
@@ -671,7 +706,58 @@ public class CommandeFournisseurService {
 
         tenantRepo.updateWithAuth(updateSql, clientId, authClientId, id);
 
+        String numeroCommande = getCommandeReference(clientId, authClientId, id);
+        saveNotification(
+                clientId,
+                authClientId,
+                ADMIN_CLIENT_ROLE,
+                "PROCUREMENT_REQUEST_RESUBMITTED",
+                "La demande d'achat " + numeroCommande + " a ete renvoyee pour validation.",
+                id,
+                numeroCommande
+        );
+
         return getCommandeById(id, token);
+    }
+
+    private String getCommandeReference(Long clientId, String authClientId, Integer commandeId) {
+        String sql = "SELECT numero_commande FROM commandes_fournisseurs WHERE id_commande_fournisseur = ?";
+        String reference = tenantRepo.queryForObjectAuth(sql, String.class, clientId, authClientId, commandeId);
+        return reference != null && !reference.isBlank() ? reference : String.valueOf(commandeId);
+    }
+
+    private void saveNotification(
+            Long clientId,
+            String authClientId,
+            String targetRole,
+            String type,
+            String message,
+            Integer commandeId,
+            String reference
+    ) {
+        String sql = """
+            INSERT INTO notifications (created_at, message, read, type, user_name, target_role, entity_type, entity_id, entity_reference)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
+        try {
+            tenantRepo.updateWithAuth(
+                    sql,
+                    clientId,
+                    authClientId,
+                    LocalDateTime.now(),
+                    message,
+                    false,
+                    type,
+                    reference,
+                    targetRole,
+                    SUPPLIER_ORDER_ENTITY,
+                    commandeId,
+                    reference
+            );
+        } catch (Exception e) {
+            log.warn("Impossible de creer la notification {} pour la commande {}: {}", type, reference, e.getMessage());
+        }
     }
 
     // ==================== SUPPRESSION ====================

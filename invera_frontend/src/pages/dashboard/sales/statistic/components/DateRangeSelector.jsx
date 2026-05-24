@@ -1,27 +1,27 @@
 /**
- * DateRangeSelector - SÃ©lecteur de pÃ©riode pour les graphiques
+ * DateRangeSelector - Sélecteur de période pour les graphiques
  * 
- * RÃ”LE : Permettre Ã  l'utilisateur de filtrer les donnÃ©es du dashboard par pÃ©riode
+ * RÔLE : Permettre à l'utilisateur de filtrer les données du dashboard par période
  * 
- * FONCTIONNALITÃ‰S :
- * - SÃ©lection de date de dÃ©but et date de fin
- * - Validation des dates (cohÃ©rence, pas dans le futur, pÃ©riode max 1 an)
- * - Affichage de la pÃ©riode sÃ©lectionnÃ©e
- - Bouton de rafraÃ®chissement des donnÃ©es
- * - Bouton de rÃ©initialisation du filtre
+ * FONCTIONNALITÉS :
+ * - Sélection de date de début et date de fin
+ * - Validation des dates (cohérence, pas dans le futur, période max 1 an)
+ * - Affichage de la période sélectionnée
+ - Bouton de rafraîchissement des données
+ * - Bouton de réinitialisation du filtre
  * - Animations d'ouverture/fermeture
  * - Gestion des erreurs de saisie
  * 
  * VALIDATIONS :
- * - Les deux dates doivent Ãªtre renseignÃ©es
- * - Date dÃ©but â‰¤ Date fin
- * - Date dÃ©but â‰¤ aujourd'hui
- * - PÃ©riode â‰¤ 365 jours
+ * - Les deux dates doivent être renseignées
+ * - Date début <= Date fin
+ * - Date début <= aujourd'hui
+ * - Période <= 365 jours
  * 
  * @param {Object} props
  * @param {Function} props.onApplyCustom - Callback lors de l'application du filtre
- * @param {Function} props.onRefresh - Callback pour rafraÃ®chir les donnÃ©es
- * @param {boolean} props.refreshing - Ã‰tat de rafraÃ®chissement (dÃ©sactive le bouton)
+ * @param {Function} props.onRefresh - Callback pour rafraîchir les données
+ * @param {boolean} props.refreshing - État de rafraîchissement (désactive le bouton)
  * @param {string} props.currentStartDate - Date de debut actuelle (YYYY-MM-DD)
  * @param {string} props.currentEndDate - Date de fin actuelle (YYYY-MM-DD)
  * 
@@ -49,14 +49,14 @@ const DateRangeSelector = ({
 }) => {
   const { t, language } = useLanguage();
   const dateLocale = language === 'en' ? 'en-US' : language === 'ar' ? 'ar-TN' : 'fr-FR';
-  // ===== Ã‰TATS LOCAUX =====
-  const [showPicker, setShowPicker] = useState(false);  // Afficher/masquer le sÃ©lecteur
-  const [startDate, setStartDate] = useState(currentStartDate || '');  // Date dÃ©but
+  // ===== ÉTATS LOCAUX =====
+  const [showPicker, setShowPicker] = useState(false);  // Afficher/masquer le sélecteur
+  const [startDate, setStartDate] = useState(currentStartDate || '');  // Date début
   const [endDate, setEndDate] = useState(currentEndDate || '');        // Date fin
   const [dateError, setDateError] = useState('');       // Message d'erreur
 
   // ===== SYNCHRONISATION AVEC LE PARENT =====
-  // Met Ã  jour les dates locales quand les props changent
+  // Met à jour les dates locales quand les props changent
   useEffect(() => {
     setStartDate(currentStartDate || '');
     setEndDate(currentEndDate || '');
@@ -68,10 +68,10 @@ const DateRangeSelector = ({
 
   /**
    * Valide les dates et applique le filtre
-   * - VÃ©rifie que les deux dates sont remplies
-   * - VÃ©rifie que date dÃ©but â‰¤ date fin
-   * - VÃ©rifie que date dÃ©but â‰¤ aujourd'hui
-   * - VÃ©rifie que la pÃ©riode â‰¤ 365 jours
+   * - Vérifie que les deux dates sont remplies
+   * - Vérifie que date début <= date fin
+   * - Vérifie que date début <= aujourd'hui
+   * - Vérifie que la période <= 365 jours
    */
   const handleApplyCustom = () => {
     // Validation 1: Dates requises
@@ -85,19 +85,19 @@ const DateRangeSelector = ({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Validation 2: Date dÃ©but â‰¤ Date fin
+    // Validation 2: Date début <= Date fin
     if (start > end) {
       setDateError(t('dashboard.salesStatsPage.startBeforeEndError'));
       return;
     }
 
-    // Validation 3: Date dÃ©but pas dans le futur
+    // Validation 3: Date début pas dans le futur
     if (start > today) {
       setDateError(t('dashboard.salesStatsPage.startDateFutureError'));
       return;
     }
 
-    // Validation 4: PÃ©riode â‰¤ 365 jours
+    // Validation 4: Période <= 365 jours
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
@@ -106,14 +106,14 @@ const DateRangeSelector = ({
       return;
     }
 
-    // Tout est valide â†’ application du filtre
+    // Tout est valide -> application du filtre
     setDateError('');
     onApplyCustom(startDate, endDate);
     setShowPicker(false);
   };
 
   /**
-   * Ferme le sÃ©lecteur et efface les erreurs
+   * Ferme le sélecteur et efface les erreurs
    */
   const handleClosePicker = () => {
     setShowPicker(false);
@@ -121,7 +121,7 @@ const DateRangeSelector = ({
   };
 
   /**
-   * RÃ©initialise complÃ¨tement le filtre
+   * Réinitialise complètement le filtre
    */
   const handleReset = () => {
     setStartDate('');
@@ -131,11 +131,11 @@ const DateRangeSelector = ({
   };
 
   // ============================================
-  //  AFFICHAGE DE LA PÃ‰RIODE SÃ‰LECTIONNÃ‰E
+  //  AFFICHAGE DE LA PÉRIODE SÉLECTIONNÉE
   // ============================================
 
   /**
-   * Formate l'affichage de la pÃ©riode sÃ©lectionnÃ©e
+   * Formate l'affichage de la période sélectionnée
    * @returns {string} Ex: "15/01/2024 - 31/12/2024"
    */
   const getDisplayRange = () => {
@@ -177,7 +177,7 @@ const DateRangeSelector = ({
         </span>
       </motion.button>
       
-      {/* ===== BOUTON RAFRAÃŽCHIR ===== */}
+      {/* ===== BOUTON RAFRAÎCHIR ===== */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -196,7 +196,7 @@ const DateRangeSelector = ({
         <span className="text-sm font-medium">{t('dashboard.salesStatsPage.refresh')}</span>
       </motion.button>
 
-      {/* ===== BOUTON RÃ‰INITIALISER (visible seulement si filtre actif) ===== */}
+      {/* ===== BOUTON RÉINITIALISER (visible seulement si filtre actif) ===== */}
       {(currentStartDate || currentEndDate) && (
         <motion.button
           whileHover={{ scale: 1.02 }}
@@ -209,7 +209,7 @@ const DateRangeSelector = ({
         </motion.button>
       )}
 
-      {/* ===== SÃ‰LECTEUR DE DATES (MODAL FLOTTANT) ===== */}
+      {/* ===== SÉLECTEUR DE DATES (MODAL FLOTTANT) ===== */}
       <AnimatePresence>
         {showPicker && (
           <motion.div
@@ -218,10 +218,10 @@ const DateRangeSelector = ({
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-2xl border p-5 z-50 w-[500px]"
           >
-            {/* Barre colorÃ©e en haut */}
+            {/* Barre colorée en haut */}
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-xl" />
             
-            {/* En-tÃªte */}
+            {/* En-tête */}
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-semibold text-gray-800 flex items-center">
                 <Calendar className="w-5 h-5 mr-2 text-blue-500" />

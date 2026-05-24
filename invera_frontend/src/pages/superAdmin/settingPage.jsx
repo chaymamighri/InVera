@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { superAdminService } from '../../servicesPlatform/superAdminService';
+import { useLanguage } from '../../context/LanguageContext';
 
 const syncAdminInfo = (admin) => {
   const stored = JSON.parse(localStorage.getItem('adminInfo') || '{}');
@@ -31,6 +32,7 @@ const inputClassName =
 const sectionClassName = 'rounded-2xl border border-gray-200 bg-white p-6 shadow-sm';
 
 const Settings = () => {
+  const { t, isArabic } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -76,7 +78,7 @@ const Settings = () => {
         const msg =
           error?.response?.data?.error ||
           error?.message ||
-          'Impossible de charger le profil du super admin.';
+          t('dashboard.superAdminProfileLoadError');
         toast.error(msg);
       } finally {
         setLoading(false);
@@ -98,21 +100,21 @@ const Settings = () => {
   }, [profile.nom]);
 
   const validateProfile = () => {
-    if (!profile.nom.trim()) return 'Le nom est requis.';
-    if (profile.nom.trim().length < 2) return 'Le nom doit contenir au moins 2 caracteres.';
-    if (!profile.email.trim()) return "L'email est requis.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) return 'Email invalide.';
+    if (!profile.nom.trim()) return t('dashboard.superAdminNameRequired');
+    if (profile.nom.trim().length < 2) return t('dashboard.superAdminNameTooShort');
+    if (!profile.email.trim()) return t('dashboard.superAdminEmailRequired');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) return t('dashboard.superAdminInvalidEmail');
     return '';
   };
 
   const validatePassword = () => {
-    if (!password.oldPassword.trim()) return 'Ancien mot de passe requis.';
-    if (!password.newPassword.trim()) return 'Nouveau mot de passe requis.';
+    if (!password.oldPassword.trim()) return t('dashboard.superAdminOldPasswordRequired');
+    if (!password.newPassword.trim()) return t('dashboard.superAdminNewPasswordRequired');
     if (password.newPassword.length < 8) {
-      return 'Le nouveau mot de passe doit contenir au moins 8 caracteres.';
+      return t('dashboard.superAdminPasswordTooShort');
     }
     if (password.newPassword !== password.confirmPassword) {
-      return 'La confirmation du mot de passe ne correspond pas.';
+      return t('dashboard.superAdminPasswordMismatch');
     }
     return '';
   };
@@ -141,12 +143,12 @@ const Settings = () => {
       }));
 
       syncAdminInfo(updated);
-      toast.success('Profil mis a jour');
+      toast.success(t('dashboard.superAdminProfileUpdated'));
     } catch (error) {
       const msg =
         error?.response?.data?.error ||
         error?.message ||
-        'Erreur lors de la mise a jour du profil.';
+        t('dashboard.superAdminProfileUpdateError');
       toast.error(msg);
     } finally {
       setSavingProfile(false);
@@ -168,12 +170,12 @@ const Settings = () => {
       });
 
       setPassword({ oldPassword: '', newPassword: '', confirmPassword: '' });
-      toast.success(response?.message || 'Mot de passe modifie');
+      toast.success(response?.message || t('dashboard.superAdminPasswordUpdated'));
     } catch (error) {
       const msg =
         error?.response?.data?.error ||
         error?.message ||
-        'Erreur lors du changement de mot de passe.';
+        t('dashboard.superAdminPasswordUpdateError');
       toast.error(msg);
     } finally {
       setSavingPassword(false);
@@ -191,14 +193,14 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-6 md:p-8" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="mx-auto max-w-5xl space-y-6">
         <Link
           to="/super-admin/dashboard/profile"
           className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          Retour au profil
+          {t('dashboard.superAdminSettingsBack')}
         </Link>
 
         <section className="rounded-3xl border border-gray-200 bg-white shadow-sm">
@@ -209,19 +211,19 @@ const Settings = () => {
                   {initials}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-blue-700">Parametres du compte</p>
+                  <p className="text-sm font-medium text-blue-700">{t('dashboard.superAdminSettingsEyebrow')}</p>
                   <h1 className="mt-1 text-2xl font-semibold text-gray-900">
-                    Reglages Super Admin
+                    {t('dashboard.superAdminSettingsTitle')}
                   </h1>
                   <p className="mt-1 text-sm text-gray-500">
-                    Modifiez les informations du compte et gerez la securite d&apos;acces.
+                    {t('dashboard.superAdminSettingsDescription')}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 <p className="font-medium text-gray-900">{profile.email || 'superadmin@invera.com'}</p>
-                <p>Compte principal de la plateforme</p>
+                <p>{t('dashboard.superAdminPrimaryAccount')}</p>
               </div>
             </div>
           </div>
@@ -233,22 +235,22 @@ const Settings = () => {
                   <UserIcon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Informations du profil</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.superAdminProfileInfo')}</h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Nom et email utilises pour le compte super admin.
+                    {t('dashboard.superAdminProfileInfoDescription')}
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 grid gap-5">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-gray-700">Nom complet</span>
+                  <span className="mb-2 block text-sm font-medium text-gray-700">{t('dashboard.superAdminFullName')}</span>
                   <input
                     type="text"
                     value={profile.nom}
                     onChange={(e) => setProfile((prev) => ({ ...prev, nom: e.target.value }))}
                     className={inputClassName}
-                    placeholder="Nom du super admin"
+                    placeholder={t('dashboard.superAdminNamePlaceholder')}
                   />
                 </label>
 
@@ -271,7 +273,7 @@ const Settings = () => {
 
               <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-gray-50 p-4 md:flex-row md:items-center md:justify-between">
                 <p className="text-sm text-gray-600">
-                  L&apos;email du compte principal doit rester valide et accessible.
+                  {t('dashboard.superAdminEmailHelp')}
                 </p>
                 <button
                   onClick={handleProfileSave}
@@ -280,7 +282,7 @@ const Settings = () => {
                     savingProfile ? 'cursor-not-allowed opacity-70' : 'hover:bg-blue-700'
                   }`}
                 >
-                  {savingProfile ? 'Enregistrement...' : 'Enregistrer'}
+                  {savingProfile ? t('dashboard.superAdminSaving') : t('dashboard.superAdminSave')}
                 </button>
               </div>
             </section>
@@ -292,9 +294,9 @@ const Settings = () => {
                     <LockClosedIcon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Mot de passe</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.superAdminPassword')}</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                      Changez le mot de passe du compte principal.
+                      {t('dashboard.superAdminPasswordDescription')}
                     </p>
                   </div>
                 </div>
@@ -302,7 +304,7 @@ const Settings = () => {
                 <div className="mt-6 grid gap-4">
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">
-                      Ancien mot de passe
+                      {t('dashboard.superAdminOldPassword')}
                     </span>
                     <input
                       type="password"
@@ -311,13 +313,13 @@ const Settings = () => {
                         setPassword((prev) => ({ ...prev, oldPassword: e.target.value }))
                       }
                       className={inputClassName}
-                      placeholder="Entrez le mot de passe actuel"
+                      placeholder={t('dashboard.superAdminOldPasswordPlaceholder')}
                     />
                   </label>
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">
-                      Nouveau mot de passe
+                      {t('dashboard.superAdminNewPassword')}
                     </span>
                     <input
                       type="password"
@@ -326,13 +328,13 @@ const Settings = () => {
                         setPassword((prev) => ({ ...prev, newPassword: e.target.value }))
                       }
                       className={inputClassName}
-                      placeholder="Minimum 8 caracteres"
+                      placeholder={t('dashboard.superAdminNewPasswordPlaceholder')}
                     />
                   </label>
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">
-                      Confirmation
+                      {t('dashboard.superAdminConfirmPassword')}
                     </span>
                     <input
                       type="password"
@@ -344,14 +346,13 @@ const Settings = () => {
                         }))
                       }
                       className={inputClassName}
-                      placeholder="Confirmez le mot de passe"
+                      placeholder={t('dashboard.superAdminConfirmPasswordPlaceholder')}
                     />
                   </label>
                 </div>
 
                 <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                  Utilisez un mot de passe unique et different de l&apos;ancien pour proteger le
-                  compte le plus sensible de la plateforme.
+                  {t('dashboard.superAdminPasswordAdvice')}
                 </div>
 
                 <button
@@ -361,15 +362,14 @@ const Settings = () => {
                     savingPassword ? 'cursor-not-allowed opacity-70' : 'hover:bg-gray-800'
                   }`}
                 >
-                  {savingPassword ? 'Modification...' : 'Mettre a jour le mot de passe'}
+                  {savingPassword ? t('dashboard.superAdminUpdating') : t('dashboard.superAdminUpdatePassword')}
                 </button>
               </section>
 
               <section className={sectionClassName}>
-                <h2 className="text-lg font-semibold text-gray-900">Rappel</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.superAdminReminder')}</h2>
                 <p className="mt-2 text-sm text-gray-500">
-                  Les modifications appliquees ici concernent uniquement le compte super admin et
-                  utilisent les endpoints backend dedies a la plateforme.
+                  {t('dashboard.superAdminSettingsReminder')}
                 </p>
               </section>
             </div>
