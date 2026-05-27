@@ -6,7 +6,6 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline';
 import ExistingClientsList from './ExistingClientsList';
-// Supprimer l'import de NewClientForm
 
 const ClientSelectionSection = ({
   clients,
@@ -39,37 +38,14 @@ const ClientSelectionSection = ({
         const fullName = `${client.prenom || ''} ${client.nom || ''}`.toLowerCase();
         const phone = client.telephone?.replace(/\s/g, '') || '';
         const email = client.email?.toLowerCase() || '';
-        const type = getTypeDisplayName(client.typeClient || client.type).toLowerCase();
         
         return fullName.includes(searchLower) || 
                phone.includes(searchLower.replace(/\s/g, '')) ||
-               email.includes(searchLower) ||
-               type.includes(searchLower);
+               email.includes(searchLower);
       });
       setFilteredClients(filtered);
     }
   }, [searchClientTerm, clients]);
-
-  const getTypeDisplayName = (type) => {
-    const typeMap = {
-      'PARTICULIER': t('salesPages.individual'),
-      'VIP': t('salesPages.vip'),
-      'ENTREPRISE': t('salesPages.company'),
-      'PROFESSIONNEL': t('salesPages.company'),
-      'FIDELE': t('salesPages.loyalCustomer')
-    };
-    return typeMap[type] || type;
-  };
-
-  const getTypeBadgeColor = (type) => {
-    switch(type) {
-      case 'VIP': return 'bg-purple-100 text-purple-700';
-      case 'ENTREPRISE': return 'bg-blue-100 text-blue-700';
-      case 'PROFESSIONNEL': return 'bg-blue-100 text-blue-700';
-      case 'FIDELE': return 'bg-amber-100 text-amber-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   const handleSelectClientLocal = (client) => {
     console.log('🖱️ Sélection client local:', client?.nom, 'ID:', client?.id || client?.idClient);
@@ -159,8 +135,6 @@ const ClientSelectionSection = ({
           searchClientTerm={searchClientTerm}
           selectedClient={selectedClient}
           remiseAppliquee={remiseAppliquee}
-          getTypeDisplayName={getTypeDisplayName}
-          getTypeBadgeColor={getTypeBadgeColor}
           handleSelectClientLocal={handleSelectClientLocal}
           t={t}
         />

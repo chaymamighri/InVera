@@ -425,13 +425,6 @@ const GestionCategories = () => {
                         >
                           <PencilIcon className="h-5 w-5" />
                         </button>
-                        <button
-                          onClick={() => openDeleteModal(categorie)}
-                          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
-                          title="Supprimer"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
                       </div>
                     </td>
                   </tr>

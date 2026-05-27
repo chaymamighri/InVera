@@ -200,7 +200,13 @@ const ProTooltip = ({ active, payload, label, suffix = '', locale = 'fr-FR' }) =
 // ========== DATA HELPERS ==========
 const buildClientTypeData = (repartition = {}) =>
   Object.entries(repartition).map(([name, value]) => ({
-    name: name === 'PARTICULIER' ? 'Particulier' : name === 'PROFESSIONNEL' ? 'Professionnel' : name === 'ENTREPRISE' ? 'Entreprise' : name === 'FIDELE' ? 'Fidèle' : name,
+    name: name === 'PARTICULIER' ? 'Particulier' 
+          : name === 'PROFESSIONNEL' ? 'Professionnel' 
+          : name === 'ENTREPRISE' ? 'Entreprise' 
+          : name === 'FIDELE' ? 'Fidèle'
+          : name === 'VIP' ? 'VIP'  // ← AJOUTER CETTE LIGNE
+          : name === 'PARTICULIER_VIP' ? 'Particulier VIP' 
+          : name,
     clients: Number(value?.nombre || 0),
     ca: Number(value?.ca || 0),
   }));
@@ -691,16 +697,16 @@ const Statistiques = () => {
                 <thead className="bg-gray-50 border-b">
                   <tr><th className="px-4 py-2 text-left">{text.clientColumn}</th><th className="px-4 py-2 text-left">{text.typeColumn}</th><th className="px-4 py-2 text-left">{text.ordersColumn}</th><th className="px-4 py-2 text-left">{text.revenueColumn}</th></tr>
                 </thead>
-                <tbody>
-                  {topClients.map((c, idx) => (
-                    <tr key={idx} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">{c.nom ?? c.name ?? text.clientColumn}</td>
-                      <td className="px-4 py-2">{c.type ?? text.notAvailable}</td>
-                      <td className="px-4 py-2">{formatMoney(c.commandes ?? c.orders ?? 0, text.locale)}</td>
-                      <td className="px-4 py-2 font-semibold text-emerald-600">{formatMoney(c.ca ?? c.totalCA ?? 0, text.locale)} {text.currencySuffix}</td>
-                    </tr>
-                  ))}
-                </tbody>
+               <tbody>
+  {topClients.map((c, idx) => (
+    <tr key={idx} className="border-b hover:bg-gray-50">
+      <td className="px-4 py-2 font-medium">{c.nom ?? c.name ?? text.clientColumn}</td>
+<td className="px-4 py-2">{c.type_client ?? c.typeClient ?? c.type ?? text.notAvailable}</td>
+      <td className="px-4 py-2">{formatMoney(c.commandes ?? c.orders ?? 0, text.locale)}</td>
+      <td className="px-4 py-2 font-semibold text-emerald-600">{formatMoney(c.ca ?? c.totalCA ?? 0, text.locale)} {text.currencySuffix}</td>
+    </tr>
+  ))}
+</tbody>
               </table>
             </div>
           </Card>

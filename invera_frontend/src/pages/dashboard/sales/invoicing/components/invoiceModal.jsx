@@ -21,6 +21,7 @@ import { fr } from 'date-fns/locale';
 import { commandeService } from '../../../../../services/commandeService';
 
 const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) => {
+  // ========== 1. TOUS LES HOOKS EN PREMIER (avant tout return conditionnel) ==========
   const [updating, setUpdating] = useState(false);
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -28,7 +29,14 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
   const [printLoading, setPrintLoading] = useState(false);
   const [client, setClient] = useState({});
   const [commandeInfo, setCommandeInfo] = useState({});
+  const [factureLocally, setFactureLocally] = useState(facture);
 
+  // ✅ Mettre à jour l'état local quand la prop facture change
+  useEffect(() => {
+    setFactureLocally(facture);
+  }, [facture]);
+
+  // ✅ Charger les données de la commande
   useEffect(() => {
     const loadData = async () => {
       if (!isOpen) return;
@@ -42,7 +50,7 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
           console.log('[InvoiceModal] Details commande recus:', commandeDetails);
           console.log('[InvoiceModal] Lignes commande:', commandeDetails.lignesCommande);
           
-          // ✅ Récupérer correctement la remise client
+          // Récupérer correctement la remise client
           const tauxRemiseClient = commandeDetails.tauxRemise || commandeDetails.tauxRemiseClient || 0;
           
           setCommandeInfo({
@@ -143,10 +151,12 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
     if (isOpen && (commandeId || facture?.commandeId)) {
       loadData();
     }
-  }, [isOpen, facture, commandeId]);
+  }, [isOpen, facture, commandeId, client.raisonSociale, client.matriculeFiscal]);
 
+  // ========== 2. RETURN CONDITIONNEL (APRÈS TOUS LES HOOKS) ==========
   if (!isOpen || !facture) return null;
 
+  // ========== 3. FONCTIONS UTILITAIRES ==========
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -172,7 +182,7 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
   const totalHT = items.reduce((acc, item) => acc + (item.totalHT || 0), 0);
   const tvaTotale = items.reduce((acc, item) => acc + (item.montantTVA || 0), 0);
   
-  // ✅ Remise client depuis commandeInfo ou client
+  // Remise client depuis commandeInfo ou client
   const tauxRemiseGlobale = commandeInfo.tauxRemise || client.remise || 0;
   const montantRemiseGlobale = totalHT * (tauxRemiseGlobale / 100);
   const totalHTApresRemiseClient = totalHT - montantRemiseGlobale;
@@ -188,16 +198,29 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
     totalTTC
   });
 
+  // ========== 4. HANDLERS ==========
   const handleStatusChange = async () => {
     const factureId = facture.id;
-    if (facture.statut === 'PAYE' || updating) return;
+    const currentStatut = factureLocally?.statut || facture.statut;
+    
+    if (currentStatut === 'PAYE' || updating) return;
 
     try {
       setUpdating(true);
       await commandeService.marquerFacturePayee(factureId);
+      
+      // ✅ Mettre à jour LOCALEMENT le statut via l'état local
+      setFactureLocally(prev => ({
+        ...prev,
+        statut: 'PAYE',
+        status: 'payée'
+      }));
+      
+      // ✅ Notifier le parent
       if (onStatusChange) {
         await onStatusChange(factureId, 'payee');
       }
+      
     } catch (error) {
       console.error('[InvoiceModal] Erreur:', error);
       alert('Erreur lors de la mise à jour du statut');
@@ -258,8 +281,9 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
     }
   };
 
+  // ========== 5. COMPOSANTS INTERNES ==========
   const StatutBadge = () => {
-    const isPaye = facture.statut === 'PAYE';
+    const isPaye = factureLocally?.statut === 'PAYE';
     return (
       <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
         isPaye ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -271,7 +295,9 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
   };
 
   const isEntreprise = client.typeClient === 'ENTREPRISE';
+  const isPaid = factureLocally?.statut === 'PAYE';
 
+  // ========== 6. RENDU JSX ==========
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -312,7 +338,7 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
                 <span className="text-sm font-medium text-gray-600">Statut :</span>
                 <StatutBadge />
               </div>
-              {facture.statut !== 'PAYE' && (
+              {!isPaid && (
                 <button
                   onClick={handleStatusChange}
                   disabled={updating}
@@ -488,68 +514,61 @@ const InvoiceModal = ({ isOpen, onClose, facture, commandeId, onStatusChange }) 
               </div>
             </div>
 
-            {/* SECTION RÉCAPITULATIVE - À DROITE SOUS LE TABLEAU */}
-<div className="flex justify-end mt-6">
-  <div className="w-80 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200 shadow-sm">
-    <div className="space-y-3 text-sm">
-      <h4 className="font-medium text-gray-800 border-b border-gray-200 pb-2 mb-3">Récapitulatif</h4>
-      
-      {/* Sous-total HT */}
-      <div className="flex justify-between items-center">
-        <span className="text-gray-600">Sous-total HT</span>
-        <span className="font-medium text-gray-900">{formatMontant(sousTotal)}</span>
-      </div>
-      
-    {/* Remises produits */}
-{remiseTotale > 0.001 && (
-  <div className="flex justify-between items-center text-red-600">
-    <span>Remises produits</span>
-    <span>-{formatMontant(remiseTotale)}</span>
-  </div>
-)}
+            {/* SECTION RÉCAPITULATIVE */}
+            <div className="flex justify-end mt-6">
+              <div className="w-80 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200 shadow-sm">
+                <div className="space-y-3 text-sm">
+                  <h4 className="font-medium text-gray-800 border-b border-gray-200 pb-2 mb-3">Récapitulatif</h4>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Sous-total HT</span>
+                    <span className="font-medium text-gray-900">{formatMontant(sousTotal)}</span>
+                  </div>
+                  
+                  {remiseTotale > 0.001 && (
+                    <div className="flex justify-between items-center text-red-600">
+                      <span>Remises produits</span>
+                      <span>-{formatMontant(remiseTotale)}</span>
+                    </div>
+                  )}
 
-{/* Remise client */}
-{tauxRemiseGlobale > 0.001 && (
-  <div className="flex justify-between items-center text-red-600">
-    <span className="flex items-center gap-1">
-      <TagIcon className="h-3 w-3 text-green-600" />
-      Remise {client.typeClient || 'client'} ({tauxRemiseGlobale}%)
-    </span>
-    <span>-{formatMontant(montantRemiseGlobale)}</span>
-  </div>
-)}
-      {/* Total HT après toutes remises (avec remise client) */}
-      <div className="flex justify-between items-center pt-1 border-t border-gray-200">
-        <span className="text-gray-700 font-medium">Total HT après remises</span>
-        <span className="font-bold text-gray-900">{formatMontant(totalHTApresRemiseClient)}</span>
-      </div>
-      
-      {/* TVA DYNAMIQUE */}
-      <div className="flex justify-between items-center bg-blue-50/30 rounded-lg p-2 -mx-2">
-        <span className="text-gray-600">TVA</span>
-        <span className="font-medium text-gray-900">{formatMontant(tvaTotale)}</span>
-      </div>
-      
-      {/* Séparateur */}
-      <div className="border-t-2 border-gray-300 my-2"></div>
-      
-      {/* TOTAL TTC */}
-      <div className="flex justify-between items-center">
-        <span className="text-base font-bold text-gray-900">TOTAL TTC</span>
-        <span className="text-lg font-bold text-blue-600">{formatMontant(totalTTC)}</span>
-      </div>
-      
-      {/* Économie totale */}
-      {(remiseTotale > 0.001 || montantRemiseGlobale > 0.001) && (
-        <div className="text-right pt-2 border-t border-gray-200">
-          <span className="text-xs text-green-600 font-medium">
-            Économie totale : {formatMontant(remiseTotale + montantRemiseGlobale)}
-          </span>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+                  {tauxRemiseGlobale > 0.001 && (
+                    <div className="flex justify-between items-center text-red-600">
+                      <span className="flex items-center gap-1">
+                        <TagIcon className="h-3 w-3 text-green-600" />
+                        Remise {client.typeClient || 'client'} ({tauxRemiseGlobale}%)
+                      </span>
+                      <span>-{formatMontant(montantRemiseGlobale)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                    <span className="text-gray-700 font-medium">Total HT après remises</span>
+                    <span className="font-bold text-gray-900">{formatMontant(totalHTApresRemiseClient)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center bg-blue-50/30 rounded-lg p-2 -mx-2">
+                    <span className="text-gray-600">TVA</span>
+                    <span className="font-medium text-gray-900">{formatMontant(tvaTotale)}</span>
+                  </div>
+                  
+                  <div className="border-t-2 border-gray-300 my-2"></div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-gray-900">TOTAL TTC</span>
+                    <span className="text-lg font-bold text-blue-600">{formatMontant(totalTTC)}</span>
+                  </div>
+                  
+                  {(remiseTotale > 0.001 || montantRemiseGlobale > 0.001) && (
+                    <div className="text-right pt-2 border-t border-gray-200">
+                      <span className="text-xs text-green-600 font-medium">
+                        Économie totale : {formatMontant(remiseTotale + montantRemiseGlobale)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-100">

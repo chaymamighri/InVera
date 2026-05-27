@@ -86,10 +86,7 @@ const ExistingClientsList = ({
                 <span className="text-gray-500">{t('phone') || 'Téléphone'}:</span>
                 <span className="font-medium ml-1">{selectedClient?.telephone}</span>
               </div>
-              <div>
-                <span className="text-gray-500">{t('type') || 'Type'}:</span>
-                <span className="font-medium ml-1">{getTypeDisplayName(selectedClient?.typeClient || selectedClient?.type)}</span>
-              </div>
+              {/* SUPPRIMÉ l'affichage du type client */}
               {selectedClient?.email && (
                 <div className="col-span-2">
                   <span className="text-gray-500">{t('email') || 'Email'}:</span>
@@ -226,16 +223,14 @@ const ExistingClientsList = ({
                         )}
                       </div>
                       
-                      <div className="text-right ml-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeColor(client.typeClient || client.type)}`}>
-                          {getTypeDisplayName(client.typeClient || client.type)}
-                        </span>
-                        {isSelected && remiseAppliquee > 0 && (
-                          <div className="mt-1 text-xs font-medium text-green-600">
+                      {/* SUPPRIMÉ complètement l'affichage du badge de type */}
+                      {isSelected && remiseAppliquee > 0 && (
+                        <div className="text-right ml-3">
+                          <div className="text-xs font-medium text-green-600">
                             -{remiseAppliquee}%
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Indicateur que le client est prêt pour la commande */}

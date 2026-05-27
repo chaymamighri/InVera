@@ -557,34 +557,29 @@ const Header = ({ userRole }) => {
     };
   }, [user.canUseNotifications, user.canUseProcurementReminders]);
 
-  /**
-   * Effet : Notification toast à l'arrivée de nouvelles notifications
-   * Affiche un toast lorsque le nombre de notifications non lues augmente
-   */
-  useEffect(() => {
-    if (!user.canUseNotifications) {
-      setServerUnreadCount(0);
-      setServerNotifications([]);
-      setLocalReminders([]);
-      lastUnreadRef.current = 0;
-      initialUnreadSnapshotRef.current = false;
-      return;
-    }
-    // Premier chargement
-    if (!initialUnreadSnapshotRef.current) {
-      if (unreadCount > 0) {
-        toast(notificationCopy.unreadToast.replace('{{count}}', String(unreadCount)));
-      }
-      lastUnreadRef.current = unreadCount;
-      initialUnreadSnapshotRef.current = true;
-      return;
-    }
-    // Nouvelles notifications
-    if (!isNotifOpen && unreadCount > lastUnreadRef.current) {
-      toast.success(notificationCopy.unreadToast.replace('{{count}}', String(unreadCount)));
-    }
+ /**
+ * Effet : Gestion des notifications non lues
+ * Met à jour le compteur sans afficher de toast
+ */
+useEffect(() => {
+  if (!user.canUseNotifications) {
+    setServerUnreadCount(0);
+    setServerNotifications([]);
+    setLocalReminders([]);
+    lastUnreadRef.current = 0;
+    initialUnreadSnapshotRef.current = false;
+    return;
+  }
+  
+  // Premier chargement - sans toast
+  if (!initialUnreadSnapshotRef.current) {
     lastUnreadRef.current = unreadCount;
-  }, [isNotifOpen, unreadCount, user.canUseNotifications]);
+    initialUnreadSnapshotRef.current = true;
+    return;
+  }
+  
+  lastUnreadRef.current = unreadCount;
+}, [isNotifOpen, unreadCount, user.canUseNotifications]);
 
   /**
    * Effet : Fermeture des menus au clic exterieur

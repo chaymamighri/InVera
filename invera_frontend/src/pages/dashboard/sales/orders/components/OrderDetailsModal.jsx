@@ -353,17 +353,7 @@ const OrderDetailsModal = ({
             </div>
             
             <div className="flex items-center gap-2">
-              {onRefresh && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
-                  title={t('salesPages.refreshData')}
-                >
-                  <ArrowPathIcon className={`h-5 w-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
-                </button>
-              )}
-              
+
               <button
                 onClick={onClose}
                 className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
@@ -690,7 +680,7 @@ const OrderDetailsModal = ({
           {/* Section 5 : Actions */}
           <div className="pt-6 border-t border-gray-200">
             <div className="flex justify-end gap-3">
-              {commande.statut === 'EN_ATTENTE' && (
+           { /*  {commande.statut === 'EN_ATTENTE' && (
                 <button
                   onClick={() => setShowUpdateModal(true)}
                   className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-lg hover:from-amber-700 hover:to-yellow-700 text-sm font-medium transition-colors flex items-center gap-2"
@@ -699,8 +689,8 @@ const OrderDetailsModal = ({
                   <PencilIcon className="h-4 w-4" />
                   {t('salesPages.edit')}
                 </button>
-              )}
-              
+              )}*/}
+
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"

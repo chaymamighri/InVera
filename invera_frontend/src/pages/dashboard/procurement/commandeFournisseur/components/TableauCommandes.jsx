@@ -272,7 +272,7 @@ const TableauCommandes = ({
                 !isArchived &&
                 onEdit &&
                 !isApprovedFromNotification &&
-                (commande.statut === statuts.BROUILLON || commande.statut === statuts.REJETEE || isRejectedFromNotification);
+                ( commande.statut === statuts.REJETEE || isRejectedFromNotification);
               const canResendCommande =
                 !isArchived &&
                 onStatusChange &&

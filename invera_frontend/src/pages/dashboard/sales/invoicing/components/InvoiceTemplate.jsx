@@ -1,4 +1,4 @@
-import { logoBase64 } from '../../../../../assets/logoBase64';
+/*import { logoBase64 } from '../../../../../assets/logoBase64';
 
 const InvoiceTemplate = ({
   facture,
@@ -448,3 +448,4 @@ const InvoiceTemplate = ({
 };
 
 export default InvoiceTemplate;
+*/

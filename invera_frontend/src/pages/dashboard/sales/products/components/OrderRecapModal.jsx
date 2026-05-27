@@ -7,23 +7,11 @@
  * 
  * FONCTIONNALITÉS :
  * - Affichage des informations client
- * - Liste des produits sélectionnés avec quantités et prix
- * - Calcul des totaux (sous-total, remise, total)
+ * - Liste des produits sélectionnés avec quantités, prix et remises par produit
+ * - Calcul des totaux (sous-total, remises produits, remise client, total)
  * - Validation et envoi au backend
  * - Redirection vers la page des commandes après succès
  * - Gestion des erreurs
- * 
- * @param {Object} props
- * @param {boolean} props.showRecap - Ouvre/ferme le modal
- * @param {Function} props.setShowRecap - Ferme le modal
- * @param {Array} props.selectedProducts - Produits sélectionnés
- * @param {Object} props.selectedClient - Client sélectionné
- * @param {number} props.remiseAppliquee - Pourcentage de remise
- * @param {Function} props.calculerTotaux - Calcule les totaux
- * @param {Function} props.setShowSuccessPopup - Affiche popup succès
- * @param {Function} props.setSelectedProducts - Vide la sélection
- * @param {Function} props.setSelectedClient - Vide le client
- * @param {Function} props.onOrderCreated - Callback après création
  */
 
 import React, { useState } from 'react';
@@ -50,9 +38,74 @@ const OrderRecapModal = ({
   
   if (!showRecap) return null;
 
-  const totaux = calculerTotaux(selectedProducts, remiseAppliquee);
+  // ========== FONCTIONS POUR LES REMISES PAR PRODUIT ==========
   
-  // Formater les nombres avec 3 décimales maximum
+  /**
+   * Récupère le pourcentage de remise applicable à un produit
+   * Priorité: remise catégorie > remise temporaire > 0
+   */
+  const getRemiseForProduct = (product) => {
+    // Remise de catégorie (priorité 1)
+    if (product.categorieRemise && product.categorieRemise > 0) {
+      return product.categorieRemise;
+    }
+    // Remise temporaire du produit (priorité 2)
+    if (product.remiseTemporaire && product.remiseTemporaire > 0) {
+      return product.remiseTemporaire;
+    }
+    // Remise standard du produit
+    if (product.remise && product.remise > 0) {
+      return product.remise;
+    }
+    return 0;
+  };
+
+  /**
+   * Calcule le prix unitaire après remise produit
+   */
+  const getPrixApresRemise = (product, prixUnitaire, remise) => {
+    if (remise > 0) {
+      return prixUnitaire * (1 - remise / 100);
+    }
+    return prixUnitaire;
+  };
+
+  // Calcul des totaux avec prise en compte des remises produits
+  const calculerTotauxAvecRemisesProduits = (products, remiseClient) => {
+    let sousTotalOriginal = 0;
+    let sousTotalApresRemisesProduits = 0;
+    let montantTotalRemisesProduits = 0;
+    
+    products.forEach(product => {
+      const prixUnitaireOriginal = Number(product.prixVente || product.prix || 0);
+      const quantite = Number(product.quantiteCommande || 1);
+      const remiseProduit = getRemiseForProduct(product);
+      const prixApresRemise = getPrixApresRemise(product, prixUnitaireOriginal, remiseProduit);
+      
+      const totalOriginal = prixUnitaireOriginal * quantite;
+      const totalApresRemise = prixApresRemise * quantite;
+      
+      sousTotalOriginal += totalOriginal;
+      sousTotalApresRemisesProduits += totalApresRemise;
+      montantTotalRemisesProduits += (totalOriginal - totalApresRemise);
+    });
+    
+    // Remise globale client
+    const montantRemiseClient = sousTotalApresRemisesProduits * (remiseClient / 100);
+    const totalFinal = sousTotalApresRemisesProduits - montantRemiseClient;
+    
+    return {
+      sousTotalOriginal,
+      sousTotalApresRemisesProduits,
+      montantTotalRemisesProduits,
+      montantRemiseClient,
+      totalFinal
+    };
+  };
+
+  const totaux = calculerTotauxAvecRemisesProduits(selectedProducts, remiseAppliquee);
+  
+  // Formater les nombres
   const formatNumber = (number) => {
     return typeof number === 'number' 
       ? number.toLocaleString(locale, {
@@ -62,18 +115,16 @@ const OrderRecapModal = ({
       : number;
   };
 
-  // Formater spécifiquement pour l'affichage des prix
   const formatPrice = (number) => {
     return typeof number === 'number'
       ? number.toLocaleString(locale, {
-          minimumFractionDigits: 2,
+          minimumFractionDigits: 3,
           maximumFractionDigits: 3
         })
       : number;
   };
 
   const handleEnregistrerCommande = async () => {
-    // Validation
     if (!selectedClient) {
       alert(t('selectClient'));
       return;
@@ -88,7 +139,6 @@ const OrderRecapModal = ({
     setError(null);
 
     try {
-      // 🔥 CORRECTION: Format exact attendu par le backend
       const commandeData = {
         clientId: Number(selectedClient.idClient || selectedClient.id),
         remiseTotale: Number(remiseAppliquee) || 0,
@@ -96,49 +146,40 @@ const OrderRecapModal = ({
           produitId: Number(p.idProduit || p.id),
           quantite: Number(p.quantiteCommande) || 1,
           prixUnitaire: Number(p.prixVente || p.prix || 0)
-          // ⚠️ NE PAS inclure remisePourcentage ici - le backend ne l'attend pas
         }))
-        // ⚠️ NE PAS inclure notes et statut ici - le backend ne les attend pas
       };
 
-      console.log('📤 Données envoyées (format backend):', JSON.stringify(commandeData, null, 2));
+      console.log('📤 Données envoyées:', JSON.stringify(commandeData, null, 2));
 
-      // Appeler le service
       const result = await commandeService.createCommande(commandeData);
       
       console.log('📥 Réponse du backend:', result);
       
-      // 🔥 Vérifier la structure de la réponse du backend
       if (result && result.success) {
         console.log("✅ Commande créée avec succès");
 
         if (onOrderCreated && result.commande) {
-          console.log("✅ Nouvelle commande créée:", result.commande);
           onOrderCreated(result.commande);
         }
 
-        // Afficher le modal de succès
         if (setShowSuccessPopup) {
           setShowSuccessPopup(true);
         }
         
-        // Réinitialiser les sélections
         if (setSelectedProducts) setSelectedProducts([]);
         if (setSelectedClient) setSelectedClient(null);
         
-        // 🔥 REDIRECTION VERS LA PAGE DES COMMANDES
         setTimeout(() => {
           window.location.href = '/dashboard/sales/orders';
         }, 1500);
         
       } else {
-        // Gérer le cas où la réponse n'a pas success=true
         const errorMsg = result?.message || t('unknownError');
         throw new Error(errorMsg);
       }
       
     } catch (error) {
-      console.error('❌ Erreur complète:', error);
+      console.error('❌ Erreur:', error);
       
       let errorMessage = t('orderCreateError');
       
@@ -158,8 +199,8 @@ const OrderRecapModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
-        {/* Loading overlay */}
+      <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto relative">
+        
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-2xl">
             <div className="text-center">
@@ -170,18 +211,19 @@ const OrderRecapModal = ({
         )}
 
         <div className="p-6">
+          {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">{t('orderSummary')}</h2>
             <button
               onClick={() => setShowRecap(false)}
               disabled={loading}
-              className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 hover:bg-gray-100 rounded-lg"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Message d'erreur */}
+          {/* Erreur */}
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center text-red-700">
@@ -211,7 +253,6 @@ const OrderRecapModal = ({
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     selectedClient?.typeClient === 'VIP' ? 'bg-purple-100 text-purple-800' :
                     selectedClient?.typeClient === 'ENTREPRISE' ? 'bg-blue-100 text-blue-800' :
-                    selectedClient?.typeClient === 'PROFESSIONNEL' ? 'bg-blue-100 text-blue-800' :
                     selectedClient?.typeClient === 'FIDELE' ? 'bg-yellow-100 text-yellow-800' :
                     selectedClient?.typeClient === 'PARTICULIER' ? 'bg-indigo-100 text-indigo-800' :
                     'bg-gray-100 text-gray-800'
@@ -231,7 +272,7 @@ const OrderRecapModal = ({
             </div>
           </div>
 
-          {/* Détails des produits */}
+          {/* Détails des produits avec remises */}
           <div className="mb-6">
             <h3 className="font-bold text-gray-800 mb-4">{t('productDetailsWithCount', { count: selectedProducts.length })}</h3>
             <div className="overflow-x-auto">
@@ -239,23 +280,27 @@ const OrderRecapModal = ({
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('product')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('quantity')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('unitPrice')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('subtotal')}</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('quantity')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('unitPrice')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('subtotal')}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {selectedProducts.map((product, index) => {
-                    const prixUnitaire = Number(product.prix || product.prixVente || 0);
+                    const prixUnitaireOriginal = Number(product.prixVente || product.prix || 0);
                     const quantite = Number(product.quantiteCommande || 1);
-                    const sousTotal = prixUnitaire * quantite;
+                    const remiseProduit = getRemiseForProduct(product);
+                    const prixUnitaireApresRemise = getPrixApresRemise(product, prixUnitaireOriginal, remiseProduit);
+                    const sousTotalOriginal = prixUnitaireOriginal * quantite;
+                    const sousTotalApresRemise = prixUnitaireApresRemise * quantite;
+                    const economie = sousTotalOriginal - sousTotalApresRemise;
                     
                     return (
-                      <tr key={product.idProduit || product.id || index}>
+                      <tr key={product.idProduit || product.id || index} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <div className="flex items-center space-x-3">
-                            {product.imageUrl ? (
-                              <div className="h-10 w-10 rounded overflow-hidden bg-gray-100">
+                            <div className="h-10 w-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                              {product.imageUrl ? (
                                 <img 
                                   src={product.imageUrl} 
                                   alt={product.libelle} 
@@ -263,16 +308,16 @@ const OrderRecapModal = ({
                                   onError={(e) => {
                                     e.target.onerror = null;
                                     e.target.style.display = 'none';
-                                    e.target.parentElement.className = 'h-10 w-10 rounded bg-gray-100 flex items-center justify-center';
-                                    e.target.parentElement.innerHTML = `<span class="text-gray-400 text-xs">${t('noImage')}</span>`;
                                   }}
                                 />
-                              </div>
-                            ) : (
-                              <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">{t('noImage')}</span>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500">
+                                  <span className="text-white text-xs font-bold">
+                                    {product.libelle?.charAt(0).toUpperCase() || 'P'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                             <div>
                               <div className="font-medium text-gray-900">
                                 {product.libelle || t('unnamedProduct')}
@@ -281,25 +326,54 @@ const OrderRecapModal = ({
                                 {product.uniteMesure || 'unité'}
                                 {product.categorie && ` • ${product.categorie}`}
                               </div>
+                              {remiseProduit > 0 && (
+                                <div className="text-xs text-green-600 font-medium mt-1">
+                                  Remise {remiseProduit}% appliquée
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-900">
+                        <td className="px-4 py-3 text-center">
                           <div className="font-medium">{formatNumber(quantite)}</div>
                           <div className="text-xs text-gray-500">
                             {t('stock')}: {formatNumber(product.quantiteStock || 0)}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="text-gray-900 font-medium">{formatPrice(prixUnitaire)} dt</div>
-                          {product.remiseTemporaire > 0 && (
-                            <div className="text-xs text-green-600">
-                              {t('discount')}: {product.remiseTemporaire}%
+                        <td className="px-4 py-3 text-right">
+                          {remiseProduit > 0 ? (
+                            <div>
+                              <div className="text-gray-400 line-through text-sm">
+                                {formatPrice(prixUnitaireOriginal)} dt
+                              </div>
+                              <div className="text-gray-900 font-medium text-green-600">
+                                {formatPrice(prixUnitaireApresRemise)} dt
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-gray-900 font-medium">
+                              {formatPrice(prixUnitaireOriginal)} dt
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 font-medium text-blue-600">
-                          {formatPrice(sousTotal)} dt
+                        <td className="px-4 py-3 text-right">
+                          {remiseProduit > 0 ? (
+                            <div>
+                              <div className="text-gray-400 line-through text-sm">
+                                {formatPrice(sousTotalOriginal)} dt
+                              </div>
+                              <div className="font-medium text-blue-600">
+                                {formatPrice(sousTotalApresRemise)} dt
+                              </div>
+                              <div className="text-xs text-green-600">
+                                Économie: {formatPrice(economie)} dt
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="font-medium text-blue-600">
+                              {formatPrice(sousTotalOriginal)} dt
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -309,7 +383,7 @@ const OrderRecapModal = ({
             </div>
           </div>
 
-          {/* Totaux */}
+          {/* Totaux détaillés */}
           <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center">
               <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,37 +392,74 @@ const OrderRecapModal = ({
               {t('financialSummary')}
             </h3>
             <div className="space-y-3">
+              {/* Sous-total original */}
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-600">{t('productsSubtotal')}</span>
-                <span className="font-medium text-gray-800">{formatPrice(totaux.sousTotal)} dt</span>
+                <span className="text-gray-600">{t('subtotalOriginal') || 'Sous-total original'}</span>
+                <span className="font-medium text-gray-500 line-through">
+                  {formatPrice(totaux.sousTotalOriginal)} dt
+                </span>
               </div>
               
-              {remiseAppliquee > 0 && (
-                <div className="flex justify-between items-center py-2 border-t border-gray-200 pt-3">
+              {/* Remises produits */}
+              {totaux.montantTotalRemisesProduits > 0 && (
+                <div className="flex justify-between items-center py-2">
                   <div>
-                    <span className="text-gray-600">{t('globalDiscount')}</span>
+                    <span className="text-gray-600">{t('productDiscounts') || 'Remises produits'}</span>
                     <div className="text-xs text-gray-500">
-                      {remiseAppliquee}% ({t('type')}: {selectedClient?.typeClient || t('standard')})
+                      Appliquées automatiquement par catégorie
                     </div>
                   </div>
-                  <span className="font-medium text-red-600">-{formatPrice(totaux.remise)} dt</span>
+                  <span className="font-medium text-red-600">-{formatPrice(totaux.montantTotalRemisesProduits)} dt</span>
                 </div>
               )}
               
+              {/* Sous-total après remises produits */}
               <div className="flex justify-between items-center py-2 border-t border-gray-200 pt-3">
+                <span className="text-gray-700 font-medium">
+                  {t('subtotalAfterProductDiscount') || 'Sous-total après remises produits'}
+                </span>
+                <span className="font-bold text-gray-900">
+                  {formatPrice(totaux.sousTotalApresRemisesProduits)} dt
+                </span>
+              </div>
+              
+              {/* Remise client */}
+              {remiseAppliquee > 0 && (
+                <div className="flex justify-between items-center py-2">
+                  <div>
+                    <span className="text-gray-600">{t('clientDiscount') || 'Remise client'}</span>
+                    <div className="text-xs text-gray-500">
+                      {remiseAppliquee}% ({selectedClient?.typeClient || t('standard')})
+                    </div>
+                  </div>
+                  <span className="font-medium text-red-600">-{formatPrice(totaux.montantRemiseClient)} dt</span>
+                </div>
+              )}
+              
+              {/* Total final */}
+              <div className="flex justify-between items-center py-3 border-t-2 border-gray-300 mt-2">
                 <div>
-                  <span className="font-bold text-gray-800">{t('totalToPay')}</span>
+                  <span className="font-bold text-gray-800 text-lg">{t('totalToPay')}</span>
                   <div className="text-xs text-gray-500">
                     {t('productCount', { count: selectedProducts.length })}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{formatPrice(totaux.total)} dt</div>
-                  <div className="text-sm text-gray-500">
-                    {t('taxIncluded')}
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatPrice(totaux.totalFinal)} dt
                   </div>
+                  <div className="text-sm text-gray-500">{t('taxIncluded')}</div>
                 </div>
               </div>
+
+              {/* Économie totale */}
+              {(totaux.montantTotalRemisesProduits > 0 || totaux.montantRemiseClient > 0) && (
+                <div className="flex justify-end pt-2">
+                  <div className="text-xs text-green-600 font-medium">
+                    Économie totale: {formatPrice(totaux.montantTotalRemisesProduits + totaux.montantRemiseClient)} dt
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -358,7 +469,7 @@ const OrderRecapModal = ({
               type="button"
               onClick={() => setShowRecap(false)}
               disabled={loading}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50"
             >
               {t('back')}
             </button>
@@ -366,7 +477,7 @@ const OrderRecapModal = ({
             <button
               onClick={handleEnregistrerCommande}
               disabled={loading || !selectedClient || selectedProducts.length === 0}
-              className={`px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg hover:from-green-700 hover:to-emerald-600 font-medium flex items-center shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg hover:from-green-700 hover:to-emerald-600 font-medium flex items-center shadow-sm hover:shadow disabled:opacity-50 ${
                 loading ? 'opacity-70' : ''
               }`}
             >

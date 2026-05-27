@@ -11,6 +11,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../../../../context/LanguageContext';
 
+// ✅ URL de base du backend (à configurer selon votre environnement)
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+
 const TopProducts = ({ products, formatCurrency }) => {
   const { t } = useLanguage();
 
@@ -26,6 +29,29 @@ const TopProducts = ({ products, formatCurrency }) => {
   // Valeur max pour les barres
   const maxQuantity = Math.max(...products.map(p => p.quantite), 1);
 
+  // ✅ Fonction pour construire l'URL complète de l'image
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    
+    // Si c'est déjà une URL complète
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // Si le chemin commence par /uploads, ajouter le backend URL
+    if (imagePath.startsWith('/uploads')) {
+      return `${BACKEND_URL}${imagePath}`;
+    }
+    
+    // Si le chemin commence par uploads (sans slash)
+    if (imagePath.startsWith('uploads')) {
+      return `${BACKEND_URL}/${imagePath}`;
+    }
+    
+    // Sinon, ajouter le préfixe par défaut
+    return `${BACKEND_URL}/uploads/produits/${imagePath}`;
+  };
+
   return (
     <div className="space-y-3">
       {/* En-tête */}
@@ -38,6 +64,7 @@ const TopProducts = ({ products, formatCurrency }) => {
       {products.map((product, index) => {
         const quantity = product.quantite || 0;
         const percentage = (quantity / maxQuantity) * 100;
+        const imageUrl = getImageUrl(product.image);
 
         return (
           <motion.div
@@ -55,12 +82,13 @@ const TopProducts = ({ products, formatCurrency }) => {
               </span>
 
               {/* Icône / Image */}
-              {product.image ? (
+              {imageUrl ? (
                 <img 
-                  src={product.image} 
+                  src={imageUrl} 
                   alt={product.nom}
                   className="w-8 h-8 rounded-md object-cover border"
                   onError={(e) => {
+                    e.target.onerror = null;
                     e.target.src = 'https://via.placeholder.com/32?text=📦';
                   }}
                 />

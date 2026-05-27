@@ -224,59 +224,37 @@ const handleViewInvoice = (facture) => {
   setIsInvoiceModalOpen(true);
 };
 
-  // ✅ CORRECTION: Gestionnaire de changement de statut pour InvoicingPage
-  const handleStatusChange = useCallback(async (factureId, newStatus) => {
+const handleStatusChange = useCallback(async (factureId, newStatus) => {
     console.log('🔄 handleStatusChange appelé avec:', { factureId, newStatus });
     
-    // 1. Mettre à jour la facture sélectionnée (pour le modal)
-    setSelectedFacture(prev => {
-      if (!prev) return prev;
-      const updatedStatut = newStatus === 'payée' ? 'PAYE' : 'NON_PAYE';
-      console.log('📝 Mise à jour facture sélectionnée', factureId, 'vers', updatedStatut);
-      
-      return {
-        ...prev,
-        status: newStatus,
-        statut: updatedStatut,
-        _updated: Date.now()
-      };
-    });
+    try {
+        // ✅ 1. Recharger TOUTES les factures depuis le backend
+        await loadFactures();
+        
+        // ✅ 2. Mettre à jour la facture sélectionnée (pour le modal)
+        setSelectedFacture(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                statut: 'PAYE',
+                status: 'payée'
+            };
+        });
+        
+        // ✅ 3. Forcer un re-rendu des cartes statistiques
+        setUpdateTrigger(prev => prev + 1);
+        
+        // ✅ 4. Fermer le modal après succès
+        setTimeout(() => {
+            setIsInvoiceModalOpen(false);
+            setSelectedFacture(null);
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du rafraîchissement:', error);
+    }
     
-    // 2. Mettre à jour la facture dans la liste principale (factures)
-    setFactures(prevFactures => 
-      prevFactures.map(facture => {
-        if (facture.id === factureId) {
-          const updatedStatut = newStatus === 'payée' ? 'PAYE' : 'NON_PAYE';
-          console.log('📝 Mise à jour facture dans liste principale', factureId, 'vers', updatedStatut);
-          return { 
-            ...facture, 
-            statut: updatedStatut,
-            _updated: Date.now() 
-          };
-        }
-        return facture;
-      })
-    );
-    
-    // 3. Mettre à jour la facture dans la liste filtrée (filteredFactures)
-    setFilteredFactures(prevFiltered => 
-      prevFiltered.map(facture => {
-        if (facture.id === factureId) {
-          const updatedStatut = newStatus === 'payée' ? 'PAYE' : 'NON_PAYE';
-          return { 
-            ...facture, 
-            statut: updatedStatut,
-            _updated: Date.now() 
-          };
-        }
-        return facture;
-      })
-    );
-    
-    // 4. Forcer un re-rendu
-    setUpdateTrigger(prev => prev + 1);
-    
-  }, []); // Pas de dépendances car on utilise les setters
+}, [loadFactures]); 
 
   // Version corrigée de handleDownloadInvoice
 // Remplacer la fonction handleDownloadInvoice existante par celle-ci

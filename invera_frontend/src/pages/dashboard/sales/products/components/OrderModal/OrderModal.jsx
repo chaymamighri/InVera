@@ -28,7 +28,7 @@ const OrderModal = ({
   t = (key) => key,
   isArabic = false
 }) => {
-  // Réinitialiser le client sélectionné quand le modal s'ouvre
+  // ✅ Réinitialiser le client sélectionné quand le modal s'ouvre
   useEffect(() => {
     if (showCreateOrder) {
       setSelectedClient(null);
@@ -36,15 +36,6 @@ const OrderModal = ({
   }, [showCreateOrder, setSelectedClient]);
 
   if (!showCreateOrder) return null;
-
-  // Calculer le nombre de produits avec stock insuffisant
-  const produitsAvecStockInsuffisant = selectedProducts.filter(p => {
-    const quantiteCommande = p.quantiteCommande || p.quantite || 1;
-    const stockDisponible = p.quantiteStock || 0;
-    return stockDisponible < quantiteCommande;
-  }).length;
-
-  const isDisponible = checkDisponibilite ? checkDisponibilite(selectedProducts) : produitsAvecStockInsuffisant === 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir={isArabic ? 'rtl' : 'ltr'}>
@@ -54,10 +45,10 @@ const OrderModal = ({
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-800">
-                {t('createClientOrderWithCount') || `Nouvelle commande (${selectedProducts.length} produit${selectedProducts.length > 1 ? 's' : ''})`}
+                {t('createClientOrderWithCount', { count: selectedProducts.length })}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                {t('selectedProductsCount', { count: selectedProducts.length }) || `${selectedProducts.length} produit${selectedProducts.length > 1 ? 's' : ''} sélectionné${selectedProducts.length > 1 ? 's' : ''}`}
+                {selectedProducts.length} produit{selectedProducts.length > 1 ? 's' : ''} sélectionné{selectedProducts.length > 1 ? 's' : ''}
               </p>
             </div>
             <button
@@ -92,31 +83,31 @@ const OrderModal = ({
 
           {/* Vérification de disponibilité */}
           <div className="mb-6">
-            <div className={`p-4 rounded-xl ${isDisponible ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-start gap-3">
-                {isDisponible ? (
-                  <CheckCircleIcon className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className={`p-4 rounded-xl ${checkDisponibilite(selectedProducts) ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className="flex items-center gap-3">
+                {checkDisponibilite(selectedProducts) ? (
+                  <>
+                    <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                    <div>
+                      <span className="text-green-700 font-medium">{t('allProductsAvailable')}</span>
+                      <p className="text-sm text-green-600 mt-1">
+                        {t('orderCanBeProcessed')}
+                      </p>
+                    </div>
+                  </>
                 ) : (
-                  <XCircleIcon className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <>
+                    <XCircleIcon className="h-6 w-6 text-red-600" />
+                    <div>
+                      <span className="text-red-700 font-medium">{t('availabilityProblem')}</span>
+                      <p className="text-sm text-red-600 mt-1">
+                        {t('productsWithInsufficientStock', {
+                          count: selectedProducts.filter(p => (p.quantiteStock || 0) < (p.quantiteCommande || 1)).length,
+                        })}
+                      </p>
+                    </div>
+                  </>
                 )}
-                <div>
-                  <span className={`font-medium ${isDisponible ? 'text-green-700' : 'text-red-700'}`}>
-                    {isDisponible 
-                      ? (t('allProductsAvailable') || 'Tous les produits sont disponibles')
-                      : (t('availabilityProblem') || 'Problème de disponibilité')}
-                  </span>
-                  {!isDisponible && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {t('productsWithInsufficientStock', { count: produitsAvecStockInsuffisant }) 
-                        || `${produitsAvecStockInsuffisant} produit(s) avec stock insuffisant`}
-                    </p>
-                  )}
-                  {isDisponible && (
-                    <p className="text-sm text-green-600 mt-1">
-                      {t('orderCanBeProcessed') || 'La commande peut être traitée'}
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -127,15 +118,15 @@ const OrderModal = ({
               onClick={() => setShowCreateOrder(false)}
               className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
             >
-              {t('cancel') || 'Annuler'}
+              {t('cancel')}
             </button>
             <button
               onClick={handleCreateCommande}
-              disabled={!selectedClient || !isDisponible}
-              className={`px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 shadow-sm transition-all`}
+              disabled={!selectedClient || !checkDisponibilite(selectedProducts)}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 shadow-sm transition-all"
             >
-              <ShoppingCartIcon className="h-4 w-4" />
-              {t('createOrder') || 'Créer la commande'}
+              <ShoppingCartIcon className="h-5 w-5" />
+              {t('createOrder')}
               {remiseAppliquee > 0 && (
                 <span className="ml-1 text-xs bg-white/20 px-1.5 py-0.5 rounded-full">
                   -{remiseAppliquee}%

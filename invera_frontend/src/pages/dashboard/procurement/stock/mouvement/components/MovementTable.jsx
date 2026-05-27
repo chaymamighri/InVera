@@ -39,17 +39,6 @@ const MovementTable = ({ movements }) => {
     }).format(new Date(dateString));
   };
 
-  const getDocumentLabel = (typeDocument) => {
-    const labels = {
-      COMMANDE_FOURNISSEUR: tr('supplierOrder'),
-      COMMANDE_CLIENT: tr('customerOrder'),
-      INIT_STOCK: tr('initialStock'),
-      INITIALISATION: tr('initialStock'),
-    };
-
-    return labels[typeDocument?.toUpperCase?.()] ?? typeDocument ?? '-';
-  };
-
   const sortedMovements = useMemo(() => {
     if (!movements || movements.length === 0) return [];
     return [...movements].sort((a, b) => {
@@ -153,13 +142,13 @@ const MovementTable = ({ movements }) => {
           <thead className="bg-gray-50">
             <tr>
               <th
-                className={`px-6 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors`}
+                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => {
                   setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
                   setCurrentPage(1);
                 }}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center justify-center gap-1">
                   {tr('date')}
                   {sortDirection === 'asc' ? (
                     <ArrowUpIcon className="w-4 h-4 text-blue-600" />
@@ -168,21 +157,30 @@ const MovementTable = ({ movements }) => {
                   )}
                 </div>
               </th>
-              <TableHeader align={isArabic ? 'right' : 'left'}>{tr('product')}</TableHeader>
-              <TableHeader align="center">{tr('type')}</TableHeader>
-              <TableHeader align="right">{tr('quantity')}</TableHeader>
-              <TableHeader align="right">{tr('stockBefore')}</TableHeader>
-              <TableHeader align="right">{tr('stockAfter')}</TableHeader>
-              <TableHeader align={isArabic ? 'right' : 'left'}>{tr('document')}</TableHeader>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {tr('product')}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {tr('type')}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {tr('quantity')}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {tr('stockBefore')}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {tr('stockAfter')}
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedMovements.map((movement) => (
               <tr key={movement.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                <td className="px-6 py-4 text-center text-sm text-gray-500 whitespace-nowrap">
                   {formatDate(movement.dateMouvement)}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center">
                   <div className="font-medium text-gray-900">{movement.produitLibelle}</div>
                 </td>
                 <td className="px-6 py-4 text-center">{getTypeBadge(movement.typeMouvement)}</td>
@@ -195,7 +193,6 @@ const MovementTable = ({ movements }) => {
                 <td className="px-6 py-4 text-center font-medium text-blue-600 tabular-nums">
                   {Number(movement.stockApres || 0).toLocaleString(locale)}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500">{getDocumentLabel(movement.typeDocument)}</td>
               </tr>
             ))}
           </tbody>
@@ -234,20 +231,6 @@ const MovementTable = ({ movements }) => {
         </div>
       )}
     </div>
-  );
-};
-
-const TableHeader = ({ children, align }) => {
-  const alignClass = {
-    left: 'text-left',
-    right: 'text-right',
-    center: 'text-center',
-  }[align];
-
-  return (
-    <th className={`px-6 py-3 ${alignClass} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
-      {children}
-    </th>
   );
 };
 
