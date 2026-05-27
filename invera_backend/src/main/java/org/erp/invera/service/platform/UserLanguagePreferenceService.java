@@ -1,13 +1,12 @@
 package org.erp.invera.service.platform;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.erp.invera.dto.platform.preferencesdto.LanguagePreferenceResponse;
 import org.erp.invera.dto.platform.preferencesdto.UpdateLanguagePreferenceRequest;
 import org.erp.invera.model.platform.PreferredLanguage;
 import org.erp.invera.model.platform.SuperAdmin;
-import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.repository.platform.SuperAdminRepository;
-import org.erp.invera.repository.erp.utilisateurRepository;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
@@ -17,11 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserLanguagePreferenceService {
 
-    private final utilisateurRepository utilisateurRepository;
     private final SuperAdminRepository superAdminRepository;
     private final TenantAwareRepository tenantRepo;
     private final MessageSource messageSource;
@@ -34,8 +33,8 @@ public class UserLanguagePreferenceService {
 
     @Transactional
     public LanguagePreferenceResponse updateCurrentUserLanguage(Authentication authentication,
-                                                               UpdateLanguagePreferenceRequest request,
-                                                               Locale locale) {
+                                                                UpdateLanguagePreferenceRequest request,
+                                                                Locale locale) {
         AuthenticatedLanguageOwner owner = getAuthenticatedOwner(authentication);
         PreferredLanguage preferredLanguage = validateLanguage(request != null ? request.getLanguage() : null, locale);
 
@@ -54,6 +53,7 @@ public class UserLanguagePreferenceService {
 
         String email = authentication.getName();
 
+        // 1. Chercher SUPER_ADMIN (platform)
         SuperAdmin superAdmin = superAdminRepository.findByEmail(email).orElse(null);
         if (superAdmin != null) {
             return new AuthenticatedLanguageOwner(
@@ -65,17 +65,7 @@ public class UserLanguagePreferenceService {
             );
         }
 
-        Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElse(null);
-        if (utilisateur != null) {
-            return new AuthenticatedLanguageOwner(
-                    ensurePreferredLanguage(utilisateur),
-                    preferredLanguage -> {
-                        utilisateur.setPreferredLanguage(preferredLanguage);
-                        utilisateurRepository.save(utilisateur);
-                    }
-            );
-        }
-
+        // 2. Chercher dans les bases tenant (client_X)
         Long clientId = getAuthenticatedClientId(authentication);
         if (clientId != null) {
             AuthenticatedLanguageOwner tenantOwner = getTenantUserOwner(email, clientId);
@@ -84,20 +74,27 @@ public class UserLanguagePreferenceService {
             }
         }
 
-        return new AuthenticatedLanguageOwner(PreferredLanguage.FR, preferredLanguage -> { });
+        // 3. Fallback
+        return new AuthenticatedLanguageOwner(PreferredLanguage.FR, preferredLanguage -> {});
     }
 
     private Long getAuthenticatedClientId(Authentication authentication) {
         Object principal = authentication.getPrincipal();
-        if (principal instanceof Utilisateur utilisateur) {
-            return utilisateur.getClientId();
+        if (principal != null) {
+            // Essayer d'extraire clientId du principal
+            try {
+                java.lang.reflect.Method method = principal.getClass().getMethod("getClientId");
+                return (Long) method.invoke(principal);
+            } catch (Exception e) {
+                log.debug("Impossible d'extraire clientId du principal: {}", e.getMessage());
+            }
         }
         return null;
     }
 
     private AuthenticatedLanguageOwner getTenantUserOwner(String email, Long clientId) {
         try {
-            String selectSql = "SELECT preferred_language FROM users WHERE email = ?";
+            String selectSql = "SELECT preferred_language FROM utilisateurs WHERE email = ?";
             List<PreferredLanguage> languages = tenantRepo.query(
                     selectSql,
                     (rs, rowNum) -> {
@@ -117,14 +114,15 @@ public class UserLanguagePreferenceService {
             return new AuthenticatedLanguageOwner(
                     language,
                     preferredLanguage -> tenantRepo.update(
-                            "UPDATE users SET preferred_language = ? WHERE email = ?",
+                            "UPDATE utilisateurs SET preferred_language = ? WHERE email = ?",
                             clientId,
                             String.valueOf(clientId),
                             preferredLanguage.name(),
                             email
                     )
             );
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Erreur lors de la récupération de l'utilisateur tenant: {}", e.getMessage());
             return null;
         }
     }
@@ -157,33 +155,21 @@ public class UserLanguagePreferenceService {
                 .build();
     }
 
-    private PreferredLanguage ensurePreferredLanguage(Utilisateur utilisateur) {
-        if (utilisateur.getPreferredLanguage() == null) {
-            utilisateur.setPreferredLanguage(PreferredLanguage.FR);
-            utilisateurRepository.save(utilisateur);
-        }
-
-        return utilisateur.getPreferredLanguage();
-    }
-
     private PreferredLanguage ensurePreferredLanguage(SuperAdmin superAdmin) {
         if (superAdmin.getPreferredLanguage() == null) {
             superAdmin.setPreferredLanguage(PreferredLanguage.FR);
             superAdminRepository.save(superAdmin);
         }
-
         return superAdmin.getPreferredLanguage();
     }
 
     private record AuthenticatedLanguageOwner(
             PreferredLanguage language,
             LanguageUpdater updater
-    ) {
-    }
+    ) {}
 
     @FunctionalInterface
     private interface LanguageUpdater {
         void accept(PreferredLanguage preferredLanguage);
     }
 }
-

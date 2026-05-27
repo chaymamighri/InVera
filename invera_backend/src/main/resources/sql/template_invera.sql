@@ -223,8 +223,6 @@ CREATE TABLE public.stock_movement (
     prix_unitaire DECIMAL(38,2),
     valeur_totale DECIMAL(38,2),
     type_mouvement VARCHAR(20) NOT NULL,
-    type_document VARCHAR(50),
-    commentaire VARCHAR(500),
     date_mouvement TIMESTAMP NOT NULL,
     produit_id INTEGER NOT NULL REFERENCES public.produit(id_produit),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

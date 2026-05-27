@@ -6,6 +6,7 @@ import org.erp.invera.model.erp.Utilisateur;
 import org.erp.invera.repository.tenant.TenantAwareRepository;
 import org.erp.invera.repository.tenant.TenantRowMapper;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,7 +19,7 @@ public class UtilisateurService {
 
     private final TenantAwareRepository tenantRepo;
     private final TenantRowMapper rowMapper;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
     // ==================== AUTHENTIFICATION ====================
     public Map<String, Object> authenticate(Long clientId, String email, String password) {

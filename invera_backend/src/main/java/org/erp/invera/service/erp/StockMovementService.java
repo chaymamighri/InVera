@@ -49,12 +49,7 @@ public class StockMovementService {
             movement.setStockApres(rs.getInt("stock_apres"));
             movement.setPrixUnitaire(rs.getBigDecimal("prix_unitaire"));
             movement.setValeurTotale(rs.getBigDecimal("valeur_totale"));
-            movement.setTypeDocument(rs.getString("type_document"));
 
-            String commentaire = rs.getString("commentaire");
-            if (commentaire != null) {
-                movement.setCommentaire(commentaire);
-            }
 
             movement.setDateMouvement(rs.getTimestamp("date_mouvement").toLocalDateTime());
             movement.setCreatedBy(rs.getString("created_by"));

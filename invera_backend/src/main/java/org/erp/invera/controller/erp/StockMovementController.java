@@ -120,8 +120,6 @@ public class StockMovementController {
         dto.setQuantite(movement.getQuantite());
         dto.setStockAvant(movement.getStockAvant());
         dto.setStockApres(movement.getStockApres());
-        dto.setTypeDocument(movement.getTypeDocument());
-        dto.setCommentaire(movement.getCommentaire());
         dto.setDateMouvement(movement.getDateMouvement());
         return dto;
     }

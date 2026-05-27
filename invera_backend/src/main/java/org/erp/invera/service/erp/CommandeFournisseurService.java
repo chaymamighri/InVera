@@ -627,11 +627,11 @@ public class CommandeFournisseurService {
 
                 // 4.  INSÉRER LE MOUVEMENT DE STOCK (version simplifiée)
                 String insertMovementSql = """
-                INSERT INTO stock_movement 
-                (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
-                 prix_unitaire, valeur_totale, type_document, date_mouvement)
-                VALUES (?, 'ENTREE', ?, ?, ?, ?, ?, 'RECEPTION', NOW())
-            """;
+    INSERT INTO stock_movement 
+    (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
+     prix_unitaire, valeur_totale, date_mouvement)
+    VALUES (?, 'ENTREE', ?, ?, ?, ?, ?, NOW())
+    """;
 
                 BigDecimal prixUnitaire = ligne.getPrixUnitaire() != null ? ligne.getPrixUnitaire() : BigDecimal.ZERO;
                 BigDecimal valeurTotale = prixUnitaire.multiply(BigDecimal.valueOf(quantiteRecue));

@@ -477,9 +477,6 @@ public class ClientService {
         Long clientId = getClientIdFromToken(token);
         String authClientId = String.valueOf(clientId);
 
-        // ⚠️ TEMPORAIRE : désactiver tenant_id
-        // String tenantId = getTenantIdFromToken(token);
-
         if (typeClient == null || typeClient.isBlank()) {
             throw new IllegalArgumentException("Le type client est obligatoire");
         }
@@ -496,7 +493,7 @@ public class ClientService {
             return 0.0;
         }
 
-        // ✅ Temporairement SANS tenant_id
+        // ✅ Mise à jour UNIQUEMENT dans client_type_discount
         String checkSql = "SELECT COUNT(*) FROM client_type_discount WHERE type_client = ?";
         Integer count = tenantRepo.queryForObjectAuth(checkSql, Integer.class, clientId, authClientId, type.name());
 
@@ -508,28 +505,12 @@ public class ClientService {
             tenantRepo.updateWithAuth(insertSql, clientId, authClientId, type.name(), remise);
         }
 
-        // Mise à jour des clients existants
-        String updateClientsSql = "";
-        switch (type) {
-            case FIDELE:
-                updateClientsSql = "UPDATE client SET remise_client_fidele = ? WHERE type_client = ?";
-                break;
-            case VIP:
-                updateClientsSql = "UPDATE client SET remise_client_vip = ? WHERE type_client = ?";
-                break;
-            case ENTREPRISE:
-                updateClientsSql = "UPDATE client SET remise_client_professionnelle = ? WHERE type_client = ?";
-                break;
-            default:
-                break;
-        }
 
-        if (!updateClientsSql.isEmpty()) {
-            tenantRepo.updateWithAuth(updateClientsSql, clientId, authClientId, remise, type.name());
-        }
 
         return remise;
-    }    // ==================== Méthodes privées ====================
+    }
+
+    // ==================== Méthodes privées ====================
 
     private Client.TypeClient normalizeClientType(String typeClient) {
         if (typeClient == null || typeClient.isBlank()) {

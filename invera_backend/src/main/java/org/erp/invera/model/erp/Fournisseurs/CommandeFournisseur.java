@@ -55,8 +55,8 @@ public class CommandeFournisseur {
     @Column(precision = 10, scale = 3)
     private BigDecimal totalTTC;
 
-    @Column(name = "taux_tva", precision = 5, scale = 2)
-    private BigDecimal tauxTVA;
+   /* @Column(name = "taux_tva", precision = 5, scale = 2)
+    private BigDecimal tauxTVA;*/
 
     @Column(nullable = false)
     private Boolean actif = true;

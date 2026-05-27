@@ -1,7 +1,6 @@
 package org.erp.invera.config;
 
 import org.erp.invera.security.JwtAuthenticationFilter;
-import org.erp.invera.security.UnifiedUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,13 +24,11 @@ import java.util.Arrays;
 @EnableMethodSecurity(prePostEnabled = false)
 public class SecurityConfig {
 
-    private final UnifiedUserDetailsService unifiedUserDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
-    public SecurityConfig(UnifiedUserDetailsService unifiedUserDetailsService,
+    public SecurityConfig(
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.unifiedUserDetailsService = unifiedUserDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -72,7 +69,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .userDetailsService(unifiedUserDetailsService)
+               // .userDetailsService(unifiedUserDetailsService)
 
                 .authorizeHttpRequests(auth -> auth
 

@@ -44,11 +44,8 @@ public class StockMovement {
     private BigDecimal valeurTotale;
 
     // est ce que c'est un commande fournisseur ( entréé ) ou commande client ( sortie )
-    @Column(name = "type_document", length = 50)
-    private String typeDocument;
-
-    @Column(name = "commentaire", length = 500)
-    private String commentaire;
+    /*@Column(name = "type_document", length = 50)
+    private String typeDocument;*/
 
     @Column(name = "date_mouvement", nullable = false)
     private LocalDateTime dateMouvement;

@@ -415,7 +415,7 @@ public class ClientController {
     }
 
     @PutMapping("/type/{typeClient}/remise")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN_CLIENT')")
     public ResponseEntity<Map<String, Object>> updateRemiseForType(
             @PathVariable String typeClient,
             @RequestBody ClientTypeRemiseUpdateDTO request,

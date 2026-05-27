@@ -2,8 +2,6 @@ package org.erp.invera.service.erp;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.erp.invera.model.erp.Utilisateur;  // ← Changer l'import
-import org.erp.invera.repository.erp.utilisateurRepository;  // ← Changer l'import
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;

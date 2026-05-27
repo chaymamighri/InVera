@@ -880,13 +880,11 @@ public class CommandeClientService {
 
                 // Creation d'un mouvement de stock pour l'audit
                 String insertMovement = """
-                INSERT INTO stock_movement 
-                (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
-                 prix_unitaire, valeur_totale, type_document, commentaire, 
-                 date_mouvement, created_by)
-                VALUES (?, 'SORTIE', ?, ?, ?, ?, ?, 'COMMANDE', ?, NOW(), ?)
-                """;
-
+    INSERT INTO stock_movement 
+    (produit_id, type_mouvement, quantite, stock_avant, stock_apres, 
+     prix_unitaire, valeur_totale, date_mouvement, created_by)
+    VALUES (?, 'SORTIE', ?, ?, ?, ?, ?, NOW(), ?)
+    """;
                 tenantRepo.updateWithAuth(insertMovement, tenantId, authClientId,
                         produitId, quantite, stockAvant, nouveauStock,
                         prixUnitaire, valeurTotale,

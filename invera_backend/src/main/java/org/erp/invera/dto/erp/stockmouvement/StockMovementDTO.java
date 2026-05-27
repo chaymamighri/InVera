@@ -18,8 +18,6 @@ public class StockMovementDTO {
     private Integer stockAvant;
     private Integer stockApres;
     private String reference;
-    private String typeDocument;
     private Long idDocument;
-    private String commentaire;
     private LocalDateTime dateMouvement;
 }
