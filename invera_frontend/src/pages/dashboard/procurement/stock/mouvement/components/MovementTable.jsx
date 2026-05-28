@@ -93,8 +93,8 @@ const MovementTable = ({ movements }) => {
   const getTypeBadge = (typeMouvement) => {
     const badgeConfig = {
       ENTREE: {
-        className: 'bg-green-100 text-green-800',
-        icon: <ArrowUpIcon className="w-3 h-3" />,
+        className: 'bg-red-100 text-red-800',
+        icon: <ArrowDownIcon className="w-3 h-3" />,
         label: tr('entry'),
       },
       INIT_STOCK: {
@@ -103,8 +103,8 @@ const MovementTable = ({ movements }) => {
         label: tr('initialStock'),
       },
       SORTIE: {
-        className: 'bg-red-100 text-red-800',
-        icon: <ArrowDownIcon className="w-3 h-3" />,
+        className: 'bg-green-100 text-green-800',
+        icon: <ArrowUpIcon className="w-3 h-3" />,
         label: tr('exit'),
       },
     };

@@ -32,9 +32,31 @@ const localeByLanguage = {
   ar: 'ar-TN',
 };
 
+const formatDateForFilter = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getCurrentWeekRange = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const startOfWeek = new Date(today);
+  const currentDay = today.getDay();
+  const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
+  startOfWeek.setDate(today.getDate() - daysSinceMonday);
+
+  return {
+    startDate: formatDateForFilter(startOfWeek),
+    endDate: formatDateForFilter(today),
+  };
+};
+
 const StatsAchats = () => {
-  const [selectedStartDate, setSelectedStartDate] = useState(null);
-  const [selectedEndDate, setSelectedEndDate] = useState(null);
+  const [selectedStartDate, setSelectedStartDate] = useState(() => getCurrentWeekRange().startDate);
+  const [selectedEndDate, setSelectedEndDate] = useState(() => getCurrentWeekRange().endDate);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [currentUserName, setCurrentUserName] = useState('');

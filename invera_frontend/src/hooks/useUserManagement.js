@@ -25,15 +25,36 @@ const splitFullName = (fullName = '') => {
   return { nom, prenom };
 };
 
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/^ROLE_/, '');
+
 const mapFrontendRoleToBackend = (role) => {
-  switch (role) {
-    case 'admin':
+  switch (normalizeRole(role)) {
+    case 'ADMIN':
+    case 'ADMIN_CLIENT':
       return 'ADMIN_CLIENT';
-    case 'procurement':
+    case 'PROCUREMENT':
+    case 'RESPONSABLE_ACHAT':
       return 'RESPONSABLE_ACHAT';
-    case 'sales':
+    case 'SALES':
+    case 'COMMERCIAL':
     default:
       return 'COMMERCIAL';
+  }
+};
+
+const mapBackendRoleToFrontend = (role) => {
+  switch (normalizeRole(role)) {
+    case 'ADMIN':
+    case 'ADMIN_CLIENT':
+      return 'admin';
+    case 'PROCUREMENT':
+    case 'RESPONSABLE_ACHAT':
+      return 'procurement';
+    case 'SALES':
+    case 'COMMERCIAL':
+      return 'sales';
+    default:
+      return String(role || '').toLowerCase();
   }
 };
 
@@ -81,11 +102,7 @@ export const useUserManagement = () => {
           id: user.id,
           name: `${user.nom || ''} ${user.prenom || ''}`.trim(),
           email: user.email || '',
-          role:
-            user.role === 'COMMERCIAL' ? 'sales' :
-            user.role === 'RESPONSABLE_ACHAT' ? 'procurement' :
-            user.role === 'ADMIN_CLIENT' ? 'admin' :
-            String(user.role || '').toLowerCase(),
+          role: mapBackendRoleToFrontend(user.role),
           active: parseActive(rawActive),
         };
       });
@@ -114,20 +131,13 @@ export const useUserManagement = () => {
         throw new Error("L'adresse email n'est pas valide.");
       }
 
-      // ✅ Maintenant on peut créer des admins
-      // La vérification est supprimée ou modifiée
-      if (user?.role === 'admin') {
-        // On permet la création d'admin, mais on peut ajouter un message
-        console.log('📝 Création d\'un compte administrateur');
-      }
-
       const { nom, prenom } = splitFullName(name);
       const payload = {
         username: email.split('@')[0],
         email,
         nom,
         prenom,
-        role: mapFrontendRoleToBackend(user?.role),
+        role: user?.role,
       };
 
       return await userService.createUser(payload);
@@ -141,41 +151,39 @@ export const useUserManagement = () => {
     }
   }, []);
 
-const updateUser = useCallback(async (id, updatedData) => {
-  setLoading(true);
-  setError(null);
+  const updateUser = useCallback(async (id, updatedData) => {
+    setLoading(true);
+    setError(null);
 
-  try {
-    // ✅ Extraire nom et prénom du name complet si nécessaire
-    let nom = updatedData.nom;
-    let prenom = updatedData.prenom;
-    
-    // Si pas de nom/prenom séparés, extraire du name complet
-    if (!nom && updatedData.name) {
-      const nameParts = updatedData.name.trim().split(/\s+/);
-      prenom = nameParts.pop() || '';
-      nom = nameParts.join(' ') || prenom;
+    try {
+      let nom = updatedData.nom;
+      let prenom = updatedData.prenom;
+
+      if (!nom && updatedData.name) {
+        const nameParts = updatedData.name.trim().split(/\s+/);
+        prenom = nameParts.pop() || '';
+        nom = nameParts.join(' ') || prenom;
+      }
+
+      const result = await userService.updateUserById(id, {
+        nom,
+        prenom,
+        email: updatedData.email,
+        role: updatedData.role,
+        active: updatedData.active,
+      });
+
+      toast.success('Utilisateur modifie avec succes');
+      return result;
+    } catch (err) {
+      const message = extractErrorMessage(err, 'Erreur lors de la mise a jour');
+      toast.error(message);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
     }
-    
-    const result = await userService.updateUserById(id, {
-      nom: nom,
-      prenom: prenom,
-      email: updatedData.email,
-      role: updatedData.role,
-      active: updatedData.active
-    });
-    
-    toast.success('Utilisateur modifié avec succès');
-    return result;
-  } catch (err) {
-    const message = extractErrorMessage(err, 'Erreur lors de la mise à jour');
-    toast.error(message);
-    setError(message);
-    throw new Error(message);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
 
   const setUserActiveStatus = useCallback(async (email, active) => {
     setLoading(true);
@@ -216,6 +224,6 @@ const updateUser = useCallback(async (id, updatedData) => {
     addUser,
     updateUser,
     setUserActiveStatus,
-    deleteUserByEmail
+    deleteUserByEmail,
   };
 };

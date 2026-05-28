@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import statsAchatService from '../services/statsAchatService';
 
 const DEFAULT_STATS = {
@@ -15,7 +15,8 @@ const getReadableError = (result, fallback) => {
   return result.error || fallback;
 };
 
-export const useStatsAchat = () => {
+export const useStatsAchat = (initialStartDate = '', initialEndDate = '') => {
+  const initialLoadDoneRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
@@ -26,8 +27,8 @@ export const useStatsAchat = () => {
   const [alertesStock, setAlertesStock] = useState([]);
   const [commandesATraiter, setCommandesATraiter] = useState({ enAttente: 0, enCours: 0 });
   const [kpis, setKpis] = useState(null);
-  const [currentStartDate, setCurrentStartDate] = useState('');
-  const [currentEndDate, setCurrentEndDate] = useState('');
+  const [currentStartDate, setCurrentStartDate] = useState(initialStartDate);
+  const [currentEndDate, setCurrentEndDate] = useState(initialEndDate);
 
   const fetchAllStats = useCallback(async (startDateParam = '', endDateParam = '') => {
     setLoading(true);
@@ -53,10 +54,8 @@ export const useStatsAchat = () => {
         statsAchatService.getKPIs(),
       ]);
 
-      if (startDateParam || endDateParam) {
-        setCurrentStartDate(startDateParam || '');
-        setCurrentEndDate(endDateParam || '');
-      }
+      setCurrentStartDate(startDateParam || '');
+      setCurrentEndDate(endDateParam || '');
 
       const primaryError = getReadableError(
         dashboardResult,
@@ -173,8 +172,10 @@ export const useStatsAchat = () => {
   }, []);
 
   useEffect(() => {
-    fetchAllStats();
-  }, [fetchAllStats]);
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+    fetchAllStats(initialStartDate, initialEndDate);
+  }, [fetchAllStats, initialStartDate, initialEndDate]);
 
   const refetch = useCallback(
     (dateParams = {}) => {

@@ -566,9 +566,9 @@ const GestionUsers = () => {
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
           >
             <option value="all">{text.allRoles}</option>
-  <option value="COMMERCIAL">Responsable vente</option>       
-  <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>  
-</select>
+            <option value="sales">{text.sales}</option>
+            <option value="procurement">{text.procurement}</option>
+          </select>
 
           <div className="text-sm font-medium text-emerald-600">
             {isLoading ? (
@@ -734,16 +734,16 @@ const GestionUsers = () => {
             )}
           </div>
           <div>
-  <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
-  <select
-    value={newUser.role}
-    onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
-    className="w-full rounded-lg border border-gray-300 px-4 py-2"
-  >
-    <option value="COMMERCIAL">Responsable vente</option>
-    <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>
-  </select>
-</div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
+            <select
+              value={newUser.role}
+              onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2"
+            >
+              <option value="sales">{text.sales}</option>
+              <option value="procurement">{text.procurement}</option>
+            </select>
+          </div>
           <p className="text-xs text-gray-500">{text.createHint}</p>
           <div className="flex gap-3 pt-4">
             <button
@@ -818,16 +818,16 @@ const GestionUsers = () => {
               )}
             </div>
             <div>
-  <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
-  <select
-    value={editingUser.role}
-    onChange={(event) => setEditingUser({ ...editingUser, role: event.target.value })}
-    className="w-full rounded-lg border border-gray-300 px-4 py-2"
-  >
-    <option value="COMMERCIAL">Responsable vente</option>              {/* ← CHANGÉ */}
-    <option value="RESPONSABLE_ACHAT">Responsable Achat et stock</option>   {/* ← CHANGÉ */}
-  </select>
-</div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{text.role}</label>
+              <select
+                value={editingUser.role}
+                onChange={(event) => setEditingUser({ ...editingUser, role: event.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2"
+              >
+                <option value="sales">{text.sales}</option>
+                <option value="procurement">{text.procurement}</option>
+              </select>
+            </div>
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleEditUser}

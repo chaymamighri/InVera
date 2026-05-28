@@ -11,16 +11,16 @@ const StatsCards = ({ stats }) => {
     {
       title: tr('totalEntries'),
       value: stats.totalEntrees,
-      icon: ArrowUpIcon,
-      border: 'border-green-500',
-      iconClass: 'text-green-500',
+      icon: ArrowDownIcon,
+      border: 'border-red-500',
+      iconClass: 'text-red-500',
     },
     {
       title: tr('totalExits'),
       value: stats.totalSorties,
-      icon: ArrowDownIcon,
-      border: 'border-red-500',
-      iconClass: 'text-red-500',
+      icon: ArrowUpIcon,
+      border: 'border-green-500',
+      iconClass: 'text-green-500',
     },
     {
       title: tr('totalMovements'),
