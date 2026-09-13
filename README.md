@@ -2,7 +2,7 @@
 
 ## 📌 Description
 **InVera** est un **ERP Cloud Intelligent multi-plateformes** destiné aux **PME**, permettant de centraliser et automatiser la gestion des **ventes, achats, stocks et facturation électronique**.  
-La solution est accessible via des **applications web et mobiles** et intègre un **assistant intelligent** connecté à **WhatsApp et Telegram** pour l’assistance interne.
+La solution est accessible via une **application web complète et une application mobile simplifiée**, proposant certains modules essentiels de l’ERP. Elle intègre également un **chatbot intelligent interne au dashboard**, développé avec **OpenRouter**, permettant aux utilisateurs de poser des questions en langage naturel et d’obtenir des informations à partir des **données de leur entreprise stockées dans sa base de données dédiée**.
 
 ---
 
@@ -11,7 +11,7 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 - Automatiser les processus métiers (ventes, achats, stocks, facturation)  
 - Fournir des tableaux de bord et indicateurs KPI  
 - Garantir sécurité, performance et accessibilité cloud  
-- Intégrer une assistance intelligente en temps réel  
+- Permettre un accès intelligent aux données de chaque entreprise via un chatbot conversationnel
 
 ---
 
@@ -21,7 +21,7 @@ La solution est accessible via des **applications web et mobiles** et intègre u
 - **Backend** : Spring Boot (Java)  
 - **Base de données** : PostgreSQL   
 - **Sécurité** : JWT Authentication  
-- **Assistant intelligent** : WhatsApp & Telegram Bots  
+- **Chatbot intelligent** : OpenRouter API
 - **Communication** : REST API  
 
 ---
